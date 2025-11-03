@@ -25,17 +25,17 @@ Cabe aclarar que todas las carpetas de este repositorio contienen un ```nombreCa
   ```bash
   jupyter lab
   ```
-## Verificación
-Con el entorno activado:
-```bash
-python -c "import numpy, pandas, geopandas, rasterio; print('OK: entorno GIS activo')"
-```
-
-## Notas
-- En **VS Code**, selecciona el intérprete:  
-  `Command Palette → Python: Select Interpreter → Python (gis)`.
-- Para actualizar dependencias desde `environment.yml`:
+  ## Verificación
+  Con el entorno activado:
   ```bash
-  mamba env update -f environment.yml --prune
+  python -c "import numpy, pandas, geopandas, rasterio; print('OK: entorno GIS activo')"
   ```
-- Si usas PowerShell en Windows, los comandos son los mismos.
+
+  ## Notas
+  - En **VS Code**, selecciona el intérprete:  
+    `Command Palette → Python: Select Interpreter → Python (gis)`.
+  - Para actualizar dependencias desde `environment.yml`:
+    ```bash
+    mamba env update -f environment.yml --prune
+    ```
+  - Si usas PowerShell en Windows, los comandos son los mismos.
