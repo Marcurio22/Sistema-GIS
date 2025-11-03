@@ -1,0 +1,26 @@
+name: gis
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - jupyterlab
+  - ipykernel
+  - numpy
+  - pandas
+  - matplotlib
+  - geopandas
+  - rasterio
+  - shapely
+  - pyproj
+  - fiona
+  - gdal
+  - folium
+  - plotly
+  - nodejs>=18  # para jupyterlab extensions y Dash en dev
+  - psycopg2
+  - sqlalchemy
+  - psycopg2-binary  # útil en dev rápido (ver nota)
+  - pip:
+      - dash
+      - python-dotenv
