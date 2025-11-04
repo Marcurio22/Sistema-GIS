@@ -1,0 +1,50 @@
+{
+  // ============================================================
+  // Proyecto: Sistema GIS
+  // Archivo : .vscode/launch.json
+  // Autor   : Marcos Zamorano Lasso
+  // Versión : 1.0.0
+  // Fecha   : 2025-11-04
+  // Notas   : Configuraciones de depuración (Run and Debug)
+  // ============================================================
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Ejecuta el archivo Python activo en el editor.
+      "name": "Ejecutar archivo actual (con .env)",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      // Lanza la app Dash del proyecto (ajusta la ruta si cambia).
+      "name": "Dash: dashboards/app.py",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/dashboards/app.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        // Valores por defecto; los del .env tienen prioridad si confluyen.
+        "APP_DEBUG": "true",
+        "APP_PORT": "8050",
+        "APP_HOST": "127.0.0.1"
+      }
+    },
+    {
+      // Ejecuta el suite de tests con pytest en la carpeta tests/
+      "name": "Pytest: tests/",
+      "type": "python",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["tests", "-q"],
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "envFile": "${workspaceFolder}/.env"
+    }
+  ]
+}

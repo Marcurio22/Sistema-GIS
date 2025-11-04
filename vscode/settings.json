@@ -1,0 +1,61 @@
+{
+  // ============================================================
+  // Proyecto: Sistema GIS
+  // Archivo : .vscode/settings.json
+  // Autor   : Marcos Zamorano Lasso
+  // Versión : 1.0.0
+  // Fecha   : 2025-11-04
+  // Notas   : Preferencias del workspace (intérprete, formato, linting, tests)
+  // ============================================================
+
+  // --- Python / Intérprete ---
+  // Ruta explícita al intérprete del entorno 'gis'.
+  // Puedes usar backslashes escapadas (\\) o forward slashes (/).
+  // Aquí debes poner la ruta a tu python del entorno gis.
+  "python.defaultInterpreterPath": "C:\\Users\\Usuario\\anaconda3\\envs\\gis\\python.exe",
+
+  // Cargar variables desde .env (útil para DB y Dash)
+  "python.envFile": "${workspaceFolder}/.env",
+
+  // --- Formato y estilo ---
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": true
+  },
+
+  // Usar Black como formateador de Python
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  },
+
+  // isort en perfil Black (organiza imports)
+  "isort.args": ["--profile", "black"],
+
+  // Ruff para linting rápido
+  // Puedes ajustar reglas con select/ignore según tus preferencias
+  "ruff.lint.args": ["--select", "E,F,I,B", "--ignore", "E203,E501"],
+  "ruff.organizeImports": false, // ya lo hace isort
+  "ruff.enable": true,
+
+  // --- Análisis estático ---
+  "python.analysis.typeCheckingMode": "basic",
+
+  // --- Testing ---
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["tests"],
+
+  // --- Jupyter ---
+  "jupyter.jupyterServerType": "local",
+
+  // --- Terminal ---
+  // En Windows, PowerShell suele ir mejor con conda/mamba que cmd.
+  "terminal.integrated.defaultProfile.windows": "Command Prompt",
+
+  // --- Explorador (ocultos) ---
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.ipynb_checkpoints": true,
+    "env/": true,
+    "venv/": true
+  }
+}
