@@ -15,7 +15,7 @@ Cabe aclarar que todas las carpetas de este repositorio contienen un ```nombreCa
   2) Crear el entorno: 
   ```bash
   mamba env create -f environment.yml
-  mamba activate gis
+  conda activate gis
   ```
   3) Registrar el kernel para Jupyter:
   ```bash
