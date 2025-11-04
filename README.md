@@ -39,4 +39,4 @@ Cabe aclarar que todas las carpetas de este repositorio contienen un ```nombreCa
     mamba env update -f environment.yml --prune
     ```
   - Si usas PowerShell en Windows, los comandos son los mismos.
-  - 
+
