@@ -176,10 +176,9 @@ data/*
 !data/.gitkeep
 !data/README.md
 
-# Optional: if you keep small sample datasets under data/samples, allow them
-# Uncomment if needed:
-#!data/samples/**
-#!data/samples/**/.keep
+# Keep small sample datasets under data/samples, allow them
+!data/samples/**
+!data/samples/**/.keep
 
 # Common temp/output folders
 tmp/
