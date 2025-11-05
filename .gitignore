@@ -174,11 +174,19 @@ __marimo__/
 # Ignore all project data by default; keep placeholders/readmes
 data/*
 !data/.gitkeep
-!data/README.md
+!data/data_info.md
 
 # Keep small sample datasets under data/samples, allow them
 !data/samples/**
 !data/samples/**/.keep
+
+# Allow specific lightweight outputs in processed
+# !data/processed/**/*.csv
+# !data/processed/**/*.json
+# !data/processed/**/*.geojson
+# !data/processed/**/*.gpkg
+# !data/processed/**/*.html
+# !data/processed/**/*.png
 
 # Common temp/output folders
 tmp/
