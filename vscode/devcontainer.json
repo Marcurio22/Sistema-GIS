@@ -1,0 +1,64 @@
+{
+  // ============================================================
+  // Proyecto: Sistema GIS
+  // Archivo : .vscode/devcontainer.json
+  // Autor   : Marcos Zamorano Lasso
+  // Versión : 1.0.0
+  // Fecha   : 2025-11-05
+  // Notas:
+  //   Este archivo define el entorno de desarrollo reproducible del proyecto GIS.
+  //   VS Code usa esta configuración para construir y lanzar un contenedor
+  //   Docker preconfigurado con todas las dependencias necesarias (rasterio,
+  //   geopandas, numpy, etc.) dentro de un entorno Mamba.
+  //
+  //   Permite:
+  //     - Crear un entorno idéntico al del resto del equipo.
+  //     - Ejecutar Jupyter, Python y herramientas GIS dentro del contenedor.
+  //     - Sin dependencias locales (ni librerías ni drivers externos).
+  //
+  // Dependencias clave:
+  //   - VS Code con la extensión "Dev Containers" instalada.
+  //   - Docker Desktop o Podman funcionando.
+  // ============================================================
+  "name": "gis-dev",   // Nombre descriptivo del contenedor que aparecerá en VS Code.
+  "build": { "dockerfile": "Dockerfile" }, // Define cómo se construye la imagen del contenedor.
+  "remoteUser": "mambauser", // Usuario dentro del contenedor con el que VS Code se conectará.
+  "postCreateCommand": "micromamba run -n gis python -c \"import rasterio, geopandas; print('Rasterio:', rasterio.__version__, 'GeoPandas:', geopandas.__version__)\"", // Verificación de que el entorno 'gis' está activo y que las librerías
+  "features": {}, // Espacio reservado para "Dev Container Features" (extensiones preempaquetadas).
+  "customizations": { 
+    // Configuraciones específicas de Visual Studio Code cuando se abre este contenedor.
+    "vscode": {
+      "extensions": [
+        "ms-python.python",          // Soporte Python básico.
+        "ms-toolsai.jupyter",        // Soporte para Jupyter Notebooks.
+        "ms-python.black-formatter", // Formateador de código Python (Black).
+        "charliermarsh.ruff"         // Linter ultrarrápido (Ruff).
+      ],
+      // Ajustes personalizados de VS Code aplicados dentro del contenedor.
+      "settings": {
+        "python.defaultInterpreterPath": "/opt/conda/envs/gis/bin/python", // Ruta al intérprete de Python dentro del contenedor.
+        "python.envFile": "${containerWorkspaceFolder}/.env", // Archivo .env con variables de entorno (credenciales, rutas, etc...).
+        "editor.formatOnSave": true // Formatear automáticamente el código al guardar.
+      }
+    }
+  },
+  "mounts": [
+    // =========================================================================
+    // Configuración opcional para montar carpetas locales dentro del contenedor.
+    // Esto es útil si quieres acceder a datos grandes que no están en GitHub,
+    // como imágenes satelitales o bases de datos locales.
+    //
+    // Ejemplo de uso (descomenta y ajusta las rutas):
+    //
+    // "source=${localWorkspaceFolder}/data,target=/workspaces/project/data,type=bind,consistency=cached"
+    //
+    // Explicación:
+    //   - "source="  → ruta local en tu máquina (por ejemplo, C:\Users\Usuario\Desktop\Sistema-GIS-main\data)
+    //   - "target="  → ruta dentro del contenedor (ej: /workspaces/project/data)
+    //   - "type=bind" → vincula ambas carpetas.
+    //   - "consistency=cached" → optimiza rendimiento en Mac/Windows.
+    //
+    // Si no necesitas acceder a datos locales desde el contenedor, puedes dejarlo vacío.
+    // =========================================================================
+  ]
+}
