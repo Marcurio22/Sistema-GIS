@@ -20,4 +20,6 @@ Notas:
       y/o que estemos ejecutando desde la raíz. Considera pasar dotenv_path si fuera necesario.
 """
 import os
+from dotenv import load_dotenv
+load_dotenv()
 print("APP_PORT =", os.getenv("APP_PORT"))
