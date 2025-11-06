@@ -27,7 +27,10 @@ Si nos sale algo como lo siguiente al configurar VS Code:
 
 <img width="2048" height="326" alt="image" src="https://github.com/user-attachments/assets/521defa7-ee0a-4a53-9d31-1fcc0b57bbea" />
 Debemos ejecutar la isntrucción: 
- Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned 
+
+```bash
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
 
 Con esto permitimos scripts en nuestra sesión, pero sólo para nuestro usuario actual.
 En caso de ser necesario, habrá que cerrar todas las terminales de VS Code y volver a abrir una nueva.
