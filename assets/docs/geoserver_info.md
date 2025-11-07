@@ -10,14 +10,15 @@ En este proyecto, GeoServer se usa para:
 
 1) Descargar GeoServer desde:  
    👉 https://geoserver.org/download/
-2) Elegir la versión.
-3) Descargar el instalador `.exe` para Windows.
-4) Ejecutar el instalador y seguir los pasos:
+2) Es necesario tener descargado un SDK de Java.
+3) Elegir la versión.
+4) Descargar el instalador `.exe` para Windows.
+5) Ejecutar el instalador y seguir los pasos:
    - Ruta de instalación (por ejemplo: `C:\Program Files\GeoServer`)
    - Puerto por defecto: **8080**
-5) Al finalizar, abrir el navegador y entrar en:  
+6) Al finalizar, abrir el navegador y entrar en:  
    👉 http://localhost:8080/geoserver
-6) Iniciar sesión, credenciales por defecto:  
+7) Iniciar sesión, credenciales por defecto:  
 **Usuario:** admin  
 **Contraseña:** geoserver
 
