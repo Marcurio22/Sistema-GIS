@@ -33,11 +33,26 @@ De esta manera, VS Code sustituirá el entorno automáticamente.
 ## Jupyter Lab
 
 Jupyter Lab viene por defecto con el Anaconda Navigator, cuya instalación es necesaria para llevar a cabo la construcción de este entorno.
-Como bien se ha dicho, este será nuestro entorno de pruebas. Tenemos la carpeta notebooks de este repositorio, en la que llevaremos a cabo todo lo referente a este entorno.
+Como bien se ha dicho, este será nuestro entorno de pruebas. Tenemos la carpeta **notebooks** de este repositorio, en la que llevaremos a cabo todo lo referente a este entorno.
 Para inicializarlo, como se indica en `instalación_info.md`, tras activar el entorno gis, mediante la consola de anaconda, basta con escribir: `jupyter lab` y se abrirá el entorno en el directorio en el que nos encontremos en ese momento en la terminal de anaconda:
 
 <img width="838" height="35" alt="image" src="https://github.com/user-attachments/assets/25d90dcd-0f4a-41b2-9680-559c047596d0" />
+
 (En este caso, entraré en la carpeta Sistema-GIS-main del escritorio)
+
+Una vez dentro, encontraremos el árbol de directorios, al igual que en VS Code:
+
+<img width="190" height="242" alt="image" src="https://github.com/user-attachments/assets/c20d4f5b-ef41-46d1-b7d4-261e8cea553b" />
+
+En este caso, nos interesa la carpeta de **notebooks**, que, como se ha indicado antes, será donde llevaremos a cabo las pruebas del código.
+Los jupyter notebooks funcionan como una ejecución por bloques, donde cada bloque contiene una funcionalidad del código y se ejecutan secuencialmente, de manera que el siguiente depende del anterior. También tenemos varias opciones de celda en este entorno, siendo estas: Markdown, Code y Raw.
+**Markdown** sirve para documentación, es una celda de texto, **code**, se usa para generar código y **raw** es una celda con el propósito de incluir contenido que no vaya a ser ejecutado.
+
+En este entorno no tenemos un sistema propiamente dicho para llevar a cabo las acciones de git, por lo que para registrar estos cambios podemos hacerlo o bien por VS Code, como hemos descrito antes, o por terminal, mediante la copia remota del repositorio.
+
+Para probar la funcionalidad de este entorno, tanto mi compañero como yo, nos hemos descargado un par de imágenes desde Copernicus Browser: https://browser.dataspace.copernicus.eu/ en formato .tiff y hemos llevado a cabo varios procesados y estudios de la imagen mediante el fichero:
+`test_inicial_jupyter.ipynb` en el que probamos también mediante diversas funciones todas las librerías con las que vamos a trabajar en este proyecto como lo son: rasterio, numpy, pandas, folium, etc...
+
 
 
 
