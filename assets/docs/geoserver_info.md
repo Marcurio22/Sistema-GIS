@@ -34,7 +34,6 @@ En este proyecto, GeoServer se usa para:
    **Data** → **Layers** → **Add new layer**
       - Seleccionar store y tabla
       - Configurar SRS (ej: EPSG:25830)
-      - Calcular Bounding Boxes
 
 ## Referencias
    Documentación: https://docs.geoserver.org/
