@@ -2,7 +2,8 @@
 En esta carpeta se encuentra todo lo referente a la base de datos, que se implementará en **PostgreSQL con la extensión PostGIS**, lo que permite el almacenamiento y gestión de geometrías y rásteres geoespaciales.  
 El modelo se ha diseñado bajo criterios de **normalización**, **integridad referencial** y **eficiencia espacial**, garantizando su interoperabilidad con servicios OGC (WMS, WFS, WCS) y plataformas como **GeoServer** y **QGIS**.
 ## Diagrama E-R
-<img width="4547" height="3977" alt="image" src="https://github.com/user-attachments/assets/93184e44-95e3-454f-8742-c5507aa80ad2" />
+<img width="5639" height="3897" alt="image" src="https://github.com/user-attachments/assets/9d527050-7676-4df0-a28f-af622f449949" />
+
 
 El modelo entidad–relación define la estructura lógica de la base de datos que sustenta nuestro sistema **GIS** de Recomendaciones de Riego.  
 Este sistema integra información geoespacial (parcelas, sensores, rásteres satelitales y productos derivados), datos agronómicos (cultivos, coeficientes Kc, estados fenológicos) y series temporales (lecturas de sensores y condiciones ambientales), con el propósito de generar recomendaciones de riego personalizadas para cada unidad agrícola.
@@ -25,22 +26,28 @@ Este sistema integra información geoespacial (parcelas, sensores, rásteres sat
   Describe los cultivos asociados a cada parcela, incluyendo su tipo, variedad, fechas de siembra y cosecha, y coeficiente Kc medio.
   Permite la gestión de rotaciones y el seguimiento fenológico.
 
+- **IMÁGENES**
+  Actúa como entidad padre común para cualquier tipo de imagen de observación, ya sea satelital o de dron.
+  Registra metadatos generales como la fecha de adquisición, sensor, resolución espacial, EPSG y ruta al archivo físico.
+  Facilita la extensibilidad y la trazabilidad de las distintas fuentes de datos espaciales.
+
 - **IMÁGENES_SATELITALES**
 
-  Almacena los metadatos de productos de observación terrestre.
-  Incluye fechas de adquisición, nivel de procesamiento, cobertura nubosa, geometría de huella y rutas a los archivos físicos.
-
-- **INDICES_RASTER**
-
-  Registra los productos ráster derivados de las imágenes satelitales, tales como NDVI, ETP, LAI o NDWI.
-  Cada índice se asocia a una imagen fuente y, opcionalmente, a una parcela específica.
-  Puede almacenarse tanto la ruta del archivo GeoTIFF/COG como el propio ráster dentro de PostGIS.
+  Contiene los detalles específicos de las imágenes provenientes de satélite.
+  Incluye el nombre del satélite, nivel de procesamiento, cobertura nubosa, identificador del producto y bandas disponibles.
+  Se relaciona uno a uno con la tabla `IMAGENES`, de la cual hereda la información general de adquisición y localización.
 
 - **IMÁGENES_DRON**
 
   Gestiona los vuelos de dron realizados sobre las parcelas.
-  Incluye información técnica del vuelo, tipo de cámara y geometría del ortomosaico resultante.
-  Permite la integración de observaciones de alta resolución complementarias a las imágenes satelitales.
+  Incluye información técnica del vuelo y el vínculo con la parcela cubierta.
+  Permite la integración de observaciones de alta resolución complementarias a las imágenes satelitales, a través de la relación uno a uno con `IMAGENES`.
+
+- **INDICES_RASTER**
+
+  Registra los productos ráster derivados de las imágenes, tales como NDVI, ETP, LAI o NDWI.
+  Cada índice se asocia a una imagen fuente de la tabla `IMAGENES` y, opcionalmente, a una parcela específica.
+  Se almacena la ruta del archivo GeoTIFF o COG, junto con sus metadatos, en lugar del ráster dentro de PostGIS, optimizando el rendimiento e integración con GeoServer.
 
 - **SENSORES**
 
@@ -72,25 +79,27 @@ Este sistema integra información geoespacial (parcelas, sensores, rásteres sat
   Es fundamental para la trazabilidad, auditoría y depuración de procesos de ingesta y análisis.
 
 ### Descripción de las relaciones entre las entidades del sistema
-En el diagrama, no se puede apreciar correctamente, pero no todas las relaciones son del tipo 1 a N (opcional) como pudiera parecer en un inicio. Esto se debe a una limitación de la herramienta con la que ha sido creada el diagrama E-R.
-Por eso, serán explicadas debidamente a continuación en la siguiente tabla:
+Se explican en la siguiente tabla:
 
-| Relación                                | Tipo                   | Explicación breve |
-| --------------------------------------- | ---------------------- | ----------------- |
-| **PARCELAS → CULTIVOS**                 | **One to Mandatory Many**     | Cada parcela debe tener uno o varios cultivos asociados. |
-| **PARCELAS → SENSORES**                 | **One to Optional Many**      | Una parcela puede tener varios sensores instalados o ninguno. |
-| **PARCELAS → IMAGENES_DRON**            | **One to Optional Many**      | Una parcela puede ser cubierta por vuelos de dron o no tener ninguno. |
-| **PARCELAS → INDICES_RASTER**           | **One to Optional Many**      | Una parcela puede tener índices ráster asociados o no. |
-| **PARCELAS → RECOMENDACIONES_RIEGO**    | **One to Mandatory Many**     | Cada parcela genera una o más recomendaciones de riego durante su ciclo. |
-| **CULTIVOS → SENSORES**                 | **One to Optional Many**      | Un cultivo puede usar sensores específicos o no tener ninguno. |
-| **CULTIVOS → RECOMENDACIONES_RIEGO**    | **One to Optional Many**      | Un cultivo puede estar asociado a una o varias recomendaciones de riego. |
-| **IMAGENES_SATELITALES → INDICES_RASTER** | **One to Mandatory Many**   | Cada imagen satelital produce uno o más índices ráster derivados. |
-| **SENSORES → MEDICIONES_SENSORES**      | **One to Mandatory Many**     | Cada sensor debe registrar una o más mediciones en el tiempo. |
-| **VARIABLES → MEDICIONES_SENSORES**     | **One to Mandatory Many**     | Cada variable medida posee múltiples registros asociados. |
-| **USUARIOS → LOGS_SISTEMA**             | **One to Optional Many**      | Un usuario puede generar varios registros de actividad o ninguno. |
+| Relación                             | Tipo                      | Explicación breve                                                                 |
+| ------------------------------------ | ------------------------- | --------------------------------------------------------------------------------- |
+| **PARCELAS → CULTIVOS**              | **One to Mandatory Many** | Cada parcela debe tener uno o varios cultivos asociados.                          |
+| **PARCELAS → SENSORES**              | **One to Optional Many**  | Una parcela puede tener varios sensores instalados o ninguno.                     |
+| **PARCELAS → IMAGENES_DRON**         | **One to Optional Many**  | Una parcela puede ser cubierta por vuelos de dron o no tener ninguno.             |
+| **PARCELAS → INDICES_RASTER**        | **One to Optional Many**  | Una parcela puede tener índices ráster asociados o no.                            |
+| **PARCELAS → RECOMENDACIONES_RIEGO** | **One to Mandatory Many** | Cada parcela genera una o más recomendaciones de riego durante su ciclo.          |
+| **CULTIVOS → SENSORES**              | **One to Optional Many**  | Un cultivo puede usar sensores específicos o no tener ninguno.                    |
+| **CULTIVOS → RECOMENDACIONES_RIEGO** | **One to Optional Many**  | Un cultivo puede estar asociado a una o varias recomendaciones de riego.          |
+| **IMAGENES → INDICES_RASTER**        | **One to Mandatory Many** | Cada imagen (sea satelital o de dron) produce uno o más índices ráster derivados. |
+| **IMAGENES → IMAGENES_SATELITALES**  | **One to One (Optional)** | Una imagen puede ser de tipo satelital y tener metadatos específicos asociados.   |
+| **IMAGENES → IMAGENES_DRON**         | **One to One (Optional)** | Una imagen puede proceder de un dron y tener detalles técnicos propios del vuelo. |
+| **SENSORES → MEDICIONES_SENSORES**   | **One to Mandatory Many** | Cada sensor debe registrar una o más mediciones en el tiempo.                     |
+| **VARIABLES → MEDICIONES_SENSORES**  | **One to Mandatory Many** | Cada variable medida posee múltiples registros asociados.                         |
+| **USUARIOS → LOGS_SISTEMA**          | **One to Optional Many**  | Un usuario puede generar varios registros de actividad o ninguno.                 |
 
-El modelo presenta únicamente relaciones de tipo uno a muchos (1:N), reflejando así la naturaleza jerárquica y temporal de los datos agrícolas.
-Se comprende que, una parcela agrupa muchos **elementos dependientes**, como es el caso de los `cultivos`, `sensores`, `imágenes` y `recomendaciones`,
-las **entidades de medición y observación**, como los `índices ráster` o las `lecturas de sensores`, son las que crecen dinámicamente en el tiempo y
-las **relaciones opcionales** se emplean para mantener `flexibilidad`, no todas las parcelas tienen sensores o imágenes, pero el modelo lo soporta sin comprometer la integridad de los datos.
 
+### Interpretación general del modelo
+El modelo mantiene una estructura jerárquica centrada en la **parcela** como núcleo de toda la información agrícola.
+Las entidades dependientes, como cultivos, sensores, imágenes e índices ráster, se vinculan a ella para garantizar coherencia espacial y temporal.
+Las **entidades observacionales**, como, por ejemplo, `mediciones_sensores` o `indices_raster` son las que más crecen con el tiempo, reflejando la naturaleza dinámica de la monitorización agrícola.
+Por último, las **relaciones opcionales** aseguran flexibilidad: no todas las parcelas tienen sensores o imágenes, pero el modelo lo soporta sin comprometer la integridad de los datos.
