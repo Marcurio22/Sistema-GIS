@@ -89,7 +89,7 @@ Los usuarios finales interactúan con el sistema a través de distintas herramie
 
 - **Web GIS (Leaflet / Folium):**  
   Aplicación web interactiva que muestra las parcelas, sensores y productos ráster.  
-  Consume tanto el API REST (datos alfanuméricos) como servicios WMS/WFS (capas cartográficas).  
+  Consume tanto el API REST, correspondiente a datos alfanuméricos, como servicios WMS/WFS, asociados a capas cartográficas.  
   Permite visualizar recomendaciones de riego o valores NDVI históricos.
 
 - **QGIS Desktop:**  
@@ -99,8 +99,10 @@ Los usuarios finales interactúan con el sistema a través de distintas herramie
 - **Jupyter Notebooks:**  
   Permite análisis exploratorio, desarrollo de modelos de riego o validación de índices mediante consultas SQL espaciales directas.
 
-El sistema integra de forma armoniosa las tecnologías de **procesamiento científico (Python)**, **gestión espacial (PostGIS)** y **difusión geográfica (GeoServer)**.  
-Su arquitectura modular y basada en estándares permite adaptarse a nuevas fuentes de datos (por ejemplo, sensores adicionales o nuevos índices de vegetación) sin alterar la estructura principal.
+El sistema integra de forma armoniosa las tecnologías de **procesamiento científico (Python)**, **gestión espacial (PostGIS)** y **difusión geográfica (GeoServer)**.
+Su arquitectura modular y basada en estándares permite adaptarse a nuevas fuentes de datos, como podría ser el caso de sensores adicionales o nuevos índices de vegetación, sin alterar la estructura principal.
 
 Esta arquitectura constituye la **columna vertebral del sistema de riego inteligente**, donde la información espacial y temporal converge para proporcionar recomendaciones precisas, actualizadas y científicamente fundamentadas.
+
+---
 
