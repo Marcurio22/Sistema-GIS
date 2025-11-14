@@ -10,7 +10,7 @@ PostGIS es el núcleo del sistema y almacena todos los datos geoespaciales: capa
 
 GeoServer se conecta a PostGIS y publica los datos mediante servicios web estándar OGC: **WMS** para mapas, **WFS** para datos vectoriales y **WCS** para capas raster. Gestiona estilos visuales mediante SLD y permite que los clientes web y de escritorio accedan a la información sin duplicarla. Así, los datos permanecen centralizados y actualizados.
 
-### Visualiazación: QGIS y WebGIS
+### Visualización: QGIS y WebGIS
 
 **QGIS** se utiliza para análisis espacial avanzado y edición de datos, conectándose directamente a los servicios de GeoServer.  
 **WebGIS** permite a los usuarios acceder desde el navegador para visualizar capas y realizar consultas básicas, usando WMS/WFS o la API REST del backend Flask.
