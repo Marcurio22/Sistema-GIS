@@ -21,7 +21,7 @@ La comunicación con **PostGIS** se realiza mediante **SQLAlchemy**, cargando un
 **Flask** no procesa capas raster pesadas, ya que estas serán delegadas a **GeoServer**.
 
 ### Conexión entre GeoServer y PostGIS
-Este punto en concreto está mejor explicado en: 
+Este punto en concreto está mejor explicado en: `assets/docs/arquitectura_gis.md`.
 
 **GeoServer** actúa como servidor GIS especializado y se conecta a la misma base de datos **PostGIS**, aunque usando su propio usuario y permisos independientes.
 
