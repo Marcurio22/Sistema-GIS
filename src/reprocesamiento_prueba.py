@@ -4,28 +4,41 @@ import rasterio
 from rasterio.mask import mask
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 from shapely.geometry import box
-import geopandas as gpd
 import shutil
+from pyproj import Transformer
+import numpy as np
 
 # ========== CONFIGURACIÓN ==========
-# Área de interés (Burgos y alrededores - ajusta según necesites)
+# Carpetas
+PROCESSED_FOLDER = "../data/raw"  # Donde están los .zip descargados
+OUTPUT_FOLDER = "../data/processed"  # Donde se guardarán los recortes
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+# Área de interés - BURGOS, ESPAÑA
 AOI_BBOX = {
-    'minx': -3.85,
-    'miny': 42.25,
-    'maxx': -3.55,
-    'maxy': 42.45
+    'minx': -3.8,   # Longitud oeste
+    'maxx': -3.6,   # Longitud este
+    'miny': 42.25,  # Latitud sur
+    'maxy': 42.45   # Latitud norte
 }
 
-# Bandas a procesar (puedes añadir más)
-BANDAS_A_PROCESAR = ['B04', 'B03', 'B02', 'B08']  # RGB + NIR
+# EPSG para España
+OUTPUT_EPSG = 'EPSG:25830'  # Sistema oficial de España - ETRS89 UTM 30N
 
-# CRS de salida (por defecto: EPSG:4326 - WGS84)
-OUTPUT_CRS = 'EPSG:4326'
-
-# Carpetas
-PROCESSED_FOLDER = "../data/raw"
-OUTPUT_FOLDER = "../data/processed"
-os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+# Bandas a procesar - PRIORIZAR RESOLUCIÓN 10m
+BANDAS_CONFIG = {
+    'B02': '10m',  # Blue
+    'B03': '10m',  # Green
+    'B04': '10m',  # Red
+    'B08': '10m',  # NIR
+    # Puedes añadir más:
+    # 'B05': '20m',  # Red Edge 1
+    # 'B06': '20m',  # Red Edge 2
+    # 'B07': '20m',  # Red Edge 3
+    # 'B8A': '20m',  # Narrow NIR
+    # 'B11': '20m',  # SWIR 1
+    # 'B12': '20m',  # SWIR 2
+}
 
 # ===================================
 
@@ -44,123 +57,176 @@ def descomprimir_producto(zip_path):
     print(f"Descomprimido en: {extract_folder}")
     return extract_folder
 
-def encontrar_bandas(product_folder, bandas):
-    """Encontrar las rutas de las bandas específicas, buscando solo en carpetas IMG_DATA"""
+def encontrar_bandas(product_folder, bandas_config):
+    """Encontrar las rutas de las bandas específicas en productos L2A con resolución específica"""
     bandas_paths = {}
     
-    # Buscar en la estructura de carpetas de Sentinel-2
-    for root, dirs, files in os.walk(product_folder):
+    # En L2A, las bandas están en: GRANULE/*/IMG_DATA/R10m, R20m, R60m
+    for banda, resolucion in bandas_config.items():
+        carpeta_resolucion = f'R{resolucion}'
         
-        # Filtrar para buscar solo dentro de la carpeta 'IMG_DATA' (o 'R10m', 'R20m', etc.)
-        if 'IMG_DATA' in root or ('GRANULE' in root and any(r in root for r in ['R10m', 'R20m', 'R60m'])):
-            
-            for file in files:
-                if file.endswith('.jp2'):
-                    for banda in bandas:
-                        # Las bandas suelen tener formato: T30TVN_20250110T110421_B04_10m.jp2
-                        if f"_{banda}_" in file or f"_{banda}." in file:
-                            # Evitar archivos de máscara que contienen 'MSK_'
-                            if 'MSK_' not in file:
+        for root, dirs, files in os.walk(product_folder):
+            # Buscar solo en la carpeta de la resolución específica
+            if 'IMG_DATA' in root and carpeta_resolucion in root:
+                for file in files:
+                    if file.endswith('.jp2'):
+                        # Formato L2A: T30TVM_20251116T111341_B04_10m.jp2
+                        if f"_{banda}_" in file and f"_{resolucion}.jp2" in file:
+                            # Evitar archivos de máscara y TCI
+                            if 'MSK_' not in file and 'TCI_' not in file:
                                 bandas_paths[banda] = os.path.join(root, file)
+                                print(f"  ✓ {banda} ({resolucion}): {file}")
                                 break
+                if banda in bandas_paths:
+                    break
     
-    print(f"Bandas encontradas: {list(bandas_paths.keys())}")
+    if not bandas_paths:
+        print("  ⚠ No se encontraron bandas")
+    
     return bandas_paths
 
-
 def recortar_y_reproyectar(banda_path, banda_name, output_folder, product_name):
-    """Recortar banda al área de interés y reproyectar si es necesario"""
+    """Recortar banda al área de interés y reproyectar a ETRS89"""
     try:
         with rasterio.open(banda_path) as src:
-            # Crear geometría del bounding box
+            print(f"  Procesando {banda_name}...")
+            print(f"    CRS original: {src.crs}")
+            print(f"    Resolución: {src.res[0]:.1f}m x {src.res[1]:.1f}m")
+            print(f"    Dimensiones: {src.width} x {src.height}")
+            
+            # Crear geometría del bounding box en WGS84
             bbox_geom = box(AOI_BBOX['minx'], AOI_BBOX['miny'], 
                            AOI_BBOX['maxx'], AOI_BBOX['maxy'])
             
-            # Convertir bbox a la proyección de la imagen
-            from pyproj import Transformer
+            # Transformar bbox a la proyección de la imagen fuente
             transformer = Transformer.from_crs('EPSG:4326', src.crs, always_xy=True)
-            
-            # Transformar las coordenadas del bbox
             minx_t, miny_t = transformer.transform(AOI_BBOX['minx'], AOI_BBOX['miny'])
             maxx_t, maxy_t = transformer.transform(AOI_BBOX['maxx'], AOI_BBOX['maxy'])
-            bbox_geom_transformed = box(minx_t, miny_t, maxx_t, maxy_t)
+            bbox_transformed = box(minx_t, miny_t, maxx_t, maxy_t)
             
             # Recortar
-            out_image, out_transform = mask(src, [bbox_geom_transformed], crop=True)
-            out_meta = src.meta.copy()
+            out_image, out_transform = mask(src, [bbox_transformed], crop=True, filled=False)
             
-            # Actualizar metadata
+            # Verificar que el recorte tiene datos
+            if out_image.size == 0:
+                print(f"    ⚠ El recorte está vacío para {banda_name}")
+                return None
+            
+            print(f"    Dimensiones recorte: {out_image.shape[2]} x {out_image.shape[1]}")
+            
+            # Guardar con reproyección a ETRS89
+            output_path = os.path.join(output_folder, f"{product_name}_{banda_name}.tif")
+            
+            # Calcular transformación para reproyección
+            dst_crs = OUTPUT_EPSG
+            transform, width, height = calculate_default_transform(
+                src.crs, dst_crs, 
+                out_image.shape[2], out_image.shape[1],
+                left=out_transform.c, bottom=out_transform.f + out_transform.e * out_image.shape[1],
+                right=out_transform.c + out_transform.a * out_image.shape[2], top=out_transform.f
+            )
+            
+            # Configurar metadata de salida
+            out_meta = src.meta.copy()
             out_meta.update({
-                "driver": "GTiff",
-                "height": out_image.shape[1],
-                "width": out_image.shape[2],
-                "transform": out_transform,
-                "compress": "lzw"  # Comprimir para ahorrar espacio
+                'driver': 'GTiff',
+                'crs': dst_crs,
+                'transform': transform,
+                'width': width,
+                'height': height,
+                'compress': 'lzw'
             })
             
-            # Guardar recorte
-            output_path = os.path.join(output_folder, f"{product_name}_{banda_name}.tif")
-            with rasterio.open(output_path, "w", **out_meta) as dest:
-                dest.write(out_image)
+            # Crear imagen reproyectada
+            with rasterio.open(output_path, 'w', **out_meta) as dest:
+                for i in range(1, src.count + 1):
+                    reproject(
+                        source=rasterio.band(src, i),
+                        destination=rasterio.band(dest, i),
+                        src_transform=out_transform,
+                        src_crs=src.crs,
+                        dst_transform=transform,
+                        dst_crs=dst_crs,
+                        resampling=Resampling.bilinear
+                    )
             
             file_size = os.path.getsize(output_path) / (1024 * 1024)
-            print(f"Banda {banda_name} procesada: {output_path} ({file_size:.1f} MB)")
+            print(f"    ✓ Guardado: {banda_name} ({file_size:.2f} MB)")
             return output_path
             
     except Exception as e:
-        print(f"Error procesando banda {banda_name}: {str(e)}")
+        print(f"    ✗ Error procesando {banda_name}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def crear_composicion_rgb(bandas_paths, output_folder, product_name):
-    """Crear una composición RGB (True Color)"""
+    """Crear una composición RGB (True Color) - B04(R), B03(G), B02(B)"""
     try:
+        print("\n  Creando composición RGB...")
+        
         # Leer las bandas RGB
-        with rasterio.open(bandas_paths['B04']) as red, \
-             rasterio.open(bandas_paths['B03']) as green, \
-             rasterio.open(bandas_paths['B02']) as blue:
-            
-            # Leer los datos
+        with rasterio.open(bandas_paths['B04']) as red:
             red_data = red.read(1)
+            profile = red.profile.copy()
+            
+        with rasterio.open(bandas_paths['B03']) as green:
             green_data = green.read(1)
+            
+        with rasterio.open(bandas_paths['B02']) as blue:
             blue_data = blue.read(1)
-            
-            # Crear metadata para RGB
-            rgb_meta = red.meta.copy()
-            rgb_meta.update({
-                'count': 3,
-                'dtype': 'uint16'
-            })
-            
-            # Guardar RGB
-            output_path = os.path.join(output_folder, f"{product_name}_RGB.tif")
-            with rasterio.open(output_path, 'w', **rgb_meta) as dst:
-                dst.write(red_data, 1)
-                dst.write(green_data, 2)
-                dst.write(blue_data, 3)
-            
-            file_size = os.path.getsize(output_path) / (1024 * 1024)
-            print(f"Composición RGB creada: {output_path} ({file_size:.1f} MB)")
-            return output_path
-            
+        
+        # Verificar que todas tienen el mismo tamaño
+        if not (red_data.shape == green_data.shape == blue_data.shape):
+            print(f"    ⚠ Las bandas tienen diferentes tamaños:")
+            print(f"       Red: {red_data.shape}, Green: {green_data.shape}, Blue: {blue_data.shape}")
+            return None
+        
+        # Actualizar perfil para 3 bandas
+        profile.update({
+            'count': 3,
+            'dtype': 'uint16',
+            'compress': 'lzw'
+        })
+        
+        # Guardar RGB
+        output_path = os.path.join(output_folder, f"{product_name}_RGB.tif")
+        with rasterio.open(output_path, 'w', **profile) as dst:
+            dst.write(red_data, 1)
+            dst.write(green_data, 2)
+            dst.write(blue_data, 3)
+        
+        file_size = os.path.getsize(output_path) / (1024 * 1024)
+        print(f"    ✓ RGB creado ({file_size:.2f} MB)")
+        return output_path
+        
     except Exception as e:
-        print(f"Error creando composición RGB: {str(e)}")
+        print(f"    ✗ Error creando RGB: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def procesar_producto(zip_path):
     """Procesar un producto completo: descomprimir, recortar, reproyectar"""
-    product_name = os.path.basename(zip_path).replace('.zip', '')
-    print("="*60)
+    product_name = os.path.basename(zip_path).replace('.zip', '').replace('.SAFE', '')
+    print("\n" + "="*70)
     print(f"PROCESANDO: {product_name}")
-    print("="*60)
+    print("="*70)
+    
+    # Verificar que sea L2A
+    if 'MSIL2A' not in product_name:
+        print("⚠ Este producto NO es L2A, saltando...")
+        return False
     
     # 1. Descomprimir
     extract_folder = descomprimir_producto(zip_path)
     
     # 2. Encontrar bandas
-    bandas_paths = encontrar_bandas(extract_folder, BANDAS_A_PROCESAR)
+    print("\nBuscando bandas...")
+    bandas_paths = encontrar_bandas(extract_folder, BANDAS_CONFIG)
     
     if not bandas_paths:
-        print("No se encontraron bandas para procesar")
+        print("⚠ No se encontraron bandas para procesar")
         return False
     
     # 3. Crear carpeta de salida para este producto
@@ -168,6 +234,7 @@ def procesar_producto(zip_path):
     os.makedirs(product_output, exist_ok=True)
     
     # 4. Procesar cada banda
+    print("\nRecortando y reproyectando bandas...")
     bandas_procesadas = {}
     for banda_name, banda_path in bandas_paths.items():
         output_path = recortar_y_reproyectar(banda_path, banda_name, product_output, product_name)
@@ -177,39 +244,74 @@ def procesar_producto(zip_path):
     # 5. Crear composición RGB si tenemos las bandas necesarias
     if all(b in bandas_procesadas for b in ['B04', 'B03', 'B02']):
         crear_composicion_rgb(bandas_procesadas, product_output, product_name)
+    else:
+        faltantes = [b for b in ['B04', 'B03', 'B02'] if b not in bandas_procesadas]
+        print(f"\n⚠ No se puede crear RGB - faltan bandas: {', '.join(faltantes)}")
     
     # 6. Limpiar carpeta temporal
+    print("\nLimpiando archivos temporales...")
     try:
         shutil.rmtree(extract_folder)
-        print(f"Carpeta temporal eliminada: {extract_folder}")
+        print(f"✓ Carpeta temporal eliminada")
     except Exception as e:
-        print(f"No se pudo eliminar carpeta temporal: {str(e)}")
+        print(f"⚠ No se pudo eliminar carpeta temporal: {str(e)}")
     
-    print(f"PROCESAMIENTO COMPLETO: {len(bandas_procesadas)} bandas procesadas")
-    return True
+    print(f"\n{'='*70}")
+    print(f"✓ COMPLETADO: {len(bandas_procesadas)}/{len(BANDAS_CONFIG)} bandas procesadas")
+    print(f"  Archivos guardados en: {product_output}")
+    print(f"{'='*70}")
+    return len(bandas_procesadas) > 0
 
 def procesar_todos_los_productos():
-    """Procesar todos los productos en la carpeta de procesados"""
-    productos_zip = [f for f in os.listdir(PROCESSED_FOLDER) if f.endswith('.zip')]
+    """Procesar todos los productos ZIP en la carpeta"""
+    productos_zip = [f for f in os.listdir(PROCESSED_FOLDER) 
+                     if f.endswith('.zip') and 'MSIL2A' in f]
     
     if not productos_zip:
-        print("No hay productos para procesar")
+        print("⚠ No hay productos L2A para procesar en:", PROCESSED_FOLDER)
         return
     
-    print(f"Productos a procesar: {len(productos_zip)}")
+    print(f"\n{'='*70}")
+    print(f"PRODUCTOS L2A ENCONTRADOS: {len(productos_zip)}")
+    print(f"{'='*70}")
     
-    for zip_file in productos_zip:
+    exitosos = 0
+    fallidos = 0
+    
+    for i, zip_file in enumerate(productos_zip, 1):
+        print(f"\n[{i}/{len(productos_zip)}]")
         zip_path = os.path.join(PROCESSED_FOLDER, zip_file)
-        procesar_producto(zip_path)
+        
+        if procesar_producto(zip_path):
+            exitosos += 1
+        else:
+            fallidos += 1
+    
+    print(f"\n{'='*70}")
+    print(f"RESUMEN FINAL")
+    print(f"{'='*70}")
+    print(f"✓ Exitosos: {exitosos}")
+    print(f"✗ Fallidos: {fallidos}")
+    print(f"Total procesados: {exitosos + fallidos}")
+    print(f"{'='*70}")
 
 def main():
-    print("="*60)
-    print("INICIANDO PROCESAMIENTO DE PRODUCTOS SENTINEL")
-    print("="*60)
+    print("="*70)
+    print("PROCESAMIENTO DE IMÁGENES SENTINEL-2 L2A - ESPAÑA")
+    print("="*70)
+    print(f"Área de interés: Burgos")
+    print(f"Coordenadas: {AOI_BBOX}")
+    print(f"Sistema de referencia salida: {OUTPUT_EPSG} (ETRS89 UTM 30N)")
+    print(f"Bandas a procesar: {', '.join(BANDAS_CONFIG.keys())}")
+    print(f"Resoluciones: {', '.join(set(BANDAS_CONFIG.values()))}")
+    print("="*70)
+    
     procesar_todos_los_productos()
-    print("="*60)
+    
+    print("\n" + "="*70)
     print("PROCESAMIENTO FINALIZADO")
-    print("="*60)
+    print(f"Resultados guardados en: {OUTPUT_FOLDER}")
+    print("="*70)
 
 if __name__ == "__main__":
     main()
