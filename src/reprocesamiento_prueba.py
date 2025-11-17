@@ -23,8 +23,8 @@ BANDAS_A_PROCESAR = ['B04', 'B03', 'B02', 'B08']  # RGB + NIR
 OUTPUT_CRS = 'EPSG:4326'
 
 # Carpetas
-PROCESSED_FOLDER = "./raw"
-OUTPUT_FOLDER = "./sentinel_gis_ready"
+PROCESSED_FOLDER = "../data/raw"
+OUTPUT_FOLDER = "../data/processed"
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 # ===================================
