@@ -169,7 +169,7 @@ CREATE TABLE recomendaciones_riego (
     humedad_suelo        NUMERIC(10,4),
     etp_calculada        NUMERIC(10,4)
 );
-CREATE UNIQUE INDEX uq_reco_parcela_fecha ON recomendaciones_riego(id_parcela, fecha_recomendacion::date);
+CREATE UNIQUE INDEX uq_reco_parcela_fecha ON recomendaciones_riego(id_parcela, ((fecha_recomendacion at time zone 'UTC')::date));
 
 -- =========================================================
 -- LOGS_SISTEMA
