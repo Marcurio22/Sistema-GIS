@@ -4,20 +4,24 @@
 - Descargar el archivo ```environment.yml``` desde este mismo repositorio.
 - Abrir una terminal de **anaconda_prompt**.
 - Hacer uso de los siguientes comandos:
-  1) Instalar mamba (recomendable para llevar a cabo la instalación del entorno):
+  1) Crear un entorno vacío con Conda y activarlo:
   ```bash
-  conda install -n base -c conda-forge mamba
-  ```
-  2) Crear el entorno: 
-  ```bash
-  mamba env create -f environment.yml
+  conda create -n gis
   conda activate gis
   ```
-  3) Registrar el kernel para Jupyter (este paso es opcional y no necesario):
+  2) Instalar mamba (recomendable para llevar a cabo la instalación del entorno):
+  ```bash
+  conda install -c conda-forge mamba
+  ```
+  3) Instalar las librerias del entorno con el archivo enviroment.yml
+  ```bash
+  mamba env update -f environment.yml
+  ```
+  4) Registrar el kernel para Jupyter (este paso es opcional y no necesario):
   ```bash
   python -m ipykernel install --user --name gis --display-name "Python (gis)"
   ```
-  4) Probar JupyterLab
+  5) Probar JupyterLab
   ```bash
   jupyter lab
   ```
