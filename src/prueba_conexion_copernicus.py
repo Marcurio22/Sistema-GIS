@@ -1,6 +1,7 @@
 import requests
 import os
 from dotenv import load_dotenv
+import datetime
 
 # Cargar variables de entorno
 load_dotenv()
@@ -8,14 +9,14 @@ load_dotenv()
 # ========== CONFIGURACIÓN ==========
 USERNAME = os.getenv('COPERNICUS_USER')
 PASSWORD = os.getenv('COPERNICUS_PASSWORD')
-FECHA_ESPECIFICA = datetime.datetime.now().strftime('%Y-%m-%d') -1
+FECHA_ESPECIFICA = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')  # fecha de hoy menos 1 día en formato 'YYYY-MM-DD'
 COBERTURA_NUBES_MAX = 100
 COORDENADAS = (-3.7038, 42.3439)  # (longitud, latitud) - Burgos
 PRODUCTOS_A_DESCARGAR = 1 # Cambiar para descargar más imágenes
 
 # ===================================
 
-download_folder = "./data/raw"
+download_folder = "../data/raw"
 os.makedirs(download_folder, exist_ok=True)
 
 # 1. Obtener token de acceso
