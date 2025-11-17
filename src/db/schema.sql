@@ -171,6 +171,7 @@ CREATE UNIQUE INDEX uq_reco_parcela_fecha ON recomendaciones_riego(id_parcela, f
 -- =========================================================
 CREATE TABLE logs_sistema (
     id_log            BIGSERIAL PRIMARY KEY,
+    id_usuario        INTEGER REFERENCES usuarios(id_usuario),
     fecha_hora        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     tipo_operacion    VARCHAR(50),
     modulo            VARCHAR(50),
