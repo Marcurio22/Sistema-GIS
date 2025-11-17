@@ -1,3 +1,8 @@
+-- Crear base de datos gisdb (ejecutar este bloque una sola vez conectados)
+CREATE DATABASE gisdb;
+-- A continuación, conecta a la base de datos gisdb antes de ejecutar el resto del script.
+-- En psql: \c gisdb
+
 -- =========================================================
 -- Extensiones necesarias
 -- =========================================================
