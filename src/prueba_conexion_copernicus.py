@@ -9,10 +9,10 @@ load_dotenv()
 # ========== CONFIGURACIÓN ==========
 USERNAME = os.getenv('COPERNICUS_USER')
 PASSWORD = os.getenv('COPERNICUS_PASSWORD')
-FECHA_ESPECIFICA = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')  # fecha de hoy menos 1 día en formato 'YYYY-MM-DD'
+FECHA_ESPECIFICA = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
 COBERTURA_NUBES_MAX = 100
 COORDENADAS = (-3.7038, 42.3439)  # (longitud, latitud) - Burgos
-PRODUCTOS_A_DESCARGAR = 1 # Cambiar para descargar más imágenes
+PRODUCTOS_A_DESCARGAR = 1
 
 # ===================================
 
@@ -40,7 +40,7 @@ else:
     print(f"Mensaje: {response.text}")
     exit()
 
-# 2. Búsqueda de imágenes
+# 2. Búsqueda de imágenes - FILTRADO PARA L2A
 search_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
 headers = {'Authorization': f'Bearer {access_token}'}
 
@@ -50,10 +50,16 @@ fecha_dt = datetime.strptime(FECHA_ESPECIFICA, '%Y-%m-%d')
 fecha_inicio = fecha_dt.strftime('%Y-%m-%dT00:00:00.000Z')
 fecha_fin = (fecha_dt + timedelta(days=1)).strftime('%Y-%m-%dT00:00:00.000Z')
 
-print(f"Buscando imágenes del día: {FECHA_ESPECIFICA}")
+print(f"Buscando imágenes Sentinel-2 MSI L2A del día: {FECHA_ESPECIFICA}")
 
+# MODIFICACIÓN CLAVE: Filtrar por 'SENTINEL-2' con productType L2A
 params = {
-    '$filter': f"Collection/Name eq 'SENTINEL-2' and OData.CSC.Intersects(area=geography'SRID=4326;POINT({COORDENADAS[0]} {COORDENADAS[1]})') and ContentDate/Start ge {fecha_inicio} and ContentDate/Start lt {fecha_fin} and Attributes/OData.CSC.DoubleAttribute/any(att:att/Name eq 'cloudCover' and att/OData.CSC.DoubleAttribute/Value lt {COBERTURA_NUBES_MAX})",
+    '$filter': f"Collection/Name eq 'SENTINEL-2' and "
+               f"Attributes/OData.CSC.StringAttribute/any(att:att/Name eq 'productType' and att/OData.CSC.StringAttribute/Value eq 'S2MSI2A') and "
+               f"OData.CSC.Intersects(area=geography'SRID=4326;POINT({COORDENADAS[0]} {COORDENADAS[1]})') and "
+               f"ContentDate/Start ge {fecha_inicio} and "
+               f"ContentDate/Start lt {fecha_fin} and "
+               f"Attributes/OData.CSC.DoubleAttribute/any(att:att/Name eq 'cloudCover' and att/OData.CSC.DoubleAttribute/Value lt {COBERTURA_NUBES_MAX})",
     '$top': PRODUCTOS_A_DESCARGAR
 }
 
@@ -68,10 +74,10 @@ products = results.json()
 products_list = products.get('value', [])
 
 if not products_list:
-    print(f"No se encontraron productos para el día {FECHA_ESPECIFICA} con los criterios especificados")
+    print(f"No se encontraron productos L2A para el día {FECHA_ESPECIFICA} con los criterios especificados")
     exit()
 
-print(f"Se encontraron {len(products_list)} producto(s) para el día {FECHA_ESPECIFICA}")
+print(f"Se encontraron {len(products_list)} producto(s) L2A para el día {FECHA_ESPECIFICA}")
 
 # 3. Descargar productos completos
 for i, product in enumerate(products_list, 1):
@@ -80,15 +86,18 @@ for i, product in enumerate(products_list, 1):
     fecha = product.get('ContentDate', {}).get('Start', 'N/A')
     
     # Extraer información del satélite del nombre del producto
-    # Formato típico: S2A_... o S2B_...
     satelite = "Desconocido"
     if 'S2A' in product_name:
         satelite = "Sentinel-2A"
     elif 'S2B' in product_name:
         satelite = "Sentinel-2B"
     
+    # Verificar que sea L2A
+    nivel = "L2A" if "MSIL2A" in product_name else "Otro nivel"
+    
     print(f"\n{'='*60}")
     print(f"Satélite: {satelite}")
+    print(f"Nivel de procesamiento: {nivel}")
     print(f"Fecha de captura: {fecha}")
     print(f"Producto: {product_name}")
     print(f"{'='*60}")
