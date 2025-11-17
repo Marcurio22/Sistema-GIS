@@ -9,7 +9,7 @@ load_dotenv()
 # ========== CONFIGURACIÓN ==========
 USERNAME = os.getenv('COPERNICUS_USER')
 PASSWORD = os.getenv('COPERNICUS_PASSWORD')
-FECHA_ESPECIFICA = (datetime.datetime.now() - datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+FECHA_ESPECIFICA = "2025-11-16" #datetime.datetime.now().strftime('%Y-%m-%d')
 COBERTURA_NUBES_MAX = 100
 COORDENADAS = (-3.7038, 42.3439)  # (longitud, latitud) - Burgos
 PRODUCTOS_A_DESCARGAR = 1
