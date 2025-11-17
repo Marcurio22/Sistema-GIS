@@ -8,7 +8,7 @@ load_dotenv()
 # ========== CONFIGURACIÓN ==========
 USERNAME = os.getenv('COPERNICUS_USER')
 PASSWORD = os.getenv('COPERNICUS_PASSWORD')
-FECHA_ESPECIFICA = '2025-11-11'  # Formato: YYYY-MM-DD - Cambia esta fecha al día que quieras
+FECHA_ESPECIFICA = datetime.datetime.now().strftime('%Y-%m-%d') -1
 COBERTURA_NUBES_MAX = 100
 COORDENADAS = (-3.7038, 42.3439)  # (longitud, latitud) - Burgos
 PRODUCTOS_A_DESCARGAR = 1 # Cambiar para descargar más imágenes
