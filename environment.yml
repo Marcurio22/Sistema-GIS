@@ -21,7 +21,7 @@ dependencies:
   - psycopg2
   - sqlalchemy
   - psycopg2-binary  # útil en dev rápido (ver nota)
-  -libgdal-jp2openjpeg
+  - libgdal-jp2openjpeg
   - pip:
       - dash
       - python-dotenv
