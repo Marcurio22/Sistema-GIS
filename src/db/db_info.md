@@ -103,3 +103,14 @@ El modelo mantiene una estructura jerárquica centrada en la **parcela** como n�
 Las entidades dependientes, como cultivos, sensores, imágenes e índices ráster, se vinculan a ella para garantizar coherencia espacial y temporal.
 Las **entidades observacionales**, como, por ejemplo, `mediciones_sensores` o `indices_raster` son las que más crecen con el tiempo, reflejando la naturaleza dinámica de la monitorización agrícola.
 Por último, las **relaciones opcionales** aseguran flexibilidad: no todas las parcelas tienen sensores o imágenes, pero el modelo lo soporta sin comprometer la integridad de los datos.
+
+## Script con las tablas
+En este mismo directorio podrás encontrar el script `schema.sql`. Con este fichero se definen todas las tablas ya vistas en el esquema de E-R, junto con sus respectivas relaciones y datos, definiendo en el proceso las claves primarias, fóraneas, el tipo de cada relación y restricciones de integridad, como: UNIQUE, NOT NULL, ON DELETE CASCADE, etc...
+
+Además de esto, también se fijan tipos de datos adecuados a un contexto GIS, siendo estos: geometrías `geometry(Point/Polygon, 4326)` y campos `JSONB` para datos flexibles.
+
+Adicionalmente, el script crea distintos índices para optimizar el rendimiento de las consultas. Se añaden índices espaciales GiST sobre las columnas geométricas para acelerar operaciones como búsquedas por intersección o proximidad, muy frecuentes en un **sistema GIS**. Sobre claves foráneas, campos de fechas y columnas muy usadas en filtros se crean índices B-tree que permiten recuperar rápidamente cultivos de una parcela, mediciones en un rango temporal o logs de un módulo concreto. 
+
+Por último, algunos índices son únicos, lo que no solo mejora el rendimiento sino que también evita duplicidades lógicas, como dos mediciones con el mismo sensor-variable-timestamp o dos recomendaciones de riego para la misma parcela y día.
+
+
