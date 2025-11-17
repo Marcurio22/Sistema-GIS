@@ -15,7 +15,7 @@ PRODUCTOS_A_DESCARGAR = 1 # Cambiar para descargar más imágenes
 
 # ===================================
 
-download_folder = "../data/sentinel_images_full"
+download_folder = "./data/raw"
 os.makedirs(download_folder, exist_ok=True)
 
 # 1. Obtener token de acceso
