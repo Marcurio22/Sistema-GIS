@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Iniciar Sesión - Comunidad de Regantes</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body class="bg-light min-vh-100 d-flex align-items-center justify-content-center">
+
+<div class="container">
+    <div class="row bg-white rounded-4 shadow-lg overflow-hidden" style="max-width: 1100px; margin: 0 auto;">
+        
+        <!-- Sección de Bienvenida -->
+        <div class="col-lg-6 bg-success bg-opacity-10 p-5 d-flex flex-column justify-content-center border-end">
+            <div class="text-center">
+                <div class="mb-4">
+                    <i class="bi bi-droplet-fill text-success" style="font-size: 4rem;"></i>
+                </div>
+                <h1 class="h2 fw-bold mb-4 text-dark">BIENVENIDO A LA<br>COMUNIDAD DE REGANTES</h1>
+                <p class="text-muted mb-4">
+                    En esta web podrás visualizar y obtener información acerca de todas las parcelas dentro de la comunidad de regantes a la que pertenece.
+                </p>
+                <p class="text-muted">
+                    Para acceder a la misma, por favor, inicie sesión con su usuario y contraseña.
+                </p>
+            </div>
+        </div>
+
+        <!-- Sección de Login -->
+        <div class="col-lg-6 p-5 d-flex flex-column justify-content-center">
+            <h2 class="text-center mb-4 fw-bold text-dark">INICIO DE SESIÓN</h2>
+
+            <!-- Mensajes flash -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ 'success' if category=='success' else 'danger' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <!-- Formulario de login -->
+            <form method="POST" action="{{ url_for('auth.login') }}">
+                <div class="mb-4">
+                    <label for="username" class="form-label text-muted small">USUARIO</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0">
+                            <i class="bi bi-person text-success"></i>
+                        </span>
+                        <input type="text" class="form-control border-start-0" id="username" name="username" placeholder="Ingrese su usuario" required>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label for="password" class="form-label text-muted small">CONTRASEÑA</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0">
+                            <i class="bi bi-lock text-success"></i>
+                        </span>
+                        <input type="password" class="form-control border-start-0" id="password" name="password" placeholder="Ingrese su contraseña" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-success w-100 fw-bold mb-3 py-2">INICIAR SESIÓN</button>
+            </form>
+
+            <p class="text-center mb-3">
+                <a href="#" class="text-decoration-none text-muted small">¿Olvidó su contraseña?</a>
+            </p>
+
+            <hr class="my-3">
+
+            <p class="text-center text-muted small mb-0">
+                ¿No tienes una cuenta? <a href="{{ url_for('auth.register') }}" class="text-success text-decoration-none fw-bold">Regístrate aquí</a>
+            </p>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
