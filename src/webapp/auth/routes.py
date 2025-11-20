@@ -1,8 +1,10 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
 from .. import db, login_manager
-from ..models import User
+from sqlalchemy import desc
+from ..models import LogsSistema, User
 from ..utils.logging_handler import SQLAlchemyHandler
+from ..utils.utils import normalizar_telefono_es
 import logging
 
 auth_bp = Blueprint('auth', __name__)
@@ -33,30 +35,52 @@ def register():
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
+        telefono = request.form.get('telefono')
 
+        # Validar usuario existente
         user = User.query.filter_by(username=username).first()
-        if user is None:
-            new_user = User(username=username, email=email)
-            new_user.set_password(password)
-            db.session.add(new_user)
-            db.session.commit()
-            
-            logger.info(
-                f'Usuario {username} registrado exitosamente',
-                extra={'tipo_operacion': 'REGISTRO', 'modulo': 'AUTH'}
-            )
-            
-            flash('Registro exitoso. Por favor, inicia sesión.', 'success')
-            return redirect(url_for('auth.login'))
-        else:
+        if user is not None:
             logger.warning(
                 f'Intento de registro con username existente: {username}',
                 extra={'tipo_operacion': 'REGISTRO', 'modulo': 'AUTH'}
             )
             flash('El nombre de usuario ya existe.', 'danger')
+            return render_template('register.html', 
+                                 username=username, 
+                                 email=email, 
+                                 telefono=telefono)
+        
+        # Validar teléfono
+        telefono_normalizado = None
+        if telefono:  # Solo validar si se proporcionó un teléfono
+            try:
+                telefono_normalizado = normalizar_telefono_es(telefono)
+            except ValueError as e:
+                flash(str(e), 'danger')
+                logger.warning(
+                    f'Formato de teléfono inválido en registro: {telefono}',
+                    extra={'tipo_operacion': 'REGISTRO', 'modulo': 'AUTH'}
+                )
+                return render_template('register.html', 
+                                     username=username, 
+                                     email=email, 
+                                     telefono=telefono)
+        
+        # Si todo está bien, crear el usuario
+        new_user = User(username=username, email=email, telefono=telefono_normalizado)
+        new_user.set_password(password)
+        db.session.add(new_user)
+        db.session.commit()
+        
+        logger.info(
+            f'Usuario {username} registrado exitosamente',
+            extra={'tipo_operacion': 'REGISTRO', 'modulo': 'AUTH'}
+        )
+        
+        flash('Registro exitoso. Por favor, inicia sesión.', 'success')
+        return redirect(url_for('auth.login'))
             
     return render_template('register.html')
-
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -114,7 +138,17 @@ def logout():
 @login_required
 def perfil():
     # current_user viene de Flask-Login
-    return render_template('perfil.html', user=current_user)
+    ultimo_log = LogsSistema.query.filter(
+        LogsSistema.id_usuario == current_user.id_usuario,
+        LogsSistema.modulo.in_(['DASHBOARD']),
+        LogsSistema.tipo_operacion == 'ACCESO'
+    ).order_by(desc(LogsSistema.fecha_hora)).first()
+
+    logger.info(
+        f'Usuario {current_user.username} accedió al perfil',
+        extra={'tipo_operacion': 'ACCESO', 'modulo': 'PERFIL'}
+    )
+    return render_template('perfil.html', user=current_user, ultimo_acceso=ultimo_log.fecha_hora if ultimo_log else None)
 
 
 @auth_bp.route('/')

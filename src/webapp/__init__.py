@@ -2,6 +2,8 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from .config import Config
+from .filters import formato_tel_es
+
 
 # Instanciar extensiones
 db = SQLAlchemy()
@@ -19,6 +21,8 @@ def create_app():
     login_manager.needs_refresh_message = None  
 
     from .auth.routes import auth_bp
+
+    app.jinja_env.filters['tel_es'] = formato_tel_es
     app.register_blueprint(auth_bp)
 
     return app

@@ -14,7 +14,8 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String, unique=True, nullable=False)
     rol = db.Column(db.String, default='user')
     fecha_registro = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    activo = db.Column(db.Boolean, default=True)
+    activo = db.Column(db.Boolean, default=False)
+    telefono = db.Column(db.String, nullable=True)
 
     # Métodos de seguridad 
     def set_password(self, password):

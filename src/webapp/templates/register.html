@@ -44,32 +44,41 @@
             <!-- Formulario de registro -->
             <form method="POST" action="{{ url_for('auth.register') }}">
                 <div class="mb-3">
-                    <label for="username" class="form-label text-muted small">USUARIO</label>
+                    <label for="username" class="form-label text-muted small">USUARIO*</label>
                     <div class="input-group">
                         <span class="input-group-text bg-white border-end-0">
                             <i class="bi bi-person text-success"></i>
                         </span>
-                        <input type="text" class="form-control border-start-0" id="username" name="username" placeholder="Elige un nombre de usuario" required>
+                        <input type="text" class="form-control border-start-0" id="username" value="{{ username or '' }}" name="username" placeholder="Elige un nombre de usuario" required>
                     </div>
                 </div>
 
                 <div class="mb-3">
-                    <label for="email" class="form-label text-muted small">EMAIL</label>
+                    <label for="email" class="form-label text-muted small">CORREO ELECTRÓNICO*</label>
                     <div class="input-group">
                         <span class="input-group-text bg-white border-end-0">
                             <i class="bi bi-envelope text-success"></i>
                         </span>
-                        <input type="email" class="form-control border-start-0" id="email" name="email" placeholder="tu@email.com" required>
+                        <input type="email" class="form-control border-start-0" id="email" value="{{ email or '' }}" name="email" placeholder="tu@gmail.com" required>
                     </div>
                 </div>
 
                 <div class="mb-4">
-                    <label for="password" class="form-label text-muted small">CONTRASEÑA</label>
+                    <label for="password" class="form-label text-muted small">CONTRASEÑA*</label>
                     <div class="input-group">
                         <span class="input-group-text bg-white border-end-0">
                             <i class="bi bi-lock text-success"></i>
                         </span>
                         <input type="password" class="form-control border-start-0" id="password" name="password" placeholder="Crea una contraseña segura" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="telefono" class="form-label text-muted small">TELÉFONO (Opcional)</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0">
+                            <i class="bi bi-telephone text-success"></i>
+                        </span>
+                        <input type="tel" class="form-control border-start-0" id="telefono" value="{{ telefono or '' }}" name="telefono" placeholder="Ej: +34 666 66 66 66" >
                     </div>
                 </div>
 
