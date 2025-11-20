@@ -1,13 +1,12 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
+from . import auth_bp  # CAMBIO: importar desde el __init__.py local
 from .. import db, login_manager
 from sqlalchemy import desc
 from ..models import LogsSistema, User
 from ..utils.logging_handler import SQLAlchemyHandler
 from ..utils.utils import normalizar_telefono_es
 import logging
-
-auth_bp = Blueprint('auth', __name__)
 
 # Configuración del logger
 logger = logging.getLogger('app.auth')
@@ -37,22 +36,35 @@ def register():
         password = request.form.get('password')
         telefono = request.form.get('telefono')
 
-        # Validar usuario existente
-        user = User.query.filter_by(username=username).first()
-        if user is not None:
+        # Validar usuario existente por username
+        user_by_username = User.query.filter_by(username=username).first()
+        if user_by_username:
             logger.warning(
                 f'Intento de registro con username existente: {username}',
                 extra={'tipo_operacion': 'REGISTRO', 'modulo': 'AUTH'}
             )
             flash('El nombre de usuario ya existe.', 'danger')
             return render_template('register.html', 
-                                 username=username, 
-                                 email=email, 
-                                 telefono=telefono)
+                                   username=username, 
+                                   email=email, 
+                                   telefono=telefono)
+
+        # Validar usuario existente por email
+        user_by_email = User.query.filter_by(email=email).first()
+        if user_by_email:
+            logger.warning(
+                f'Intento de registro con email existente: {email}',
+                extra={'tipo_operacion': 'REGISTRO', 'modulo': 'AUTH'}
+            )
+            flash('El correo electrónico ya está registrado.', 'danger')
+            return render_template('register.html', 
+                                   username=username, 
+                                   email=email, 
+                                   telefono=telefono)
         
         # Validar teléfono
         telefono_normalizado = None
-        if telefono:  # Solo validar si se proporcionó un teléfono
+        if telefono:
             try:
                 telefono_normalizado = normalizar_telefono_es(telefono)
             except ValueError as e:
@@ -62,24 +74,24 @@ def register():
                     extra={'tipo_operacion': 'REGISTRO', 'modulo': 'AUTH'}
                 )
                 return render_template('register.html', 
-                                     username=username, 
-                                     email=email, 
-                                     telefono=telefono)
-        
-        # Si todo está bien, crear el usuario
+                                       username=username, 
+                                       email=email, 
+                                       telefono=telefono)
+
+        # Crear el usuario si todo es válido
         new_user = User(username=username, email=email, telefono=telefono_normalizado)
         new_user.set_password(password)
         db.session.add(new_user)
         db.session.commit()
-        
+
         logger.info(
             f'Usuario {username} registrado exitosamente',
             extra={'tipo_operacion': 'REGISTRO', 'modulo': 'AUTH'}
         )
-        
+
         flash('Registro exitoso. Por favor, inicia sesión.', 'success')
         return redirect(url_for('auth.login'))
-            
+
     return render_template('register.html')
 
 @auth_bp.route('/login', methods=['GET', 'POST'])

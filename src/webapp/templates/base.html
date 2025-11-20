@@ -28,7 +28,7 @@
                 <a class="nav-link {% if request.path == url_for('auth.dashboard') %}text-success fw-bold{% else %}text-dark{% endif %} py-4 px-4 border-bottom border-white border-opacity-10 d-flex align-items-center"
                     href="{{ url_for('auth.dashboard') }}">
                     <i class="bi bi-house-door me-3 fs-3"></i>
-                    <span class="fs-5">Dashboard</span>
+                    <span class="fs-5">Página principal</span>
                 </a>
 
                 <a class="nav-link {% if request.path == url_for('auth.perfil') %}text-success fw-bold{% else %}text-dark{% endif %} py-4 px-4 border-bottom border-white border-opacity-10 d-flex align-items-center"
@@ -38,6 +38,32 @@
                 </a>
 
             </nav>
+
+            {% if current_user.rol == 'admin' %}
+            <!-- Panel de Administrador al final del sidebar -->
+            <div class="mt-auto px-4 py-4 bg-success bg-opacity-10 rounded">
+                <!-- Separador / Título -->
+                <span class="text-uppercase text-dark fw-bold small">Panel de Administrador</span>
+                <hr class="border border-dark border-opacity-50 mt-1 mb-3">
+                <div class="d-flex flex-column">
+                    <a href="/" class="text-decoration-none">
+                        <div class="d-flex align-items-center py-3 text-dark hover-bg-light rounded px-2"
+                            style="cursor: pointer; transition: background-color 0.2s;">
+                            <i class="bi bi-people me-3 fs-3"></i>
+                            <span class="fs-5">Gestión de Usuarios</span>
+                        </div>
+                    </a>
+                </div>
+                <div class="d-flex flex-column">
+                    <div class="d-flex align-items-center py-3 text-dark">
+                        <i class=" me-3 fs-3"></i>
+                        <span class="fs-5">Gestión de Parcelas</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+
 
             <!-- Cerrar sesión al final, pegado a la derecha y en rojo -->
             <!-- Cerrar sesión al final, grande, pegado a la derecha y en rojo -->
@@ -56,23 +82,23 @@
     </div>
 
     <!-- Navbar -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-success shadow-sm">
-    <div class="container-fluid d-flex align-items-center">
-        <!-- Botón del sidebar -->
-        <button class="btn btn-success me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar">
-            <i class="bi bi-list fs-4"></i>
-        </button>
-        
-        <!-- Logo y nombre alineados a la izquierda -->
-        <a class="navbar-brand d-flex align-items-center" href="{{ url_for('auth.dashboard') }}">
-            <i class="bi bi-droplet-fill me-2 fs-4"></i>
-            <span class="fw-bold">Comunidad de Regantes</span>
-        </a>
-        
-        <!-- Espaciador (mantener) -->
-        <div class="ms-auto"></div>
-    </div>
-</nav>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-success shadow-sm">
+        <div class="container-fluid d-flex align-items-center">
+            <!-- Botón del sidebar -->
+            <button class="btn btn-success me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar">
+                <i class="bi bi-list fs-4"></i>
+            </button>
+
+            <!-- Logo y nombre alineados a la izquierda -->
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('auth.dashboard') }}">
+                <i class="bi bi-droplet-fill me-2 fs-4"></i>
+                <span class="fw-bold">Comunidad de Regantes</span>
+            </a>
+
+            <!-- Espaciador (mantener) -->
+            <div class="ms-auto"></div>
+        </div>
+    </nav>
     <!-- Contenido principal -->
     <div class="container mt-5">{% block content %}{% endblock %}</div>
 

@@ -3,34 +3,13 @@
 {% block title %}Mi Perfil{% endblock %}
 
 {% block content %}
-<style>
-    .bg-verde {
-        background-color: #2d7a5f !important;
-    }
-
-    .text-verde {
-        color: #2d7a5f !important;
-    }
-
-    .btn-verde {
-        background-color: #2d7a5f;
-        border-color: #2d7a5f;
-    }
-
-    .btn-verde:hover {
-        background-color: #3a9b78;
-        border-color: #3a9b78;
-    }
-</style>
-
-
 <div class="container mt-5">
     <div class="row">
         <!-- Avatar -->
         <div class="col-md-3 text-center">
             <div class="d-inline-block position-relative">
-                <div class="rounded-circle bg-verde d-flex align-items-center justify-content-center shadow"
-                    style="width: 200px; height: 200px;">
+                <div class="rounded-circle bg-success d-flex align-items-center justify-content-center shadow"
+                     style="width: 200px; height: 200px;">
                     <i class="bi bi-person-fill text-white" style="font-size: 100px;"></i>
                 </div>
             </div>
@@ -60,16 +39,16 @@
                 </div>
 
                 <div class="d-flex align-items-center gap-2 text-secondary mt-4 pt-3 border-top">
-                   <span>Último Acceso: {{ ultimo_acceso.strftime('%d/%m/%Y %H:%M:%S') if ultimo_acceso else 'N/A' }}</span>
+                    <span>Último Acceso: {{ ultimo_acceso.strftime('%d/%m/%Y %H:%M:%S') if ultimo_acceso else 'N/A' }}</span>
                 </div>
 
                 <div class="mt-5">
                     <h2 class="h4 fw-bold mb-4">Opciones</h2>
 
                     <div class="d-flex align-items-start gap-3 py-3 border-bottom">
-                        <i class="bi bi-bell text-verde fs-3" style="width: 40px;"></i>
+                        <i class="bi bi-bell text-success fs-3" style="width: 40px;"></i>
                         <div class="flex-grow-1">
-                            <div class="fw-bold text-verde mb-2">Recibir notificaciones</div>
+                            <div class="fw-bold text-success mb-2">Recibir notificaciones</div>
                             <div class="text-secondary small">
                                 Recibirá notificaciones a través del correo asociado a su cuenta con novedades acerca de
                                 sus parcelas y de actualizaciones de la zona.
@@ -77,14 +56,14 @@
                         </div>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" role="switch" checked
-                                style="width: 50px; height: 26px;">
+                                   style="width: 50px; height: 26px;">
                         </div>
                     </div>
 
                     <div class="d-flex align-items-start gap-3 py-3">
-                        <i class="bi bi-geo-alt text-verde fs-3" style="width: 40px;"></i>
+                        <i class="bi bi-geo-alt text-success fs-3" style="width: 40px;"></i>
                         <div class="flex-grow-1">
-                            <div class="fw-bold text-verde mb-2">Acceder a su posición</div>
+                            <div class="fw-bold text-success mb-2">Acceder a su posición</div>
                             <div class="text-secondary small">
                                 Permitirá a la aplicación acceder a tu ubicación actual en el mapa.<br>
                                 Así podrá visualizar las parcelas y campos registrados a su alrededor.
@@ -92,26 +71,25 @@
                         </div>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" role="switch"
-                                style="width: 50px; height: 26px;">
+                                   style="width: 50px; height: 26px;">
                         </div>
-
                     </div>
+
                     <div class="mt-auto px-4 py-3 border-top border-white border-opacity-10 d-flex justify-content-end">
                         <a class="nav-link text-danger d-inline-flex align-items-center fs-6"
-                            href="{{ url_for('auth.logout') }}">
+                           href="{{ url_for('auth.logout') }}">
                             <i class="bi bi-box-arrow-right me-2 fs-4"></i>
                             <span class="fs-6">Cerrar Sesión</span>
                         </a>
                     </div>
-
                 </div>
             </div>
         </div>
 
         <!-- Botones -->
         <div class="col-md-3">
-            <button class="btn btn-verde text-white w-100 mb-3 py-2">Editar información</button>
-            <button class="btn btn-verde text-white w-100 py-2">Acceder a mis Parcelas</button>
+            <button class="btn btn-success text-white w-100 mb-3 py-2">Editar información</button>
+            <button class="btn btn-success text-white w-100 py-2">Acceder a mis Parcelas</button>
         </div>
     </div>
 </div>
