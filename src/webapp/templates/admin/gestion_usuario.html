@@ -1,4 +1,3 @@
-
 {% extends "base.html" %}
 
 {% block title %}Gestión de Usuarios - Admin{% endblock %}
@@ -170,6 +169,27 @@
                                                 {{ usuario.fecha_registro.strftime('%d/%m/%Y') if usuario.fecha_registro else 'N/A' }}
                                             </small>
                                         </td>
+                                        <td class="text-center">
+                                            {% if usuario.id_usuario != current_user.id_usuario %}
+                                                {% if usuario.activo %}
+                                                    <a
+                                                       class="btn btn-sm btn-outline-warning"
+                                                       title="Desactivar usuario">
+                                                        <i class="bi bi-pause-circle me-1"></i>Desactivar
+                                                    </a>
+                                                {% else %}
+                                                    <a 
+                                                       class="btn btn-sm btn-success"
+                                                       title="Activar usuario">
+                                                        <i class="bi bi-check-circle me-1"></i>Activar
+                                                    </a>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="badge bg-secondary">
+                                                    <i class="bi bi-lock me-1"></i>Tu cuenta
+                                                </span>
+                                            {% endif %}
+                                        </td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
@@ -185,8 +205,18 @@
                         </table>
                     </div>
                 </div>
+                {% if usuarios %}
+                <div class="card-footer bg-white border-top">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            Mostrando {{ usuarios|length }} usuario{{ 's' if usuarios|length != 1 else '' }}
+                        </small>
+
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
-{% endblock %}  
+{% endblock %}
