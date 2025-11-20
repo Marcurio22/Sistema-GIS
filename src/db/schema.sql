@@ -19,6 +19,14 @@ CREATE TABLE usuarios (
     rol              VARCHAR(50)  NOT NULL,
     fecha_registro   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     activo           BOOLEAN      NOT NULL DEFAULT TRUE
+    -- Campo opcional
+    telefono         VARCHAR(15),
+    -- Restricción: si no es NULL -> formato +34#########
+    CONSTRAINT chk_telefono_formato_es
+        CHECK (
+            telefono IS NULL
+            OR telefono ~ '^\+34[0-9]{9}$'
+        )
 );
 
 -- =========================================================
