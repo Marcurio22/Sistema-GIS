@@ -20,7 +20,8 @@ def create_app():
     login_manager.login_message = None 
     login_manager.needs_refresh_message = None  
 
-    from .auth.routes import auth_bp
+    from .auth import auth_bp
+    from .admin import admin_bp 
 
     app.jinja_env.filters['tel_es'] = formato_tel_es
     app.register_blueprint(auth_bp)
