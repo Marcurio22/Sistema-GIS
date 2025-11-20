@@ -25,5 +25,6 @@ def create_app():
 
     app.jinja_env.filters['tel_es'] = formato_tel_es
     app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
 
     return app

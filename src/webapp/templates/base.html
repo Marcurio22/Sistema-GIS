@@ -46,24 +46,23 @@
                 <span class="text-uppercase text-dark fw-bold small">Panel de Administrador</span>
                 <hr class="border border-dark border-opacity-50 mt-1 mb-3">
                 <div class="d-flex flex-column">
-                    <a href="/" class="text-decoration-none">
+                    <a href="{{ url_for('admin.gestion_usuarios') }}" class="text-decoration-none">
                         <div class="d-flex align-items-center py-3 text-dark hover-bg-light rounded px-2"
                             style="cursor: pointer; transition: background-color 0.2s;">
-                            <i class="bi bi-people me-3 fs-3"></i>
-                            <span class="fs-5">Gestión de Usuarios</span>
+                            <i class="bi bi-people me-3 fs-4"></i> <!-- Icono más pequeño -->
+                            <span class="fs-6">Gestión de Usuarios</span> <!-- Texto más pequeño -->
                         </div>
                     </a>
                 </div>
                 <div class="d-flex flex-column">
                     <div class="d-flex align-items-center py-3 text-dark">
-                        <i class=" me-3 fs-3"></i>
-                        <span class="fs-5">Gestión de Parcelas</span>
+                        <i class="me-3 fs-4"></i> <!-- Icono más pequeño -->
+                        <span class="fs-6">Gestión de Parcelas</span> <!-- Texto más pequeño -->
                     </div>
                 </div>
+
             </div>
             {% endif %}
-
-
 
             <!-- Cerrar sesión al final, pegado a la derecha y en rojo -->
             <!-- Cerrar sesión al final, grande, pegado a la derecha y en rojo -->
