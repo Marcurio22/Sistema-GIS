@@ -174,10 +174,77 @@ def perfil():
     return render_template('perfil.html', user=current_user, ultimo_acceso=ultimo_log.fecha_hora if ultimo_log else None)
 
 
+
+@auth_bp.route('/perfil/actualizar', methods=['POST'])
+@login_required
+def actualizar():
+    """Actualiza la información del usuario"""
+    try:
+        # Obtener datos del formulario
+        nuevo_username = request.form.get('username', '').strip()
+        nuevo_email = request.form.get('email', '').strip()
+        nuevo_telefono = request.form.get('telefono', '').strip()
+        
+        # Validaciones básicas
+        if not nuevo_username or not nuevo_email:
+            flash('El nombre de usuario y el correo son obligatorios', 'danger')
+            return redirect(url_for('auth.perfil'))
+        
+        # Verificar si el username ya existe (excepto el del usuario actual)
+        if nuevo_username != current_user.username:
+            usuario_existente = User.query.filter_by(username=nuevo_username).first()
+            if usuario_existente:
+                flash('El nombre de usuario ya está en uso', 'danger')
+                return redirect(url_for('auth.perfil'))
+        
+        # Verificar si el email ya existe (excepto el del usuario actual)
+        if nuevo_email != current_user.email:
+            email_existente = User.query.filter_by(email=nuevo_email).first()
+            if email_existente:
+                flash('El correo electrónico ya está en uso', 'danger')
+                return redirect(url_for('auth.perfil'))
+        
+        # Validar y normalizar teléfono (igual que en register)
+        telefono_normalizado = None
+        if nuevo_telefono:
+            try:
+                telefono_normalizado = normalizar_telefono_es(nuevo_telefono)
+            except ValueError as e:
+                flash(str(e), 'danger')
+                logger.warning(
+                    f'Formato de teléfono inválido en actualización de perfil: {nuevo_telefono}',
+                    extra={'tipo_operacion': 'ACTUALIZACION', 'modulo': 'PERFIL'}
+                )
+                return redirect(url_for('auth.perfil'))
+        
+        # Actualizar los datos del usuario
+        current_user.username = nuevo_username
+        current_user.email = nuevo_email
+        current_user.telefono = telefono_normalizado
+        
+        # Guardar cambios en la base de datos
+        db.session.commit()
+        
+        # Registrar el cambio en logs
+        logger.info(
+            f'Usuario {current_user.username} actualizó su perfil',
+            extra={'tipo_operacion': 'ACTUALIZACION', 'modulo': 'PERFIL'}
+        )
+        
+        flash('Tu información ha sido actualizada correctamente', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(
+            f'Error al actualizar perfil de {current_user.username}: {str(e)}',
+            extra={'tipo_operacion': 'ERROR', 'modulo': 'PERFIL'}
+        )
+        flash(f'Error al actualizar la información: {str(e)}', 'danger')
+    
+    return redirect(url_for('auth.perfil'))
+
+
+
 @auth_bp.route('/')
 def index():
     return redirect(url_for('auth.login'))
-
-
-
-

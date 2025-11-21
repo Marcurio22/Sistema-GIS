@@ -4,12 +4,23 @@
 
 {% block content %}
 <div class="container mt-5">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ 'success' if category=='success' else 'danger' }} alert-dismissible fade show"
+        role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
     <div class="row">
         <!-- Avatar -->
         <div class="col-md-3 text-center">
             <div class="d-inline-block position-relative">
                 <div class="rounded-circle bg-success d-flex align-items-center justify-content-center shadow"
-                     style="width: 200px; height: 200px;">
+                    style="width: 200px; height: 200px;">
                     <i class="bi bi-person-fill text-white" style="font-size: 100px;"></i>
                 </div>
             </div>
@@ -39,7 +50,8 @@
                 </div>
 
                 <div class="d-flex align-items-center gap-2 text-secondary mt-4 pt-3 border-top">
-                    <span>Último Acceso: {{ ultimo_acceso.strftime('%d/%m/%Y %H:%M:%S') if ultimo_acceso else 'N/A' }}</span>
+                    <span>Último Acceso: {{ ultimo_acceso.strftime('%d/%m/%Y %H:%M:%S') if ultimo_acceso else 'N/A'
+                        }}</span>
                 </div>
 
                 <div class="mt-5">
@@ -56,7 +68,7 @@
                         </div>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" role="switch" checked
-                                   style="width: 50px; height: 26px;">
+                                style="width: 50px; height: 26px;">
                         </div>
                     </div>
 
@@ -71,13 +83,13 @@
                         </div>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" role="switch"
-                                   style="width: 50px; height: 26px;">
+                                style="width: 50px; height: 26px;">
                         </div>
                     </div>
 
                     <div class="mt-auto px-4 py-3 border-top border-white border-opacity-10 d-flex justify-content-end">
                         <a class="nav-link text-danger d-inline-flex align-items-center fs-6"
-                           href="{{ url_for('auth.logout') }}">
+                            href="{{ url_for('auth.logout') }}">
                             <i class="bi bi-box-arrow-right me-2 fs-4"></i>
                             <span class="fs-6">Cerrar Sesión</span>
                         </a>
@@ -88,9 +100,128 @@
 
         <!-- Botones -->
         <div class="col-md-3">
-            <button class="btn btn-success text-white w-100 mb-3 py-2">Editar información</button>
-            <button class="btn btn-success text-white w-100 py-2">Acceder a mis Parcelas</button>
+            <button class="btn btn-success text-white w-100 mb-3 py-2" data-bs-toggle="modal"
+                data-bs-target="#editarInfoModal">
+                Editar información
+            </button>
+            <button class="btn btn-success text-white w-100 mb-3 py-2">Acceder a mis Parcelas</button>
+            <button class="btn btn-success text-white w-100 mb-3 py-2" data-bs-toggle="modal"
+                data-bs-target="#cambiarPassModal">
+                Cambiar Contraseña
+            </button>
+
         </div>
     </div>
 </div>
+
+<!-- Modal de Editar Información -->
+<div class="modal fade" id="editarInfoModal" tabindex="-1" aria-labelledby="editarInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="editarInfoModalLabel">
+                    <i class="bi bi-pencil-square me-2"></i>Editar Información
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editarInfoForm" method="POST" action="{{ url_for('auth.actualizar') }}">
+                    <div class="mb-3">
+                        <label for="username" class="form-label fw-bold">
+                            <i class="bi bi-person me-2 text-success"></i>Nombre de usuario
+                        </label>
+                        <input type="text" class="form-control" id="username" name="username"
+                            value="{{ user.username }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label fw-bold">
+                            <i class="bi bi-envelope me-2 text-success"></i>Correo electrónico
+                        </label>
+                        <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}"
+                            required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="telefono" class="form-label fw-bold">
+                            <i class="bi bi-telephone me-2 text-success"></i>Teléfono
+                        </label>
+                        <input type="tel" class="form-control" id="telefono" name="telefono"
+                            value="{{ user.telefono or '' }}" placeholder="Ej: +34 666 66 66 66">
+                    </div>
+
+                    <div class="alert alert-info small mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Los cambios se guardarán al hacer clic en "Guardar cambios"
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>Cancelar
+                </button>
+                <button type="submit" class="btn btn-success" form="editarInfoForm">
+                    <i class="bi bi-check-circle me-2"></i>Guardar cambios
+                </button>
+
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal de Cambiar Contraseña -->
+<div class="modal fade" id="cambiarPassModal" tabindex="-1" aria-labelledby="cambiarPassModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="cambiarPassModalLabel">
+                    <i class="bi bi-shield-lock me-2"></i>Cambiar Contraseña
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <form id="cambiarPassForm" method="POST">
+                    <div class="mb-3">
+                        <label for="old_password" class="form-label fw-bold">
+                            <i class="bi bi-lock-fill me-2 text-success"></i>Contraseña actual
+                        </label>
+                        <input type="password" class="form-control" id="old_password" name="old_password" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="new_password" class="form-label fw-bold">
+                            <i class="bi bi-shield-lock me-2 text-success"></i>Nueva contraseña
+                        </label>
+                        <input type="password" class="form-control" id="new_password" name="new_password" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label fw-bold">
+                            <i class="bi bi-shield-check me-2 text-success"></i>Confirmar nueva contraseña
+                        </label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password"
+                            required>
+                    </div>
+
+                    <div class="alert alert-info small mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        La contraseña debe tener al menos 8 caracteres.
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>Cancelar
+                </button>
+                <button type="submit" class="btn btn-success" form="cambiarPassForm">
+                    <i class="bi bi-check-circle me-2"></i>Guardar cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

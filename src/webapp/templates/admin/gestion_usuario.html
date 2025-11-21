@@ -196,12 +196,13 @@
                                             <i class="bi bi-check-circle me-1"></i>Activar
                                         </a>
                                         {% endif %}
-                                        {% if usuario.rol == 'user' %}
-                                        <a href="{{ url_for('admin.hacer_admin', id=usuario.id_usuario) }}"
-                                            class="btn btn-sm btn-outline-danger" title="Quitar rol de administrador">
-                                            <i class="bi bi-person-x me-1"></i>Hacer Admin
-                                        </a>
+                                        {% if usuario.rol == 'user' and usuario.activo %}
+                                            <a href="{{ url_for('admin.hacer_admin', id=usuario.id_usuario) }}"
+                                                class="btn btn-sm btn-outline-danger" title="Hacer administrador">
+                                                <i class="bi bi-person-check me-1"></i>Hacer Admin
+                                            </a>
                                         {% endif %}
+
 
                                         {% else %}
                                         <span class="badge bg-secondary">
