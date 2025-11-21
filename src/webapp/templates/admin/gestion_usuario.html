@@ -4,6 +4,17 @@
 
 {% block content %}
 <div class="container-fluid py-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ 'success' if category=='success' else 'danger' }} alert-dismissible fade show"
+        role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
     <!-- Header -->
     <div class="row mb-4">
         <div class="col-12">
@@ -110,96 +121,105 @@
                             </thead>
                             <tbody>
                                 {% if usuarios %}
-                                    {% for usuario in usuarios %}
-                                    <tr>
-                                        <td class="px-3">
-                                            <span class="badge bg-secondary">#{{ usuario.id_usuario }}</span>
-                                        </td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3" 
-                                                     style="width: 40px; height: 40px; min-width: 40px;">
-                                                    <span class="text-primary fw-bold">{{ usuario.username[0]|upper }}</span>
-                                                </div>
-                                                <div>
-                                                    <div class="fw-semibold">{{ usuario.username }}</div>
-                                                    {% if usuario.id_usuario == current_user.id_usuario %}
-                                                        <small class="badge bg-info">Tú</small>
-                                                    {% endif %}
-                                                </div>
+                                {% for usuario in usuarios %}
+                                <tr>
+                                    <td class="px-3">
+                                        <span class="badge bg-secondary">#{{ usuario.id_usuario }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3"
+                                                style="width: 40px; height: 40px; min-width: 40px;">
+                                                <span class="text-primary fw-bold">{{ usuario.username[0]|upper
+                                                    }}</span>
                                             </div>
-                                        </td>
-                                        <td>
-                                            <i class="bi bi-envelope me-2 text-muted"></i>
-                                            <span class="text-break">{{ usuario.email if usuario.email else 'No especificado' }}</span>
-                                        </td>
-                                        <td>
-                                            {% if usuario.telefono %}
-                                                <i class="bi bi-telephone me-2 text-muted"></i>
-                                                {{ usuario.telefono|tel_es }}
-                                            {% else %}
-                                                <span class="text-muted">No especificado</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if usuario.rol == 'admin' %}
-                                                <span class="badge bg-danger">
-                                                    <i class="bi bi-shield-check me-1"></i>Administrador
-                                                </span>
-                                            {% else %}
-                                                <span class="badge bg-success">
-                                                    <i class="bi bi-person me-1"></i>Usuario
-                                                </span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if usuario.activo %}
-                                                <span class="badge bg-success bg-opacity-10 text-success">
-                                                    <i class="bi bi-check-circle-fill me-1"></i>Activo
-                                                </span>
-                                            {% else %}
-                                                <span class="badge bg-warning bg-opacity-10 text-warning">
-                                                    <i class="bi bi-pause-circle-fill me-1"></i>Inactivo
-                                                </span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            <small class="text-muted">
-                                                <i class="bi bi-calendar3 me-1"></i>
-                                                {{ usuario.fecha_registro.strftime('%d/%m/%Y') if usuario.fecha_registro else 'N/A' }}
-                                            </small>
-                                        </td>
-                                        <td class="text-center">
-                                            {% if usuario.id_usuario != current_user.id_usuario %}
-                                                {% if usuario.activo %}
-                                                    <a
-                                                       class="btn btn-sm btn-outline-warning"
-                                                       title="Desactivar usuario">
-                                                        <i class="bi bi-pause-circle me-1"></i>Desactivar
-                                                    </a>
-                                                {% else %}
-                                                    <a 
-                                                       class="btn btn-sm btn-success"
-                                                       title="Activar usuario">
-                                                        <i class="bi bi-check-circle me-1"></i>Activar
-                                                    </a>
+                                            <div>
+                                                <div class="fw-semibold">{{ usuario.username }}</div>
+                                                {% if usuario.id_usuario == current_user.id_usuario %}
+                                                <small class="badge bg-info">Tú</small>
                                                 {% endif %}
-                                            {% else %}
-                                                <span class="badge bg-secondary">
-                                                    <i class="bi bi-lock me-1"></i>Tu cuenta
-                                                </span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <i class="bi bi-envelope me-2 text-muted"></i>
+                                        <span class="text-break">{{ usuario.email if usuario.email else 'No
+                                            especificado' }}</span>
+                                    </td>
+                                    <td>
+                                        {% if usuario.telefono %}
+                                        <i class="bi bi-telephone me-2 text-muted"></i>
+                                        {{ usuario.telefono|tel_es }}
+                                        {% else %}
+                                        <span class="text-muted">No especificado</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if usuario.rol == 'admin' %}
+                                        <span class="badge bg-danger">
+                                            <i class="bi bi-shield-check me-1"></i>Administrador
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-success">
+                                            <i class="bi bi-person me-1"></i>Usuario
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if usuario.activo %}
+                                        <span class="badge bg-success bg-opacity-10 text-success">
+                                            <i class="bi bi-check-circle-fill me-1"></i>Activo
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-warning bg-opacity-10 text-warning">
+                                            <i class="bi bi-pause-circle-fill me-1"></i>Inactivo
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            <i class="bi bi-calendar3 me-1"></i>
+                                            {{ usuario.fecha_registro.strftime('%d/%m/%Y') if usuario.fecha_registro
+                                            else 'N/A' }}
+                                        </small>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if usuario.id_usuario != current_user.id_usuario %}
+                                        {% if usuario.activo %}
+                                        <a href="{{ url_for('admin.desactivar_usuario', id=usuario.id_usuario) }}"
+                                            class="btn btn-sm btn-outline-warning" title="Desactivar usuario">
+                                            <i class="bi bi-pause-circle me-1"></i>Desactivar
+                                        </a>
+                                        {% else %}
+                                        <a href="{{ url_for('admin.activar_usuario', id=usuario.id_usuario) }}"
+                                            class="btn btn-sm btn-success" title="Activar usuario">
+                                            <i class="bi bi-check-circle me-1"></i>Activar
+                                        </a>
+                                        {% endif %}
+                                        {% if usuario.rol == 'user' %}
+                                        <a href="{{ url_for('admin.hacer_admin', id=usuario.id_usuario) }}"
+                                            class="btn btn-sm btn-outline-danger" title="Quitar rol de administrador">
+                                            <i class="bi bi-person-x me-1"></i>Hacer Admin
+                                        </a>
+                                        {% endif %}
+
+                                        {% else %}
+                                        <span class="badge bg-secondary">
+                                            <i class="bi bi-lock me-1"></i>Tu cuenta
+                                        </span>
+                                        {% endif %}
+
+                                    </td>
+                                </tr>
+                                {% endfor %}
                                 {% else %}
-                                    <tr>
-                                        <td colspan="7" class="text-center py-5">
-                                            <i class="bi bi-inbox fs-1 text-muted d-block mb-3"></i>
-                                            <h5 class="text-muted">No hay usuarios registrados</h5>
-                                            <p class="text-muted mb-0">Los usuarios aparecerán aquí cuando se registren</p>
-                                        </td>
-                                    </tr>
+                                <tr>
+                                    <td colspan="7" class="text-center py-5">
+                                        <i class="bi bi-inbox fs-1 text-muted d-block mb-3"></i>
+                                        <h5 class="text-muted">No hay usuarios registrados</h5>
+                                        <p class="text-muted mb-0">Los usuarios aparecerán aquí cuando se registren</p>
+                                    </td>
+                                </tr>
                                 {% endif %}
                             </tbody>
                         </table>

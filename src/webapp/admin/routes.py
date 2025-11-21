@@ -14,7 +14,6 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or current_user.rol != 'admin':
-            flash('No tienes permisos para acceder a esta sección.', 'danger')
             logger.warning(
                 f'Intento de acceso no autorizado al panel admin por: {current_user.username if current_user.is_authenticated else "anónimo"}',
                 extra={'tipo_operacion': 'ACCESO_DENEGADO', 'modulo': 'ADMIN'}
@@ -27,10 +26,63 @@ def admin_required(f):
 @login_required
 @admin_required
 def gestion_usuarios():
-    usuarios = User.query.all()
+    usuarios = User.query.order_by(
+        User.rol.asc(),       # Admins primero (asumiendo que 'admin' > 'user')
+        User.activo.desc(),    # Activos antes que inactivos
+        User.id_usuario        # Por último por ID ascendente
+    ).all()
     logger.info(
         f'Admin {current_user.username} accedió a gestión de usuarios',
         extra={'tipo_operacion': 'ACCESO', 'modulo': 'ADMIN'}
     )
     
     return render_template('admin/gestion_usuario.html', usuarios=usuarios)
+
+
+
+
+
+@admin_bp.route('/usuarios/<int:id>/activar')
+@login_required
+@admin_required
+def activar_usuario(id):
+    usuario = User.query.get_or_404(id)
+    usuario.activo = True
+    db.session.commit()
+    
+    logger.info(
+        f'Admin {current_user.username} activó al usuario {usuario.username}',
+        extra={'tipo_operacion': 'ACTIVAR_USUARIO', 'modulo': 'ADMIN'}
+    )
+    
+    flash(f'Usuario {usuario.username} activado correctamente.', 'success')
+    return redirect(url_for('admin.gestion_usuarios'))
+
+
+@admin_bp.route('/usuarios/<int:id>/desactivar')
+@login_required
+@admin_required
+def desactivar_usuario(id):
+
+    usuario = User.query.get_or_404(id)
+    usuario.activo = False
+    db.session.commit()
+    
+    logger.info(
+        f'Admin {current_user.username} desactivó al usuario {usuario.username}',
+        extra={'tipo_operacion': 'DESACTIVAR_USUARIO', 'modulo': 'ADMIN'}
+    )
+    
+    flash(f'Usuario {usuario.username} desactivado correctamente.', 'warning')
+    return redirect(url_for('admin.gestion_usuarios'))
+
+@admin_bp.route('/usuarios/<int:id>/hacer_admin')
+@login_required
+@admin_required
+def hacer_admin(id):
+    usuario = User.query.get_or_404(id)
+
+    usuario.rol = 'admin'
+    db.session.commit()
+    flash(f"{usuario.username} ahora es administrador.", "success")
+    return redirect(url_for('admin.gestion_usuarios'))

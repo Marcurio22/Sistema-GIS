@@ -7,6 +7,7 @@ from ..models import LogsSistema, User
 from ..utils.logging_handler import SQLAlchemyHandler
 from ..utils.utils import normalizar_telefono_es
 import logging
+import re
 
 # Configuración del logger
 logger = logging.getLogger('app.auth')
@@ -24,7 +25,6 @@ logger.addHandler(db_handler)
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Rutas
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
@@ -35,6 +35,16 @@ def register():
         email = request.form.get('email')
         password = request.form.get('password')
         telefono = request.form.get('telefono')
+
+        password_pattern = re.compile(
+            r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
+        )
+        if not password_pattern.match(password):
+            flash('La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula, un número y un carácter especial.', 'danger')
+            return render_template('register.html', 
+                                   username=username, 
+                                   email=email, 
+                                   telefono=telefono)
 
         # Validar usuario existente por username
         user_by_username = User.query.filter_by(username=username).first()
@@ -93,6 +103,7 @@ def register():
         return redirect(url_for('auth.login'))
 
     return render_template('register.html')
+
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
