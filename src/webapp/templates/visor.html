@@ -1,3 +1,8 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
 <!doctype html>
 <html lang="es">
 <head>
@@ -15,3 +20,5 @@
   <script src="{{ url_for('static', filename='js/visor.js') }}"></script>
 </body>
 </html>
+{% endif %}
+{% endblock %}
