@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, flash, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
 from . import dashboard_bp
 from datetime import datetime
@@ -263,3 +263,9 @@ def dashboard():
     weather = obtener_datos_aemet()
     
     return render_template('dashboard.html', username=current_user.username, weather=weather)
+
+
+@dashboard_bp.get("/visor")
+@login_required
+def visor():
+    return render_template("visor.html")

@@ -11,7 +11,10 @@ def recintos_geojson(bbox_str):
             ST_MakeEnvelope(:minx,:miny,:maxx,:maxy,4326)
         )
     """)
-    gdf = gpd.read_postgis(sql, db.engine, params=dict(
-        minx=minx, miny=miny, maxx=maxx, maxy=maxy
-    ))
+    gdf = gpd.read_postgis(
+    sql,
+    db.engine,
+    params=dict(minx=minx, miny=miny, maxx=maxx, maxy=maxy),
+    geom_col="geometry",
+    )
     return gdf.__geo_interface__
