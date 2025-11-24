@@ -92,7 +92,7 @@ def obtener_datos_aemet():
                 'provincia': provincia,
                 'municipio': municipio,
                 'temperatura': temp_actual,
-                'descripcion': estados_cielo.get(estado_cielo_cod, 'Variable'),
+                'descripcion': estados_cielo.get(estado_cielo_cod, 'Desconocido'),
                 'icono': iconos_bootstrap.get(estado_cielo_cod, 'cloud'),
                 'humedad': humedad,
                 'viento': viento,

@@ -30,7 +30,7 @@ except ImportError:
 # -----------------------------
 # 1) Cargar ROI y calcular bbox
 # -----------------------------
-roi_path = "data/processed/roi.gpkg"  # usa gpkg/shp, NO .qgz
+roi_path = "../data/processed/roi.gpkg"  # usa gpkg/shp, NO .qgz
 roi = gpd.read_file(roi_path).to_crs(4326)  # WGS84 / CRS84
 
 minx, miny, maxx, maxy = roi.total_bounds
