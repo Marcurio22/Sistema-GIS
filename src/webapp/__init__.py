@@ -23,11 +23,14 @@ def create_app():
     from .auth import auth_bp
     from .admin import admin_bp 
     from .dashboard import dashboard_bp
+    from .api import api_bp
+
 
     app.jinja_env.filters['tel_es'] = formato_tel_es
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(api_bp)
     
 
     return app
