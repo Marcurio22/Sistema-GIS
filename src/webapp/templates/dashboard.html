@@ -32,7 +32,7 @@
             <div class="row align-items-center">
                 <div class="col-md-6 text-center text-md-start mb-4 mb-md-0">
                     <div class="d-flex align-items-center justify-content-center justify-content-md-start">
-                        <i class="bi bi-{{ weather.icono }} text-primary" style="font-size: 6rem;"></i>
+                        <i class="bi bi-{{ weather.icono }} {{ weather.color_icono }}" style="font-size: 6rem;"></i>
                         <div class="ms-4">
                             <div class="display-1 fw-bold text-primary">{{ weather.temperatura }}°</div>
                             <p class="h4 text-muted mb-0">{{ weather.descripcion }}</p>
@@ -79,7 +79,7 @@
     <div class="col-12 text-center">
         <a href="{{ url_for('api.recintos') }}" class="btn btn-primary btn-lg px-5 py-3 shadow">
             <i class="bi bi-map me-2"></i>
-            Acceder al 
+            Acceder al Mapa
         </a>
     </div>
 </div>
