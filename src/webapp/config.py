@@ -19,6 +19,8 @@ class Config:
     SESSION_TYPE = 'filesystem'
     SESSION_PERMANENT = False
     PERMANENT_SESSION_LIFETIME = 2629800  # 1 mes en segundos
+
+    AEMET_API_KEY = os.getenv('AEMET_API_KEY') 
     
 
 

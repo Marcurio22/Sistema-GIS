@@ -1,6 +1,6 @@
 from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
-from . import auth_bp  # CAMBIO: importar desde el __init__.py local
+from . import auth_bp 
 from .. import db, login_manager
 from sqlalchemy import desc
 from ..models import LogsSistema, User
@@ -28,7 +28,7 @@ def load_user(user_id):
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for('auth.dashboard'))
+        return redirect(url_for('dashboard.dashboard'))
 
     if request.method == 'POST':
         username = request.form.get('username')
@@ -108,7 +108,7 @@ def register():
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('auth.dashboard'))
+        return redirect(url_for('dashboard.dashboard'))
 
     if request.method == 'POST':
         username = request.form.get('username')
@@ -122,7 +122,7 @@ def login():
                 f'Login exitoso: {username}',
                 extra={'tipo_operacion': 'LOGIN', 'modulo': 'AUTH'}
             )
-            return redirect(url_for('auth.dashboard'))
+            return redirect(url_for('dashboard.dashboard'))
         else:
             logger.warning(
                 f'Intento de login fallido: {username}',
@@ -133,14 +133,7 @@ def login():
     return render_template('login.html')
 
 
-@auth_bp.route('/dashboard')
-@login_required
-def dashboard():
-    logger.info(
-        f'Usuario {current_user.username} accedió al dashboard',
-        extra={'tipo_operacion': 'ACCESO', 'modulo': 'DASHBOARD'}
-    )
-    return render_template('dashboard.html', username=current_user.username)
+
 
 
 @auth_bp.route('/logout')
@@ -174,10 +167,119 @@ def perfil():
     return render_template('perfil.html', user=current_user, ultimo_acceso=ultimo_log.fecha_hora if ultimo_log else None)
 
 
+
+@auth_bp.route('/perfil/actualizar', methods=['POST'])
+@login_required
+def actualizar():
+    """Actualiza la información del usuario"""
+    try:
+        # Obtener datos del formulario
+        nuevo_username = request.form.get('username', '').strip()
+        nuevo_email = request.form.get('email', '').strip()
+        nuevo_telefono = request.form.get('telefono', '').strip()
+        
+        # Validaciones básicas
+        if not nuevo_username or not nuevo_email:
+            flash('El nombre de usuario y el correo son obligatorios', 'danger')
+            return redirect(url_for('auth.perfil'))
+        
+        # Verificar si el username ya existe (excepto el del usuario actual)
+        if nuevo_username != current_user.username:
+            usuario_existente = User.query.filter_by(username=nuevo_username).first()
+            if usuario_existente:
+                flash('El nombre de usuario ya está en uso', 'danger')
+                return redirect(url_for('auth.perfil'))
+        
+        # Verificar si el email ya existe (excepto el del usuario actual)
+        if nuevo_email != current_user.email:
+            email_existente = User.query.filter_by(email=nuevo_email).first()
+            if email_existente:
+                flash('El correo electrónico ya está en uso', 'danger')
+                return redirect(url_for('auth.perfil'))
+        
+        # Validar y normalizar teléfono (igual que en register)
+        telefono_normalizado = None
+        if nuevo_telefono:
+            try:
+                telefono_normalizado = normalizar_telefono_es(nuevo_telefono)
+            except ValueError as e:
+                flash(str(e), 'danger')
+                logger.warning(
+                    f'Formato de teléfono inválido en actualización de perfil: {nuevo_telefono}',
+                    extra={'tipo_operacion': 'ACTUALIZACION', 'modulo': 'PERFIL'}
+                )
+                return redirect(url_for('auth.perfil'))
+        
+        # Actualizar los datos del usuario
+        current_user.username = nuevo_username
+        current_user.email = nuevo_email
+        current_user.telefono = telefono_normalizado
+        
+        # Guardar cambios en la base de datos
+        db.session.commit()
+        
+        # Registrar el cambio en logs
+        logger.info(
+            f'Usuario {current_user.username} actualizó su perfil',
+            extra={'tipo_operacion': 'ACTUALIZACION', 'modulo': 'PERFIL'}
+        )
+        
+        flash('Tu información ha sido actualizada correctamente', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(
+            f'Error al actualizar perfil de {current_user.username}: {str(e)}',
+            extra={'tipo_operacion': 'ERROR', 'modulo': 'PERFIL'}
+        )
+        flash(f'Error al actualizar la información: {str(e)}', 'danger')
+    
+    return redirect(url_for('auth.perfil'))
+
+
+@auth_bp.route('/cambiar_contrasena', methods=['POST'])
+@login_required
+def cambiar_contrasena():
+    """Permite al usuario cambiar su contraseña"""
+    try:
+        antigua_password = request.form.get('old_password', '').strip()
+        nueva_password = request.form.get('new_password', '').strip()
+        
+        # Validar la contraseña antigua
+        if not current_user.check_password(antigua_password):
+            flash('La contraseña actual es incorrecta', 'danger')
+            return redirect(url_for('auth.perfil'))
+        
+        # Validar la nueva contraseña
+        password_pattern = re.compile(
+            r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
+        )
+        if not password_pattern.match(nueva_password):
+            flash('La nueva contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula, un número y un carácter especial.', 'danger')
+            return redirect(url_for('auth.perfil'))
+        
+        # Actualizar la contraseña
+        current_user.set_password(nueva_password)
+        db.session.commit()
+        
+        # Registrar el cambio en logs
+        logger.info(
+            f'Usuario {current_user.username} cambió su contraseña',
+            extra={'tipo_operacion': 'CAMBIO_CONTRASENA', 'modulo': 'PERFIL'}
+        )
+        
+        flash('Tu contraseña ha sido cambiada exitosamente', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(
+            f'Error al cambiar contraseña de {current_user.username}: {str(e)}',
+            extra={'tipo_operacion': 'ERROR', 'modulo': 'PERFIL'}
+        )
+        flash(f'Error al cambiar la contraseña: {str(e)}', 'danger')
+    
+    return redirect(url_for('auth.perfil'))
+
 @auth_bp.route('/')
 def index():
     return redirect(url_for('auth.login'))
-
-
-
-
