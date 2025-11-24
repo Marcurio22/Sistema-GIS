@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from . import dashboard_bp
 from datetime import datetime
 import logging
-from .config_clima import estados_cielo, iconos_bootstrap, colores_iconos
+from .config_clima import obtener_info_clima
 import requests
 
 
@@ -14,7 +14,7 @@ def obtener_datos_aemet():
     """Obtiene los datos meteorológicos de AEMET para Burgos"""
     try:
         AEMET_API_KEY = current_app.config.get('AEMET_API_KEY', 'tu_api_key_aqui')
-        CODIGO_MUNICIPIO = '09059'
+        CODIGO_MUNICIPIO = '34023'
         
         url_solicitud = f'https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/horaria/{CODIGO_MUNICIPIO}?api_key={AEMET_API_KEY}'
         response1 = requests.get(url_solicitud, timeout=5)
@@ -35,12 +35,30 @@ def obtener_datos_aemet():
         def obtener_valor_periodo(lista, hora):
             for item in lista:
                 if int(item['periodo']) == hora:
-                    return item['value']
+                    return item
             return None
 
         temp_actual = obtener_valor_periodo(prediccion.get('temperatura', []), hora_actual)
-        estado_cielo_cod = obtener_valor_periodo(prediccion.get('estadoCielo', []), hora_actual)
-        humedad = obtener_valor_periodo(prediccion.get('humedadRelativa', []), hora_actual)
+        temp_valor = temp_actual['value'] if temp_actual else None
+        
+        # Obtener el estado del cielo completo
+        estado_cielo = obtener_valor_periodo(prediccion.get('estadoCielo', []), hora_actual)
+        
+        if estado_cielo:
+            codigo = estado_cielo.get('value', '')
+            descripcion = estado_cielo.get('descripcion', 'Desconocido').strip()
+            es_noche = 'n' in codigo  # Determinar si es de noche por el código
+            
+            print(f"Código: {codigo}, Descripción: {descripcion}, Es noche: {es_noche}")
+            
+            # Obtener icono y color según la descripción
+            info_clima = obtener_info_clima(descripcion, es_noche)
+        else:
+            descripcion = 'Desconocido'
+            info_clima = {'icono': 'cloud', 'color': 'text-primary'}
+        
+        humedad_obj = obtener_valor_periodo(prediccion.get('humedadRelativa', []), hora_actual)
+        humedad = humedad_obj['value'] if humedad_obj else None
 
         viento = None
         if prediccion.get('vientoAndRachaMax'):
@@ -49,19 +67,17 @@ def obtener_datos_aemet():
                     viento = v['velocidad'][0] if v.get('velocidad') else None
                     break
 
-        def obtener_color_icono(codigo):
-            return colores_iconos.get(codigo, 'text-primary')
-
-        return {
+        resultado = {
             'provincia': provincia,
             'municipio': municipio,
-            'temperatura': temp_actual,
-            'descripcion': estados_cielo.get(estado_cielo_cod, 'Desconocido'),
-            'icono': iconos_bootstrap.get(estado_cielo_cod, 'cloud'),
-            'color_icono': obtener_color_icono(estado_cielo_cod),
+            'temperatura': temp_valor,
+            'descripcion': descripcion,
+            'icono': info_clima['icono'],
+            'color_icono': info_clima['color'],
             'humedad': humedad,
             'viento': viento,
         }
+        return resultado    
 
     except requests.exceptions.Timeout:
         logger.error("Timeout al conectar con AEMET API")
