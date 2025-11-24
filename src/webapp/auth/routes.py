@@ -1,6 +1,6 @@
 from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, login_required, current_user
-from . import auth_bp  # CAMBIO: importar desde el __init__.py local
+from . import auth_bp 
 from .. import db, login_manager
 from sqlalchemy import desc
 from ..models import LogsSistema, User
@@ -28,7 +28,7 @@ def load_user(user_id):
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for('auth.dashboard'))
+        return redirect(url_for('dashboard.dashboard'))
 
     if request.method == 'POST':
         username = request.form.get('username')
@@ -108,7 +108,7 @@ def register():
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('auth.dashboard'))
+        return redirect(url_for('dashboard.dashboard'))
 
     if request.method == 'POST':
         username = request.form.get('username')
@@ -122,7 +122,7 @@ def login():
                 f'Login exitoso: {username}',
                 extra={'tipo_operacion': 'LOGIN', 'modulo': 'AUTH'}
             )
-            return redirect(url_for('auth.dashboard'))
+            return redirect(url_for('dashboard.dashboard'))
         else:
             logger.warning(
                 f'Intento de login fallido: {username}',
@@ -133,14 +133,7 @@ def login():
     return render_template('login.html')
 
 
-@auth_bp.route('/dashboard')
-@login_required
-def dashboard():
-    logger.info(
-        f'Usuario {current_user.username} accedió al dashboard',
-        extra={'tipo_operacion': 'ACCESO', 'modulo': 'DASHBOARD'}
-    )
-    return render_template('dashboard.html', username=current_user.username)
+
 
 
 @auth_bp.route('/logout')
@@ -244,6 +237,48 @@ def actualizar():
     return redirect(url_for('auth.perfil'))
 
 
+@auth_bp.route('/cambiar_contrasena', methods=['POST'])
+@login_required
+def cambiar_contrasena():
+    """Permite al usuario cambiar su contraseña"""
+    try:
+        antigua_password = request.form.get('old_password', '').strip()
+        nueva_password = request.form.get('new_password', '').strip()
+        
+        # Validar la contraseña antigua
+        if not current_user.check_password(antigua_password):
+            flash('La contraseña actual es incorrecta', 'danger')
+            return redirect(url_for('auth.perfil'))
+        
+        # Validar la nueva contraseña
+        password_pattern = re.compile(
+            r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
+        )
+        if not password_pattern.match(nueva_password):
+            flash('La nueva contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula, un número y un carácter especial.', 'danger')
+            return redirect(url_for('auth.perfil'))
+        
+        # Actualizar la contraseña
+        current_user.set_password(nueva_password)
+        db.session.commit()
+        
+        # Registrar el cambio en logs
+        logger.info(
+            f'Usuario {current_user.username} cambió su contraseña',
+            extra={'tipo_operacion': 'CAMBIO_CONTRASENA', 'modulo': 'PERFIL'}
+        )
+        
+        flash('Tu contraseña ha sido cambiada exitosamente', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(
+            f'Error al cambiar contraseña de {current_user.username}: {str(e)}',
+            extra={'tipo_operacion': 'ERROR', 'modulo': 'PERFIL'}
+        )
+        flash(f'Error al cambiar la contraseña: {str(e)}', 'danger')
+    
+    return redirect(url_for('auth.perfil'))
 
 @auth_bp.route('/')
 def index():

@@ -18,7 +18,7 @@ def admin_required(f):
                 f'Intento de acceso no autorizado al panel admin por: {current_user.username if current_user.is_authenticated else "anónimo"}',
                 extra={'tipo_operacion': 'ACCESO_DENEGADO', 'modulo': 'ADMIN'}
             )
-            return redirect(url_for('auth.dashboard'))
+            return redirect(url_for('dashboard.dashboard'))
         return f(*args, **kwargs)
     return decorated_function
 

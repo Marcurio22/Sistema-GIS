@@ -151,10 +151,7 @@
                             value="{{ user.telefono or '' }}" placeholder="Ej: +34 666 66 66 66">
                     </div>
 
-                    <div class="alert alert-info small mb-0">
-                        <i class="bi bi-info-circle me-2"></i>
-                        Los cambios se guardarán al hacer clic en "Guardar cambios"
-                    </div>
+                   
                 </form>
             </div>
             <div class="modal-footer">
@@ -182,7 +179,7 @@
             </div>
 
             <div class="modal-body">
-                <form id="cambiarPassForm" method="POST">
+                <form id="cambiarPassForm" method="POST" action="{{ url_for('auth.cambiar_contrasena') }}">
                     <div class="mb-3">
                         <label for="old_password" class="form-label fw-bold">
                             <i class="bi bi-lock-fill me-2 text-success"></i>Contraseña actual
@@ -207,7 +204,7 @@
 
                     <div class="alert alert-info small mb-0">
                         <i class="bi bi-info-circle me-2"></i>
-                        La contraseña debe tener al menos 8 caracteres.
+                        La contraseña debe tener al menos 8 caracteres y minimo una letra mayúscula, un número y un carácter especial.
                     </div>
                 </form>
             </div>
