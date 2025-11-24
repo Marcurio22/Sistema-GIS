@@ -1,61 +1,100 @@
 {% extends "base.html" %}
+{% block title %}Visor SIG{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-3">
-  <div class="row">
-    <div class="col-12">
-      <h2>Visor SIG</h2>
-      <div id="map" style="height: 600px;"></div>
-    </div>
-  </div>
-</div>
 
+<!-- Leaflet CSS/JS (deben estar sí o sí) -->
 <link
   rel="stylesheet"
   href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
 />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<style>
+  /* Quita el encajonado del .container del base SOLO en esta página */
+  html, body { height: 100%; margin: 0; }
+  .container.mt-5 {
+    margin-top: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  /* Ajusta el alto del mapa al viewport menos la navbar (~56px bootstrap).
+     Si tu barra verde es más alta/baja, cambia 56px. */
+  #map {
+    width: 100%;
+    height: calc(100vh - 56px);
+  }
+</style>
+
+<div id="map"></div>
+
 <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const map = L.map("map").setView([41.9, -4.2], 11);  // centro aproximado ROI
+  const apiUrl = "{{ url_for('api.recintos_geojson') }}";
 
-    // Fondo base
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors",
-      maxZoom: 19
-    }).addTo(map);
+  // Mapa base
+  const map = L.map("map").setView([41.9, -4.2], 10);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© OpenStreetMap contributors"
+  }).addTo(map);
 
-    // Cuando el mapa termine de mover/zoom, pedimos recintos al backend
-    function cargarRecintos() {
-      const b = map.getBounds();
-      const minx = b.getWest();
-      const miny = b.getSouth();
-      const maxx = b.getEast();
-      const maxy = b.getNorth();
-
-      const bbox = `${minx},${miny},${maxx},${maxy}`;
-
-      const url = "{{ url_for('api.recintos') }}" + "?bbox=" + encodeURIComponent(bbox);
-
-      fetch(url)
-        .then(r => r.json())
-        .then(geojson => {
-          if (window.recintosLayer) {
-            map.removeLayer(window.recintosLayer);
-          }
-          window.recintosLayer = L.geoJSON(geojson, {
-            style: {
-              color: "red",
-              weight: 1
-            }
-          }).addTo(map);
-        })
-        .catch(err => console.error("Error al cargar recintos:", err));
+  // Capa de recintos
+  let recintosLayer = L.geoJSON(null, {
+    style: {
+      color: "red",
+      weight: 1,
+      fillOpacity: 0.05
+    },
+    onEachFeature: (f, layer) => {
+      const props = f.properties || {};
+      layer.bindPopup(`
+        <b>Recinto:</b> ${props.recinto ?? "-"}<br>
+        <b>Parcela:</b> ${props.parcela ?? "-"}<br>
+        <b>Polígono:</b> ${props.poligono ?? "-"}<br>
+        <b>Provincia:</b> ${props.provincia ?? "-"}
+      `);
     }
+  }).addTo(map);
 
-    map.on("moveend", cargarRecintos);
-    cargarRecintos();  // primera carga
+  function bboxFromMap(m) {
+    const b = m.getBounds();
+    return [
+      b.getWest().toFixed(6),
+      b.getSouth().toFixed(6),
+      b.getEast().toFixed(6),
+      b.getNorth().toFixed(6)
+    ].join(",");
+  }
+
+  async function updateRecintos(bboxStr) {
+    if (!bboxStr) return;
+
+    try {
+      const url = `${apiUrl}?bbox=${bboxStr}`;
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        console.error("API recintos error:", await resp.text());
+        return;
+      }
+
+      const data = await resp.json();
+      recintosLayer.clearLayers();
+      recintosLayer.addData(data);
+
+    } catch (err) {
+      console.error("Fallo cargando recintos:", err);
+    }
+  }
+
+  // CARGA INICIAL (importante)
+  map.whenReady(() => {
+    updateRecintos(bboxFromMap(map));
+  });
+
+  // Recarga al mover/zoomear
+  map.on("moveend", () => {
+    updateRecintos(bboxFromMap(map));
   });
 </script>
+
 {% endblock %}
