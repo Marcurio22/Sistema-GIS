@@ -12,6 +12,7 @@ def recintos_geojson(bbox_str: str | None) -> dict:
     filtrados por un bounding box en WGS84.
 
     Parámetro bbox_str: "minx,miny,maxx,maxy" en lon/lat (EPSG:4326).
+    Betis
     """
 
     if not bbox_str:
