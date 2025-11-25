@@ -1,3 +1,5 @@
+from sqlalchemy import text
+from webapp import db
 from flask import Blueprint, render_template, redirect, url_for, flash, current_app
 from flask_login import login_required, current_user
 from . import dashboard_bp
@@ -112,16 +114,31 @@ def dashboard():
     return render_template('dashboard.html', username=current_user.username, weather=weather)
 
 
-@dashboard_bp.get("/visor")
+@dashboard_bp.route("/visor")
 @login_required
 def visor():
     """
-    Muestra el visor SIG.
-
-    roi_bbox = (minx, miny, maxx, maxy) en WGS84
-    Estos valores son los que obtuviste de tu ROI (QGIS):
-    (-4.6718708207, 41.7248613835, -3.8314839479, 42.1274665349)
+    Vista del visor SIG. Calcula la bbox de la ROI a partir de sigpac.recintos
+    y la pasa al template como roi_bounds = [minx, miny, maxx, maxy].
     """
-    roi_bbox = (-4.6718708208, 41.7248613835, -3.8314839479, 42.1274665349)
+    sql = text("""
+        SELECT
+            ST_XMin(extent) AS minx,
+            ST_YMin(extent) AS miny,
+            ST_XMax(extent) AS maxx,
+            ST_YMax(extent) AS maxy
+        FROM (
+            SELECT ST_Extent(geometry) AS extent
+            FROM sigpac.recintos
+        ) sub;
+    """)
 
-    return render_template("visor.html", roi_bbox=roi_bbox)
+    row = db.session.execute(sql).fetchone()
+
+    if row and all(v is not None for v in row):
+        roi_bounds = [row.minx, row.miny, row.maxx, row.maxy]
+    else:
+        # Fallback por si la consulta no devuelve nada
+        roi_bounds = [-4.6718708208, 41.7248613835, -3.8314839480, 42.1274665349]
+
+    return render_template("visor.html", roi_bounds=roi_bounds)

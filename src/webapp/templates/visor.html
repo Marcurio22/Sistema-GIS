@@ -1,87 +1,132 @@
 {% extends "base.html" %}
 
-{% block title %}Visor SIG{% endblock %}
-
 {% block content %}
-
-<!-- Leaflet CSS  -->
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-  crossorigin=""
-/>
+<div class="container-fluid px-0">
+  <div class="row g-0">
+    <div class="col-12">
+      <div id="map-wrapper">
+        <div id="map"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <style>
-  /* El mapa ocupa toda la ventana menos la barra verde superior */
-  html,
-  body {
-    height: 100%;
+  /* El mapa ocupa toda la altura visible menos la barra superior */
+  #map-wrapper {
+    height: calc(100vh - 56px); /* ajusta 56px si tu navbar mide otra cosa */
+    width: 100%;
   }
 
   #map {
-    position: fixed;
-    top: 56px; /* altura aproximada de la navbar; ajusta si hace falta */
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1;
+    height: 100%;
+    width: 100%;
   }
 </style>
 
-<div id="map"></div>
-
-<!-- Leaflet JS -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha512-sA+e2at3wE0N+8n5M5wZ0pniS3pSke1Mt2rt7NmBGG99nmHn7+O+kO5OVwOB1p5MNDoAuCEr0aYawslrCe5sQ=="
+  crossorigin=""
+/>
 <script
   src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  integrity="sha512-vRmGQ9Cw8r6QfwZ0pniS3pSke1Mt2rt7NmBGG99nmHn7+O+kO5OVwOB1p5MNDoAuCEr0aYawslrCe5sQ=="
   crossorigin=""
 ></script>
 
 <script>
   document.addEventListener("DOMContentLoaded", function () {
-    // 1) BBOX del ROI inyectada desde Flask (lon/lat)
-    // roi_bbox = (minx, miny, maxx, maxy)
-    const roiBbox = [
-      {{ roi_bbox[0] }},
-      {{ roi_bbox[1] }},
-      {{ roi_bbox[2] }},
-      {{ roi_bbox[3] }},
+    // -------------------------------
+    // 1. Constantes de zoom y ROI
+    // -------------------------------
+    const ZOOM_INICIAL = 13;        // zoom de entrada
+    const ZOOM_SATELITE = 15;       // a partir de aquí cambia a satélite
+    const ZOOM_RECINTOS = 15;       // a partir de aquí se dibujan recintos
+
+    // ROI enviada desde Flask (en EPSG:4326)
+    const ROI_BOUNDS = [
+      [{{ roi_bounds.miny }}, {{ roi_bounds.minx }}],   // [sur, oeste]
+      [{{ roi_bounds.maxy }}, {{ roi_bounds.maxx }}]    // [norte, este]
     ];
 
-    // Leaflet espera [lat, lng] -> [S,W] y [N,E]
-    const roiBounds = L.latLngBounds(
-      [roiBbox[1], roiBbox[0]], // (miny, minx) = sudoeste
-      [roiBbox[3], roiBbox[2]]  // (maxy, maxx) = nordeste
-    );
+    const ROI_CENTER = [
+      {{ (roi_bounds.miny + roi_bounds.maxy) / 2 }},
+      {{ (roi_bounds.minx + roi_bounds.maxx) / 2 }}
+    ];
 
-    // 2) Crear mapa limitado al ROI
+    // -------------------------------
+    // 2. Crear mapa base
+    // -------------------------------
     const map = L.map("map", {
-      maxBounds: roiBounds,
-      maxBoundsViscosity: 1.0, // rebote suave en los bordes
-      zoomControl: true,
+      center: ROI_CENTER,
+      zoom: ZOOM_INICIAL,
+      minZoom: 10,
+      maxZoom: 19
     });
 
-    map.fitBounds(roiBounds);
+    // Limitar navegación a la ROI
+    const maxBounds = L.latLngBounds(ROI_BOUNDS);
+    map.setMaxBounds(maxBounds);
+    map.fitBounds(maxBounds);
 
-    // 3) Capa base OSM
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors",
-      maxZoom: 19,
-    }).addTo(map);
+    // -------------------------------
+    // 3. Capas base
+    // -------------------------------
+    const osmLayer = L.tileLayer(
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        maxZoom: 19,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }
+    );
 
-    // 4) Capa donde meteremos los recintos
-    const recintosLayer = L.layerGroup().addTo(map);
+    // Esri World Imagery como "estilo Google Satellite"
+    const satLayer = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      {
+        maxZoom: 19,
+        attribution:
+          "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+      }
+    );
 
-    // 5) Función que pide recintos al backend según el BBOX del mapa
+    // Capa de recintos (vectorial)
+    const recintosLayer = L.layerGroup();
+
+    // Añadimos sólo la OSM al inicio
+    osmLayer.addTo(map);
+
+    // Control de capas (por si quieres cambiar manualmente)
+    const baseLayers = {
+      "Mapa callejero": osmLayer,
+      "Satélite": satLayer
+    };
+    const overlays = {
+      "Recintos SIGPAC": recintosLayer
+    };
+    L.control.layers(baseLayers, overlays, { collapsed: true }).addTo(map);
+
+    // -------------------------------
+    // 4. Función de descarga de recintos
+    // -------------------------------
     function cargarRecintos() {
-      const b = map.getBounds();
+      const z = map.getZoom();
 
+      // Si el zoom es pequeño, limpiamos y no pedimos nada
+      if (z < ZOOM_RECINTOS) {
+        recintosLayer.clearLayers();
+        return;
+      }
+
+      const b = map.getBounds();
       const bbox = [
-        b.getWest().toFixed(6),
-        b.getSouth().toFixed(6),
-        b.getEast().toFixed(6),
-        b.getNorth().toFixed(6),
+        b.getWest(),
+        b.getSouth(),
+        b.getEast(),
+        b.getNorth()
       ].join(",");
 
       console.log("Solicitando recintos para bbox:", bbox);
@@ -107,8 +152,8 @@
 
           const layer = L.geoJSON(fc, {
             style: {
-              color: "#ff0000",
-              weight: 1,
+              color: "#ff6600",
+              weight: 1
             },
             onEachFeature: function (feature, layer) {
               const p = feature.properties || {};
@@ -120,7 +165,7 @@
                 <strong>Recinto:</strong> ${p.recinto ?? "-"}
               `;
               layer.bindPopup(html);
-            },
+            }
           });
 
           layer.addTo(recintosLayer);
@@ -130,10 +175,46 @@
         });
     }
 
-    // 6) Cargar recintos al iniciar y cada vez que el usuario se mueve
-    map.whenReady(cargarRecintos);
-    map.on("moveend", cargarRecintos);
+    // -------------------------------
+    // 5. Lógica de cambio de mapa y recintos según zoom
+    // -------------------------------
+    function actualizarCapasPorZoom() {
+      const z = map.getZoom();
+
+      // Cambio automático de mapa base
+      if (z >= ZOOM_SATELITE) {
+        if (map.hasLayer(osmLayer)) map.removeLayer(osmLayer);
+        if (!map.hasLayer(satLayer)) map.addLayer(satLayer);
+      } else {
+        if (map.hasLayer(satLayer)) map.removeLayer(satLayer);
+        if (!map.hasLayer(osmLayer)) map.addLayer(osmLayer);
+      }
+
+      // Mostrar / ocultar recintos
+      if (z >= ZOOM_RECINTOS) {
+        if (!map.hasLayer(recintosLayer)) {
+          map.addLayer(recintosLayer);
+        }
+        cargarRecintos();
+      } else {
+        recintosLayer.clearLayers();
+        if (map.hasLayer(recintosLayer)) {
+          map.removeLayer(recintosLayer);
+        }
+      }
+    }
+
+    // Eventos
+    map.on("zoomend", actualizarCapasPorZoom);
+    map.on("moveend", function () {
+      // Sólo recargar si estamos en zoom suficiente
+      if (map.getZoom() >= ZOOM_RECINTOS) {
+        cargarRecintos();
+      }
+    });
+
+    // Primera configuración al entrar
+    actualizarCapasPorZoom();
   });
 </script>
-
 {% endblock %}
