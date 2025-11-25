@@ -106,7 +106,7 @@ def dashboard():
         extra={'tipo_operacion': 'ACCESO', 'modulo': 'DASHBOARD'}
     )
     
-    # Obtener datos meteorológicos
+    # Obtener datos meteorológicos de AEMET
     weather = obtener_datos_aemet()
     
     return render_template('dashboard.html', username=current_user.username, weather=weather)
