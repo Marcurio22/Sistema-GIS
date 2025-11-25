@@ -27,14 +27,14 @@
             <nav class="nav flex-column">
                 <a class="nav-link {% if request.path == url_for('dashboard.dashboard') %}text-success fw-bold{% else %}text-dark{% endif %} py-4 px-4 border-bottom border-white border-opacity-10 d-flex align-items-center"
                     href="{{ url_for('dashboard.dashboard') }}">
-                    <i class="bi bi-house-door me-3 fs-3"></i>
-                    <span class="fs-5">Página principal</span>
+                    <i class="bi bi-house-door me-3 fs-4"></i>
+                    <span class="fs-6">Página principal</span>
                 </a>
 
                 <a class="nav-link {% if request.path == url_for('auth.perfil') %}text-success fw-bold{% else %}text-dark{% endif %} py-4 px-4 border-bottom border-white border-opacity-10 d-flex align-items-center"
                     href="{{ url_for('auth.perfil') }}">
-                    <i class="bi bi-person me-3 fs-3"></i>
-                    <span class="fs-5">Perfil</span>
+                    <i class="bi bi-person me-3 fs-4"></i>
+                    <span class="fs-6">Perfil</span>
                 </a>
 
             </nav>
@@ -49,23 +49,22 @@
                     <a href="{{ url_for('admin.gestion_usuarios') }}" class="text-decoration-none">
                         <div class="d-flex align-items-center py-3 text-dark hover-bg-light rounded px-2"
                             style="cursor: pointer; transition: background-color 0.2s;">
-                            <i class="bi bi-people me-3 fs-4"></i> <!-- Icono más pequeño -->
-                            <span class="fs-6">Gestión de Usuarios</span> <!-- Texto más pequeño -->
+                            <i class="bi bi-people me-3 fs-4"></i> 
+                            <span class="fs-6">Gestión de Usuarios</span> 
                         </div>
                     </a>
                 </div>
                 <div class="d-flex flex-column">
                     <div class="d-flex align-items-center py-3 text-dark">
-                        <i class="me-3 fs-4"></i> <!-- Icono más pequeño -->
-                        <span class="fs-6">Gestión de Parcelas</span> <!-- Texto más pequeño -->
+                        <i class="me-3 fs-4"></i> 
+                        <span class="fs-6">Gestión de Parcelas</span> 
                     </div>
                 </div>
 
             </div>
             {% endif %}
 
-            <!-- Cerrar sesión al final, pegado a la derecha y en rojo -->
-            <!-- Cerrar sesión al final, grande, pegado a la derecha y en rojo -->
+            <!-- Cerrar sesión al final -->
             <div class="mt-auto px-4 py-4 border-top border-white border-opacity-10">
                 <a class="nav-link text-danger d-inline-flex align-items-center fs-5"
                     href="{{ url_for('auth.logout') }}">
@@ -88,7 +87,7 @@
                 <i class="bi bi-list fs-4"></i>
             </button>
 
-            <!-- Logo y nombre alineados a la izquierda -->
+            <!-- Logo y nombre -->
             <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard.dashboard') }}">
                 <i class="bi bi-droplet-fill me-2 fs-4"></i>
                 <span class="fw-bold">Comunidad de Regantes</span>

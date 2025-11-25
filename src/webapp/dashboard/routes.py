@@ -21,7 +21,6 @@ def obtener_datos_aemet():
         data1 = response1.json()
         
         if data1.get('estado') != 200:
-            logger.warning(f"AEMET API devolvió estado {data1.get('estado')}: {data1.get('descripcion')}")
             return None
         
         response2 = requests.get(data1['datos'], timeout=5)
@@ -43,9 +42,8 @@ def obtener_datos_aemet():
                 prediccion = dia
                 break
         
-        # Si no se encuentra el día actual, usar el primero disponible como fallback
+        # Si no se encuentra el día actual, usar el primero disponible 
         if prediccion is None:
-            logger.warning(f"No se encontró predicción para la fecha {fecha_hoy}, usando día[0]")
             prediccion = datos[0]['prediccion']['dia'][0]
 
         def obtener_valor_periodo(lista, hora):
@@ -96,11 +94,10 @@ def obtener_datos_aemet():
         return resultado    
 
     except requests.exceptions.Timeout:
-        logger.error("Timeout al conectar con AEMET API")
         return None
     except Exception as e:
-        logger.error(f"Error obteniendo datos AEMET: {e}")
         return None
+    
 @dashboard_bp.route('/dashboard')
 @login_required
 def dashboard():
