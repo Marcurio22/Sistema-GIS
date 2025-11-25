@@ -14,7 +14,7 @@ def obtener_datos_aemet():
     """Obtiene los datos meteorológicos de AEMET para Burgos"""
     try:
         AEMET_API_KEY = current_app.config.get('AEMET_API_KEY', 'tu_api_key_aqui')
-        CODIGO_MUNICIPIO = '34023'
+        CODIGO_MUNICIPIO = '09059'
         
         url_solicitud = f'https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/horaria/{CODIGO_MUNICIPIO}?api_key={AEMET_API_KEY}'
         response1 = requests.get(url_solicitud, timeout=5)
@@ -29,8 +29,24 @@ def obtener_datos_aemet():
         
         provincia = datos[0].get('provincia', '')
         municipio = datos[0].get('nombre', '')
-        prediccion = datos[0]['prediccion']['dia'][0]
+        
+        # Obtener la fecha actual en formato YYYY-MM-DD
+        fecha_hoy = datetime.now().strftime('%Y-%m-%d')
         hora_actual = datetime.now().hour
+        
+        # Buscar el día correcto por fecha
+        prediccion = None
+        for dia in datos[0]['prediccion']['dia']:
+            # Extraer solo la parte de la fecha (YYYY-MM-DD) del formato ISO
+            fecha_dia = dia.get('fecha', '')[:10]
+            if fecha_dia == fecha_hoy:
+                prediccion = dia
+                break
+        
+        # Si no se encuentra el día actual, usar el primero disponible como fallback
+        if prediccion is None:
+            logger.warning(f"No se encontró predicción para la fecha {fecha_hoy}, usando día[0]")
+            prediccion = datos[0]['prediccion']['dia'][0]
 
         def obtener_valor_periodo(lista, hora):
             for item in lista:
@@ -85,7 +101,6 @@ def obtener_datos_aemet():
     except Exception as e:
         logger.error(f"Error obteniendo datos AEMET: {e}")
         return None
-
 @dashboard_bp.route('/dashboard')
 @login_required
 def dashboard():
