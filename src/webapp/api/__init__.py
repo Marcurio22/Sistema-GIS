@@ -32,10 +32,10 @@ def recintos_geojson():
             poligono,
             parcela,
             recinto,
-            geom   -- columna geometry en sigpac.recintos
+            geometry
         FROM sigpac.recintos
-        WHERE geom && ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326)
+        WHERE geometry && ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326)
     """
 
-    gdf = gpd.read_postgis(sql, db.engine, geom_col="geom")
+    gdf = gpd.read_postgis(sql, db.engine, geom_col="geometry")
     return jsonify(gdf.__geo_interface__)

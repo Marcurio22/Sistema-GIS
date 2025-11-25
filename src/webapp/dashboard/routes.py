@@ -115,4 +115,13 @@ def dashboard():
 @dashboard_bp.get("/visor")
 @login_required
 def visor():
-    return render_template("visor.html")
+    """
+    Muestra el visor SIG.
+
+    roi_bbox = (minx, miny, maxx, maxy) en WGS84
+    Estos valores son los que obtuviste de tu ROI (QGIS):
+    (-4.6718708207, 41.7248613835, -3.8314839479, 42.1274665349)
+    """
+    roi_bbox = (-4.6718708208, 41.7248613835, -3.8314839479, 42.1274665349)
+
+    return render_template("visor.html", roi_bbox=roi_bbox)
