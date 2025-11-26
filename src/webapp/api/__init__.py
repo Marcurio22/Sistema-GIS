@@ -1,41 +1,7 @@
-# webapp/api/__init__.py
-from flask import Blueprint, request, jsonify
-from webapp import db
-import geopandas as gpd
+from flask import Blueprint
 
+# ÚNICO blueprint de la API
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
-
-@api_bp.route("/recintos", methods=["GET"])
-def recintos_geojson():
-    """
-    Devuelve recintos del schema sigpac.recintos como GeoJSON,
-    filtrando por bbox (minx,miny,maxx,maxy en EPSG:4326).
-    """
-    bbox_str = request.args.get("bbox")
-    if not bbox_str:
-        return jsonify({"error": "Parámetro 'bbox' obligatorio"}), 400
-
-    try:
-        minx, miny, maxx, maxy = map(float, bbox_str.split(","))
-    except ValueError:
-        return jsonify({"error": "bbox inválido. Uso: minx,miny,maxx,maxy"}), 400
-
-    sql = f"""
-        SELECT
-            provincia,
-            altitud,
-            municipio,
-            agregado,
-            zona,
-            pendiente_media,
-            poligono,
-            parcela,
-            recinto,
-            geometry
-        FROM sigpac.recintos
-        WHERE geometry && ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326)
-    """
-
-    gdf = gpd.read_postgis(sql, db.engine, geom_col="geometry")
-    return jsonify(gdf.__geo_interface__)
+# Al importar routes se registran las rutas sobre api_bp
+from . import routes  # noqa: F401,E402

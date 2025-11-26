@@ -1,7 +1,4 @@
-from flask import current_app
 from sqlalchemy import text
-from geopandas import GeoDataFrame
-from shapely.geometry import shape
 import geopandas as gpd
 from webapp import db
 
