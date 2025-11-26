@@ -86,3 +86,15 @@ def hacer_admin(id):
     db.session.commit()
     flash(f"{usuario.username} ahora es administrador.", "success")
     return redirect(url_for('admin.gestion_usuarios'))
+
+
+
+@admin_bp.route('/gestion_parcelas')
+@login_required
+@admin_required
+def gestion_parcelas():
+    logger.info(
+        f'Admin {current_user.username} accedió a gestión de parcelas',
+        extra={'tipo_operacion': 'ACCESO', 'modulo': 'ADMIN'}
+    )
+    return render_template('admin/gestion_parcelas.html')
