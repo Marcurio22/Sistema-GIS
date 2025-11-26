@@ -16,7 +16,7 @@ def obtener_datos_aemet():
     """Obtiene los datos meteorológicos de AEMET para Burgos"""
     try:
         AEMET_API_KEY = current_app.config.get('AEMET_API_KEY', 'tu_api_key_aqui')
-        CODIGO_MUNICIPIO = '09059'
+        CODIGO_MUNICIPIO = '34023'
         
         url_solicitud = f'https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/horaria/{CODIGO_MUNICIPIO}?api_key={AEMET_API_KEY}'
         response1 = requests.get(url_solicitud, timeout=5)
