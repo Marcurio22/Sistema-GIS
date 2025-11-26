@@ -134,8 +134,6 @@ def login():
 
 
 
-
-
 @auth_bp.route('/logout')
 @login_required
 def logout():
@@ -281,5 +279,16 @@ def cambiar_contrasena():
     return redirect(url_for('auth.perfil'))
 
 @auth_bp.route('/')
+@login_required
 def index():
     return redirect(url_for('auth.login'))
+
+
+@auth_bp.route('/mis_parcelas')
+@login_required
+def mis_parcelas():
+    logger.info(
+        f'Usuario {current_user.username} accedió a sus parcelas',
+        extra={'tipo_operacion': 'ACCESO', 'modulo': 'MIS_PARCELAS'}
+    )
+    return render_template('mis_parcelas.html')

@@ -95,28 +95,24 @@
             </div>
         </div>
     </div>
-
+    <h5 class="m-3">
+        <i class="bi bi-table me-2"></i>Listado de Usuarios
+    </h5>
     <!-- Tabla de usuarios -->
     <div class="row">
         <div class="col-12">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-white border-bottom">
-                    <h5 class="mb-0">
-                        <i class="bi bi-table me-2"></i>Listado de Usuarios
-                    </h5>
-                </div>
-                <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
+                       <table class="table table-hover table-bordered align-middle mb-0" id="tablaUsuarios">
                             <thead class="table-light">
                                 <tr>
                                     <th class="px-3">ID</th>
-                                    <th>Usuario</th>
-                                    <th>Email</th>
-                                    <th>Teléfono</th>
-                                    <th>Rol</th>
-                                    <th>Estado</th>
-                                    <th>Fecha Registro</th>
+                                    <th class="text-center">Usuario</th>
+                                    <th class="text-center">Email</th>
+                                    <th class="text-center">Teléfono</th>
+                                    <th class="text-center">Rol</th>
+                                    <th class="text-center">Estado</th>
+                                    <th class="text-center">Fecha Registro</th>
+                                    <th class="text-center">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -197,10 +193,10 @@
                                         </a>
                                         {% endif %}
                                         {% if usuario.rol == 'user' and usuario.activo %}
-                                            <a href="{{ url_for('admin.hacer_admin', id=usuario.id_usuario) }}"
-                                                class="btn btn-sm btn-outline-danger" title="Hacer administrador">
-                                                <i class="bi bi-person-check me-1"></i>Hacer Admin
-                                            </a>
+                                        <a href="{{ url_for('admin.hacer_admin', id=usuario.id_usuario) }}"
+                                            class="btn btn-sm btn-outline-danger" title="Hacer administrador">
+                                            <i class="bi bi-person-check me-1"></i>Hacer Admin
+                                        </a>
                                         {% endif %}
 
 
@@ -225,19 +221,28 @@
                             </tbody>
                         </table>
                     </div>
-                </div>
-                {% if usuarios %}
-                <div class="card-footer bg-white border-top">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">
-                            Mostrando {{ usuarios|length }} usuario{{ 's' if usuarios|length != 1 else '' }}
-                        </small>
-
-                    </div>
-                </div>
-                {% endif %}
-            </div>
         </div>
     </div>
 </div>
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        if ($.fn.DataTable.isDataTable('#tablaUsuarios')) {
+            $('#tablaUsuarios').DataTable().destroy();
+        }
+        
+        $('#tablaUsuarios').DataTable({
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+            },
+            order: [[0, 'asc']],
+            pageLength: 25,
+            responsive: true,
+            columnDefs: [
+                { orderable: false, targets: -1 }
+            ]
+        });
+    });
+</script>
+{% endblock %}
 {% endblock %}

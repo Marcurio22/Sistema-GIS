@@ -8,6 +8,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
 </head>
 
 <body class="bg-light">
@@ -36,6 +38,11 @@
                     <i class="bi bi-person me-3 fs-4"></i>
                     <span class="fs-6">Perfil</span>
                 </a>
+               <a class="nav-link {% if request.path == url_for('auth.mis_parcelas') %}text-success fw-bold{% else %}text-dark{% endif %} py-4 px-4 border-bottom border-white border-opacity-10 d-flex align-items-center"
+                href="{{ url_for('auth.mis_parcelas') }}">
+                <i class="bi bi-map me-3 fs-4"></i>
+                <span class="fs-6">Mis parcelas</span>
+            </a>
 
             </nav>
 
@@ -49,17 +56,21 @@
                     <a href="{{ url_for('admin.gestion_usuarios') }}" class="text-decoration-none">
                         <div class="d-flex align-items-center py-3 text-dark hover-bg-light rounded px-2"
                             style="cursor: pointer; transition: background-color 0.2s;">
-                            <i class="bi bi-people me-3 fs-4"></i> 
-                            <span class="fs-6">Gestión de Usuarios</span> 
+                            <i class="bi bi-people me-3 fs-4"></i>
+                            <span class="fs-6">Gestión de Usuarios</span>
                         </div>
                     </a>
                 </div>
                 <div class="d-flex flex-column">
-                    <div class="d-flex align-items-center py-3 text-dark">
-                        <i class="me-3 fs-4"></i> 
-                        <span class="fs-6">Gestión de Parcelas</span> 
-                    </div>
+                    <a href="{{ url_for('admin.gestion_parcelas') }}" class="text-decoration-none">
+                        <div class="d-flex align-items-center py-3 text-dark hover-bg-light rounded px-2"
+                            style="cursor: pointer; transition: background-color 0.2s;">
+                            <i class="bi bi-grid me-3 fs-4"></i>
+                            <span class="fs-6">Gestión de Parcelas</span>
+                        </div>
+                    </a>
                 </div>
+
 
             </div>
             {% endif %}
@@ -101,8 +112,19 @@
     <main class="{% block main_class %}container mt-5{% endblock %}">
         {% block content %}{% endblock %}
     </main>
+
+    <!-- Scripts -->
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
+    <!-- 2. Luego Bootstrap -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
+    
+    <!-- 3. DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    
+    <!-- 4. Scripts personalizados -->
+    {% block extra_js %}{% endblock %}
 </body>
-
 </html>
