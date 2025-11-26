@@ -119,7 +119,7 @@ def dashboard():
 def visor():
     """
     Vista del visor SIG. Calcula la bbox de la ROI a partir de sigpac.recintos
-    y la pasa al template como roi_bounds = [minx, miny, maxx, maxy].
+    y la pasa al template como roi_bbox = [minx, miny, maxx, maxy].
     """
     sql = text("""
         SELECT
@@ -136,9 +136,12 @@ def visor():
     row = db.session.execute(sql).fetchone()
 
     if row and all(v is not None for v in row):
-        roi_bounds = [row.minx, row.miny, row.maxx, row.maxy]
+        roi_bbox = [row.minx, row.miny, row.maxx, row.maxy]
     else:
         # Fallback por si la consulta no devuelve nada
-        roi_bounds = [-4.6718708208, 41.7248613835, -3.8314839480, 42.1274665349]
+        roi_bbox = [-4.6718708208, 41.7248613835,
+                    -3.8314839480, 42.1274665349]
 
-    return render_template("visor.html", roi_bounds=roi_bounds)
+    # OJO: ahora pasamos roi_bbox (no roi_bounds)
+    return render_template("visor.html", roi_bbox=roi_bbox)
+
