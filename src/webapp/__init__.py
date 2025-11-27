@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, flash, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from .config import Config
@@ -18,7 +18,13 @@ def create_app():
     
     login_manager.login_view = 'auth.login'
     login_manager.login_message = None 
-    login_manager.needs_refresh_message = None  
+    login_manager.needs_refresh_message = None
+    
+    # Handler para usuarios no autorizados
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        flash('Debes iniciar sesión para acceder a esta página.', 'warning')
+        return redirect(url_for('auth.login'))
 
     from .auth import auth_bp
     from .admin import admin_bp 

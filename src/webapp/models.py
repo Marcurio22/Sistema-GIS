@@ -25,6 +25,10 @@ class User(UserMixin, db.Model):
 
     def get_id(self):
         return str(self.id_usuario)
+    
+    
+    def is_active(self):
+        return self.activo
 
     def __repr__(self):
         return f'<User {self.username}>'
