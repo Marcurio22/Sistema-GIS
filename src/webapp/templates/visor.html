@@ -27,9 +27,156 @@
     bottom: 0;
     z-index: 1;
   }
+
+  /* ---------- Botón y panel de mapas de detalle ---------- */
+
+  #basemap-panel-container {
+    position: fixed;
+    top: 80px;     /* un poco por debajo de la barra verde */
+    right: 20px;
+    z-index: 1000; /* por encima del mapa */
+    font-family: inherit;
+  }
+
+  #basemap-toggle {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    border: none;
+    background-color: #ffffff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, color 0.2s;
+  }
+
+  #basemap-toggle span {
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  #basemap-toggle.active {
+    background-color: #1b5e20; /* verde tipo barra superior */
+    color: #ffffff;
+  }
+
+  #basemap-panel {
+    margin-top: 8px;
+    width: 320px;
+    max-height: 70vh;
+    background-color: #ffffff;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    padding: 10px 14px;
+    display: none; /* oculto por defecto */
+    overflow-y: auto;
+  }
+
+  #basemap-panel.visible {
+    display: block;
+  }
+
+  #basemap-panel h6 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 6px;
+    margin-bottom: 6px;
+  }
+
+  .basemap-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .basemap-option {
+    width: 90px;
+    cursor: pointer;
+    text-align: center;
+    font-size: 0.8rem;
+  }
+
+  .basemap-thumb {
+    width: 90px;
+    height: 60px;
+    border-radius: 3px;
+    border: 2px solid transparent;
+    background-size: cover;
+    background-position: center;
+    margin-bottom: 3px;
+  }
+
+  /* mini “previews” de ejemplo */
+  .thumb-sat {
+    background-image: linear-gradient(135deg, #4caf50, #795548);
+  }
+
+  .thumb-ndvi {
+    background-image: linear-gradient(135deg, #1b5e20, #aeea00);
+  }
+
+  .thumb-etp {
+    background-image: linear-gradient(135deg, #01579b, #4dd0e1);
+  }
+
+  .basemap-option.active .basemap-thumb {
+    border-color: #1b5e20;
+  }
+
+  .basemap-option.disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
 </style>
 
 <div id="map"></div>
+
+<!-- Botón + panel de selección de mapa de detalle -->
+<div id="basemap-panel-container">
+  <button id="basemap-toggle" title="Cambiar mapa de detalle">
+    <span>🗺️</span>
+  </button>
+
+  <div id="basemap-panel">
+    <h6>Mapa Principal</h6>
+    <div class="basemap-grid">
+      <!-- Opción activa por defecto: imagen satélite -->
+      <div class="basemap-option active" data-layer="satellite">
+        <div class="basemap-thumb thumb-sat"></div>
+        <div>Imagen Satelital</div>
+      </div>
+      <!-- Esqueletos para futuros mapas -->
+      <div class="basemap-option disabled">
+        <div class="basemap-thumb thumb-ndvi"></div>
+        <div>Vigor Vegetal (NDVI)</div>
+      </div>
+      <div class="basemap-option disabled">
+        <div class="basemap-thumb thumb-etp"></div>
+        <div>ETP</div>
+      </div>
+    </div>
+
+    <h6>Nivel de Detalle</h6>
+    <div class="basemap-grid">
+      <!-- De momento sólo esqueletos informativos -->
+      <div class="basemap-option disabled">
+        <div class="basemap-thumb thumb-sat"></div>
+        <div>Mis Parcelas</div>
+      </div>
+      <div class="basemap-option disabled">
+        <div class="basemap-thumb thumb-sat"></div>
+        <div>Recintos SigPac</div>
+      </div>
+      <div class="basemap-option disabled">
+        <div class="basemap-thumb thumb-sat"></div>
+        <div>Parcelas Calculadas</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Leaflet JS -->
 <script
@@ -57,7 +204,7 @@
     );
 
     // Zoom a partir del cual:
-    //   - cambiamos a satélite
+    //   - cambiamos a satélite (o el mapa de detalle activo)
     //   - mostramos y cargamos recintos
     const ZOOM_RECINTOS = 15;
 
@@ -97,11 +244,23 @@
       }
     );
 
+    // Aquí podrás añadir más mapas de detalle (NDVI, ETP...) más adelante.
+    const highZoomLayers = {
+      satellite: baseSat,
+      // ndvi: L.tileLayer("URL_TUS_TILES_NDVI", {...})
+      // etp:  L.tileLayer("URL_TUS_TILES_ETP", {...})
+    };
+
+    let activeHighLayerKey = "satellite";
+
+    function getActiveHighLayer() {
+      return highZoomLayers[activeHighLayerKey];
+    }
+
     // -----------------------------------------
     // 4) Capa de recintos (vacía al principio)
     // -----------------------------------------
 
-    // Usamos GeoJSON para poder aplicar estilo y popups
     const recintosLayer = L.geoJSON(null, {
       style: {
         color: "#ff8800",
@@ -173,28 +332,41 @@
     // -----------------------------------------
     // 6) Función: cambiar fondo según zoom
     //    - Lejos  -> OSM sin recintos
-    //    - Cerca  -> Satélite + recintos
+    //    - Cerca  -> capa de detalle activa + recintos
     // -----------------------------------------
     function actualizarMapaSegunZoom() {
       const z = map.getZoom();
+      const activeHighLayer = getActiveHighLayer();
 
       if (z >= ZOOM_RECINTOS) {
-        // Zoom “cerca”: satélite
+        // Zoom “cerca”: usamos la capa de detalle activa
         if (map.hasLayer(baseOSM)) {
           map.removeLayer(baseOSM);
         }
-        if (!map.hasLayer(baseSat)) {
-          baseSat.addTo(map);
+
+        // Quitamos otras capas de detalle que no sean la activa
+        Object.values(highZoomLayers).forEach((layer) => {
+          if (layer && layer !== activeHighLayer && map.hasLayer(layer)) {
+            map.removeLayer(layer);
+          }
+        });
+
+        if (activeHighLayer && !map.hasLayer(activeHighLayer)) {
+          activeHighLayer.addTo(map);
         }
         // recintosLayer se mantiene (se llenará en cargarRecintosSiProcede)
       } else {
-        // Zoom “lejos”: OSM, sin recintos
-        if (map.hasLayer(baseSat)) {
-          map.removeLayer(baseSat);
-        }
+        // Zoom “lejos”: OSM, sin recintos ni capas de detalle
+        Object.values(highZoomLayers).forEach((layer) => {
+          if (layer && map.hasLayer(layer)) {
+            map.removeLayer(layer);
+          }
+        });
+
         if (!map.hasLayer(baseOSM)) {
           baseOSM.addTo(map);
         }
+
         recintosLayer.clearLayers(); // vaciamos dibujos
       }
     }
@@ -219,6 +391,41 @@
     // Llamada inicial: ajusta fondo + recintos según zoom inicial
     actualizarMapaSegunZoom();
     cargarRecintosSiProcede();
+
+    // -----------------------------------------
+    // 8) Lógica del botón y panel de mapas de detalle
+    // -----------------------------------------
+    const toggleBtn = document.getElementById("basemap-toggle");
+    const panel = document.getElementById("basemap-panel");
+
+    toggleBtn.addEventListener("click", () => {
+      panel.classList.toggle("visible");
+      toggleBtn.classList.toggle("active");
+    });
+
+    // Cambio de capa de detalle (de momento sólo "satellite")
+    document
+      .querySelectorAll(".basemap-option[data-layer]")
+      .forEach((option) => {
+        option.addEventListener("click", () => {
+          const layerKey = option.dataset.layer;
+
+          if (!highZoomLayers[layerKey]) {
+            // Aún no implementada (ej. NDVI, ETP) -> por ahora no hace nada
+            return;
+          }
+
+          // Marcar visualmente la opción activa
+          document
+            .querySelectorAll(".basemap-option")
+            .forEach((el) => el.classList.remove("active"));
+          option.classList.add("active");
+
+          // Cambiar la capa de detalle activa y refrescar
+          activeHighLayerKey = layerKey;
+          actualizarMapaSegunZoom();
+        });
+      });
   });
 </script>
 
