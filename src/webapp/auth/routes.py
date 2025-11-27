@@ -20,10 +20,13 @@ db_handler.setFormatter(formatter)
 logger.addHandler(db_handler)
 
 
-# Login manager
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    user = User.query.get(int(user_id))
+    # Si el usuario existe pero no está activo, no lo cargues
+    if user and not user.activo:
+        return None
+    return user
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
@@ -117,6 +120,15 @@ def login():
         user = User.query.filter_by(username=username).first()
 
         if user and user.check_password(password):
+            # Verificar si el usuario está activo
+            if not user.activo:
+                logger.warning(
+                    f'Intento de login de usuario inactivo: {username}',
+                    extra={'tipo_operacion': 'LOGIN', 'modulo': 'AUTH'}
+                )
+                flash('Tu cuenta está inactiva. Contacta al administrador para activarla.', 'danger')
+                return render_template('login.html')
+            
             login_user(user)
             logger.info(
                 f'Login exitoso: {username}',
