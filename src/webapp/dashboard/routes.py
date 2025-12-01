@@ -54,6 +54,30 @@ def obtener_datos_aemet():
                     return item
             return None
 
+        def obtener_periodo_precipitacion(hora, lista_periodos):
+            """
+            Determina el período de precipitación según la hora actual.
+            Busca en qué rango cae la hora entre los períodos disponibles.
+            """
+            if not lista_periodos:
+                return None
+            
+            for periodo_obj in lista_periodos:
+                periodo = periodo_obj.get('periodo', '')
+                if len(periodo) == 4:
+                    hora_inicio = int(periodo[:2])
+                    hora_fin = int(periodo[2:])
+                    
+                    # Caso especial: período que cruza la medianoche (ej: 1800 = 18:00 a 00:00)
+                    if hora_fin == 0 or hora_fin < hora_inicio:
+                        if hora >= hora_inicio or hora < 24:
+                            return periodo
+                    # Caso normal: período dentro del mismo día
+                    elif hora_inicio <= hora < hora_fin:
+                        return periodo
+            
+            return None
+
         temp_actual = obtener_valor_periodo(prediccion.get('temperatura', []), hora_actual)
         temp_valor = temp_actual['value'] if temp_actual else None
         
@@ -76,12 +100,40 @@ def obtener_datos_aemet():
         humedad_obj = obtener_valor_periodo(prediccion.get('humedadRelativa', []), hora_actual)
         humedad = humedad_obj['value'] if humedad_obj else None
 
-        viento = None
+        # Obtener velocidad y dirección del viento
+        viento_velocidad = None
+        viento_direccion = None
+        viento_grados = None
         if prediccion.get('vientoAndRachaMax'):
             for v in prediccion['vientoAndRachaMax']:
                 if int(v['periodo']) == hora_actual:
-                    viento = v['velocidad'][0] if v.get('velocidad') else None
+                    viento_velocidad = v['velocidad'][0] if v.get('velocidad') else None
+                    viento_direccion = v['direccion'][0] if v.get('direccion') else None
+                    # Convertir dirección a grados para rotar la flecha
+                    # La flecha indica HACIA DÓNDE VA el viento (convención AEMET)
+                    if viento_direccion:
+                        direcciones = {
+                            'N': 0,    # Norte: flecha hacia abajo
+                            'NE': 45,  # Noreste: flecha hacia abajo-derecha
+                            'E': 90,   # Este: flecha hacia la derecha
+                            'SE': 135, # Sureste: flecha hacia arriba-derecha
+                            'S': 180,  # Sur: flecha hacia arriba
+                            'SO': 225, # Suroeste: flecha hacia arriba-izquierda
+                            'O': 270,  # Oeste: flecha hacia la izquierda
+                            'NO': 315  # Noroeste: flecha hacia abajo-izquierda
+                        }
+                        viento_grados = direcciones.get(viento_direccion, 0)
                     break
+
+        # Obtener probabilidad de precipitación
+        prob_precipitacion = None
+        if prediccion.get('probPrecipitacion'):
+            periodo_actual = obtener_periodo_precipitacion(hora_actual, prediccion['probPrecipitacion'])
+            if periodo_actual:
+                for prob in prediccion['probPrecipitacion']:
+                    if prob.get('periodo') == periodo_actual:
+                        prob_precipitacion = prob.get('value')
+                        break
 
         resultado = {
             'provincia': provincia,
@@ -91,7 +143,10 @@ def obtener_datos_aemet():
             'icono': info_clima['icono'],
             'color_icono': info_clima['color'],
             'humedad': humedad,
-            'viento': viento,
+            'viento_velocidad': viento_velocidad,
+            'viento_direccion': viento_direccion,
+            'viento_grados': viento_grados,
+            'prob_precipitacion': prob_precipitacion,
         }
         return resultado    
 

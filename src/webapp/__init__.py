@@ -23,7 +23,6 @@ def create_app():
     # Handler para usuarios no autorizados
     @login_manager.unauthorized_handler
     def unauthorized():
-        flash('Debes iniciar sesión para acceder a esta página.', 'warning')
         return redirect(url_for('auth.login'))
 
     from .auth import auth_bp
