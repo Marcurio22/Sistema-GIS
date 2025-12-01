@@ -78,7 +78,7 @@
   /* Panel */
   #basemap-panel {
     margin-top: 10px;
-    width: 380px;
+    width: 420px;
     /* más ancho */
     max-height: 75vh;
     background-color: #ffffff;
@@ -95,31 +95,30 @@
   }
 
   #basemap-panel h6 {
-    font-size: 0.95rem;
-    font-weight: 600;
-    margin-top: 4px;
-    margin-bottom: 8px;
+    font-size: 1.15rem;     /* accesible */
+    font-weight: 700;
+    margin-top: 10px;
+    margin-bottom: 10px;
   }
 
   .basemap-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 14px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 3 columnas reales */
+    gap: 14px;
   }
 
   .basemap-option {
-    width: 110px;
+    width: 100%;
     /* cuadrado */
     cursor: pointer;
     text-align: center;
-    font-size: 0.8rem;
+    font-size: 0.95rem; 
     color: #333;
   }
 
   .basemap-thumb {
-    width: 110px;
-    height: 110px;
+    width: 100%;
+    height: 115px;
     border-radius: 8px;
     border: 3px solid transparent;
     overflow: hidden;
@@ -137,7 +136,9 @@
   }
 
   .basemap-option-label {
-    line-height: 1.1;
+    line-height: 1.25;
+    font-size: 0.9rem;
+    font-weight: 500;
   }
 
   .basemap-option.active .basemap-thumb {
