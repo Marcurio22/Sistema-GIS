@@ -22,3 +22,26 @@ const overlays = {
   "Recintos SIGPAC": sigpacRecintos
 };
 L.control.layers(null, overlays).addTo(map);
+
+// --- Selección de mapa principal (satélite / NDVI) ---
+document
+  .querySelectorAll(".basemap-option.basemap-main[data-layer]")
+  .forEach((option) => {
+    option.addEventListener("click", () => {
+      const layerKey = option.dataset.layer;
+      if (!highZoomLayers[layerKey]) return;
+
+      document
+        .querySelectorAll(".basemap-option.basemap-main")
+        .forEach((el) => el.classList.remove("active"));
+      option.classList.add("active");
+
+      activeHighLayerKey = layerKey;
+      actualizarMapaSegunZoom();
+    });
+  });
+
+// --- Toggle Recintos SigPac (nivel de detalle) ---
+const recintosOption = document.querySelector(
+  '.basemap-option.basemap-detail[data-detail="sigpac"]'
+);

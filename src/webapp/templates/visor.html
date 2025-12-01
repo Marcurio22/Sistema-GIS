@@ -5,12 +5,8 @@
 {% block content %}
 
 <!-- Leaflet CSS -->
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-  crossorigin=""
-/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 
 <style>
   /* El mapa ocupa toda la ventana menos la barra verde superior */
@@ -21,7 +17,8 @@
 
   #map {
     position: fixed;
-    top: 65px; /* altura aproximada de la navbar; ajusta si hace falta */
+    top: 65px;
+    /* altura aproximada de la navbar; ajusta si hace falta */
     left: 0;
     right: 0;
     bottom: 0;
@@ -32,45 +29,64 @@
 
   #basemap-panel-container {
     position: fixed;
-    top: 80px;     /* un poco por debajo de la barra verde */
+    top: 80px;
+    /* un poco por debajo de la barra verde */
     right: 20px;
-    z-index: 1000; /* por encima del mapa */
+    z-index: 1000;
+    /* por encima del mapa */
     font-family: inherit;
   }
 
+  /* Botón flotante de capas */
   #basemap-toggle {
-    width: 40px;
-    height: 40px;
-    border-radius: 4px;
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
     border: none;
-    background-color: #ffffff;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    background-color: #198754;
+    /* verde activo */
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.2s, color 0.2s;
+    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
   }
 
-  #basemap-toggle span {
-    font-size: 20px;
-    line-height: 1;
+  #basemap-toggle i {
+    font-size: 22px;
+    /* icono de Bootstrap */
+  }
+
+  #basemap-toggle:not(.active) {
+    background-color: #ffffff;
+    color: #198754;
+  }
+
+  #basemap-toggle:active {
+    transform: scale(0.96);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   }
 
   #basemap-toggle.active {
-    background-color: #1b5e20; /* verde tipo barra superior */
+    background-color: #198754;
+    /* verde activo */
     color: #ffffff;
   }
 
+  /* Panel */
   #basemap-panel {
-    margin-top: 8px;
-    width: 320px;
-    max-height: 70vh;
+    margin-top: 10px;
+    width: 380px;
+    /* más ancho */
+    max-height: 75vh;
     background-color: #ffffff;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    border-radius: 4px;
-    padding: 10px 14px;
-    display: none; /* oculto por defecto */
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    border-radius: 10px;
+    padding: 14px 16px 18px;
+    display: none;
+    /* oculto por defecto */
     overflow-y: auto;
   }
 
@@ -79,55 +95,58 @@
   }
 
   #basemap-panel h6 {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 600;
-    margin-top: 6px;
-    margin-bottom: 6px;
+    margin-top: 4px;
+    margin-bottom: 8px;
   }
 
   .basemap-grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 10px;
+    gap: 12px;
+    margin-bottom: 14px;
   }
 
   .basemap-option {
-    width: 90px;
+    width: 110px;
+    /* cuadrado */
     cursor: pointer;
     text-align: center;
     font-size: 0.8rem;
+    color: #333;
   }
 
   .basemap-thumb {
-    width: 90px;
-    height: 60px;
-    border-radius: 3px;
-    border: 2px solid transparent;
+    width: 110px;
+    height: 110px;
+    border-radius: 8px;
+    border: 3px solid transparent;
+    overflow: hidden;
     background-size: cover;
     background-position: center;
-    margin-bottom: 3px;
+    margin-bottom: 5px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
   }
 
-  /* mini “previews” de ejemplo */
-  .thumb-sat {
-    background-image: linear-gradient(135deg, #4caf50, #795548);
+  .basemap-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
 
-  .thumb-ndvi {
-    background-image: linear-gradient(135deg, #1b5e20, #aeea00);
-  }
-
-  .thumb-etp {
-    background-image: linear-gradient(135deg, #01579b, #4dd0e1);
+  .basemap-option-label {
+    line-height: 1.1;
   }
 
   .basemap-option.active .basemap-thumb {
-    border-color: #1b5e20;
+    border-color: #198754;
+    /* verde activo */
   }
 
   .basemap-option.disabled {
-    opacity: 0.4;
+    opacity: 0.45;
     cursor: default;
   }
 </style>
@@ -136,63 +155,71 @@
 
 <!-- Botón + panel de selección de mapa de detalle -->
 <div id="basemap-panel-container">
-  <button id="basemap-toggle" title="Cambiar mapa de detalle">
-    <span>🗺️</span>
+  <!-- Botón flotante (icono de capas) -->
+  <button id="basemap-toggle" title="Capas">
+    <!-- Si en base.html ya cargas Bootstrap Icons esto dibuja el icono -->
+    <i class="bi bi-layers-fill"></i>
   </button>
 
+  <!-- Panel de opciones -->
   <div id="basemap-panel">
     <h6>Mapa Principal</h6>
     <div class="basemap-grid">
-      <!-- Opción activa por defecto: imagen satélite -->
+      <!-- Imagen Satélite (por defecto activo) -->
       <div class="basemap-option basemap-main active" data-layer="satellite">
-        <div class="basemap-thumb thumb-sat"></div>
-        <div>Imagen Satelital</div>
+        <div class="basemap-thumb">
+          <img src="{{ url_for('static', filename='img/thumb_satellite.png') }}" alt="Imagen satélite" />
+        </div>
+        <div class="basemap-option-label">Imagen<br>Satelital</div>
       </div>
 
-      <!-- NDVI: seleccionable -->
+      <!-- NDVI -->
       <div class="basemap-option basemap-main" data-layer="ndvi">
-        <div class="basemap-thumb thumb-ndvi"></div>
-        <div>Vigor Vegetal (NDVI)</div>
+        <div class="basemap-thumb">
+          <img src="{{ url_for('static', filename='img/thumb_ndvi.png') }}" alt="Vigor Vegetal (NDVI)" />
+        </div>
+        <div class="basemap-option-label">Vigor Vegetal<br>(NDVI)</div>
       </div>
 
-      <!-- ETP aún sin lógica -->
-      <div class="basemap-option basemap-main disabled">
-        <div class="basemap-thumb thumb-etp"></div>
-        <div>ETP</div>
+      <!-- ETP – placeholder -->
+      <div class="basemap-option disabled">
+        <div class="basemap-thumb">
+          <img src="{{ url_for('static', filename='img/thumb_etp.png') }}" alt="ETP" />
+        </div>
+        <div class="basemap-option-label">ETP</div>
       </div>
     </div>
 
     <h6>Nivel de Detalle</h6>
     <div class="basemap-grid">
-      <!-- De momento sólo esqueletos informativos -->
-      <div class="basemap-option basemap-detail disabled">
-        <div class="basemap-thumb thumb-sat"></div>
-        <div>Mis Parcelas</div>
+      <div class="basemap-option disabled">
+        <div class="basemap-thumb">
+          <img src="{{ url_for('static', filename='img/thumb_parcelas.png') }}" alt="Mis Parcelas" />
+        </div>
+        <div class="basemap-option-label">Mis Parcelas</div>
       </div>
 
-      <!-- *** Recintos SigPac: ACTIVO POR DEFECTO Y CONMUTA LA CAPA *** -->
-      <div
-        class="basemap-option basemap-detail active"
-        data-detail="sigpac"
-      >
-        <div class="basemap-thumb thumb-sat"></div>
-        <div>Recintos SigPac</div>
+      <!-- Recintos SigPac activo por defecto -->
+      <div class="basemap-option basemap-detail active" data-detail="sigpac">
+        <div class="basemap-thumb">
+          <img src="{{ url_for('static', filename='img/thumb_recintos.png') }}" alt="Recintos SigPac" />
+        </div>
+        <div class="basemap-option-label">Recintos SigPac</div>
       </div>
 
-      <div class="basemap-option basemap-detail disabled">
-        <div class="basemap-thumb thumb-sat"></div>
-        <div>Parcelas Calculadas</div>
+      <div class="basemap-option disabled">
+        <div class="basemap-thumb">
+          <img src="{{ url_for('static', filename='img/thumb_calculadas.png') }}" alt="Parcelas Calculadas" />
+        </div>
+        <div class="basemap-option-label">Parcelas<br>Calculadas</div>
       </div>
     </div>
   </div>
 </div>
 
 <!-- Leaflet JS -->
-<script
-  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-  crossorigin=""
-></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <script>
   document.addEventListener("DOMContentLoaded", function () {
@@ -201,252 +228,252 @@
     // -----------------------------------------
     const roiBbox = [
       {{ roi_bbox[0] }},
-      {{ roi_bbox[1] }},
-      {{ roi_bbox[2] }},
-      {{ roi_bbox[3] }}
+    {{ roi_bbox[1] }},
+    {{ roi_bbox[2] }},
+    {{ roi_bbox[3] }}
     ];
 
-    // Leaflet usa [lat, lng] -> [S,W] y [N,E]
-    const ROI_BOUNDS = L.latLngBounds(
-      [roiBbox[1], roiBbox[0]], // (miny, minx) = sudoeste
-      [roiBbox[3], roiBbox[2]]  // (maxy, maxx) = nordeste
-    );
+  // Leaflet usa [lat, lng] -> [S,W] y [N,E]
+  const ROI_BOUNDS = L.latLngBounds(
+    [roiBbox[1], roiBbox[0]], // (miny, minx) = sudoeste
+    [roiBbox[3], roiBbox[2]]  // (maxy, maxx) = nordeste
+  );
 
-    // Zoom a partir del cual:
-    //   - cambiamos a mapa de detalle (satélite / NDVI)
-    //   - mostramos y cargamos recintos (si están activados)
-    const ZOOM_RECINTOS = 15;
+  // Zoom a partir del cual:
+  //   - cambiamos a mapa de detalle (satélite / NDVI)
+  //   - mostramos y cargamos recintos (si están activados)
+  const ZOOM_RECINTOS = 15;
 
-    // -----------------------------------------
-    // 2) Crear mapa limitado al ROI
-    // -----------------------------------------
-    const map = L.map("map", {
-      maxBounds: ROI_BOUNDS,
-      maxBoundsViscosity: 1.0,
-      zoomControl: true,
-    });
+  // -----------------------------------------
+  // 2) Crear mapa limitado al ROI
+  // -----------------------------------------
+  const map = L.map("map", {
+    maxBounds: ROI_BOUNDS,
+    maxBoundsViscosity: 1.0,
+    zoomControl: true,
+  });
 
-    map.fitBounds(ROI_BOUNDS);
+  map.fitBounds(ROI_BOUNDS);
 
-    // -----------------------------------------
-    // 3) Capas base
-    // -----------------------------------------
+  // -----------------------------------------
+  // 3) Capas base
+  // -----------------------------------------
 
-    // Mapa base 1 – OSM (fondo claro, zoom lejano)
-    const baseOSM = L.tileLayer(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      {
-        attribution: "&copy; OpenStreetMap contributors",
-        minZoom: 8,
-        maxZoom: 19,
-      }
-    ).addTo(map);
-
-    // Mapa base 2 – Satélite (Esri World Imagery)
-    const baseSat = L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      {
-        attribution: "Tiles &copy; Esri",
-        minZoom: 8,
-        maxZoom: 19,
-      }
-    );
-
-    // Capa NDVI (por ahora una imagen overlay sobre todo el ROI)
-    const baseNdvi = L.imageOverlay(
-      "/static/ndvi/ndvi_latest.png", // AJUSTA ESTA RUTA A TU PNG NDVI
-      ROI_BOUNDS,
-      { opacity: 1.0 }
-    );
-
-    const highZoomLayers = {
-      satellite: baseSat,
-      ndvi: baseNdvi
-    };
-
-    let activeHighLayerKey = "satellite";
-    function getActiveHighLayer() {
-      return highZoomLayers[activeHighLayerKey];
+  // Mapa base 1 – OSM (fondo claro, zoom lejano)
+  const baseOSM = L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+      attribution: "&copy; OpenStreetMap contributors",
+      minZoom: 8,
+      maxZoom: 19,
     }
+  ).addTo(map);
 
-    // -----------------------------------------
-    // 4) Capa de recintos (vacía al principio)
-    // -----------------------------------------
-    const recintosLayer = L.geoJSON(null, {
-      style: {
-        color: "#ff8800",
-        weight: 1,
-      },
-      onEachFeature: function (feature, layer) {
-        const p = feature.properties || {};
-        const html = `
+  // Mapa base 2 – Satélite (Esri World Imagery)
+  const baseSat = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+      attribution: "Tiles &copy; Esri",
+      minZoom: 8,
+      maxZoom: 19,
+    }
+  );
+
+  // Capa NDVI (por ahora una imagen overlay sobre todo el ROI)
+  const baseNdvi = L.imageOverlay(
+    "/static/ndvi/ndvi_latest.png", // AJUSTA ESTA RUTA A TU PNG NDVI
+    ROI_BOUNDS,
+    { opacity: 1.0 }
+  );
+
+  const highZoomLayers = {
+    satellite: baseSat,
+    ndvi: baseNdvi
+  };
+
+  let activeHighLayerKey = "satellite";
+  function getActiveHighLayer() {
+    return highZoomLayers[activeHighLayerKey];
+  }
+
+  // -----------------------------------------
+  // 4) Capa de recintos (vacía al principio)
+  // -----------------------------------------
+  const recintosLayer = L.geoJSON(null, {
+    style: {
+      color: "#ff8800",
+      weight: 1,
+    },
+    onEachFeature: function (feature, layer) {
+      const p = feature.properties || {};
+      const html = `
           <strong>Provincia:</strong> ${p.provincia ?? "-"}<br>
           <strong>Municipio:</strong> ${p.municipio ?? "-"}<br>
           <strong>Polígono:</strong> ${p.poligono ?? "-"}<br>
           <strong>Parcela:</strong> ${p.parcela ?? "-"}<br>
           <strong>Recinto:</strong> ${p.recinto ?? "-"}
         `;
-        layer.bindPopup(html);
-      },
-    }).addTo(map);
+      layer.bindPopup(html);
+    },
+  }).addTo(map);
 
-    // *** Recintos activos por defecto (porque el tile viene activo) ***
-    let recintosActivos = true;
+  // *** Recintos activos por defecto (porque el tile viene activo) ***
+  let recintosActivos = true;
 
-    // -----------------------------------------
-    // 5) Función: pedir recintos SOLO si el zoom es suficiente y están activos
-    // -----------------------------------------
-    function cargarRecintosSiProcede() {
-      const z = map.getZoom();
+  // -----------------------------------------
+  // 5) Función: pedir recintos SOLO si el zoom es suficiente y están activos
+  // -----------------------------------------
+  function cargarRecintosSiProcede() {
+    const z = map.getZoom();
 
-      // Si zoom es bajo o la capa está desactivada, se limpian
-      if (z < ZOOM_RECINTOS || !recintosActivos) {
-        recintosLayer.clearLayers();
-        return;
-      }
-
-      const b = map.getBounds();
-
-      const bbox = [
-        b.getWest().toFixed(6),
-        b.getSouth().toFixed(6),
-        b.getEast().toFixed(6),
-        b.getNorth().toFixed(6),
-      ].join(",");
-
-      console.log("Solicitando recintos para bbox:", bbox);
-
-      fetch(`/api/recintos?bbox=${bbox}`)
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error("Respuesta no OK de /api/recintos");
-          }
-          return response.json();
-        })
-        .then((fc) => {
-          console.log(
-            "Recintos recibidos:",
-            fc && fc.features ? fc.features.length : 0
-          );
-
-          recintosLayer.clearLayers();
-
-          if (!fc || !fc.features || fc.features.length === 0) {
-            return;
-          }
-
-          recintosLayer.addData(fc);
-        })
-        .catch((err) => {
-          console.error("Error al cargar recintos:", err);
-        });
+    // Si zoom es bajo o la capa está desactivada, se limpian
+    if (z < ZOOM_RECINTOS || !recintosActivos) {
+      recintosLayer.clearLayers();
+      return;
     }
 
-    // -----------------------------------------
-    // 6) Función: cambiar fondo según zoom
-    // -----------------------------------------
-    function actualizarMapaSegunZoom() {
-      const z = map.getZoom();
-      const activeHighLayer = getActiveHighLayer();
+    const b = map.getBounds();
 
-      if (z >= ZOOM_RECINTOS) {
-        // Zoom “cerca”: capa de detalle activa
-        if (map.hasLayer(baseOSM)) {
-          map.removeLayer(baseOSM);
+    const bbox = [
+      b.getWest().toFixed(6),
+      b.getSouth().toFixed(6),
+      b.getEast().toFixed(6),
+      b.getNorth().toFixed(6),
+    ].join(",");
+
+    console.log("Solicitando recintos para bbox:", bbox);
+
+    fetch(`/api/recintos?bbox=${bbox}`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Respuesta no OK de /api/recintos");
         }
-
-        Object.values(highZoomLayers).forEach((layer) => {
-          if (layer && layer !== activeHighLayer && map.hasLayer(layer)) {
-            map.removeLayer(layer);
-          }
-        });
-
-        if (activeHighLayer && !map.hasLayer(activeHighLayer)) {
-          activeHighLayer.addTo(map);
-        }
-      } else {
-        // Zoom “lejos”: sólo OSM, sin detalles ni recintos
-        Object.values(highZoomLayers).forEach((layer) => {
-          if (layer && map.hasLayer(layer)) {
-            map.removeLayer(layer);
-          }
-        });
-
-        if (!map.hasLayer(baseOSM)) {
-          baseOSM.addTo(map);
-        }
+        return response.json();
+      })
+      .then((fc) => {
+        console.log(
+          "Recintos recibidos:",
+          fc && fc.features ? fc.features.length : 0
+        );
 
         recintosLayer.clearLayers();
+
+        if (!fc || !fc.features || fc.features.length === 0) {
+          return;
+        }
+
+        recintosLayer.addData(fc);
+      })
+      .catch((err) => {
+        console.error("Error al cargar recintos:", err);
+      });
+  }
+
+  // -----------------------------------------
+  // 6) Función: cambiar fondo según zoom
+  // -----------------------------------------
+  function actualizarMapaSegunZoom() {
+    const z = map.getZoom();
+    const activeHighLayer = getActiveHighLayer();
+
+    if (z >= ZOOM_RECINTOS) {
+      // Zoom “cerca”: capa de detalle activa
+      if (map.hasLayer(baseOSM)) {
+        map.removeLayer(baseOSM);
       }
+
+      Object.values(highZoomLayers).forEach((layer) => {
+        if (layer && layer !== activeHighLayer && map.hasLayer(layer)) {
+          map.removeLayer(layer);
+        }
+      });
+
+      if (activeHighLayer && !map.hasLayer(activeHighLayer)) {
+        activeHighLayer.addTo(map);
+      }
+    } else {
+      // Zoom “lejos”: sólo OSM, sin detalles ni recintos
+      Object.values(highZoomLayers).forEach((layer) => {
+        if (layer && map.hasLayer(layer)) {
+          map.removeLayer(layer);
+        }
+      });
+
+      if (!map.hasLayer(baseOSM)) {
+        baseOSM.addTo(map);
+      }
+
+      recintosLayer.clearLayers();
     }
+  }
 
-    // -----------------------------------------
-    // 7) Eventos del mapa
-    // -----------------------------------------
-    map.on("zoomend", () => {
-      actualizarMapaSegunZoom();
-      cargarRecintosSiProcede();
-    });
-
-    map.on("moveend", () => {
-      cargarRecintosSiProcede();
-    });
-
+  // -----------------------------------------
+  // 7) Eventos del mapa
+  // -----------------------------------------
+  map.on("zoomend", () => {
     actualizarMapaSegunZoom();
     cargarRecintosSiProcede();
+  });
 
-    // -----------------------------------------
-    // 8) Lógica del botón y panel
-    // -----------------------------------------
-    const toggleBtn = document.getElementById("basemap-toggle");
-    const panel = document.getElementById("basemap-panel");
+  map.on("moveend", () => {
+    cargarRecintosSiProcede();
+  });
 
-    toggleBtn.addEventListener("click", () => {
-      panel.classList.toggle("visible");
-      toggleBtn.classList.toggle("active");
+  actualizarMapaSegunZoom();
+  cargarRecintosSiProcede();
+
+  // -----------------------------------------
+  // 8) Lógica del botón y panel
+  // -----------------------------------------
+  const toggleBtn = document.getElementById("basemap-toggle");
+  const panel = document.getElementById("basemap-panel");
+
+  toggleBtn.addEventListener("click", () => {
+    panel.classList.toggle("visible");
+    toggleBtn.classList.toggle("active");
+  });
+
+  // --- Selección de mapa principal (satélite / NDVI) ---
+  document
+    .querySelectorAll(".basemap-option.basemap-main[data-layer]")
+    .forEach((option) => {
+      option.addEventListener("click", () => {
+        const layerKey = option.dataset.layer;
+        if (!highZoomLayers[layerKey]) {
+          return;
+        }
+
+        // Solo afectamos a las opciones de "Mapa Principal"
+        document
+          .querySelectorAll(".basemap-option.basemap-main")
+          .forEach((el) => el.classList.remove("active"));
+        option.classList.add("active");
+
+        activeHighLayerKey = layerKey;
+        actualizarMapaSegunZoom();
+      });
     });
 
-    // --- Selección de mapa principal (satélite / NDVI) ---
-    document
-      .querySelectorAll(".basemap-option.basemap-main[data-layer]")
-      .forEach((option) => {
-        option.addEventListener("click", () => {
-          const layerKey = option.dataset.layer;
-          if (!highZoomLayers[layerKey]) {
-            return;
-          }
+  // --- Toggle Recintos SigPac (nivel de detalle) ---
+  const recintosOption = document.querySelector(
+    '.basemap-option.basemap-detail[data-detail="sigpac"]'
+  );
 
-          // Solo afectamos a las opciones de "Mapa Principal"
-          document
-            .querySelectorAll(".basemap-option.basemap-main")
-            .forEach((el) => el.classList.remove("active"));
-          option.classList.add("active");
+  if (recintosOption) {
+    recintosOption.addEventListener("click", () => {
+      // alternar estado
+      recintosActivos = !recintosActivos;
 
-          activeHighLayerKey = layerKey;
-          actualizarMapaSegunZoom();
-        });
-      });
-
-    // --- Toggle Recintos SigPac (nivel de detalle) ---
-    const recintosOption = document.querySelector(
-      '.basemap-option.basemap-detail[data-detail="sigpac"]'
-    );
-
-    if (recintosOption) {
-      recintosOption.addEventListener("click", () => {
-        // alternar estado
-        recintosActivos = !recintosActivos;
-
-        if (recintosActivos) {
-          recintosOption.classList.add("active");
-          // si estamos en zoom suficiente, recargar recintos
-          cargarRecintosSiProcede();
-        } else {
-          recintosOption.classList.remove("active");
-          recintosLayer.clearLayers();
-        }
-      });
-    }
+      if (recintosActivos) {
+        recintosOption.classList.add("active");
+        // si estamos en zoom suficiente, recargar recintos
+        cargarRecintosSiProcede();
+      } else {
+        recintosOption.classList.remove("active");
+        recintosLayer.clearLayers();
+      }
+    });
+  }
   });
 </script>
 
