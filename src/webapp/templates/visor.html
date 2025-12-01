@@ -144,16 +144,19 @@
     <h6>Mapa Principal</h6>
     <div class="basemap-grid">
       <!-- Opción activa por defecto: imagen satélite -->
-      <div class="basemap-option active" data-layer="satellite">
+      <div class="basemap-option basemap-main active" data-layer="satellite">
         <div class="basemap-thumb thumb-sat"></div>
         <div>Imagen Satelital</div>
       </div>
-      <!-- Esqueletos para futuros mapas -->
-      <div class="basemap-option disabled">
+
+      <!-- NDVI: seleccionable -->
+      <div class="basemap-option basemap-main" data-layer="ndvi">
         <div class="basemap-thumb thumb-ndvi"></div>
         <div>Vigor Vegetal (NDVI)</div>
       </div>
-      <div class="basemap-option disabled">
+
+      <!-- ETP aún sin lógica -->
+      <div class="basemap-option basemap-main disabled">
         <div class="basemap-thumb thumb-etp"></div>
         <div>ETP</div>
       </div>
@@ -162,15 +165,21 @@
     <h6>Nivel de Detalle</h6>
     <div class="basemap-grid">
       <!-- De momento sólo esqueletos informativos -->
-      <div class="basemap-option disabled">
+      <div class="basemap-option basemap-detail disabled">
         <div class="basemap-thumb thumb-sat"></div>
         <div>Mis Parcelas</div>
       </div>
-      <div class="basemap-option disabled">
+
+      <!-- *** Recintos SigPac: ACTIVO POR DEFECTO Y CONMUTA LA CAPA *** -->
+      <div
+        class="basemap-option basemap-detail active"
+        data-detail="sigpac"
+      >
         <div class="basemap-thumb thumb-sat"></div>
         <div>Recintos SigPac</div>
       </div>
-      <div class="basemap-option disabled">
+
+      <div class="basemap-option basemap-detail disabled">
         <div class="basemap-thumb thumb-sat"></div>
         <div>Parcelas Calculadas</div>
       </div>
@@ -204,8 +213,8 @@
     );
 
     // Zoom a partir del cual:
-    //   - cambiamos a satélite (o el mapa de detalle activo)
-    //   - mostramos y cargamos recintos
+    //   - cambiamos a mapa de detalle (satélite / NDVI)
+    //   - mostramos y cargamos recintos (si están activados)
     const ZOOM_RECINTOS = 15;
 
     // -----------------------------------------
@@ -217,14 +226,13 @@
       zoomControl: true,
     });
 
-    // Ajustamos la vista al ROI
     map.fitBounds(ROI_BOUNDS);
 
     // -----------------------------------------
     // 3) Capas base
     // -----------------------------------------
 
-    // Mapa base 1 – OSM (fondo claro, se ve con zoom lejano)
+    // Mapa base 1 – OSM (fondo claro, zoom lejano)
     const baseOSM = L.tileLayer(
       "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
       {
@@ -232,7 +240,7 @@
         minZoom: 8,
         maxZoom: 19,
       }
-    ).addTo(map); // capa inicial
+    ).addTo(map);
 
     // Mapa base 2 – Satélite (Esri World Imagery)
     const baseSat = L.tileLayer(
@@ -244,15 +252,19 @@
       }
     );
 
-    // Aquí podrás añadir más mapas de detalle (NDVI, ETP...) más adelante.
+    // Capa NDVI (por ahora una imagen overlay sobre todo el ROI)
+    const baseNdvi = L.imageOverlay(
+      "/static/ndvi/ndvi_latest.png", // AJUSTA ESTA RUTA A TU PNG NDVI
+      ROI_BOUNDS,
+      { opacity: 1.0 }
+    );
+
     const highZoomLayers = {
       satellite: baseSat,
-      // ndvi: L.tileLayer("URL_TUS_TILES_NDVI", {...})
-      // etp:  L.tileLayer("URL_TUS_TILES_ETP", {...})
+      ndvi: baseNdvi
     };
 
     let activeHighLayerKey = "satellite";
-
     function getActiveHighLayer() {
       return highZoomLayers[activeHighLayerKey];
     }
@@ -260,7 +272,6 @@
     // -----------------------------------------
     // 4) Capa de recintos (vacía al principio)
     // -----------------------------------------
-
     const recintosLayer = L.geoJSON(null, {
       style: {
         color: "#ff8800",
@@ -277,16 +288,19 @@
         `;
         layer.bindPopup(html);
       },
-    }).addTo(map); // se añade ya, pero al principio está vacío
+    }).addTo(map);
+
+    // *** Recintos activos por defecto (porque el tile viene activo) ***
+    let recintosActivos = true;
 
     // -----------------------------------------
-    // 5) Función: pedir recintos SOLO si el zoom es suficiente
+    // 5) Función: pedir recintos SOLO si el zoom es suficiente y están activos
     // -----------------------------------------
     function cargarRecintosSiProcede() {
       const z = map.getZoom();
 
-      // Si estamos lejos, no pedimos nada y limpiamos la capa
-      if (z < ZOOM_RECINTOS) {
+      // Si zoom es bajo o la capa está desactivada, se limpian
+      if (z < ZOOM_RECINTOS || !recintosActivos) {
         recintosLayer.clearLayers();
         return;
       }
@@ -321,7 +335,6 @@
             return;
           }
 
-          // Añadimos todas las features a la capa GeoJSON existente
           recintosLayer.addData(fc);
         })
         .catch((err) => {
@@ -331,20 +344,17 @@
 
     // -----------------------------------------
     // 6) Función: cambiar fondo según zoom
-    //    - Lejos  -> OSM sin recintos
-    //    - Cerca  -> capa de detalle activa + recintos
     // -----------------------------------------
     function actualizarMapaSegunZoom() {
       const z = map.getZoom();
       const activeHighLayer = getActiveHighLayer();
 
       if (z >= ZOOM_RECINTOS) {
-        // Zoom “cerca”: usamos la capa de detalle activa
+        // Zoom “cerca”: capa de detalle activa
         if (map.hasLayer(baseOSM)) {
           map.removeLayer(baseOSM);
         }
 
-        // Quitamos otras capas de detalle que no sean la activa
         Object.values(highZoomLayers).forEach((layer) => {
           if (layer && layer !== activeHighLayer && map.hasLayer(layer)) {
             map.removeLayer(layer);
@@ -354,9 +364,8 @@
         if (activeHighLayer && !map.hasLayer(activeHighLayer)) {
           activeHighLayer.addTo(map);
         }
-        // recintosLayer se mantiene (se llenará en cargarRecintosSiProcede)
       } else {
-        // Zoom “lejos”: OSM, sin recintos ni capas de detalle
+        // Zoom “lejos”: sólo OSM, sin detalles ni recintos
         Object.values(highZoomLayers).forEach((layer) => {
           if (layer && map.hasLayer(layer)) {
             map.removeLayer(layer);
@@ -367,33 +376,27 @@
           baseOSM.addTo(map);
         }
 
-        recintosLayer.clearLayers(); // vaciamos dibujos
+        recintosLayer.clearLayers();
       }
     }
 
     // -----------------------------------------
     // 7) Eventos del mapa
     // -----------------------------------------
-
-    // Cada vez que cambie el zoom:
-    //  - cambiamos el fondo
-    //  - y si procede pedimos recintos
     map.on("zoomend", () => {
       actualizarMapaSegunZoom();
       cargarRecintosSiProcede();
     });
 
-    // Cada vez que termine un desplazamiento (dentro del zoom alto):
     map.on("moveend", () => {
       cargarRecintosSiProcede();
     });
 
-    // Llamada inicial: ajusta fondo + recintos según zoom inicial
     actualizarMapaSegunZoom();
     cargarRecintosSiProcede();
 
     // -----------------------------------------
-    // 8) Lógica del botón y panel de mapas de detalle
+    // 8) Lógica del botón y panel
     // -----------------------------------------
     const toggleBtn = document.getElementById("basemap-toggle");
     const panel = document.getElementById("basemap-panel");
@@ -403,29 +406,47 @@
       toggleBtn.classList.toggle("active");
     });
 
-    // Cambio de capa de detalle (de momento sólo "satellite")
+    // --- Selección de mapa principal (satélite / NDVI) ---
     document
-      .querySelectorAll(".basemap-option[data-layer]")
+      .querySelectorAll(".basemap-option.basemap-main[data-layer]")
       .forEach((option) => {
         option.addEventListener("click", () => {
           const layerKey = option.dataset.layer;
-
           if (!highZoomLayers[layerKey]) {
-            // Aún no implementada (ej. NDVI, ETP) -> por ahora no hace nada
             return;
           }
 
-          // Marcar visualmente la opción activa
+          // Solo afectamos a las opciones de "Mapa Principal"
           document
-            .querySelectorAll(".basemap-option")
+            .querySelectorAll(".basemap-option.basemap-main")
             .forEach((el) => el.classList.remove("active"));
           option.classList.add("active");
 
-          // Cambiar la capa de detalle activa y refrescar
           activeHighLayerKey = layerKey;
           actualizarMapaSegunZoom();
         });
       });
+
+    // --- Toggle Recintos SigPac (nivel de detalle) ---
+    const recintosOption = document.querySelector(
+      '.basemap-option.basemap-detail[data-detail="sigpac"]'
+    );
+
+    if (recintosOption) {
+      recintosOption.addEventListener("click", () => {
+        // alternar estado
+        recintosActivos = !recintosActivos;
+
+        if (recintosActivos) {
+          recintosOption.classList.add("active");
+          // si estamos en zoom suficiente, recargar recintos
+          cargarRecintosSiProcede();
+        } else {
+          recintosOption.classList.remove("active");
+          recintosLayer.clearLayers();
+        }
+      });
+    }
   });
 </script>
 
