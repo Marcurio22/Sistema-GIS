@@ -5,18 +5,18 @@ from flask_login import login_required, current_user
 from . import dashboard_bp
 from datetime import datetime
 import logging
-from .config_clima import obtener_info_clima
+from .config_dashboard import obtener_info_clima
 import requests
 
 
 logger = logging.getLogger('app.dashboard')
 logger.setLevel(logging.INFO)
 
-def obtener_datos_aemet():
+def obtener_datos_aemet(CODIGO_MUNICIPIO):
     """Obtiene los datos meteorológicos de AEMET para Burgos"""
     try:
         AEMET_API_KEY = current_app.config.get('AEMET_API_KEY', 'tu_api_key_aqui')
-        CODIGO_MUNICIPIO = '34086'
+        
         
         url_solicitud = f'https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/horaria/{CODIGO_MUNICIPIO}?api_key={AEMET_API_KEY}'
         response1 = requests.get(url_solicitud, timeout=5)
@@ -162,9 +162,12 @@ def dashboard():
         f'Usuario {current_user.username} accedió al dashboard',
         extra={'tipo_operacion': 'ACCESO', 'modulo': 'DASHBOARD'}
     )
-    
+    if current_user.
     # Obtener datos meteorológicos de AEMET
-    weather = obtener_datos_aemet()
+    weather = obtener_datos_aemet("34023")
+
+    # Widget AEMET que cambia según el municipio
+
     
     return render_template('dashboard.html', username=current_user.username, weather=weather)
 
@@ -197,8 +200,15 @@ def visor():
         roi_bbox = [-4.6718708208, 41.7248613835,
                     -3.8314839480, 42.1274665349]
 
-    
-    weather = obtener_datos_aemet()
+    # Para saber el codigo del municipio hay que ver el numero de parcelas que tiene el usuario en cada municipio y sacar el codigo del que mas parcelas tiene
+
+    codigo_municipio = '34023'
+
+    # Sacar codigo municipio de las parcelas del usuario?
+
+
+
+    weather = obtener_datos_aemet(codigo_municipio)
     # OJO: ahora pasamos roi_bbox (no roi_bounds)
     return render_template("visor.html", roi_bbox=roi_bbox,    weather=weather)
 

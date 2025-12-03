@@ -259,3 +259,7 @@ def obtener_info_clima(descripcion, es_noche=False):
     else:
         # Valores por defecto si no se encuentra
         return {'icono': 'cloud', 'color': 'text-primary'}
+    
+
+
+    

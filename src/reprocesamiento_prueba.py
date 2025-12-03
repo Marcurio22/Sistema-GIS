@@ -16,14 +16,13 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 # Área de interés - BURGOS, ESPAÑA
 AOI_BBOX = {
-    'minx': -3.8,   # Longitud oeste
-    'maxx': -3.6,   # Longitud este
-    'miny': 42.25,  # Latitud sur
-    'maxy': 42.45   # Latitud norte
+    'minx': -4.6718708208,   # Longitud oeste
+    'maxx': -3.8314839480,   # Longitud este
+    'miny': 41.7248613835,   # Latitud sur
+    'maxy': 42.1274665349    # Latitud norte
 }
-
-# EPSG para España
-OUTPUT_EPSG = 'EPSG:25830'  # Sistema oficial de España - ETRS89 UTM 30N
+# EPSG para ?
+OUTPUT_EPSG = 'EPSG:4326'  # Sistema oficial de España - ETRS89 UTM 30N - 25830?
 
 # Bandas a procesar - PRIORIZAR RESOLUCIÓN 10m
 BANDAS_CONFIG = {
