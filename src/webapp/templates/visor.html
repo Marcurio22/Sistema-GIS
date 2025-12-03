@@ -2,6 +2,48 @@
 
 {% block title %}Visor SIG{% endblock %}
 
+{% block navbar_extra %}
+    <div class="d-flex align-items-center gap-3 bg-white rounded-3 px-3 py-2 shadow-sm">
+        <!-- Temperatura principal -->
+        <div class="d-flex align-items-center">
+            <i class="bi bi-{{ weather.icono }} {{ weather.color_icono }}" style="font-size: 1.5rem;"></i>
+            <span class="ms-2 fw-bold fs-5 text-dark">{{ weather.temperatura }}°</span>
+        </div>
+        
+        <!-- Separador -->
+        <div class="vr opacity-50"></div>
+        
+        <!-- Datos compactos -->
+        <div class="d-none d-md-flex gap-3 small text-dark">
+            {% if weather.humedad %}
+            <div class="d-flex align-items-center">
+                <i class="bi bi-droplet-fill text-info me-1"></i>
+                <span>{{ weather.humedad }}%</span>
+            </div>
+            {% endif %}
+            
+            {% if weather.viento_velocidad %}
+            <div class="d-flex align-items-center">
+                <i class="bi bi-wind text-secondary me-1"></i>
+                <span>{{ weather.viento_velocidad }} km/h</span>
+            </div>
+            {% endif %}
+            
+            {% if weather.prob_precipitacion %}
+            <div class="d-flex align-items-center">
+                <i class="bi bi-cloud-rain text-primary me-1"></i>
+                <span>{{ weather.prob_precipitacion }}%</span>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Ubicación (solo en pantallas grandes) -->
+        <div class="d-none d-lg-block text-muted small">
+            <i class="bi bi-geo-alt-fill"></i> {{ weather.municipio }}
+        </div>
+    </div>
+{% endblock %}
+
 {% block content %}
 
 <!-- Leaflet CSS -->
