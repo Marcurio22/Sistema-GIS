@@ -162,7 +162,6 @@ def dashboard():
         f'Usuario {current_user.username} accedió al dashboard',
         extra={'tipo_operacion': 'ACCESO', 'modulo': 'DASHBOARD'}
     )
-    if current_user.
     # Obtener datos meteorológicos de AEMET
     weather = obtener_datos_aemet("34023")
 
