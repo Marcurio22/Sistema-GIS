@@ -32,3 +32,9 @@ class Config:
     PERMANENT_SESSION_LIFETIME = 2629800
 
     AEMET_API_KEY = os.getenv("AEMET_API_KEY")
+
+    # --- Nueva configuración para GeoServer / WFS ---
+    GEOSERVER_WFS_URL = os.getenv("GEOSERVER_WFS_URL", "http://100.102.237.86:8080/geoserver/wfs")
+    GEOSERVER_USER = os.getenv("GEOSERVER_USER")
+    GEOSERVER_PASSWORD = os.getenv("GEOSERVER_PASSWORD")
+    GEOSERVER_RECINTOS_TYPENAME = os.getenv("GEOSERVER_RECINTOS_TYPENAME", "gis_project:recintos")
