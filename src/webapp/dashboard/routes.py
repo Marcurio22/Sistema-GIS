@@ -197,7 +197,8 @@ def visor():
         roi_bbox = [-4.6718708208, 41.7248613835,
                     -3.8314839480, 42.1274665349]
 
-    # OJO: ahora pasamos roi_bbox (no roi_bounds)
+    
     weather = obtener_datos_aemet()
+    # OJO: ahora pasamos roi_bbox (no roi_bounds)
     return render_template("visor.html", roi_bbox=roi_bbox,    weather=weather)
 
