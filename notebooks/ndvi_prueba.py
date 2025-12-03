@@ -3,74 +3,71 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 
-def compute_ndvi(red: np.ndarray, nir: np.ndarray) -> np.ndarray:
+def compute_exg(red: np.ndarray, green: np.ndarray, blue: np.ndarray) -> np.ndarray:
     """
-    Calcula NDVI a partir de las bandas RED y NIR.
-    red y nir deben ser arrays 2D (mismo tamaño) en float.
+    Calcula ExG (Excess Green) - índice de vegetación para imágenes RGB.
+    ExG = 2*G - R - B
     """
     red = red.astype(np.float32)
-    nir = nir.astype(np.float32)
+    green = green.astype(np.float32)
+    blue = blue.astype(np.float32)
+    
+    # Normalizar a [0, 1]
+    red /= 255.0
+    green /= 255.0
+    blue /= 255.0
+    
+    exg = 2 * green - red - blue
+    return exg
 
-    # NDVI = (NIR - RED) / (NIR + RED)
-    # Añadimos un epsilon para evitar divisiones por cero
-    eps = 1e-6
-    ndvi = (nir - red) / (nir + red + eps)
 
-    # Limitamos al rango [-1, 1] por seguridad numérica
-    ndvi = np.clip(ndvi, -1.0, 1.0)
-    return ndvi
-
-
-def ndvi_from_rgb_png(input_path: str,
-                      ndvi_gray_path: str,
-                      ndvi_color_path: str):
+def vegetation_from_rgb(input_path: str,
+                       output_gray_path: str,
+                       output_color_path: str):
     """
-    Lee una imagen RGB (como la que has adjuntado) y genera:
-      - Un NDVI en escala de grises normalizado
-      - Un mapa coloreado (estilo heatmap) con todos los coeficientes NDVI.
-
-    IMPORTANTE: aquí hacemos una APROXIMACIÓN, usando el canal G como NIR.
-    Para NDVI real, sustituye 'nir = g' por la banda NIR verdadera.
+    Genera un mapa de vegetación a partir de una imagen RGB normal.
     """
     # 1. Leer imagen
     rgb_img = Image.open(input_path).convert("RGB")
     rgb = np.array(rgb_img).astype(np.float32)
-
-    # Separar canales (PIL -> RGB)
-    r = rgb[:, :, 0]  # Red
-    g = rgb[:, :, 1]  # Green
-    b = rgb[:, :, 2]  # Blue
-
-    # 2. APROXIMACIÓN: usamos G como pseudo-NIR
-    nir = g
-    red = r
-
-    # 3. Calcular NDVI
-    ndvi = compute_ndvi(red, nir)
-
-    # 4. Guardar NDVI en escala de grises (0–255)
-    #    Mapeamos [-1, 1] -> [0, 255]
-    ndvi_norm = (ndvi + 1) / 2.0
-    ndvi_8bit = (ndvi_norm * 255).astype(np.uint8)
-    ndvi_gray_img = Image.fromarray(ndvi_8bit)
-    ndvi_gray_img.save(ndvi_gray_path)
-
-    # 5. Crear imagen coloreada tipo la segunda imagen (colormap)
+    
+    # Separar canales
+    r = rgb[:, :, 0]
+    g = rgb[:, :, 1]
+    b = rgb[:, :, 2]
+    
+    # 2. Calcular índice de vegetación
+    veg_index = compute_exg(r, g, b)
+    
+    # 3. Normalizar a [0, 255] para escala de grises
+    veg_min = veg_index.min()
+    veg_max = veg_index.max()
+    veg_norm = (veg_index - veg_min) / (veg_max - veg_min)
+    veg_8bit = (veg_norm * 255).astype(np.uint8)
+    
+    # Guardar en escala de grises
+    gray_img = Image.fromarray(veg_8bit)
+    gray_img.save(output_gray_path)
+    
+    # 4. Crear mapa de calor
     plt.figure(figsize=(6, 6))
-    plt.imshow(ndvi, cmap="RdYlGn")  # rojo = bajo NDVI, verde = alto NDVI
+    plt.imshow(veg_index, cmap="RdYlGn")
     plt.axis("off")
     cbar = plt.colorbar(fraction=0.046, pad=0.04)
-    cbar.set_label("NDVI", rotation=270, labelpad=15)
-
+    cbar.set_label("Índice de Vegetación (ExG)", rotation=270, labelpad=15)
+    
     plt.tight_layout(pad=0)
-    plt.savefig(ndvi_color_path, dpi=300, bbox_inches="tight", pad_inches=0)
+    plt.savefig(output_color_path, dpi=300, bbox_inches="tight", pad_inches=0)
     plt.close()
+    
+    print(f"✅ Imágenes generadas:")
+    print(f"   - Escala de grises: {output_gray_path}")
+    print(f"   - Mapa de calor: {output_color_path}")
 
 
 if __name__ == "__main__":
-    # Rutas de ejemplo (cámbialas por las tuyas)
-    input_image = "./campo_rgb.png"               # la imagen que has adjuntado
-    ndvi_gray_out = "campo_ndvi_gris.png"       # NDVI en escala de grises
-    ndvi_color_out = "campo_ndvi_color.png"     # NDVI coloreado (tipo heatmap)
-
-    ndvi_from_rgb_png(input_image, ndvi_gray_out, ndvi_color_out)
+    input_image = "./campo_rgb.png"
+    output_gray = "./campo_vegetacion_gris.png"
+    output_color = "./campo_vegetacion_color.png"
+    
+    vegetation_from_rgb(input_image, output_gray, output_color)
