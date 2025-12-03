@@ -169,7 +169,7 @@ def actualizar_postgis_atomic(gdf_recintos: gpd.GeoDataFrame) -> None:
     with engine.begin() as conn:
         conn.execute(text(swap_sql))
 
-    print("✅ Tabla sigpac.recintos actualizada correctamente (estrategia B).")
+    print("Tabla sigpac.recintos actualizada correctamente.")
 
 
 # ---------------------------------------------------
@@ -212,7 +212,7 @@ if __name__ == "__main__":
         try:
             main()
         except Exception as exc:
-            print(f"\n❌ ERROR en la actualización: {exc}\n")
+            print(f"\n ERROR en la actualización: {exc}\n")
 
         # Esperar 7 días (7 * 24 * 60 * 60 segundos)
         print("Esperando 7 días para la próxima actualización…")
