@@ -410,24 +410,78 @@
     // -----------------------------------------
     // 4) Capa de recintos
     // -----------------------------------------
+    // -----------------------------------------
+    // 4) Capa de recintos
+    // -----------------------------------------
+
+    const RECINTO_STYLE_DEFAULT = {
+      color: "#ff8800",
+      weight: 1,
+    };
+
+    const RECINTO_STYLE_SELECTED = {
+      color: "#0077ff",
+      weight: 2,
+      fillOpacity: 0.25,
+    };
+
+    // Guardamos el recinto actualmente seleccionado (si lo hay)
+    let selectedRecintoLayer = null;
+
     const recintosLayer = L.geoJSON(null, {
-      style: {
-        color: "#ff8800",
-        weight: 1,
+      style: function () {
+        return RECINTO_STYLE_DEFAULT;
       },
       onEachFeature: function (feature, layer) {
         const p = feature.properties || {};
+
         const html = `
-          <strong>Provincia:</strong> ${p.provincia ?? "-"}<br>
-          <strong>Municipio:</strong> ${p.municipio ?? "-"}<br>
-          <strong>Polígono:</strong> ${p.poligono ?? "-"}<br>
-          <strong>Parcela:</strong> ${p.parcela ?? "-"}<br>
-          <strong>Recinto:</strong> ${p.recinto ?? "-"}
+          <div class="popup-recinto">
+            <div class="popup-recinto-info">
+              <strong>Provincia:</strong> ${p.provincia ?? "-"}<br>
+              <strong>Municipio:</strong> ${p.municipio ?? "-"}<br>
+              <strong>Polígono:</strong> ${p.poligono ?? "-"}<br>
+              <strong>Parcela:</strong> ${p.parcela ?? "-"}<br>
+              <strong>Recinto:</strong> ${p.recinto ?? "-"}
+            </div>
+            <div style="margin-top: 10px; text-align: right;">
+              <button
+                type="button"
+                class="btn-add-parcela"
+                style="
+                  padding: 6px 10px;
+                  font-size: 0.85rem;
+                  border-radius: 999px;
+                  border: none;
+                  background-color: #16a34a;
+                  color: white;
+                  cursor: pointer;
+                "
+              >
+                Añadir a mis parcelas
+              </button>
+            </div>
+          </div>
         `;
+
         layer.bindPopup(html);
+
+        // Cuando el usuario hace clic en un recinto:
+        layer.on("click", function () {
+          // 1) Restablecer estilo del recinto previamente seleccionado
+          if (selectedRecintoLayer && selectedRecintoLayer !== layer) {
+            selectedRecintoLayer.setStyle(RECINTO_STYLE_DEFAULT);
+          }
+
+          // 2) Marcar este como seleccionado y pintarlo en azul
+          selectedRecintoLayer = layer;
+          layer.setStyle(RECINTO_STYLE_SELECTED);
+
+          // 3) Abrir el popup
+          layer.openPopup();
+        });
       },
     }).addTo(map);
-
     let recintosActivos = true;
 
     // -----------------------------------------

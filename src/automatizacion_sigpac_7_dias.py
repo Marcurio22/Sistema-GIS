@@ -108,17 +108,22 @@ def guardar_backup_rotatorio(gdf_recintos: gpd.GeoDataFrame, out_dir: Path) -> N
 
 
 # ---------------------------------------------------
-# 4) Volcar a PostGIS con actualización atómica
+# 4) Volcar a PostGIS (recintos + parcelas)
 # ---------------------------------------------------
-def actualizar_postgis_atomic(gdf_recintos: gpd.GeoDataFrame) -> None:
+def actualizar_sigpac_y_parcelas_atomic(gdf_recintos: gpd.GeoDataFrame) -> None:
     """
-    Actualiza la tabla sigpac.recintos en PostGIS de forma atómica:
+    Actualiza sigpac.recintos y public.parcelas de forma atómica:
 
     1) Escribe gdf_recintos en sigpac.recintos_new (replace).
-    2) Dentro de una transacción:
-        - DROP TABLE IF EXISTS sigpac.recintos_old;
-        - ALTER TABLE IF EXISTS sigpac.recintos RENAME TO recintos_old;
-        - ALTER TABLE sigpac.recintos_new RENAME TO recintos;
+    2) A partir de recintos_new recalcula/actualiza public.parcelas
+       (1 fila por combinación SIGPAC).
+       - UP SERT: NO toca id_propietario ni propietario (texto).
+       - No pisa nombres que haya podido editar el admin.
+    3) Asigna id_parcela a cada fila de sigpac.recintos_new.
+    4) Intercambia recintos_old/recintos_new -> recintos.
+    5) Crea FK + índices en la tabla final sigpac.recintos.
+
+    Si algo falla, se revierte la transacción.
     """
 
     if gdf_recintos.empty:
@@ -139,37 +144,163 @@ def actualizar_postgis_atomic(gdf_recintos: gpd.GeoDataFrame) -> None:
     db_url = f"postgresql+psycopg2://{user}:{pwd}@{host}:{port}/{db}"
     engine = create_engine(db_url)
 
-    # Crear schema si no existe
+    # Crear schema sigpac si no existe
     with engine.begin() as conn:
         conn.execute(text("CREATE SCHEMA IF NOT EXISTS sigpac"))
 
-    # dtype robusto para MultiPolygon
+    # Tipo de geometría para recintos
     dtype = None
     if _HAS_GEOALCHEMY:
-        dtype = {"geometry": Geometry("MULTIPOLYGON", srid=4326)}
+        dtype = {"geometry": Geometry("POLYGON", srid=4326)}
 
     print("→ Escribiendo datos en tabla temporal sigpac.recintos_new…")
     gdf_recintos.to_postgis(
         name="recintos_new",
         con=engine,
         schema="sigpac",
-        if_exists="replace",   # crea o reemplaza la tabla temporal
+        if_exists="replace",
         index=False,
         chunksize=5000,
         dtype=dtype,
     )
 
-    print("→ Haciendo swap atómico recintos_old / recintos_new…")
-    swap_sql = """
-    DROP TABLE IF EXISTS sigpac.recintos_old;
-    ALTER TABLE IF EXISTS sigpac.recintos RENAME TO recintos_old;
-    ALTER TABLE sigpac.recintos_new RENAME TO recintos;
-    """
-
+    # A partir de aquí, todo en una transacción
     with engine.begin() as conn:
-        conn.execute(text(swap_sql))
+        # 2) UPSERT de parcelas a partir de recintos_new
+        print("→ Actualizando public.parcelas (UPSERT)…")
+        conn.execute(
+            text(
+                """
+                INSERT INTO public.parcelas (
+                    nombre,
+                    superficie_ha,
+                    geom,
+                    provincia,
+                    municipio,
+                    agregado,
+                    zona,
+                    poligono,
+                    parcela
+                )
+                SELECT
+                    -- nombre por defecto SOLO para nuevas parcelas
+                    format(
+                        'Parcela %s-%s-%s-%s-%s-%s',
+                        r.provincia,
+                        r.municipio,
+                        COALESCE(r.agregado, 0),
+                        COALESCE(r.zona, 0),
+                        r.poligono,
+                        r.parcela
+                    ) AS nombre,
+                    ST_Area(
+                        ST_Transform(ST_Union(r.geometry), 3857)
+                    ) / 10000.0 AS superficie_ha,
+                    ST_Multi(ST_Union(r.geometry)) AS geom,
+                    r.provincia,
+                    r.municipio,
+                    r.agregado,
+                    r.zona,
+                    r.poligono,
+                    r.parcela
+                FROM sigpac.recintos_new r
+                GROUP BY
+                    r.provincia,
+                    r.municipio,
+                    r.agregado,
+                    r.zona,
+                    r.poligono,
+                    r.parcela
+                ON CONFLICT (provincia, municipio, agregado, zona, poligono, parcela)
+                DO UPDATE SET
+                    geom          = EXCLUDED.geom,
+                    superficie_ha = EXCLUDED.superficie_ha;
+                """
+            )
+        )
 
-    print("Tabla sigpac.recintos actualizada correctamente.")
+        # 3) Añadir id_parcela a recintos_new y rellenarlo
+        print("→ Asignando id_parcela a sigpac.recintos_new…")
+        conn.execute(text("ALTER TABLE sigpac.recintos_new ADD COLUMN id_parcela integer;"))
+
+        conn.execute(
+            text(
+                """
+                UPDATE sigpac.recintos_new r
+                SET id_parcela = p.id_parcela
+                FROM public.parcelas p
+                WHERE
+                    r.provincia = p.provincia
+                    AND r.municipio = p.municipio
+                    AND r.poligono = p.poligono
+                    AND r.parcela  = p.parcela
+                    AND r.agregado IS NOT DISTINCT FROM p.agregado
+                    AND r.zona     IS NOT DISTINCT FROM p.zona;
+                """
+            )
+        )
+
+        # Comprobar que todos los recintos tienen parcela asociada
+        missing = conn.execute(
+            text("SELECT COUNT(*) FROM sigpac.recintos_new WHERE id_parcela IS NULL;")
+        ).scalar()
+
+        if missing and missing > 0:
+            raise RuntimeError(
+                f"Hay {missing} recintos en sigpac.recintos_new sin id_parcela asignado. "
+                "Revisa los códigos SIGPAC / la tabla public.parcelas."
+            )
+
+        # 4) Intercambio atómico de tablas
+        print("→ Intercambiando sigpac.recintos_old / sigpac.recintos_new…")
+        conn.execute(text("DROP TABLE IF EXISTS sigpac.recintos_old;"))
+        conn.execute(text("ALTER TABLE IF EXISTS sigpac.recintos RENAME TO recintos_old;"))
+        conn.execute(text("ALTER TABLE sigpac.recintos_new RENAME TO recintos;"))
+        conn.execute(text("DROP TABLE IF EXISTS sigpac.recintos_old;"))
+
+        # 5) FK + índices en la tabla final sigpac.recintos
+        print("→ Creando FK e índices en sigpac.recintos…")
+        conn.execute(
+            text(
+                """
+                ALTER TABLE sigpac.recintos
+                ALTER COLUMN id_parcela SET NOT NULL;
+                """
+            )
+        )
+
+        conn.execute(
+            text(
+                """
+                ALTER TABLE sigpac.recintos
+                ADD CONSTRAINT recintos_parcelas_fk
+                FOREIGN KEY (id_parcela)
+                REFERENCES public.parcelas(id_parcela)
+                ON DELETE RESTRICT;
+                """
+            )
+        )
+
+        conn.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS idx_recintos_id_parcela
+                ON sigpac.recintos(id_parcela);
+                """
+            )
+        )
+
+        conn.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS idx_recintos_geom
+                ON sigpac.recintos
+                USING GIST(geometry);
+                """
+            )
+        )
+
+    print("✅ sigpac.recintos y public.parcelas actualizadas correctamente.")
 
 
 # ---------------------------------------------------
@@ -197,8 +328,8 @@ def main():
     # 3) Backup rotatorio
     guardar_backup_rotatorio(gdf_recintos, Path("data/raw/sigpac"))
 
-    # 4) Actualizar PostGIS con swap atómico
-    actualizar_postgis_atomic(gdf_recintos)
+    # 4) Actualizar PostGIS (recintos + parcelas)
+    actualizar_sigpac_y_parcelas_atomic(gdf_recintos)
 
     print("\n✅ Proceso de actualización completado.\n")
 
