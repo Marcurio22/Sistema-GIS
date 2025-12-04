@@ -345,7 +345,8 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
             descripcion = estado_cielo.get('descripcion', 'Desconocido').strip()
             es_noche = 'n' in codigo  # Determinar si es de noche por el código
             
-            print(f"Código: {codigo}, Descripción: {descripcion}, Es noche: {es_noche}")
+
+
             
             # Obtener icono y color según la descripción
             info_clima = obtener_info_clima(descripcion, es_noche)
@@ -468,7 +469,6 @@ class MunicipiosCodigosFinder:
             return self.df_provincias.loc[cpro, 'NOMBRE']
         except KeyError:
             return None
-        
     
     def construir_url_aemet(self, cod_provincia, cod_municipio):
         """
@@ -484,7 +484,6 @@ class MunicipiosCodigosFinder:
         cpro = str(cod_provincia).zfill(2)
         cmun = str(cod_municipio).zfill(3)
         codigo = f"{cpro}{cmun}"
-
         
         nombre_municipio = self.obtener_nombre_municipio(cpro, cmun)  
         if nombre_municipio is None:
@@ -492,40 +491,72 @@ class MunicipiosCodigosFinder:
         
         nombre_municipio_url = nombre_municipio.lower().replace(' ', '-').replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u').replace('ñ', 'n')
         url = f'https://www.aemet.es/es/eltiempo/prediccion/municipios/mostrarwidget/{nombre_municipio_url}-id{codigo}?w=g4p111111111ohmffffffx4f86d9t95b6e9r1s8n2'
+
         return url
-        
-
-
+    
     def codigo_parcelas(self, user_id):
-
         """
-        Obtener el codigo del municipio donde el usuario tiene mas parcelas
+        Obtiene el código del municipio donde el usuario tiene más parcelas.
+        SIEMPRE devuelve el código con formato: 2 dígitos provincia + 3 dígitos municipio
+        
+        Args:
+            user_id: ID del usuario
+        
+        Returns:
+            Código del municipio (formato: "01005" o "28079") o None si no hay parcelas
+        
+        Ejemplo:
+            provincia=1, municipio=5 → devuelve "01005"
+            provincia=28, municipio=79 → devuelve "28079"
         """
-
         parcelas = Parcela.query.filter_by(id_propietario=user_id).all()
         
-
         if not parcelas:
-            return ""
+            return None
         
+        # Contar parcelas por municipio (asegurando formato correcto)
         contador = {}
         for parcela in parcelas:
-            codigo = f"{str(parcela.provincia).zfill(2)}{str(parcela.municipio).zfill(3)}"
+            # IMPORTANTE: zfill(2) para provincia, zfill(3) para municipio
+            cpro = str(parcela.provincia).zfill(2)
+            cmun = str(parcela.municipio).zfill(3)
+            codigo = f"{cpro}{cmun}"
             contador[codigo] = contador.get(codigo, 0) + 1
-
-
         
-        # 3. Encontrar el municipio con más parcelas
+        # Encontrar el municipio con más parcelas
         municipio_mas_parcelas = max(contador, key=contador.get)
         
-        # 4. Separar provincia y municipio
-        cpro = municipio_mas_parcelas[:2]
-
-        cmun = municipio_mas_parcelas[2:]
+        print(municipio_mas_parcelas)
+        return municipio_mas_parcelas
+    
+    def obtener_url_municipio_usuario(self, user_id):
+        """
+        Obtiene la URL de AEMET del municipio donde el usuario tiene más parcelas.
         
-        # 5. Construir la URL 
-        url = self.construir_url_aemet(cpro, cmun)
-        return url
+        Args:
+            user_id: ID del usuario
+        
+        Returns:
+            URL completa a la página de AEMET o None si no hay parcelas o no existe el municipio
+        
+        Ejemplo:
+            Si el usuario tiene parcelas en provincia=1, municipio=5
+            → devuelve URL con código "01005"
+        """
+        # Obtener el código del municipio con más parcelas (ya viene con formato correcto)
+        codigo_municipio = self.codigo_parcelas(user_id)
+        
+        if codigo_municipio is None:
+            return None
+        
+        # El código ya tiene 5 dígitos: 2 de provincia + 3 de municipio
+        # Ejemplo: "01005" → cpro="01", cmun="005"
+        cpro = codigo_municipio[:2]
+        cmun = codigo_municipio[2:]
+        
+        # Construir y devolver la URL
+        return self.construir_url_aemet(cpro, cmun)
 
+    
     
 municipios_finder = MunicipiosCodigosFinder()
