@@ -37,4 +37,4 @@ class Config:
     GEOSERVER_WFS_URL = os.getenv("GEOSERVER_WFS_URL", "http://100.102.237.86:8080/geoserver/wfs")
     GEOSERVER_USER = os.getenv("GEOSERVER_USER")
     GEOSERVER_PASSWORD = os.getenv("GEOSERVER_PASSWORD")
-    GEOSERVER_RECINTOS_TYPENAME = os.getenv("GEOSERVER_RECINTOS_TYPENAME", "gis_project:recintos")
+    GEOSERVER_RECINTOS_TYPENAME = os.getenv("GEOSERVER_RECINTOS_TYPENAME", "gis_project:recintos_con_propietario")
