@@ -24,9 +24,10 @@
                 <tr>
                     <td>{{ parcela.nombre }}</td>
                     <td>{{ "%.2f"|format(parcela.superficie_ha|float) }}</td>
-                    <td>{{ parcela.id_propietario }} - {{ parcela.propietario.username }}</td>
-                    <td>{{ parcela.provincia}}</td>
-                    <td>{{ parcela.municipio }}</td>
+                    <td>{{ parcela.propietario.username }}</td>
+                    <td>{{ parcela.provincia}} - {{ parcela.nombre_provincia }}</td>
+                    <td>{{ parcela.municipio }} - {{ parcela.nombre_municipio }}</td>
+                    
                     <td>
                         {% if parcela.activa %}
                             <span class="badge bg-success">Activa</span>

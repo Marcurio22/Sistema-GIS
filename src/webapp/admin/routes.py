@@ -97,5 +97,6 @@ def gestion_parcelas():
         f'Admin {current_user.username} accedió a gestión de parcelas',
         extra={'tipo_operacion': 'ACCESO', 'modulo': 'ADMIN'}
     )
+    
     parcelas = Parcela.query.filter(Parcela.id_propietario.isnot(None)).all()
     return render_template('admin/gestion_parcelas.html', parcelas=parcelas)

@@ -1,32 +1,41 @@
 # app/utils.py
 import re
 import pandas as pd
-import pandas as pd
+from pathlib import Path
 import os
 
 class MunicipiosFinder:
     """Buscador de nombres de municipios por código de provincia y municipio."""
     
     def __init__(self):
-        # Ruta fija al CSV
-        base_dir = os.path.dirname(__file__)
-        csv_path = os.path.join(base_dir, 'data', 'municipios.csv')
+        # Ruta base
+        base_dir = Path(__file__).parent.parent
+        csv_dir = base_dir / 'static' / 'csv'
         
-        # Cargar CSV
-        self.df = pd.read_csv(csv_path, dtype={'CPRO': str, 'CMUN': str})
+        # Cargar municipios
+        self.df_municipios = pd.read_csv(
+            csv_dir / 'nombres_municipios.csv', 
+            skiprows=1, 
+            dtype=str
+        )
+        self.df_municipios['CPRO'] = self.df_municipios['CPRO'].str.strip()
+        self.df_municipios['CMUN'] = self.df_municipios['CMUN'].str.strip()
+        self.df_municipios['NOMBRE'] = self.df_municipios['NOMBRE'].str.strip()
+        self.df_municipios['CODIGO'] = self.df_municipios['CPRO'] + self.df_municipios['CMUN']
+        self.df_municipios.set_index('CODIGO', inplace=True)
         
-        # Limpiar y preparar datos
-        self.df['CPRO'] = self.df['CPRO'].str.strip()
-        self.df['CMUN'] = self.df['CMUN'].str.strip()
-        self.df['NOMBRE'] = self.df['NOMBRE'].str.strip()
-        self.df['CODIGO'] = self.df['CPRO'] + self.df['CMUN']
-        
-        # Índice para búsqueda rápida
-        self.df.set_index('CODIGO', inplace=True)
+        # Cargar provincias
+        self.df_provincias = pd.read_csv(
+            csv_dir / 'nombres_provincias.csv', 
+            dtype=str
+        )
+        self.df_provincias['CPRO'] = self.df_provincias['CPRO'].str.strip()
+        self.df_provincias['NOMBRE'] = self.df_provincias['NOMBRE'].str.strip()
+        self.df_provincias.set_index('CPRO', inplace=True)
     
-    def obtener_nombre(self, cod_provincia, cod_municipio):
+    def obtener_nombre_municipio(self, cod_provincia, cod_municipio):
         """
-        Obtiene el nombre del municipio.
+        Obtiene el nombre del municipio y el nombre de la provincia.
         
         Args:
             cod_provincia: Código provincia (16 o '16')
@@ -40,10 +49,22 @@ class MunicipiosFinder:
         codigo = f"{cpro}{cmun}"
         
         try:
-            return self.df.loc[codigo, 'NOMBRE']
+            return self.df_municipios.loc[codigo, 'NOMBRE']
         except KeyError:
             return None
-
+        
+    def obtener_nombre_provincia(self, cod_provincia):
+        """Obtiene el nombre de la provincia."""
+        cpro = str(cod_provincia).zfill(2)
+        
+        try:
+            return self.df_provincias.loc[cpro, 'NOMBRE']
+        except KeyError:
+            return None
+        
+        
+        
+municipios_finder = MunicipiosFinder()
 def normalizar_telefono_es(valor: str) -> str:
     """
     Normaliza un teléfono español al formato +34XXXXXXXXX
