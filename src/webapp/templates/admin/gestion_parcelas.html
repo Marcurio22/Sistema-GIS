@@ -90,6 +90,7 @@
               <th>Parcela SIGPAC</th>
               <th>Estado</th>
               <th>Fecha solicitud</th>
+              <th>Fecha resolución</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -117,8 +118,21 @@
                   {{ s.estado }}
                 {% endif %}
               </td>
-              <td>{{ s.fecha_solicitud }}</td>
-              <td style="min-width: 260px;">
+              <td>
+                {% if s.fecha_solicitud %}
+                    {{ s.fecha_solicitud.strftime('%d-%m-%Y %H:%M') }}
+                {% else %}
+                    —
+                {% endif %}
+               </td>
+               <td>
+                {% if s.fecha_resolucion %}
+                    {{ s.fecha_resolucion.strftime('%d-%m-%Y %H:%M') }}
+                {% else %}
+                    —
+                {% endif %}
+               </td>
+                <td style="min-width: 260px;">
                 {% if s.estado == 'pendiente' %}
                   <form method="post"
                         action="{{ url_for('admin.aprobar_solicitud_parcela', id_solicitud=s.id_solicitud) }}"
