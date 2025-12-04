@@ -424,7 +424,6 @@
     fillOpacity: 0.25,
   };
 
-  // Guardamos el recinto actualmente seleccionado (si lo hay)
   let selectedRecintoLayer = null;
 
   const recintosLayer = L.geoJSON(null, {
@@ -434,13 +433,12 @@
     onEachFeature: function (feature, layer) {
       const p = feature.properties || {};
 
-      // Propietario: username o "N/A" si viene null/undefined/cadena vacía
+      // Propietario: username o "N/A"
       const propietarioTexto =
         p.propietario && String(p.propietario).trim() !== ""
           ? p.propietario
           : "N/A";
 
-      // Si ya tiene propietario, el botón debe ir desactivado
       const tienePropietario = propietarioTexto !== "N/A";
       const disabledAttr = tienePropietario ? "disabled" : "";
       const disabledStyle = tienePropietario
@@ -448,56 +446,106 @@
         : "";
 
       const html = `
-      <div class="popup-recinto">
-        <div class="popup-recinto-info">
-          <strong>Provincia:</strong> ${p.provincia ?? "-"}<br>
-          <strong>Municipio:</strong> ${p.municipio ?? "-"}<br>
-          <strong>Polígono:</strong> ${p.poligono ?? "-"}<br>
-          <strong>Parcela:</strong> ${p.parcela ?? "-"}<br>
-          <strong>Recinto:</strong> ${p.recinto ?? "-"}<br>
-          <strong>Propietario:</strong> ${propietarioTexto}
+        <div class="popup-recinto">
+          <div class="popup-recinto-info">
+            <strong>Provincia:</strong> ${p.provincia ?? "-"}<br>
+            <strong>Municipio:</strong> ${p.municipio ?? "-"}<br>
+            <strong>Polígono:</strong> ${p.poligono ?? "-"}<br>
+            <strong>Parcela:</strong> ${p.parcela ?? "-"}<br>
+            <strong>Recinto:</strong> ${p.recinto ?? "-"}<br>
+            <strong>Propietario:</strong> ${propietarioTexto}
+          </div>
+          <div style="margin-top: 10px; text-align: right;">
+            <button
+              type="button"
+              class="btn-add-parcela"
+              data-id-parcela="${p.id_parcela ?? ""}"
+              data-provincia="${p.provincia ?? ""}"
+              data-municipio="${p.municipio ?? ""}"
+              data-agregado="${p.agregado ?? ""}"
+              data-zona="${p.zona ?? ""}"
+              data-poligono="${p.poligono ?? ""}"
+              data-parcela="${p.parcela ?? ""}"
+              ${disabledAttr}
+              style="
+                padding: 6px 10px;
+                font-size: 0.85rem;
+                border-radius: 999px;
+                border: none;
+                background-color: #198754;
+                color: white;
+                cursor: pointer;
+                ${disabledStyle}
+              "
+              onclick="window._solicitarParcelaDesdePopup(this)"
+            >
+              Añadir a mis parcelas
+            </button>
+          </div>
         </div>
-        <div style="margin-top: 10px; text-align: right;">
-          <button
-            type="button"
-            class="btn-add-parcela"
-            ${disabledAttr}
-            style="
-              padding: 6px 10px;
-              font-size: 0.85rem;
-              border-radius: 999px;
-              border: none;
-              background-color: #198754;
-              color: white;
-              cursor: pointer;
-              ${disabledStyle}
-            "
-          >
-            Añadir a mis parcelas
-          </button>
-        </div>
-      </div>
-    `;
+      `;
 
       layer.bindPopup(html);
 
-      // Cuando el usuario hace clic en un recinto:
+      // Marcar visualmente la selección
       layer.on("click", function () {
-        // 1) Restablecer estilo del recinto previamente seleccionado
         if (selectedRecintoLayer && selectedRecintoLayer !== layer) {
           selectedRecintoLayer.setStyle(RECINTO_STYLE_DEFAULT);
         }
-
-        // 2) Marcar este como seleccionado y pintarlo en azul
         selectedRecintoLayer = layer;
         layer.setStyle(RECINTO_STYLE_SELECTED);
-
-        // 3) Abrir el popup
         layer.openPopup();
       });
     },
   }).addTo(map);
+
+  // *** Recintos activos por defecto ***
   let recintosActivos = true;
+
+  // Función auxiliar para llamar a la API de solicitudes
+  function solicitarParcela(payload) {
+    fetch("/api/solicitudes-parcela", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    })
+      .then((response) => response.json().catch(() => ({})))
+      .then((data) => {
+        if (data && data.ok) {
+          alert("Solicitud enviada al administrador.");
+        } else {
+          const msg =
+            (data && data.error) ||
+            "No se ha podido crear la solicitud. ¿Estás identificado?";
+          alert(msg);
+        }
+      })
+      .catch((err) => {
+        console.error("Error al crear la solicitud de parcela:", err);
+        alert("Error de comunicación con el servidor.");
+      });
+    }
+
+    // Handler global llamado desde el botón del popup
+    window._solicitarParcelaDesdePopup = function (btn) {
+      if (!btn || btn.disabled) return;
+
+      const ds = btn.dataset;
+
+      const payload = {
+        id_parcela: ds.idParcela || null,
+        provincia: ds.provincia ? Number(ds.provincia) : null,
+        municipio: ds.municipio ? Number(ds.municipio) : null,
+        agregado: ds.agregado ? Number(ds.agregado) : null,
+        zona: ds.zona ? Number(ds.zona) : null,
+        poligono: ds.poligono ? Number(ds.poligono) : null,
+        parcela: ds.parcela ? Number(ds.parcela) : null,
+      };
+
+      solicitarParcela(payload);
+    };
 
   // -----------------------------------------
   // 5) Cargar recintos
