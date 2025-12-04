@@ -415,3 +415,9 @@ def obtener_municipio_codigo():
     """
     # Código de municipio de ejemplo (Venta de Baños, Palencia)
     return '34023'
+
+
+def formar_widget_aemet():
+    codigo_municipio = obtener_municipio_codigo();
+
+    return ""

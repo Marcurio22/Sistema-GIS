@@ -72,7 +72,6 @@ class Parcela(db.Model):
     else:
         geom = db.Column(db.LargeBinary)
 
-    proteccion = db.Column(db.String)
     fecha_creacion = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     activa = db.Column(db.Boolean, default=True)
 
@@ -100,6 +99,12 @@ class Parcela(db.Model):
 
     def __repr__(self):
         return f"<Parcela SIGPAC {self.provincia}-{self.municipio}-{self.poligono}-{self.parcela}>"
+
+    @property
+    def nombre_municipio(self):
+        from utils.utils import municipios_finder
+        return municipios_finder.obtener_nombre(self.provincia, self.municipio) 
+    
 
 
 class SolicitudParcela(db.Model):

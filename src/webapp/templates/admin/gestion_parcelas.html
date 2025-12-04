@@ -3,6 +3,49 @@
 {% block title %}Gestión de Parcelas - Admin{% endblock %}
 
 {% block content %}
-
-
+<div class="container">
+    <h1>Gestión de Parcelas</h1>
+    
+    {% if parcelas %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th class="text-center">Nombre</th>
+                    <th>Superficie (ha)</th>
+                    <th>Propietario</th>
+                    <th> Provincia</th>
+                    <th> Municipio</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for parcela in parcelas %}
+                <tr>
+                    <td>{{ parcela.nombre }}</td>
+                    <td>{{ "%.2f"|format(parcela.superficie_ha|float) }}</td>
+                    <td>{{ parcela.id_propietario }} - {{ parcela.propietario.username }}</td>
+                    <td>{{ parcela.provincia}}</td>
+                    <td>{{ parcela.municipio }}</td>
+                    <td>
+                        {% if parcela.activa %}
+                            <span class="badge bg-success">Activa</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inactiva</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a class="btn btn-sm btn-info">Ver</a>
+                        <a class="btn btn-sm btn-warning">Editar</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="alert alert-info">
+            No hay parcelas con propietario asignado.
+        </div>
+    {% endif %}
+</div>
 {% endblock %}
