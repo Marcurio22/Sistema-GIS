@@ -102,9 +102,13 @@ class Parcela(db.Model):
 
     @property
     def nombre_municipio(self):
-        from utils.utils import municipios_finder
-        return municipios_finder.obtener_nombre(self.provincia, self.municipio) 
-    
+        from webapp.utils.utils_dashboard import municipios_finder
+        return municipios_finder.obtener_nombre_municipio(self.provincia, self.municipio) 
+    @property
+    def nombre_provincia(self):
+        from webapp.utils.utils_dashboard import municipios_finder
+        return municipios_finder.obtener_nombre_provincia(self.provincia)
+
 
 
 class SolicitudParcela(db.Model):
