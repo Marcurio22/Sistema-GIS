@@ -25,9 +25,8 @@ def dashboard():
 
     # URL widget AEMET
     municipios_codigos_finder = MunicipiosCodigosFinder()
-    url_widget = municipios_codigos_finder.codigo_parcelas(current_user.id_usuario)
-     
-    print("URL WIDGET:", url_widget)
+    url_widget = municipios_codigos_finder.obtener_url_municipio_usuario(current_user.id_usuario)
+
 
     return render_template('dashboard.html', username=current_user.username, weather=weather, url_widget=url_widget)
 
@@ -62,7 +61,9 @@ def visor():
 
     # Para saber el codigo del municipio hay que ver el numero de parcelas que tiene el usuario en cada municipio y sacar el codigo del que mas parcelas tiene
 
-    codigo_municipio = '34023'
+    municipios_codigos_finder = MunicipiosCodigosFinder()
+    codigo_municipio = municipios_codigos_finder.codigo_parcelas(current_user.id_usuario)
+
 
     # Sacar codigo municipio de las parcelas del usuario?
 
