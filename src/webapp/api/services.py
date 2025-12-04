@@ -30,7 +30,7 @@ def recintos_geojson(bbox_str: str | None) -> dict:
         "http://100.102.237.86:8080/geoserver/wfs",
     )
 
-    type_name = cfg.get("GEOSERVER_RECINTOS_TYPENAME", "gis_project:recintos")
+    type_name = cfg.get("GEOSERVER_RECINTOS_TYPENAME", "gis_project:recintos_con_propietario")
 
     gs_user = cfg.get("GEOSERVER_USER")
     gs_password = cfg.get("GEOSERVER_PASSWORD")

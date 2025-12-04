@@ -3,45 +3,45 @@
 {% block title %}Visor SIG{% endblock %}
 
 {% block navbar_extra %}
-    <div class="d-flex align-items-center gap-3 bg-white rounded-3 px-3 py-2 shadow-sm">
-        <!-- Temperatura principal -->
-        <div class="d-flex align-items-center">
-            <i class="bi bi-{{ weather.icono }} {{ weather.color_icono }}" style="font-size: 1.5rem;"></i>
-            <span class="ms-2 fw-bold fs-5 text-dark">{{ weather.temperatura }}°</span>
-        </div>
-        
-        <!-- Separador -->
-        <div class="vr opacity-50"></div>
-        
-        <!-- Datos compactos -->
-        <div class="d-none d-md-flex gap-3 small text-dark">
-            {% if weather.humedad %}
-            <div class="d-flex align-items-center">
-                <i class="bi bi-droplet-fill text-info me-1"></i>
-                <span>{{ weather.humedad }}%</span>
-            </div>
-            {% endif %}
-            
-            {% if weather.viento_velocidad %}
-            <div class="d-flex align-items-center">
-                <i class="bi bi-wind text-secondary me-1"></i>
-                <span>{{ weather.viento_velocidad }} km/h</span>
-            </div>
-            {% endif %}
-            
-            {% if weather.prob_precipitacion %}
-            <div class="d-flex align-items-center">
-                <i class="bi bi-cloud-rain text-primary me-1"></i>
-                <span>{{ weather.prob_precipitacion }}%</span>
-            </div>
-            {% endif %}
-        </div>
-        
-        <!-- Ubicación (solo en pantallas grandes) -->
-        <div class="d-none d-lg-block text-muted small">
-            <i class="bi bi-geo-alt-fill"></i> {{ weather.municipio }}
-        </div>
+<div class="d-flex align-items-center gap-3 bg-white rounded-3 px-3 py-2 shadow-sm">
+  <!-- Temperatura principal -->
+  <div class="d-flex align-items-center">
+    <i class="bi bi-{{ weather.icono }} {{ weather.color_icono }}" style="font-size: 1.5rem;"></i>
+    <span class="ms-2 fw-bold fs-5 text-dark">{{ weather.temperatura }}°</span>
+  </div>
+
+  <!-- Separador -->
+  <div class="vr opacity-50"></div>
+
+  <!-- Datos compactos -->
+  <div class="d-none d-md-flex gap-3 small text-dark">
+    {% if weather.humedad %}
+    <div class="d-flex align-items-center">
+      <i class="bi bi-droplet-fill text-info me-1"></i>
+      <span>{{ weather.humedad }}%</span>
     </div>
+    {% endif %}
+
+    {% if weather.viento_velocidad %}
+    <div class="d-flex align-items-center">
+      <i class="bi bi-wind text-secondary me-1"></i>
+      <span>{{ weather.viento_velocidad }} km/h</span>
+    </div>
+    {% endif %}
+
+    {% if weather.prob_precipitacion %}
+    <div class="d-flex align-items-center">
+      <i class="bi bi-cloud-rain text-primary me-1"></i>
+      <span>{{ weather.prob_precipitacion }}%</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Ubicación (solo en pantallas grandes) -->
+  <div class="d-none d-lg-block text-muted small">
+    <i class="bi bi-geo-alt-fill"></i> {{ weather.municipio }}
+  </div>
+</div>
 {% endblock %}
 
 {% block content %}
@@ -88,7 +88,8 @@
   /* Cuando el panel de capas está abierto, ambos contenedores se desplazan */
   #basemap-panel-container.panel-open,
   #filtro-container.panel-open {
-    right: 530px; /* 20px + 420px (ancho panel) + 12px (margen) */
+    right: 530px;
+    /* 20px + 420px (ancho panel) + 12px (margen) */
   }
 
   /* ---------- Botones flotantes ---------- */
@@ -244,6 +245,7 @@
 
   /* --------- Responsive: móviles / pantallas pequeñas ---------- */
   @media (max-width: 576px) {
+
     #basemap-panel-container,
     #filtro-container {
       right: 10px;
@@ -347,297 +349,310 @@
     // -----------------------------------------
     const roiBbox = [
       {{ roi_bbox[0] }},
-      {{ roi_bbox[1] }},
-      {{ roi_bbox[2] }},
-      {{ roi_bbox[3] }}
+    {{ roi_bbox[1] }},
+    {{ roi_bbox[2] }},
+    {{ roi_bbox[3] }}
     ];
 
-    const ROI_BOUNDS = L.latLngBounds(
-      [roiBbox[1], roiBbox[0]],
-      [roiBbox[3], roiBbox[2]]
-    );
+  const ROI_BOUNDS = L.latLngBounds(
+    [roiBbox[1], roiBbox[0]],
+    [roiBbox[3], roiBbox[2]]
+  );
 
-    const ZOOM_RECINTOS = 15;
+  const ZOOM_RECINTOS = 15;
 
-    // -----------------------------------------
-    // 2) Crear mapa
-    // -----------------------------------------
-    const map = L.map("map", {
-      maxBounds: ROI_BOUNDS,
-      maxBoundsViscosity: 1.0,
-      zoomControl: true,
-    });
+  // -----------------------------------------
+  // 2) Crear mapa
+  // -----------------------------------------
+  const map = L.map("map", {
+    maxBounds: ROI_BOUNDS,
+    maxBoundsViscosity: 1.0,
+    zoomControl: true,
+  });
 
-    map.fitBounds(ROI_BOUNDS);
+  map.fitBounds(ROI_BOUNDS);
 
-    // -----------------------------------------
-    // 3) Capas base
-    // -----------------------------------------
-    const baseOSM = L.tileLayer(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      {
-        attribution: "&copy; OpenStreetMap contributors",
-        minZoom: 8,
-        maxZoom: 19,
-      }
-    ).addTo(map);
+  // -----------------------------------------
+  // 3) Capas base
+  // -----------------------------------------
+  const baseOSM = L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+      attribution: "&copy; OpenStreetMap contributors",
+      minZoom: 8,
+      maxZoom: 19,
+    }
+  ).addTo(map);
 
-    const baseSat = L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      {
-        attribution: "Tiles &copy; Esri",
-        minZoom: 8,
-        maxZoom: 19,
-      }
-    );
+  const baseSat = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    {
+      attribution: "Tiles &copy; Esri",
+      minZoom: 8,
+      maxZoom: 19,
+    }
+  );
 
-    const baseNdvi = L.imageOverlay(
-      "/static/ndvi/ndvi_latest.png",
-      ROI_BOUNDS,
-      { opacity: 1.0 }
-    );
+  const baseNdvi = L.imageOverlay(
+    "/static/ndvi/ndvi_latest.png",
+    ROI_BOUNDS,
+    { opacity: 1.0 }
+  );
 
-    const highZoomLayers = {
-      satellite: baseSat,
-      ndvi: baseNdvi
-    };
+  const highZoomLayers = {
+    satellite: baseSat,
+    ndvi: baseNdvi
+  };
 
-    let activeHighLayerKey = "satellite";
-    function getActiveHighLayer() {
-      return highZoomLayers[activeHighLayerKey];
+  let activeHighLayerKey = "satellite";
+  function getActiveHighLayer() {
+    return highZoomLayers[activeHighLayerKey];
+  }
+
+  // -----------------------------------------
+  // 4) Capa de recintos
+  // -----------------------------------------
+
+  const RECINTO_STYLE_DEFAULT = {
+    color: "#ff8800",
+    weight: 1,
+  };
+
+  const RECINTO_STYLE_SELECTED = {
+    color: "#0077ff",
+    weight: 2,
+    fillOpacity: 0.25,
+  };
+
+  // Guardamos el recinto actualmente seleccionado (si lo hay)
+  let selectedRecintoLayer = null;
+
+  const recintosLayer = L.geoJSON(null, {
+    style: function () {
+      return RECINTO_STYLE_DEFAULT;
+    },
+    onEachFeature: function (feature, layer) {
+      const p = feature.properties || {};
+
+      // Propietario: username o "N/A" si viene null/undefined/cadena vacía
+      const propietarioTexto =
+        p.propietario && String(p.propietario).trim() !== ""
+          ? p.propietario
+          : "N/A";
+
+      // Si ya tiene propietario, el botón debe ir desactivado
+      const tienePropietario = propietarioTexto !== "N/A";
+      const disabledAttr = tienePropietario ? "disabled" : "";
+      const disabledStyle = tienePropietario
+        ? "opacity: 0.5; cursor: not-allowed;"
+        : "";
+
+      const html = `
+      <div class="popup-recinto">
+        <div class="popup-recinto-info">
+          <strong>Provincia:</strong> ${p.provincia ?? "-"}<br>
+          <strong>Municipio:</strong> ${p.municipio ?? "-"}<br>
+          <strong>Polígono:</strong> ${p.poligono ?? "-"}<br>
+          <strong>Parcela:</strong> ${p.parcela ?? "-"}<br>
+          <strong>Recinto:</strong> ${p.recinto ?? "-"}<br>
+          <strong>Propietario:</strong> ${propietarioTexto}
+        </div>
+        <div style="margin-top: 10px; text-align: right;">
+          <button
+            type="button"
+            class="btn-add-parcela"
+            ${disabledAttr}
+            style="
+              padding: 6px 10px;
+              font-size: 0.85rem;
+              border-radius: 999px;
+              border: none;
+              background-color: #16a34a;
+              color: white;
+              cursor: pointer;
+              ${disabledStyle}
+            "
+          >
+            Añadir a mis parcelas
+          </button>
+        </div>
+      </div>
+    `;
+
+      layer.bindPopup(html);
+
+      // Cuando el usuario hace clic en un recinto:
+      layer.on("click", function () {
+        // 1) Restablecer estilo del recinto previamente seleccionado
+        if (selectedRecintoLayer && selectedRecintoLayer !== layer) {
+          selectedRecintoLayer.setStyle(RECINTO_STYLE_DEFAULT);
+        }
+
+        // 2) Marcar este como seleccionado y pintarlo en azul
+        selectedRecintoLayer = layer;
+        layer.setStyle(RECINTO_STYLE_SELECTED);
+
+        // 3) Abrir el popup
+        layer.openPopup();
+      });
+    },
+  }).addTo(map);
+  let recintosActivos = true;
+
+  // -----------------------------------------
+  // 5) Cargar recintos
+  // -----------------------------------------
+  function cargarRecintosSiProcede() {
+    const z = map.getZoom();
+
+    if (z < ZOOM_RECINTOS || !recintosActivos) {
+      recintosLayer.clearLayers();
+      return;
     }
 
-    // -----------------------------------------
-    // 4) Capa de recintos
-    // -----------------------------------------
-    // -----------------------------------------
-    // 4) Capa de recintos
-    // -----------------------------------------
+    const b = map.getBounds();
+    const bbox = [
+      b.getWest().toFixed(6),
+      b.getSouth().toFixed(6),
+      b.getEast().toFixed(6),
+      b.getNorth().toFixed(6),
+    ].join(",");
 
-    const RECINTO_STYLE_DEFAULT = {
-      color: "#ff8800",
-      weight: 1,
-    };
+    console.log("Solicitando recintos para bbox:", bbox);
 
-    const RECINTO_STYLE_SELECTED = {
-      color: "#0077ff",
-      weight: 2,
-      fillOpacity: 0.25,
-    };
-
-    // Guardamos el recinto actualmente seleccionado (si lo hay)
-    let selectedRecintoLayer = null;
-
-    const recintosLayer = L.geoJSON(null, {
-      style: function () {
-        return RECINTO_STYLE_DEFAULT;
-      },
-      onEachFeature: function (feature, layer) {
-        const p = feature.properties || {};
-
-        const html = `
-          <div class="popup-recinto">
-            <div class="popup-recinto-info">
-              <strong>Provincia:</strong> ${p.provincia ?? "-"}<br>
-              <strong>Municipio:</strong> ${p.municipio ?? "-"}<br>
-              <strong>Polígono:</strong> ${p.poligono ?? "-"}<br>
-              <strong>Parcela:</strong> ${p.parcela ?? "-"}<br>
-              <strong>Recinto:</strong> ${p.recinto ?? "-"}
-            </div>
-            <div style="margin-top: 10px; text-align: right;">
-              <button
-                type="button"
-                class="btn-add-parcela"
-                style="
-                  padding: 6px 10px;
-                  font-size: 0.85rem;
-                  border-radius: 999px;
-                  border: none;
-                  background-color: #16a34a;
-                  color: white;
-                  cursor: pointer;
-                "
-              >
-                Añadir a mis parcelas
-              </button>
-            </div>
-          </div>
-        `;
-
-        layer.bindPopup(html);
-
-        // Cuando el usuario hace clic en un recinto:
-        layer.on("click", function () {
-          // 1) Restablecer estilo del recinto previamente seleccionado
-          if (selectedRecintoLayer && selectedRecintoLayer !== layer) {
-            selectedRecintoLayer.setStyle(RECINTO_STYLE_DEFAULT);
-          }
-
-          // 2) Marcar este como seleccionado y pintarlo en azul
-          selectedRecintoLayer = layer;
-          layer.setStyle(RECINTO_STYLE_SELECTED);
-
-          // 3) Abrir el popup
-          layer.openPopup();
-        });
-      },
-    }).addTo(map);
-    let recintosActivos = true;
-
-    // -----------------------------------------
-    // 5) Cargar recintos
-    // -----------------------------------------
-    function cargarRecintosSiProcede() {
-      const z = map.getZoom();
-
-      if (z < ZOOM_RECINTOS || !recintosActivos) {
+    fetch(`/api/recintos?bbox=${bbox}`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Respuesta no OK de /api/recintos");
+        }
+        return response.json();
+      })
+      .then((fc) => {
+        console.log("Recintos recibidos:", fc && fc.features ? fc.features.length : 0);
         recintosLayer.clearLayers();
-        return;
+        if (!fc || !fc.features || fc.features.length === 0) {
+          return;
+        }
+        recintosLayer.addData(fc);
+      })
+      .catch((err) => {
+        console.error("Error al cargar recintos:", err);
+      });
+  }
+
+  // -----------------------------------------
+  // 6) Actualizar mapa según zoom
+  // -----------------------------------------
+  function actualizarMapaSegunZoom() {
+    const z = map.getZoom();
+    const activeHighLayer = getActiveHighLayer();
+
+    if (z >= ZOOM_RECINTOS) {
+      if (map.hasLayer(baseOSM)) {
+        map.removeLayer(baseOSM);
       }
 
-      const b = map.getBounds();
-      const bbox = [
-        b.getWest().toFixed(6),
-        b.getSouth().toFixed(6),
-        b.getEast().toFixed(6),
-        b.getNorth().toFixed(6),
-      ].join(",");
-
-      console.log("Solicitando recintos para bbox:", bbox);
-
-      fetch(`/api/recintos?bbox=${bbox}`)
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error("Respuesta no OK de /api/recintos");
-          }
-          return response.json();
-        })
-        .then((fc) => {
-          console.log("Recintos recibidos:", fc && fc.features ? fc.features.length : 0);
-          recintosLayer.clearLayers();
-          if (!fc || !fc.features || fc.features.length === 0) {
-            return;
-          }
-          recintosLayer.addData(fc);
-        })
-        .catch((err) => {
-          console.error("Error al cargar recintos:", err);
-        });
-    }
-
-    // -----------------------------------------
-    // 6) Actualizar mapa según zoom
-    // -----------------------------------------
-    function actualizarMapaSegunZoom() {
-      const z = map.getZoom();
-      const activeHighLayer = getActiveHighLayer();
-
-      if (z >= ZOOM_RECINTOS) {
-        if (map.hasLayer(baseOSM)) {
-          map.removeLayer(baseOSM);
+      Object.values(highZoomLayers).forEach((layer) => {
+        if (layer && layer !== activeHighLayer && map.hasLayer(layer)) {
+          map.removeLayer(layer);
         }
+      });
 
-        Object.values(highZoomLayers).forEach((layer) => {
-          if (layer && layer !== activeHighLayer && map.hasLayer(layer)) {
-            map.removeLayer(layer);
-          }
-        });
-
-        if (activeHighLayer && !map.hasLayer(activeHighLayer)) {
-          activeHighLayer.addTo(map);
-        }
-      } else {
-        Object.values(highZoomLayers).forEach((layer) => {
-          if (layer && map.hasLayer(layer)) {
-            map.removeLayer(layer);
-          }
-        });
-
-        if (!map.hasLayer(baseOSM)) {
-          baseOSM.addTo(map);
-        }
-
-        recintosLayer.clearLayers();
+      if (activeHighLayer && !map.hasLayer(activeHighLayer)) {
+        activeHighLayer.addTo(map);
       }
+    } else {
+      Object.values(highZoomLayers).forEach((layer) => {
+        if (layer && map.hasLayer(layer)) {
+          map.removeLayer(layer);
+        }
+      });
+
+      if (!map.hasLayer(baseOSM)) {
+        baseOSM.addTo(map);
+      }
+
+      recintosLayer.clearLayers();
     }
+  }
 
-    // -----------------------------------------
-    // 7) Eventos del mapa
-    // -----------------------------------------
-    map.on("zoomend", () => {
-      actualizarMapaSegunZoom();
-      cargarRecintosSiProcede();
-    });
-
-    map.on("moveend", () => {
-      cargarRecintosSiProcede();
-    });
-
+  // -----------------------------------------
+  // 7) Eventos del mapa
+  // -----------------------------------------
+  map.on("zoomend", () => {
     actualizarMapaSegunZoom();
     cargarRecintosSiProcede();
+  });
 
-    // -----------------------------------------
-    // 8) Lógica del panel y botones sincronizados
-    // -----------------------------------------
-    const toggleBtn = document.getElementById("basemap-toggle");
-    const panel = document.getElementById("basemap-panel");
-    const basemapContainer = document.getElementById("basemap-panel-container");
-    const filtroContainer = document.getElementById("filtro-container");
+  map.on("moveend", () => {
+    cargarRecintosSiProcede();
+  });
 
-    toggleBtn.addEventListener("click", () => {
-      const isOpening = !panel.classList.contains("visible");
-      
-      panel.classList.toggle("visible");
-      toggleBtn.classList.toggle("active");
-      
-      // Desplazar ambos contenedores
-      if (isOpening) {
-        basemapContainer.classList.add("panel-open");
-        filtroContainer.classList.add("panel-open");
-      } else {
-        basemapContainer.classList.remove("panel-open");
-        filtroContainer.classList.remove("panel-open");
-      }
+  actualizarMapaSegunZoom();
+  cargarRecintosSiProcede();
+
+  // -----------------------------------------
+  // 8) Lógica del panel y botones sincronizados
+  // -----------------------------------------
+  const toggleBtn = document.getElementById("basemap-toggle");
+  const panel = document.getElementById("basemap-panel");
+  const basemapContainer = document.getElementById("basemap-panel-container");
+  const filtroContainer = document.getElementById("filtro-container");
+
+  toggleBtn.addEventListener("click", () => {
+    const isOpening = !panel.classList.contains("visible");
+
+    panel.classList.toggle("visible");
+    toggleBtn.classList.toggle("active");
+
+    // Desplazar ambos contenedores
+    if (isOpening) {
+      basemapContainer.classList.add("panel-open");
+      filtroContainer.classList.add("panel-open");
+    } else {
+      basemapContainer.classList.remove("panel-open");
+      filtroContainer.classList.remove("panel-open");
+    }
+  });
+
+  // --- Selección de mapa principal ---
+  document
+    .querySelectorAll(".basemap-option.basemap-main[data-layer]")
+    .forEach((option) => {
+      option.addEventListener("click", () => {
+        const layerKey = option.dataset.layer;
+        if (!highZoomLayers[layerKey]) {
+          return;
+        }
+
+        document
+          .querySelectorAll(".basemap-option.basemap-main")
+          .forEach((el) => el.classList.remove("active"));
+        option.classList.add("active");
+
+        activeHighLayerKey = layerKey;
+        actualizarMapaSegunZoom();
+      });
     });
 
-    // --- Selección de mapa principal ---
-    document
-      .querySelectorAll(".basemap-option.basemap-main[data-layer]")
-      .forEach((option) => {
-        option.addEventListener("click", () => {
-          const layerKey = option.dataset.layer;
-          if (!highZoomLayers[layerKey]) {
-            return;
-          }
+  // --- Toggle Recintos SigPac ---
+  const recintosOption = document.querySelector(
+    '.basemap-option.basemap-detail[data-detail="sigpac"]'
+  );
 
-          document
-            .querySelectorAll(".basemap-option.basemap-main")
-            .forEach((el) => el.classList.remove("active"));
-          option.classList.add("active");
+  if (recintosOption) {
+    recintosOption.addEventListener("click", () => {
+      recintosActivos = !recintosActivos;
 
-          activeHighLayerKey = layerKey;
-          actualizarMapaSegunZoom();
-        });
-      });
-
-    // --- Toggle Recintos SigPac ---
-    const recintosOption = document.querySelector(
-      '.basemap-option.basemap-detail[data-detail="sigpac"]'
-    );
-
-    if (recintosOption) {
-      recintosOption.addEventListener("click", () => {
-        recintosActivos = !recintosActivos;
-
-        if (recintosActivos) {
-          recintosOption.classList.add("active");
-          cargarRecintosSiProcede();
-        } else {
-          recintosOption.classList.remove("active");
-          recintosLayer.clearLayers();
-        }
-      });
-    }
+      if (recintosActivos) {
+        recintosOption.classList.add("active");
+        cargarRecintosSiProcede();
+      } else {
+        recintosOption.classList.remove("active");
+        recintosLayer.clearLayers();
+      }
+    });
+  }
   });
 </script>
 
