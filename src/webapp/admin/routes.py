@@ -145,8 +145,7 @@ def aprobar_solicitud_parcela(id_solicitud):
 
     # Asignar propietario
     parcela.id_propietario = solicitud.id_usuario
-    # Campo texto 'propietario' con el username, para mostrar rápido
-    parcela.propietario = solicitud.usuario.username
+    # La relación parcela.propietario se resolverá sola a partir de id_propietario
 
     solicitud.estado = "aprobada"
     solicitud.fecha_resolucion = datetime.now(timezone.utc)
