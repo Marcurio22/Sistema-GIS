@@ -1,5 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, current_app
 import requests
+import pandas as pd
+from pathlib import Path
+from ..models import Parcela
 from datetime import datetime
 
 # Mapeo de descripción de AEMET a datos de visualización
@@ -408,16 +411,121 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
     except Exception as e:
         return None
 
-def obtener_municipio_codigo():
-    """
-    Función de ejemplo para obtener el código del municipio.
-    En la implementación real, esto debería extraerse de las parcelas del usuario.
-    """
-    # Código de municipio de ejemplo (Venta de Baños, Palencia)
-    return '34023'
+class MunicipiosCodigosFinder:
+    """Buscador de nombres de municipios por código de provincia y municipio."""
+    
+    def __init__(self):
+        # Ruta base
+        base_dir = Path(__file__).parent.parent
+        csv_dir = base_dir / 'static' / 'csv'
+        
+        # Cargar municipios
+        self.df_municipios = pd.read_csv(
+            csv_dir / 'nombres_municipios.csv', 
+            skiprows=1, 
+            dtype=str
+        )
+        self.df_municipios['CPRO'] = self.df_municipios['CPRO'].str.strip()
+        self.df_municipios['CMUN'] = self.df_municipios['CMUN'].str.strip()
+        self.df_municipios['NOMBRE'] = self.df_municipios['NOMBRE'].str.strip()
+        self.df_municipios['CODIGO'] = self.df_municipios['CPRO'] + self.df_municipios['CMUN']
+        self.df_municipios.set_index('CODIGO', inplace=True)
+        
+        # Cargar provincias
+        self.df_provincias = pd.read_csv(
+            csv_dir / 'nombres_provincias.csv', 
+            dtype=str
+        )
+        self.df_provincias['CPRO'] = self.df_provincias['CPRO'].str.strip()
+        self.df_provincias['NOMBRE'] = self.df_provincias['NOMBRE'].str.strip()
+        self.df_provincias.set_index('CPRO', inplace=True)
+    
+    def obtener_nombre_municipio(self, cod_provincia, cod_municipio):
+        """
+        Obtiene el nombre del municipio y el nombre de la provincia.
+        
+        Args:
+            cod_provincia: Código provincia (16 o '16')
+            cod_municipio: Código municipio (51 o '051')
+        
+        Returns:
+            Nombre del municipio o None si no existe
+        """
+        cpro = str(cod_provincia).zfill(2)
+        cmun = str(cod_municipio).zfill(3)
+        codigo = f"{cpro}{cmun}"
+        
+        try:
+            return self.df_municipios.loc[codigo, 'NOMBRE']
+        except KeyError:
+            return None
+        
+    def obtener_nombre_provincia(self, cod_provincia):
+        """Obtiene el nombre de la provincia."""
+        cpro = str(cod_provincia).zfill(2)
+        
+        try:
+            return self.df_provincias.loc[cpro, 'NOMBRE']
+        except KeyError:
+            return None
+        
+    
+    def construir_url_aemet(self, cod_provincia, cod_municipio):
+        """
+        Construye la URL a la página de AEMET para el municipio dado.
+        
+        Args:
+            cod_provincia: Código provincia (16 o '16')
+            cod_municipio: Código municipio (51 o '051')
+        
+        Returns:
+            URL completa a la página de AEMET o None si no existe
+        """
+        cpro = str(cod_provincia).zfill(2)
+        cmun = str(cod_municipio).zfill(3)
+        codigo = f"{cpro}{cmun}"
+
+        
+        nombre_municipio = self.obtener_nombre_municipio(cpro, cmun)  
+        if nombre_municipio is None:
+            return None
+        
+        nombre_municipio_url = nombre_municipio.lower().replace(' ', '-').replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u').replace('ñ', 'n')
+        url = f'https://www.aemet.es/es/eltiempo/prediccion/municipios/mostrarwidget/{nombre_municipio_url}-id{codigo}?w=g4p111111111ohmffffffx4f86d9t95b6e9r1s8n2'
+        return url
+        
 
 
-def formar_widget_aemet():
-    codigo_municipio = obtener_municipio_codigo();
+    def codigo_parcelas(self, user_id):
 
-    return ""
+        """
+        Obtener el codigo del municipio donde el usuario tiene mas parcelas
+        """
+
+        parcelas = Parcela.query.filter_by(id_propietario=user_id).all()
+        
+
+        if not parcelas:
+            return ""
+        
+        contador = {}
+        for parcela in parcelas:
+            codigo = f"{str(parcela.provincia).zfill(2)}{str(parcela.municipio).zfill(3)}"
+            contador[codigo] = contador.get(codigo, 0) + 1
+
+
+        
+        # 3. Encontrar el municipio con más parcelas
+        municipio_mas_parcelas = max(contador, key=contador.get)
+        
+        # 4. Separar provincia y municipio
+        cpro = municipio_mas_parcelas[:2]
+
+        cmun = municipio_mas_parcelas[2:]
+        
+        # 5. Construir la URL 
+        url = self.construir_url_aemet(cpro, cmun)
+        return url
+
+    
+municipios_finder = MunicipiosCodigosFinder()

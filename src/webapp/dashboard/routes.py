@@ -5,7 +5,7 @@ from flask_login import login_required, current_user
 from . import dashboard_bp
 from datetime import datetime
 import logging
-from .utils_dashboard import obtener_datos_aemet, obtener_municipio_codigo
+from .utils_dashboard import obtener_datos_aemet, MunicipiosCodigosFinder
 import requests
 
 
@@ -13,7 +13,6 @@ logger = logging.getLogger('app.dashboard')
 logger.setLevel(logging.INFO)
 
 
-    
 @dashboard_bp.route('/dashboard')
 @login_required
 def dashboard():
@@ -24,10 +23,13 @@ def dashboard():
     # Obtener datos meteorológicos de AEMET
     weather = obtener_datos_aemet("34023")
 
-    # Widget AEMET que cambia según el municipio
+    # URL widget AEMET
+    municipios_codigos_finder = MunicipiosCodigosFinder()
+    url_widget = municipios_codigos_finder.codigo_parcelas(current_user.id_usuario)
+     
+    print("URL WIDGET:", url_widget)
 
-    
-    return render_template('dashboard.html', username=current_user.username, weather=weather)
+    return render_template('dashboard.html', username=current_user.username, weather=weather, url_widget=url_widget)
 
 
 @dashboard_bp.route("/visor")

@@ -5,7 +5,7 @@ from .. import db, login_manager
 from sqlalchemy import desc
 from ..models import LogsSistema, User
 from ..utils.logging_handler import SQLAlchemyHandler
-from ..utils.utils_dashboard import normalizar_telefono_es
+from ..utils.utils import normalizar_telefono_es
 import logging
 import re
 
