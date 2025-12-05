@@ -35,7 +35,9 @@
 
                 <a class="nav-link {% if request.path == url_for('auth.mis_parcelas') %}text-success fw-bold{% else %}text-dark{% endif %} py-4 px-4 border-bottom border-white border-opacity-10 d-flex align-items-center"
                     href="{{ url_for('auth.mis_parcelas') }}">
-                    <i class="bi bi-map me-3 fs-4"></i>
+                   <i class="bi bi-grid me-3 fs-4"></i>
+
+
                     <span class="fs-6">Mis parcelas</span>
                 </a>
 
@@ -43,6 +45,12 @@
                     href="{{ url_for('auth.perfil') }}">
                     <i class="bi bi-person me-3 fs-4"></i>
                     <span class="fs-6">Perfil</span>
+                </a>
+
+                <a class="nav-link {% if request.path == url_for('dashboard.visor') %}text-success fw-bold{% else %}text-dark{% endif %} py-4 px-4 border-bottom border-white border-opacity-10 d-flex align-items-center"
+                    href="{{ url_for('dashboard.visor') }}">
+                    <i class="bi bi-map me-3 fs-4"></i>
+                    <span class="fs-6">Visor</span>
                 </a>
                 
             </nav>
@@ -66,7 +74,7 @@
                     <a href="{{ url_for('admin.gestion_parcelas') }}" class="text-decoration-none">
                         <div class="d-flex align-items-center py-3 text-dark hover-bg-light rounded px-2"
                             style="cursor: pointer; transition: background-color 0.2s;">
-                            <i class="bi bi-grid me-3 fs-4"></i>
+                            <i class="bi bi-grid-3x3-gap me-3 fs-4"></i>
                             <span class="fs-6">Gestión de Parcelas</span>
                         </div>
                     </a>

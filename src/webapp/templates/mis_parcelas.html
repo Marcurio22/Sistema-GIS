@@ -3,6 +3,70 @@
 {% block title %}Mis parcelas{% endblock %}
 
 {% block content %}
-
-
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="mb-3">Mis Parcelas</h1>
+            
+            {% if parcelas %}
+            <div class="alert alert-info">
+                <strong>Total:</strong> {{ parcelas|length }} parcelas | 
+                <strong>Superficie:</strong> {{ "%.2f"|format(parcelas|sum(attribute='superficie_ha')) }} ha
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    {% if parcelas %}
+    <div class="row">
+        <div class="col">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Provincia</th>
+                            <th>Municipio</th>
+                            <th>SIGPAC</th>
+                            <th>Superficie (ha)</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for parcela in parcelas %}
+                        <tr>
+                            <td><strong>{{ parcela.nombre or 'Parcela ' ~ parcela.id_parcela }}</strong></td>
+                            <td>{{ parcela.nombre_provincia }}</td>
+                            <td>{{ parcela.nombre_municipio }}</td>
+                            <td><code>{{ parcela.provincia }}-{{ parcela.municipio }}-{{ parcela.poligono }}-{{ parcela.parcela }}</code></td>
+                            <td>{{ "%.2f"|format(parcela.superficie_ha) }}</td>
+                            <td>
+                                {% if parcela.activa %}
+                                <span class="badge bg-success">Activa</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactiva</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-primary">Ver</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col">
+            <div class="alert alert-warning text-center">
+                <h4>No tienes parcelas todavía</h4>
+                <p class="mb-0">Agrega tu primera parcela para comenzar</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
 {% endblock %}

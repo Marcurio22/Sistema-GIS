@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 from pathlib import Path
 from ..models import Parcela
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Mapeo de descripción de AEMET a datos de visualización
 estados_clima = {
@@ -268,17 +268,43 @@ def obtener_info_clima(descripcion, es_noche=False):
         return {'icono': 'cloud', 'color': 'text-primary'}
     
 
+_weather_cache = {}
+
 def obtener_datos_aemet(CODIGO_MUNICIPIO):
-    """Obtiene los datos meteorológicos de AEMET para Burgos"""
+    """Obtiene los datos meteorológicos de AEMET con sistema de caché"""
+    
+    # 1. Verificar si tenemos datos guardados y son recientes (menos de 1 hora)
+    cache_key = f"weather_{CODIGO_MUNICIPIO}"
+    now = datetime.now()
+    
+    if cache_key in _weather_cache:
+        cached_data = _weather_cache[cache_key]
+        tiempo_cache = cached_data.get('timestamp')
+        
+        # Si el caché tiene menos de 1 hora, devolver datos guardados
+        if tiempo_cache and (now - tiempo_cache) < timedelta(hours=1):
+            print(f"✅ Usando caché para municipio {CODIGO_MUNICIPIO}")
+            return cached_data.get('data')
+    
+    # 2. Si no hay caché válido, pedir datos nuevos a AEMET
     try:
         AEMET_API_KEY = current_app.config.get('AEMET_API_KEY', 'tu_api_key_aqui')
-        
         
         url_solicitud = f'https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/horaria/{CODIGO_MUNICIPIO}?api_key={AEMET_API_KEY}'
         response1 = requests.get(url_solicitud, timeout=5)
         data1 = response1.json()
         
+        # Si hay error de rate limit (429), usar último dato guardado
+        if data1.get('estado') == 429:
+            print(f"⚠️ Límite de peticiones alcanzado. Usando último caché.")
+            if cache_key in _weather_cache:
+                return _weather_cache[cache_key].get('data')
+            return None
+        
         if data1.get('estado') != 200:
+            print(f"❌ Error API AEMET: {data1.get('descripcion', 'Error desconocido')}")
+            if cache_key in _weather_cache:
+                return _weather_cache[cache_key].get('data')
             return None
         
         response2 = requests.get(data1['datos'], timeout=5)
@@ -287,20 +313,16 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
         provincia = datos[0].get('provincia', '')
         municipio = datos[0].get('nombre', '')
         
-        # Obtener la fecha actual en formato YYYY-MM-DD
         fecha_hoy = datetime.now().strftime('%Y-%m-%d')
         hora_actual = datetime.now().hour
         
-        # Buscar el día correcto por fecha
         prediccion = None
         for dia in datos[0]['prediccion']['dia']:
-            # Extraer solo la parte de la fecha (YYYY-MM-DD) del formato ISO
             fecha_dia = dia.get('fecha', '')[:10]
             if fecha_dia == fecha_hoy:
                 prediccion = dia
                 break
         
-        # Si no se encuentra el día actual, usar el primero disponible 
         if prediccion is None:
             prediccion = datos[0]['prediccion']['dia'][0]
 
@@ -311,10 +333,6 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
             return None
 
         def obtener_periodo_precipitacion(hora, lista_periodos):
-            """
-            Determina el período de precipitación según la hora actual.
-            Busca en qué rango cae la hora entre los períodos disponibles.
-            """
             if not lista_periodos:
                 return None
             
@@ -324,11 +342,9 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
                     hora_inicio = int(periodo[:2])
                     hora_fin = int(periodo[2:])
                     
-
                     if hora_fin == 0 or hora_fin < hora_inicio:
                         if hora >= hora_inicio or hora < 24:
                             return periodo
-                    # Caso normal: período dentro del mismo día
                     elif hora_inicio <= hora < hora_fin:
                         return periodo
             
@@ -337,18 +353,12 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
         temp_actual = obtener_valor_periodo(prediccion.get('temperatura', []), hora_actual)
         temp_valor = temp_actual['value'] if temp_actual else None
         
-        # Obtener el estado del cielo completo
         estado_cielo = obtener_valor_periodo(prediccion.get('estadoCielo', []), hora_actual)
         
         if estado_cielo:
             codigo = estado_cielo.get('value', '')
             descripcion = estado_cielo.get('descripcion', 'Desconocido').strip()
-            es_noche = 'n' in codigo  # Determinar si es de noche por el código
-            
-
-
-            
-            # Obtener icono y color según la descripción
+            es_noche = 'n' in codigo
             info_clima = obtener_info_clima(descripcion, es_noche)
         else:
             descripcion = 'Desconocido'
@@ -357,7 +367,6 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
         humedad_obj = obtener_valor_periodo(prediccion.get('humedadRelativa', []), hora_actual)
         humedad = humedad_obj['value'] if humedad_obj else None
 
-        # Obtener velocidad y dirección del viento
         viento_velocidad = None
         viento_direccion = None
         viento_grados = None
@@ -366,23 +375,14 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
                 if int(v['periodo']) == hora_actual:
                     viento_velocidad = v['velocidad'][0] if v.get('velocidad') else None
                     viento_direccion = v['direccion'][0] if v.get('direccion') else None
-                    # Convertir dirección a grados para rotar la flecha
-                    # La flecha indica HACIA DÓNDE VA el viento (convención AEMET)
                     if viento_direccion:
                         direcciones = {
-                            'N': 0,    # Norte: flecha hacia abajo
-                            'NE': 45,  # Noreste: flecha hacia abajo-derecha
-                            'E': 90,   # Este: flecha hacia la derecha
-                            'SE': 135, # Sureste: flecha hacia arriba-derecha
-                            'S': 180,  # Sur: flecha hacia arriba
-                            'SO': 225, # Suroeste: flecha hacia arriba-izquierda
-                            'O': 270,  # Oeste: flecha hacia la izquierda
-                            'NO': 315  # Noroeste: flecha hacia abajo-izquierda
+                            'N': 0, 'NE': 45, 'E': 90, 'SE': 135,
+                            'S': 180, 'SO': 225, 'O': 270, 'NO': 315
                         }
                         viento_grados = direcciones.get(viento_direccion, 0)
                     break
 
-        # Obtener probabilidad de precipitación
         prob_precipitacion = None
         if prediccion.get('probPrecipitacion'):
             periodo_actual = obtener_periodo_precipitacion(hora_actual, prediccion['probPrecipitacion'])
@@ -405,11 +405,21 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
             'viento_grados': viento_grados,
             'prob_precipitacion': prob_precipitacion,
         }
-        return resultado    
-
-    except requests.exceptions.Timeout:
-        return None
+        
+        # 3. GUARDAR los datos nuevos en caché
+        _weather_cache[cache_key] = {
+            'data': resultado,
+            'timestamp': now
+        }
+        
+        print(f"🆕 Datos frescos obtenidos y guardados para {CODIGO_MUNICIPIO}")
+        return resultado
+        
     except Exception as e:
+        print(f"❌ Error: {str(e)}")
+        # Si hay error, devolver caché antiguo si existe
+        if cache_key in _weather_cache:
+            return _weather_cache[cache_key].get('data')
         return None
 
 class MunicipiosCodigosFinder:
@@ -526,7 +536,6 @@ class MunicipiosCodigosFinder:
         # Encontrar el municipio con más parcelas
         municipio_mas_parcelas = max(contador, key=contador.get)
         
-        print(municipio_mas_parcelas)
         return municipio_mas_parcelas
     
     def obtener_url_municipio_usuario(self, user_id):

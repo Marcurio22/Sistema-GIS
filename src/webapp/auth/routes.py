@@ -3,7 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from . import auth_bp 
 from .. import db, login_manager
 from sqlalchemy import desc
-from ..models import LogsSistema, User
+from ..models import LogsSistema, User, Parcela
 from ..utils.logging_handler import SQLAlchemyHandler
 from ..utils.utils import normalizar_telefono_es
 import logging
@@ -303,4 +303,5 @@ def mis_parcelas():
         f'Usuario {current_user.username} accedió a sus parcelas',
         extra={'tipo_operacion': 'ACCESO', 'modulo': 'MIS_PARCELAS'}
     )
-    return render_template('mis_parcelas.html')
+    parcelas = Parcela.query.filter_by(id_propietario=current_user.id_usuario).all()
+    return render_template('mis_parcelas.html', parcelas=parcelas)
