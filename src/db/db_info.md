@@ -6,7 +6,7 @@ El modelo se ha diseñado bajo criterios de **normalización**, **integridad ref
 
 
 El modelo entidad–relación define la estructura lógica de la base de datos que sustenta nuestro sistema **GIS** de Recomendaciones de Riego.  
-Este sistema integra información geoespacial (parcelas, sensores, rásteres satelitales y productos derivados), datos agronómicos (cultivos, coeficientes Kc, estados fenológicos) y series temporales (lecturas de sensores y condiciones ambientales), con el propósito de generar recomendaciones de riego personalizadas para cada unidad agrícola.
+Este sistema integra información geoespacial (recintos, sensores, rásteres satelitales y productos derivados), datos agronómicos (cultivos, coeficientes Kc, estados fenológicos) y series temporales (lecturas de sensores y condiciones ambientales), con el propósito de generar recomendaciones de riego personalizadas para cada unidad agrícola.
 
 ### Descripción de las entidades principales
 - **USUARIOS**
@@ -15,7 +15,7 @@ Este sistema integra información geoespacial (parcelas, sensores, rásteres sat
   Contiene información de credenciales, roles y estado de actividad.
   Permite diferenciar perfiles administrativos, técnicos y de usuario final.
 
-- **PARCELAS**
+- **recintos**
 
   Representa las unidades agrícolas base del sistema.
   Cada registro incluye su geometría espacial, superficie y propietario.
@@ -23,7 +23,7 @@ Este sistema integra información geoespacial (parcelas, sensores, rásteres sat
 
 - **CULTIVOS**
 
-  Describe los cultivos asociados a cada parcela, incluyendo su tipo, variedad, fechas de siembra y cosecha, y coeficiente Kc medio.
+  Describe los cultivos asociados a cada recinto, incluyendo su tipo, variedad, fechas de siembra y cosecha, y coeficiente Kc medio.
   Permite la gestión de rotaciones y el seguimiento fenológico.
 
 - **IMÁGENES**
@@ -39,20 +39,20 @@ Este sistema integra información geoespacial (parcelas, sensores, rásteres sat
 
 - **IMÁGENES_DRON**
 
-  Gestiona los vuelos de dron realizados sobre las parcelas.
-  Incluye información técnica del vuelo y el vínculo con la parcela cubierta.
+  Gestiona los vuelos de dron realizados sobre los recintos.
+  Incluye información técnica del vuelo y el vínculo con el recinto cubierta.
   Permite la integración de observaciones de alta resolución complementarias a las imágenes satelitales, a través de la relación uno a uno con `IMAGENES`.
 
 - **INDICES_RASTER**
 
   Registra los productos ráster derivados de las imágenes, tales como NDVI, ETP, LAI o NDWI.
-  Cada índice se asocia a una imagen fuente de la tabla `IMAGENES` y, opcionalmente, a una parcela específica.
+  Cada índice se asocia a una imagen fuente de la tabla `IMAGENES` y, opcionalmente, a una recinto específica.
   Se almacena la ruta del archivo GeoTIFF o COG, junto con sus metadatos, en lugar del ráster dentro de PostGIS, optimizando el rendimiento e integración con GeoServer.
 
 - **SENSORES**
 
   Representa los dispositivos IoT desplegados en campo.
-  Se vinculan a parcelas y cultivos concretos, e incluyen datos sobre ubicación, tipo, fabricante y frecuencia de medición.
+  Se vinculan a recintos y cultivos concretos, e incluyen datos sobre ubicación, tipo, fabricante y frecuencia de medición.
   Constituyen la fuente primaria de datos de humedad de suelo, temperatura, caudal y otras variables.
 
 - **VARIABLES**
@@ -69,7 +69,7 @@ Este sistema integra información geoespacial (parcelas, sensores, rásteres sat
 - **RECOMENDACIONES_RIEGO**
 
   Contiene los resultados generados por los modelos de recomendación.
-  Relaciona la información proveniente de parcelas, cultivos, índices de vegetación y sensores para estimar la lámina de riego sugerida.
+  Relaciona la información proveniente de recintos, cultivos, índices de vegetación y sensores para estimar la lámina de riego sugerida.
   Incluye indicadores como NDVI promedio, humedad del suelo y ETP calculada, además de la descripción del método o modelo empleado.
 
 - **LOGS_SISTEMA**
@@ -83,11 +83,11 @@ Se explican en la siguiente tabla:
 
 | Relación                             | Tipo                      | Explicación breve                                                                 |
 | ------------------------------------ | ------------------------- | --------------------------------------------------------------------------------- |
-| **PARCELAS → CULTIVOS**              | **One to Mandatory Many** | Cada parcela debe tener uno o varios cultivos asociados.                          |
-| **PARCELAS → SENSORES**              | **One to Optional Many**  | Una parcela puede tener varios sensores instalados o ninguno.                     |
-| **PARCELAS → IMAGENES_DRON**         | **One to Optional Many**  | Una parcela puede ser cubierta por vuelos de dron o no tener ninguno.             |
-| **PARCELAS → INDICES_RASTER**        | **One to Optional Many**  | Una parcela puede tener índices ráster asociados o no.                            |
-| **PARCELAS → RECOMENDACIONES_RIEGO** | **One to Mandatory Many** | Cada parcela genera una o más recomendaciones de riego durante su ciclo.          |
+| **recintos → CULTIVOS**              | **One to Mandatory Many** | Cada recinto debe tener uno o varios cultivos asociados.                          |
+| **recintos → SENSORES**              | **One to Optional Many**  | Una recinto puede tener varios sensores instalados o ninguno.                     |
+| **recintos → IMAGENES_DRON**         | **One to Optional Many**  | Una recinto puede ser cubierta por vuelos de dron o no tener ninguno.             |
+| **recintos → INDICES_RASTER**        | **One to Optional Many**  | Una recinto puede tener índices ráster asociados o no.                            |
+| **recintos → RECOMENDACIONES_RIEGO** | **One to Mandatory Many** | Cada recinto genera una o más recomendaciones de riego durante su ciclo.          |
 | **CULTIVOS → SENSORES**              | **One to Optional Many**  | Un cultivo puede usar sensores específicos o no tener ninguno.                    |
 | **CULTIVOS → RECOMENDACIONES_RIEGO** | **One to Optional Many**  | Un cultivo puede estar asociado a una o varias recomendaciones de riego.          |
 | **IMAGENES → INDICES_RASTER**        | **One to Mandatory Many** | Cada imagen (sea satelital o de dron) produce uno o más índices ráster derivados. |
@@ -99,18 +99,18 @@ Se explican en la siguiente tabla:
 
 
 ### Interpretación general del modelo
-El modelo mantiene una estructura jerárquica centrada en la **parcela** como núcleo de toda la información agrícola.
+El modelo mantiene una estructura jerárquica centrada en la **recinto** como núcleo de toda la información agrícola.
 Las entidades dependientes, como cultivos, sensores, imágenes e índices ráster, se vinculan a ella para garantizar coherencia espacial y temporal.
 Las **entidades observacionales**, como, por ejemplo, `mediciones_sensores` o `indices_raster` son las que más crecen con el tiempo, reflejando la naturaleza dinámica de la monitorización agrícola.
-Por último, las **relaciones opcionales** aseguran flexibilidad: no todas las parcelas tienen sensores o imágenes, pero el modelo lo soporta sin comprometer la integridad de los datos.
+Por último, las **relaciones opcionales** aseguran flexibilidad: no todas los recintos tienen sensores o imágenes, pero el modelo lo soporta sin comprometer la integridad de los datos.
 
 ## Script con las tablas
 En este mismo directorio podrás encontrar el script `schema.sql`. Con este fichero se definen todas las tablas ya vistas en el esquema de E-R, junto con sus respectivas relaciones y datos, definiendo en el proceso las claves primarias, fóraneas, el tipo de cada relación y restricciones de integridad, como: UNIQUE, NOT NULL, ON DELETE CASCADE, etc...
 
 Además de esto, también se fijan tipos de datos adecuados a un contexto GIS, siendo estos: geometrías `geometry(Point/Polygon, 4326)` y campos `JSONB` para datos flexibles.
 
-Adicionalmente, el script crea distintos índices para optimizar el rendimiento de las consultas. Se añaden índices espaciales GiST sobre las columnas geométricas para acelerar operaciones como búsquedas por intersección o proximidad, muy frecuentes en un **sistema GIS**. Sobre claves foráneas, campos de fechas y columnas muy usadas en filtros se crean índices B-tree que permiten recuperar rápidamente cultivos de una parcela, mediciones en un rango temporal o logs de un módulo concreto. 
+Adicionalmente, el script crea distintos índices para optimizar el rendimiento de las consultas. Se añaden índices espaciales GiST sobre las columnas geométricas para acelerar operaciones como búsquedas por intersección o proximidad, muy frecuentes en un **sistema GIS**. Sobre claves foráneas, campos de fechas y columnas muy usadas en filtros se crean índices B-tree que permiten recuperar rápidamente cultivos de una recinto, mediciones en un rango temporal o logs de un módulo concreto. 
 
-Por último, algunos índices son únicos, lo que no solo mejora el rendimiento sino que también evita duplicidades lógicas, como dos mediciones con el mismo sensor-variable-timestamp o dos recomendaciones de riego para la misma parcela y día.
+Por último, algunos índices son únicos, lo que no solo mejora el rendimiento sino que también evita duplicidades lógicas, como dos mediciones con el mismo sensor-variable-timestamp o dos recomendaciones de riego para la misma recinto y día.
 
 

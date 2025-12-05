@@ -27,7 +27,7 @@ Este punto en concreto está mejor explicado en: `assets/docs/arquitectura_gis.m
 
 **GeoServer** utiliza las tablas espaciales para publicar `WMS (Web Map Service)`, publicar `WFS (Web Feature Service)`, servir estilos `SLD`, generar tiles, reproyecciones y procesamiento geoespacial `server-side`.
 
-**GeoServer** es responsable de servir `capas vectoriales grandes`, como: parcelas, redes, usos de suelo, `capas ráster`, como: NDVI, ortofotos, DEM, `capas multiespectrales` y productos derivados y consultas espaciales pesadas optimizadas mediante **PostGIS**.
+**GeoServer** es responsable de servir `capas vectoriales grandes`, como: recintos, redes, usos de suelo, `capas ráster`, como: NDVI, ortofotos, DEM, `capas multiespectrales` y productos derivados y consultas espaciales pesadas optimizadas mediante **PostGIS**.
 
 ### Conexión Frontend(Leaflet/Folium) con Flask y GeoServer
 La parte web, que se encuentra en la carpeta: `webapp/templates` utiliza Leaflet/Folium como motor del visor GIS.
@@ -35,7 +35,7 @@ Desde el navegador, el cliente mezcla información procedente de dos fuentes com
 - Por un lado, **servicios WMS/WFS desde GeoServer**.
 Se utilizan para las capas de mayor volumen o cuando se requiere un renderizado dinámico en servidor, una reproyección automática, una simbología avanzada (SLD) o un acceso estandarizado vía OGC.
 - Por otro lado, la **API REST personalizada servida por Flask**.
-El frontend consulta Flask mediante `fetch()` para obtener: indicadores derivados, estadísticas de parcela, datos IoT procesados, resultados de algoritmos de análisis desarrollados en Python o capas vectoriales ligeras en GeoJSON.
+El frontend consulta Flask mediante `fetch()` para obtener: indicadores derivados, estadísticas de recinto, datos IoT procesados, resultados de algoritmos de análisis desarrollados en Python o capas vectoriales ligeras en GeoJSON.
 
 ### Integración combinada
 El visor carga:

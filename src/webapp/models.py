@@ -21,9 +21,9 @@ class User(UserMixin, db.Model):
     activo = db.Column(db.Boolean, default=False)
     telefono = db.Column(db.String, nullable=True)
 
-    parcelas = db.relationship('Parcela', back_populates='propietario', lazy=True)
-    solicitudes_parcelas = db.relationship(
-        "SolicitudParcela",
+    recintos = db.relationship('Recinto', back_populates='propietario', lazy=True)
+    solicitudes_recintos = db.relationship(
+        "Solicitudrecinto",
         back_populates="usuario",
         lazy="dynamic"
     )
@@ -60,10 +60,10 @@ class LogsSistema(db.Model):
         return f'<Log {self.tipo_operacion} by User {self.id_usuario} at {self.fecha_hora}>'
     
 
-class Parcela(db.Model):
-    __tablename__ = "parcelas"
+class Recinto(db.Model):
+    __tablename__ = "recintos"
     
-    id_parcela = db.Column(db.Integer, primary_key=True, index=True)
+    id_recinto = db.Column(db.Integer, primary_key=True, index=True)
     nombre = db.Column(db.String)
     superficie_ha = db.Column(db.Numeric(12, 4))
     
@@ -81,7 +81,7 @@ class Parcela(db.Model):
     agregado = db.Column(db.BigInteger)
     zona = db.Column(db.BigInteger)
     poligono = db.Column(db.BigInteger, nullable=False)
-    parcela = db.Column(db.BigInteger, nullable=False)
+    recinto = db.Column(db.BigInteger, nullable=False)
 
     # Relación con usuarios
     id_propietario = db.Column(
@@ -90,15 +90,15 @@ class Parcela(db.Model):
         nullable=True
     )
 
-    propietario = db.relationship("User", back_populates="parcelas")
+    propietario = db.relationship("User", back_populates="recintos")
     solicitudes = db.relationship(
-        "SolicitudParcela",
-        back_populates="parcela",
+        "Solicitudrecinto",
+        back_populates="recinto",
         cascade="all, delete-orphan"
     )
 
     def __repr__(self):
-        return f"<Parcela SIGPAC {self.provincia}-{self.municipio}-{self.poligono}-{self.parcela}>"
+        return f"<recinto SIGPAC {self.provincia}-{self.municipio}-{self.poligono}-{self.recinto}>"
 
     @property
     def nombre_municipio(self):
@@ -111,8 +111,8 @@ class Parcela(db.Model):
 
 
 
-class SolicitudParcela(db.Model):
-    __tablename__ = "solicitudes_parcelas"
+class Solicitudrecinto(db.Model):
+    __tablename__ = "solicitudes_recintos"
     
     id_solicitud = db.Column(db.Integer, primary_key=True, index=True)
     id_usuario = db.Column(
@@ -120,9 +120,9 @@ class SolicitudParcela(db.Model):
         db.ForeignKey("usuarios.id_usuario"),
         nullable=False
     )
-    id_parcela = db.Column(
+    id_recinto = db.Column(
         db.Integer,
-        db.ForeignKey("parcelas.id_parcela"),
+        db.ForeignKey("recintos.id_recinto"),
         nullable=False
     )
     estado = db.Column(db.String(20), nullable=False, default="pendiente")
@@ -130,5 +130,5 @@ class SolicitudParcela(db.Model):
     fecha_resolucion = db.Column(db.DateTime(timezone=True), nullable=True)
     motivo_rechazo = db.Column(db.String, nullable=True)
 
-    usuario = db.relationship("User", back_populates="solicitudes_parcelas")
-    parcela = db.relationship("Parcela", back_populates="solicitudes")
+    usuario = db.relationship("User", back_populates="solicitudes_recintos")
+    recinto = db.relationship("Recinto", back_populates="solicitudes")

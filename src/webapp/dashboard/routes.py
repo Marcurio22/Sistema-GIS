@@ -59,13 +59,13 @@ def visor():
         roi_bbox = [-4.6718708208, 41.7248613835,
                     -3.8314839480, 42.1274665349]
 
-    # Para saber el codigo del municipio hay que ver el numero de parcelas que tiene el usuario en cada municipio y sacar el codigo del que mas parcelas tiene
+    # Para saber el codigo del municipio hay que ver el numero de recintos que tiene el usuario en cada municipio y sacar el codigo del que mas recintos tiene
 
     municipios_codigos_finder = MunicipiosCodigosFinder()
-    codigo_municipio = municipios_codigos_finder.codigo_parcelas(current_user.id_usuario)
+    codigo_municipio = municipios_codigos_finder.codigo_recintos(current_user.id_usuario)
 
 
-    # Sacar codigo municipio de las parcelas del usuario?
+    # Sacar codigo municipio de los recintos del usuario?
 
 
 

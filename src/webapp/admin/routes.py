@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from functools import wraps
 from . import admin_bp
 from .. import db
-from ..models import User, Parcela, SolicitudParcela
+from ..models import User, Recinto, Solicitudrecinto
 from datetime import datetime, timezone
 import logging
 
@@ -87,83 +87,83 @@ def hacer_admin(id):
 
 
 
-@admin_bp.route('/gestion_parcelas')
+@admin_bp.route('/gestion_recintos')
 @login_required
 @admin_required
-def gestion_parcelas():
+def gestion_recintos():
     logger.info(
-        f'Admin {current_user.username} accedió a gestión de parcelas',
+        f'Admin {current_user.username} accedió a gestión de recintos',
         extra={'tipo_operacion': 'ACCESO', 'modulo': 'ADMIN'}
     )
 
-    # Parcelas que ya tienen propietario asignado
-    parcelas = (
-        Parcela.query
-        .filter(Parcela.id_propietario.isnot(None))
+    # recintos que ya tienen propietario asignado
+    recintos = (
+        Recinto.query
+        .filter(Recinto.id_propietario.isnot(None))
         .order_by(
-            Parcela.provincia,
-            Parcela.municipio,
-            Parcela.poligono,
-            Parcela.parcela
+            Recinto.provincia,
+            Recinto.municipio,
+            Recinto.poligono,
+            Recinto.recinto
         )
         .all()
     )
 
     # Todas las solicitudes (pendientes / aprobadas / rechazadas)
     solicitudes = (
-        SolicitudParcela.query
-        .order_by(SolicitudParcela.fecha_solicitud.desc())
+        Solicitudrecinto.query
+        .order_by(Solicitudrecinto.fecha_solicitud.desc())
         .all()
     )
 
     return render_template(
-        'admin/gestion_parcelas.html',
-        parcelas=parcelas,
+        'admin/gestion_recintos.html',
+        recintos=recintos,
         solicitudes=solicitudes,
     )
 
-@admin_bp.post("/gestion_parcelas/<int:id_solicitud>/aprobar")
+@admin_bp.post("/gestion_recintos/<int:id_solicitud>/aprobar")
 @login_required
 @admin_required
-def aprobar_solicitud_parcela(id_solicitud):
-    solicitud = SolicitudParcela.query.get_or_404(id_solicitud)
+def aprobar_solicitud_recinto(id_solicitud):
+    solicitud = Solicitudrecinto.query.get_or_404(id_solicitud)
 
     if solicitud.estado != "pendiente":
         flash("La solicitud ya está procesada.", "warning")
-        return redirect(url_for("admin.gestion_parcelas"))
+        return redirect(url_for("admin.gestion_recintos"))
 
-    parcela = Parcela.query.get_or_404(solicitud.id_parcela)
+    recinto = Recinto.query.get_or_404(solicitud.id_recinto)
 
     # Si ya tiene propietario y es otro usuario → rechazamos automáticamente
-    if parcela.id_propietario is not None and parcela.id_propietario != solicitud.id_usuario:
+    if recinto.id_propietario is not None and recinto.id_propietario != solicitud.id_usuario:
         solicitud.estado = "rechazada"
         solicitud.fecha_resolucion = datetime.now(timezone.utc)
-        solicitud.motivo_rechazo = "La parcela ya tiene propietario."
+        solicitud.motivo_rechazo = "El recinto ya tiene propietario."
         db.session.commit()
-        flash("La parcela ya tenía propietario. Solicitud rechazada.", "danger")
-        return redirect(url_for("admin.gestion_parcelas"))
+        flash("El recinto ya tenía propietario. Solicitud rechazada.", "danger")
+        return redirect(url_for("admin.gestion_recintos"))
 
     # Asignar propietario
-    parcela.id_propietario = solicitud.id_usuario
-    # La relación parcela.propietario se resolverá sola a partir de id_propietario
+    recinto.id_propietario = solicitud.id_usuario
+    # La relación recinto.propietario se resolverá sola a partir de id_propietario
 
     solicitud.estado = "aprobada"
     solicitud.fecha_resolucion = datetime.now(timezone.utc)
 
     db.session.commit()
-    flash("Parcela asignada correctamente al usuario.", "success")
-    return redirect(url_for("admin.gestion_parcelas"))
+    flash("recinto asignada correctamente al usuario.", "success")
+    return redirect(url_for("admin.gestion_recintos"))
 
 
-@admin_bp.post("/gestion_parcelas/<int:id_solicitud>/rechazar")
+@admin_bp.post("/gestion_recintos/<int:id_solicitud>/rechazar")
 @login_required
 @admin_required
-def rechazar_solicitud_parcela(id_solicitud):
-    solicitud = SolicitudParcela.query.get_or_404(id_solicitud)
+def rechazar_solicitud_recinto(id_solicitud):
+    solicitud = Solicitudrecinto.query.get_or_404(id_solicitud)
 
     if solicitud.estado != "pendiente":
         flash("La solicitud ya está procesada.", "warning")
-        return redirect(url_for("admin.gestion_parcelas"))
+        return redirect(url_for("admin.gestion_recintos"))
 
     motivo = request.form.get("motivo_rechazo", "").strip()
     if not motivo:
@@ -175,4 +175,4 @@ def rechazar_solicitud_parcela(id_solicitud):
 
     db.session.commit()
     flash("Solicitud rechazada.", "info")
-    return redirect(url_for("admin.gestion_parcelas"))
+    return redirect(url_for("admin.gestion_recintos"))

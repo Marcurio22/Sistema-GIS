@@ -180,18 +180,18 @@ def actualizar_sigpac_y_parcelas_atomic(gdf_recintos: gpd.GeoDataFrame) -> None:
                     agregado,
                     zona,
                     poligono,
-                    parcela
+                    recinto
                 )
                 SELECT
                     -- nombre por defecto SOLO para nuevas parcelas
                     format(
-                        'Parcela %s-%s-%s-%s-%s-%s',
+                        'recinto %s-%s-%s-%s-%s-%s',
                         r.provincia,
                         r.municipio,
                         COALESCE(r.agregado, 0),
                         COALESCE(r.zona, 0),
                         r.poligono,
-                        r.parcela
+                        r.recinto
                     ) AS nombre,
                     ST_Area(
                         ST_Transform(ST_Union(r.geometry), 3857)
@@ -202,7 +202,7 @@ def actualizar_sigpac_y_parcelas_atomic(gdf_recintos: gpd.GeoDataFrame) -> None:
                     r.agregado,
                     r.zona,
                     r.poligono,
-                    r.parcela
+                    r.recinto
                 FROM sigpac.recintos_new r
                 GROUP BY
                     r.provincia,
@@ -210,8 +210,8 @@ def actualizar_sigpac_y_parcelas_atomic(gdf_recintos: gpd.GeoDataFrame) -> None:
                     r.agregado,
                     r.zona,
                     r.poligono,
-                    r.parcela
-                ON CONFLICT (provincia, municipio, agregado, zona, poligono, parcela)
+                    r.recinto
+                ON CONFLICT (provincia, municipio, agregado, zona, poligono, recinto)
                 DO UPDATE SET
                     geom          = EXCLUDED.geom,
                     superficie_ha = EXCLUDED.superficie_ha;
@@ -233,14 +233,14 @@ def actualizar_sigpac_y_parcelas_atomic(gdf_recintos: gpd.GeoDataFrame) -> None:
                     r.provincia = p.provincia
                     AND r.municipio = p.municipio
                     AND r.poligono = p.poligono
-                    AND r.parcela  = p.parcela
+                    AND r.recinto  = p.recinto
                     AND r.agregado IS NOT DISTINCT FROM p.agregado
                     AND r.zona     IS NOT DISTINCT FROM p.zona;
                 """
             )
         )
 
-        # Comprobar que todos los recintos tienen parcela asociada
+        # Comprobar que todos los recintos tienen recinto asociada
         missing = conn.execute(
             text("SELECT COUNT(*) FROM sigpac.recintos_new WHERE id_parcela IS NULL;")
         ).scalar()

@@ -1,0 +1,156 @@
+{% extends "base.html" %} {% block title %}Gestión de recintos - Admin{%
+endblock %} {% block content %}
+<div class="container py-4">
+  <h1 class="mb-4">Gestión de recintos</h1>
+
+  {# Mensajes flash #} {% with messages =
+  get_flashed_messages(with_categories=true) %} {% if messages %}
+  <div class="mb-3">
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %} {% endwith %} {# =========================== SECCIÓN 1: RECINTOS
+  ASIGNADOS =========================== #}
+  <h3 class="mb-3">Recintos con propietario</h3>
+
+  {% if recintos %}
+  <div class="table-responsive mb-4">
+    <table class="table table-striped align-middle">
+      <thead>
+        <tr>
+          <th class="text-center">Nombre</th>
+          <th>Superficie (ha)</th>
+          <th>Propietario</th>
+          <th>Provincia</th>
+          <th>Municipio</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for recinto in recintos %}
+        <tr>
+          <td>{{ recinto.nombre }}</td>
+          <td>{{ "%.2f"|format(recinto.superficie_ha|float) }}</td>
+          <td>
+            {% if recinto.propietario %} {{ recinto.propietario.username }} {%
+            else %} N/A {% endif %}
+          </td>
+          <td>
+            {{ recinto.provincia }}{% if recinto.nombre_provincia %} - {{
+            recinto.nombre_provincia }}{% endif %}
+          </td>
+          <td>
+            {{ recinto.municipio }}{% if recinto.nombre_municipio %} - {{
+            recinto.nombre_municipio }}{% endif %}
+          </td>
+          <td>
+            {% if recinto.activa %}
+            <span class="badge bg-success">Activa</span>
+            {% else %}
+            <span class="badge bg-secondary">Inactiva</span>
+            {% endif %}
+          </td>
+          <td>
+            <a class="btn btn-sm btn-info">Ver</a>
+            <a class="btn btn-sm btn-warning">Editar</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="alert alert-info mb-4">
+    No hay recintos con propietario asignado.
+  </div>
+  {% endif %} {# =========================== SECCIÓN 2: SOLICITUDES
+  =========================== #}
+  <h3 class="mb-3">Solicitudes de recintos</h3>
+
+  {% if solicitudes %}
+  <div class="table-responsive">
+    <table class="table table-striped align-middle">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Usuario</th>
+          <th>recinto SIGPAC</th>
+          <th>Estado</th>
+          <th>Fecha solicitud</th>
+          <th>Fecha resolución</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in solicitudes %}
+        <tr>
+          <td>{{ s.id_solicitud }}</td>
+          <td>{{ s.usuario.username }}</td>
+          <td>
+            {% if s.recinto %} {{ s.recinto.provincia }}-{{ s.recinto.municipio
+            }}- {{ s.recinto.poligono }}-{{ s.recinto.recinto }} {% else %}
+            <span class="text-danger">recinto eliminada</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if s.estado == 'pendiente' %}
+            <span class="badge bg-warning text-dark">Pendiente</span>
+            {% elif s.estado == 'aprobada' %}
+            <span class="badge bg-success">Aprobada</span>
+            {% elif s.estado == 'rechazada' %}
+            <span class="badge bg-danger">Rechazada</span>
+            {% else %} {{ s.estado }} {% endif %}
+          </td>
+          <td>
+            {% if s.fecha_solicitud %} {{ s.fecha_solicitud.strftime('%d-%m-%Y
+            %H:%M') }} {% else %} — {% endif %}
+          </td>
+          <td>
+            {% if s.fecha_resolucion %} {{ s.fecha_resolucion.strftime('%d-%m-%Y
+            %H:%M') }} {% else %} — {% endif %}
+          </td>
+          <td style="min-width: 260px">
+            {% if s.estado == 'pendiente' %}
+            <a href="{{ url_for('dashboard.visor') }}"
+              class="btn btn-sm btn-info me-1" target="_blank">
+              <i class="bi bi-map"></i> Ver Recinto
+            </a>
+            <form method="post" action="{{ url_for('admin.aprobar_solicitud_recinto', id_solicitud=s.id_solicitud) }}"
+              class="d-inline">
+              <button class="btn btn-sm btn-success">Aprobar</button>
+            </form>
+
+            <button class="btn btn-sm btn-outline-danger ms-1" type="button" data-bs-toggle="collapse"
+              data-bs-target="#rechazo-{{ s.id_solicitud }}">
+              Rechazar
+            </button>
+
+            <div class="collapse mt-2" id="rechazo-{{ s.id_solicitud }}">
+              <form method="post"
+                action="{{ url_for('admin.rechazar_solicitud_recinto', id_solicitud=s.id_solicitud) }}">
+                <textarea name="motivo_rechazo" class="form-control form-control-sm mb-2" rows="2"
+                  placeholder="Motivo del rechazo (opcional)"></textarea>
+                <button class="btn btn-sm btn-danger">Confirmar rechazo</button>
+              </form>
+            </div>
+            {% else %} {% if s.motivo_rechazo %}
+            <small class="text-muted d-block">Motivo: {{ s.motivo_rechazo }}</small>
+            {% endif %} {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="alert alert-info">
+    No hay solicitudes de recintos actualmente.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

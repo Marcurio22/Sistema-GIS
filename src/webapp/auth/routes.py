@@ -3,7 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from . import auth_bp 
 from .. import db, login_manager
 from sqlalchemy import desc
-from ..models import LogsSistema, User, Parcela
+from ..models import LogsSistema, User, Recinto
 from ..utils.logging_handler import SQLAlchemyHandler
 from ..utils.utils import normalizar_telefono_es
 import logging
@@ -296,12 +296,12 @@ def index():
     return redirect(url_for('auth.login'))
 
 
-@auth_bp.route('/mis_parcelas')
+@auth_bp.route('/mis_recintos')
 @login_required
-def mis_parcelas():
+def mis_recintos():
     logger.info(
-        f'Usuario {current_user.username} accedió a sus parcelas',
-        extra={'tipo_operacion': 'ACCESO', 'modulo': 'MIS_PARCELAS'}
+        f'Usuario {current_user.username} accedió a sus recintos',
+        extra={'tipo_operacion': 'ACCESO', 'modulo': 'MIS_RECINTOS'}
     )
-    parcelas = Parcela.query.filter_by(id_propietario=current_user.id_usuario).all()
-    return render_template('mis_parcelas.html', parcelas=parcelas)
+    recintos = Recinto.query.filter_by(id_propietario=current_user.id_usuario).all()
+    return render_template('mis_recintos.html', recintos=recintos)

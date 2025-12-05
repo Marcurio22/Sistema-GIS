@@ -4,7 +4,7 @@ El sistema sigue una arquitectura en capas que separa almacenamiento, publicaci�
 
 ### Almacenamiento: PostGIS
 
-PostGIS es el núcleo del sistema y almacena todos los datos geoespaciales: capas vectoriales (parcelas, sensores, límites de cultivos, redes de riego), raster (NDVI, ETP, LAI, imágenes Sentinel-2) y metadatos asociados. También mantiene un registro de actualizaciones automáticas, lo que permite rastrear cambios y versiones de los datos.
+PostGIS es el núcleo del sistema y almacena todos los datos geoespaciales: capas vectoriales (recintos, sensores, límites de cultivos, redes de riego), raster (NDVI, ETP, LAI, imágenes Sentinel-2) y metadatos asociados. También mantiene un registro de actualizaciones automáticas, lo que permite rastrear cambios y versiones de los datos.
 
 ### Publicación: GeoServer
 

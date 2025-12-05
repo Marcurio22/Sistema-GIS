@@ -2,7 +2,7 @@
 routes.py
 ---------
 Rutas REST para exponer capas SIGPAC como GeoJSON y gestionar
-solicitudes de parcelas.
+solicitudes de recintos.
 """
 
 from __future__ import annotations
@@ -11,7 +11,7 @@ from flask import jsonify, request
 from flask_login import login_required, current_user
 
 from .. import db
-from ..models import Parcela, SolicitudParcela
+from ..models import Recinto, Solicitudrecinto
 
 from . import api_bp
 from .services import recintos_geojson
@@ -37,96 +37,96 @@ def recintos():
     return jsonify(fc)
 
 
-@api_bp.route("/solicitudes-parcela", methods=["POST"])
+@api_bp.route("/solicitudes-recinto", methods=["POST"])
 @login_required
-def crear_solicitud_parcela():
+def crear_solicitud_recinto():
     """
-    Crear una solicitud para añadir una parcela a 'Mis parcelas'.
+    Crear una solicitud para añadir una recinto a 'Mis recintos'.
 
     El frontend puede mandar:
-      - { "id_parcela": 123 }
+      - { "id_recinto": 123 }
     ó
       - {
-          "id_parcela": null,
+          "id_recinto": null,
           "provincia": 34,
           "municipio": 23,
           "agregado": null,
           "zona": null,
           "poligono": 1,
-          "parcela": 51
+          "recinto": 51
         }
 
     Reglas:
-    - Si la parcela no existe -> 404
-    - Si la parcela ya tiene propietario -> 400 (ya_tiene_propietario)
-    - Si el usuario ya ha solicitado esa parcela -> 400 (ya_solicitada)
-    - Si todo OK -> crea SolicitudParcela en estado 'pendiente'
+    - Si el recinto no existe -> 404
+    - Si el recinto ya tiene propietario -> 400 (ya_tiene_propietario)
+    - Si el usuario ya ha solicitado esa recinto -> 400 (ya_solicitada)
+    - Si todo OK -> crea Solicitudrecinto en estado 'pendiente'
     """
     data = request.get_json(silent=True) or {}
 
-    id_parcela = data.get("id_parcela")
+    id_recinto = data.get("id_recinto")
 
-    parcela_obj = None
+    recinto_obj = None
 
-    if id_parcela:
-        parcela_obj = Parcela.query.get(id_parcela)
+    if id_recinto:
+        recinto_obj = Recinto.query.get(id_recinto)
     else:
         # Resolver por códigos SIGPAC
         provincia = data.get("provincia")
         municipio = data.get("municipio")
         poligono = data.get("poligono")
-        parcela = data.get("parcela")
+        recinto = data.get("recinto")
         agregado = data.get("agregado")
         zona = data.get("zona")
 
-        if not all([provincia, municipio, poligono, parcela]):
+        if not all([provincia, municipio, poligono, recinto]):
             return (
                 jsonify(
                     {
                         "ok": False,
-                        "error": "Faltan datos para identificar la parcela",
+                        "error": "Faltan datos para identificar el recinto",
                     }
                 ),
                 400,
             )
 
-        q = Parcela.query.filter_by(
+        q = Recinto.query.filter_by(
             provincia=provincia,
             municipio=municipio,
             poligono=poligono,
-            parcela=parcela,
+            recinto=recinto,
         )
 
         # agregado y zona pueden ser NULL
         if agregado is not None:
-            q = q.filter(Parcela.agregado == agregado)
+            q = q.filter(Recinto.agregado == agregado)
         if zona is not None:
-            q = q.filter(Parcela.zona == zona)
+            q = q.filter(Recinto.zona == zona)
 
-        parcela_obj = q.first()
+        recinto_obj = q.first()
 
-    if not parcela_obj:
-        return jsonify({"ok": False, "error": "Parcela no encontrada"}), 404
+    if not recinto_obj:
+        return jsonify({"ok": False, "error": "recinto no encontrada"}), 404
 
-    id_parcela_real = parcela_obj.id_parcela
+    id_recinto_real = recinto_obj.id_recinto
 
     # Si ya tiene propietario, no se puede solicitar
-    if parcela_obj.id_propietario is not None:
+    if recinto_obj.id_propietario is not None:
         return (
             jsonify(
                 {
                     "ok": False,
-                    "error": "La parcela ya tiene propietario",
+                    "error": "El recinto ya tiene propietario",
                     "code": "ya_tiene_propietario",
                 }
             ),
             400,
         )
 
-    # Evitar solicitudes duplicadas del mismo usuario para la misma parcela
-    existing = SolicitudParcela.query.filter_by(
+    # Evitar solicitudes duplicadas del mismo usuario para la misma recinto
+    existing = Solicitudrecinto.query.filter_by(
         id_usuario=current_user.id_usuario,
-        id_parcela=id_parcela_real,
+        id_recinto=id_recinto_real,
     ).first()
 
     if existing:
@@ -134,16 +134,16 @@ def crear_solicitud_parcela():
             jsonify(
                 {
                     "ok": False,
-                    "error": "Ya has solicitado esta parcela",
+                    "error": "Ya has solicitado esta recinto",
                     "code": "ya_solicitada",
                 }
             ),
             400,
         )
 
-    solicitud = SolicitudParcela(
+    solicitud = Solicitudrecinto(
         id_usuario=current_user.id_usuario,
-        id_parcela=id_parcela_real,
+        id_recinto=id_recinto_real,
         estado="pendiente",
     )
     db.session.add(solicitud)

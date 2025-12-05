@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, current_
 import requests
 import pandas as pd
 from pathlib import Path
-from ..models import Parcela
+from ..models import Recinto
 from datetime import datetime, timedelta
 
 # Mapeo de descripción de AEMET a datos de visualización
@@ -504,56 +504,56 @@ class MunicipiosCodigosFinder:
 
         return url
     
-    def codigo_parcelas(self, user_id):
+    def codigo_recintos(self, user_id):
         """
-        Obtiene el código del municipio donde el usuario tiene más parcelas.
+        Obtiene el código del municipio donde el usuario tiene más recintos.
         SIEMPRE devuelve el código con formato: 2 dígitos provincia + 3 dígitos municipio
         
         Args:
             user_id: ID del usuario
         
         Returns:
-            Código del municipio (formato: "01005" o "28079") o None si no hay parcelas
+            Código del municipio (formato: "01005" o "28079") o None si no hay recintos
         
         Ejemplo:
             provincia=1, municipio=5 → devuelve "01005"
             provincia=28, municipio=79 → devuelve "28079"
         """
-        parcelas = Parcela.query.filter_by(id_propietario=user_id).all()
+        recintos = Recinto.query.filter_by(id_propietario=user_id).all()
         
-        if not parcelas:
+        if not recintos:
             return None
         
-        # Contar parcelas por municipio (asegurando formato correcto)
+        # Contar recintos por municipio (asegurando formato correcto)
         contador = {}
-        for parcela in parcelas:
+        for recinto in recintos:
             # IMPORTANTE: zfill(2) para provincia, zfill(3) para municipio
-            cpro = str(parcela.provincia).zfill(2)
-            cmun = str(parcela.municipio).zfill(3)
+            cpro = str(recinto.provincia).zfill(2)
+            cmun = str(recinto.municipio).zfill(3)
             codigo = f"{cpro}{cmun}"
             contador[codigo] = contador.get(codigo, 0) + 1
         
-        # Encontrar el municipio con más parcelas
-        municipio_mas_parcelas = max(contador, key=contador.get)
+        # Encontrar el municipio con más recintos
+        municipio_mas_recintos = max(contador, key=contador.get)
         
-        return municipio_mas_parcelas
+        return municipio_mas_recintos
     
     def obtener_url_municipio_usuario(self, user_id):
         """
-        Obtiene la URL de AEMET del municipio donde el usuario tiene más parcelas.
+        Obtiene la URL de AEMET del municipio donde el usuario tiene más recintos.
         
         Args:
             user_id: ID del usuario
         
         Returns:
-            URL completa a la página de AEMET o None si no hay parcelas o no existe el municipio
+            URL completa a la página de AEMET o None si no hay recintos o no existe el municipio
         
         Ejemplo:
-            Si el usuario tiene parcelas en provincia=1, municipio=5
+            Si el usuario tiene recintos en provincia=1, municipio=5
             → devuelve URL con código "01005"
         """
-        # Obtener el código del municipio con más parcelas (ya viene con formato correcto)
-        codigo_municipio = self.codigo_parcelas(user_id)
+        # Obtener el código del municipio con más recintos (ya viene con formato correcto)
+        codigo_municipio = self.codigo_recintos(user_id)
         
         if codigo_municipio is None:
             return None

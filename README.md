@@ -47,7 +47,7 @@ Corresponde a la **capa de integración y transformación de datos**, donde se c
   Implementan la lógica de ingesta, limpieza y formateo de datos mediante bibliotecas como `rasterio`, `geopandas`, `pandas` y `shapely`.  
   Se encargan de:
   - Reproyectar y recortar rásteres a las Áreas de Interés (AOI).  
-  - Extraer valores medios por parcela.  
+  - Extraer valores medios por recinto.  
   - Calcular índices derivados (NDVI, ETP).  
   - Insertar los resultados en PostgreSQL/PostGIS.
 
@@ -57,7 +57,7 @@ Esta etapa constituye la **puerta de entrada** de toda la información espacial 
 
 El corazón del sistema es la **base de datos PostgreSQL con extensión PostGIS**, que actúa como repositorio central y estructurado.
 
-- **PostgreSQL + PostGIS** permite almacenar tanto datos **vectoriales** (parcelas, sensores, cultivos) como **ráster** (índices NDVI, ortomosaicos).  
+- **PostgreSQL + PostGIS** permite almacenar tanto datos **vectoriales** (recintos, sensores, cultivos) como **ráster** (índices NDVI, ortomosaicos).  
 - Se gestionan los metadatos, la trazabilidad de las imágenes, las series temporales de sensores y las **recomendaciones de riego** generadas.  
 - La estructura responde al modelo E-R presente en la carpeta `db`, explicado en el archivo `db_info.md`, garantizando consistencia e integridad referencial.
 
@@ -88,7 +88,7 @@ GeoServer se conecta directamente a las tablas PostGIS para exponer los datasets
 Los usuarios finales interactúan con el sistema a través de distintas herramientas que consumen los servicios publicados:
 
 - **Web GIS (Leaflet / Folium):**  
-  Aplicación web interactiva que muestra las parcelas, sensores y productos ráster.  
+  Aplicación web interactiva que muestra los recintos, sensores y productos ráster.  
   Consume tanto el API REST, correspondiente a datos alfanuméricos, como servicios WMS/WFS, asociados a capas cartográficas.  
   Permite visualizar recomendaciones de riego o valores NDVI históricos.
 
