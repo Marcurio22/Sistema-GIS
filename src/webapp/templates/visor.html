@@ -310,9 +310,9 @@
   <div class="basemap-grid">
     <div class="basemap-option disabled">
       <div class="basemap-thumb">
-        <img src="{{ url_for('static', filename='img/thumb_recintos.png') }}" alt="Mis recintos" />
+        <img src="{{ url_for('static', filename='img/thumb_mis_recintos.png') }}" alt="Mis Recintos" />
       </div>
-      <div class="basemap-option-label">Mis recintos</div>
+      <div class="basemap-option-label">Mis Recintos</div>
     </div>
 
     <div class="basemap-option basemap-detail active" data-detail="sigpac">
@@ -324,7 +324,7 @@
 
     <div class="basemap-option disabled">
       <div class="basemap-thumb">
-        <img src="{{ url_for('static', filename='img/thumb_calculadas.png') }}" alt="recintos Calculadas" />
+        <img src="{{ url_for('static', filename='img/thumb_calculadas.png') }}" alt="Recintos Calculadas" />
       </div>
       <div class="basemap-option-label">recintos<br>Calculadas</div>
     </div>
@@ -480,7 +480,7 @@
                 cursor: pointer;
                 ${disabledStyle}
               "
-              onclick="window._solicitarrecintoDesdePopup(this)"
+              onclick="window._solicitarRecintoDesdePopup(this)"
             >
               Añadir a mis recintos
             </button>
@@ -506,7 +506,7 @@
   let recintosActivos = true;
 
   // Función auxiliar para llamar a la API de solicitudes
-function solicitarrecinto(payload) {
+function solicitarRecinto(payload) {
   fetch("/api/solicitudes-recinto", {
     method: "POST",
     headers: {
@@ -532,7 +532,7 @@ function solicitarrecinto(payload) {
 }
 
 // Handler global llamado desde el botón del popup
-window._solicitarrecintoDesdePopup = function (btn) {
+window._solicitarRecintoDesdePopup = function (btn) {
   if (!btn || btn.disabled) return;
 
   const ds = btn.dataset;
@@ -549,7 +549,7 @@ window._solicitarrecintoDesdePopup = function (btn) {
     recinto: ds.recinto ? Number(ds.recinto) : null,
   };
 
-  solicitarrecinto(payload);
+  solicitarRecinto(payload);
 };
 
   // -----------------------------------------
