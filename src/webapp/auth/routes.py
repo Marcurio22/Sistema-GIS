@@ -3,7 +3,11 @@ from flask_login import login_user, logout_user, login_required, current_user
 from . import auth_bp 
 from .. import db, login_manager
 from sqlalchemy import desc
+<<<<<<< HEAD
 from ..models import LogsSistema, User, Recinto
+=======
+from ..models import LogsSistema, User, Parcela
+>>>>>>> d247164f0b735ccf9217eea57400a7376d1c4d3d
 from ..utils.logging_handler import SQLAlchemyHandler
 from ..utils.utils import normalizar_telefono_es
 import logging
@@ -303,5 +307,10 @@ def mis_recintos():
         f'Usuario {current_user.username} accedió a sus recintos',
         extra={'tipo_operacion': 'ACCESO', 'modulo': 'MIS_RECINTOS'}
     )
+<<<<<<< HEAD
     recintos = Recinto.query.filter_by(id_propietario=current_user.id_usuario).all()
     return render_template('mis_recintos.html', recintos=recintos)
+=======
+    parcelas = Parcela.query.filter_by(id_propietario=current_user.id_usuario).all()
+    return render_template('mis_parcelas.html', parcelas=parcelas)
+>>>>>>> d247164f0b735ccf9217eea57400a7376d1c4d3d

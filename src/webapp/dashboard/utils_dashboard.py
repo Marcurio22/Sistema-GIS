@@ -2,7 +2,11 @@ from flask import Blueprint, render_template, redirect, url_for, flash, current_
 import requests
 import pandas as pd
 from pathlib import Path
+<<<<<<< HEAD
 from ..models import Recinto
+=======
+from ..models import Parcela
+>>>>>>> d247164f0b735ccf9217eea57400a7376d1c4d3d
 from datetime import datetime, timedelta
 
 # Mapeo de descripción de AEMET a datos de visualización
@@ -536,7 +540,11 @@ class MunicipiosCodigosFinder:
         # Encontrar el municipio con más recintos
         municipio_mas_recintos = max(contador, key=contador.get)
         
+<<<<<<< HEAD
         return municipio_mas_recintos
+=======
+        return municipio_mas_parcelas
+>>>>>>> d247164f0b735ccf9217eea57400a7376d1c4d3d
     
     def obtener_url_municipio_usuario(self, user_id):
         """
