@@ -433,6 +433,8 @@
     onEachFeature: function (feature, layer) {
       const p = feature.properties || {};
 
+  
+
       // Propietario: username o "N/A"
       const propietarioTexto =
         p.propietario && String(p.propietario).trim() !== ""
@@ -465,6 +467,7 @@
               data-agregado="${p.agregado ?? ""}"
               data-zona="${p.zona ?? ""}"
               data-poligono="${p.poligono ?? ""}"
+              data-parcela="${p.parcela ?? ""}"
               data-recinto="${p.recinto ?? ""}"
               ${disabledAttr}
               style="
@@ -503,50 +506,51 @@
   let recintosActivos = true;
 
   // Función auxiliar para llamar a la API de solicitudes
-  function solicitarrecinto(payload) {
-    fetch("/api/solicitudes-recinto", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
+function solicitarrecinto(payload) {
+  fetch("/api/solicitudes-recinto", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  })
+    .then((response) => response.json().catch(() => ({})))
+    .then((data) => {
+      if (data && data.ok) {
+        alert("Solicitud enviada al administrador.");
+      } else {
+        // ✅ Corregido el manejo de errores
+        const msg = (data && data.error) || "No se ha podido crear la solicitud. ¿Estás identificado?";
+        console.error("Error en la respuesta de la API:", data);
+        alert(msg);
+      }
     })
-      .then((response) => response.json().catch(() => ({})))
-      .then((data) => {
-        if (data && data.ok) {
-          alert("Solicitud enviada al administrador.");
-        } else {
-          const msg =
-            (data && data.error) ||
-            console.error("Error en la respuesta de la API:", data) ||
-            "No se ha podido crear la solicitud. ¿Estás identificado?";
-          alert(msg);
-        }
-      })
-      .catch((err) => {
-        console.error("Error al crear la solicitud de recinto:", err);
-        alert("Error de comunicación con el servidor.");
-      });
-    }
+    .catch((err) => {
+      console.error("Error al crear la solicitud de recinto:", err);
+      alert("Error de comunicación con el servidor.");
+    });
+}
 
-    // Handler global llamado desde el botón del popup
-    window._solicitarrecintoDesdePopup = function (btn) {
-      if (!btn || btn.disabled) return;
+// Handler global llamado desde el botón del popup
+window._solicitarrecintoDesdePopup = function (btn) {
+  if (!btn || btn.disabled) return;
 
-      const ds = btn.dataset;
+  const ds = btn.dataset;
+  console.log("Solicitud de recinto desde popup:", ds);
 
-      const payload = {
-        id_recinto: ds.idrecinto || null,
-        provincia: ds.provincia ? Number(ds.provincia) : null,
-        municipio: ds.municipio ? Number(ds.municipio) : null,
-        agregado: ds.agregado ? Number(ds.agregado) : null,
-        zona: ds.zona ? Number(ds.zona) : null,
-        poligono: ds.poligono ? Number(ds.poligono) : null,
-        recinto: ds.recinto ? Number(ds.recinto) : null,
-      };
+  const payload = {
+    id_recinto: ds.idrecinto || null,
+    provincia: ds.provincia ? Number(ds.provincia) : null,
+    municipio: ds.municipio ? Number(ds.municipio) : null,
+    agregado: ds.agregado ? Number(ds.agregado) : null,
+    zona: ds.zona ? Number(ds.zona) : null,
+    poligono: ds.poligono ? Number(ds.poligono) : null,
+    parcela: ds.parcela ? Number(ds.parcela) : null,
+    recinto: ds.recinto ? Number(ds.recinto) : null,
+  };
 
-      solicitarrecinto(payload);
-    };
+  solicitarrecinto(payload);
+};
 
   // -----------------------------------------
   // 5) Cargar recintos

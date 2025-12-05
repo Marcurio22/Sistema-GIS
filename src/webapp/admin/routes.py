@@ -152,7 +152,7 @@ def aprobar_solicitud_recinto(id_solicitud):
     solicitud.fecha_resolucion = datetime.now(timezone.utc)
 
     db.session.commit()
-    flash("recinto asignada correctamente al usuario.", "success")
+    flash("Recinto asignado correctamente al usuario.", "success")
     return redirect(url_for("admin.gestion_recintos"))
 
 
