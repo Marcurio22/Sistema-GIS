@@ -93,7 +93,7 @@ endblock %} {% block content %}
           <td>{{ s.usuario.username }}</td>
           <td>
             {% if s.recinto %} {{ s.recinto.provincia }}-{{ s.recinto.municipio
-            }}- {{ s.recinto.poligono }}-{{ s.recinto.recinto }} {% else %}
+            }}- {{ s.recinto.poligono }}-{{ s.recinto.parcela }} {% else %}
             <span class="text-danger">recinto eliminada</span>
             {% endif %}
           </td>

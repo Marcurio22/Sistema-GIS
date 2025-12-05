@@ -518,6 +518,7 @@
         } else {
           const msg =
             (data && data.error) ||
+            console.error("Error en la respuesta de la API:", data) ||
             "No se ha podido crear la solicitud. ¿Estás identificado?";
           alert(msg);
         }

@@ -39,7 +39,7 @@
                             <td><strong>{{ recinto.nombre or 'recinto ' ~ recinto.id_recinto }}</strong></td>
                             <td>{{ recinto.nombre_provincia }}</td>
                             <td>{{ recinto.nombre_municipio }}</td>
-                            <td><code>{{ recinto.provincia }}-{{ recinto.municipio }}-{{ recinto.poligono }}-{{ recinto.recinto }}</code></td>
+                            <td><code>{{ recinto.provincia }}-{{ recinto.municipio }}-{{ recinto.poligono }}-{{ recinto.parcela }}</code></td>
                             <td>{{ "%.2f"|format(recinto.superficie_ha) }}</td>
                             <td>
                                 {% if recinto.activa %}

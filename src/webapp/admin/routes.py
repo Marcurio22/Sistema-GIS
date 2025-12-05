@@ -104,7 +104,7 @@ def gestion_recintos():
             Recinto.provincia,
             Recinto.municipio,
             Recinto.poligono,
-            Recinto.recinto
+            Recinto.parcela,
         )
         .all()
     )
@@ -134,6 +134,7 @@ def aprobar_solicitud_recinto(id_solicitud):
 
     recinto = Recinto.query.get_or_404(solicitud.id_recinto)
 
+    print(recinto, recinto.id_propietario, solicitud.id_usuario)
     # Si ya tiene propietario y es otro usuario → rechazamos automáticamente
     if recinto.id_propietario is not None and recinto.id_propietario != solicitud.id_usuario:
         solicitud.estado = "rechazada"
