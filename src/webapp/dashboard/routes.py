@@ -65,7 +65,7 @@ def visor():
     codigo_municipio = municipios_codigos_finder.codigo_recintos(current_user.id_usuario)
 
 
-    # Sacar codigo municipio de los recintos del usuario?
+    # Sacar codigo municipio de las recintos del usuario?
 
 
 

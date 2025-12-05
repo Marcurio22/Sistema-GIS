@@ -138,9 +138,9 @@ def aprobar_solicitud_recinto(id_solicitud):
     if recinto.id_propietario is not None and recinto.id_propietario != solicitud.id_usuario:
         solicitud.estado = "rechazada"
         solicitud.fecha_resolucion = datetime.now(timezone.utc)
-        solicitud.motivo_rechazo = "El recinto ya tiene propietario."
+        solicitud.motivo_rechazo = "La recinto ya tiene propietario."
         db.session.commit()
-        flash("El recinto ya tenía propietario. Solicitud rechazada.", "danger")
+        flash("La recinto ya tenía propietario. Solicitud rechazada.", "danger")
         return redirect(url_for("admin.gestion_recintos"))
 
     # Asignar propietario
