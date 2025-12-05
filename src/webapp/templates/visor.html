@@ -57,6 +57,48 @@
     height: 100%;
   }
 
+  #editar-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    font-family: inherit;
+  }
+
+  /* Botón flotante estilo basemap/filtro */
+  #editar-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    border: none;
+    background-color: #198754; /* mismo verde que otros botones */
+    color: #ffffff;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      background-color 0.2s ease,
+      transform 0.16s ease-out,
+      box-shadow 0.2s ease;
+  }
+
+  #editar-btn i {
+    font-size: 22px;
+  }
+
+  #editar-btn:hover {
+    transform: translateY(-1px) scale(1.04);
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.35);
+  }
+
+  #editar-btn:active {
+    transform: scale(0.96);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+  }
+
+
   #map {
     position: fixed;
     top: 65px;
@@ -331,6 +373,7 @@
   </div>
 </div>
 
+
 <!-- Botón de filtros -->
 <div id="filtro-container">
   <button id="filtro-toggle" title="Filtros">
@@ -338,6 +381,11 @@
   </button>
 </div>
 
+<div id="editar-container">
+  <button id="editar-btn" title="Editar">
+    <i class="bi bi-pencil-fill"></i>
+  </button>
+</div>
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
   integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
