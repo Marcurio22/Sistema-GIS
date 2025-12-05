@@ -57,8 +57,8 @@ def crear_solicitud_recinto():
         }
 
     Reglas:
-    - Si la recinto no existe -> 404
-    - Si la recinto ya tiene propietario -> 400 (ya_tiene_propietario)
+    - Si el recinto no existe -> 404
+    - Si el recinto ya tiene propietario -> 400 (ya_tiene_propietario)
     - Si el usuario ya ha solicitado esa recinto -> 400 (ya_solicitada)
     - Si todo OK -> crea Solicitudrecinto en estado 'pendiente'
     """
@@ -84,7 +84,7 @@ def crear_solicitud_recinto():
                 jsonify(
                     {
                         "ok": False,
-                        "error": "Faltan datos para identificar la recinto",
+                        "error": "Faltan datos para identificar el recinto",
                     }
                 ),
                 400,
@@ -116,7 +116,7 @@ def crear_solicitud_recinto():
             jsonify(
                 {
                     "ok": False,
-                    "error": "La recinto ya tiene propietario",
+                    "error": "El recinto ya tiene propietario",
                     "code": "ya_tiene_propietario",
                 }
             ),
