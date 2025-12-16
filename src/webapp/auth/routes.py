@@ -318,7 +318,7 @@ def editar_recinto(id_recinto):
     # Verificar que el usuario es el propietario
     if recinto.id_propietario != current_user.id_usuario:
         flash('No tienes permiso para editar este recinto', 'danger')
-        return redirect(url_for('dashboard.mis_recintos'))
+        return redirect(url_for('auth.mis_recintos'))
     
     # Actualizar campos
     recinto.nombre = request.form.get('nombre')

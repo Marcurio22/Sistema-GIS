@@ -1,11 +1,11 @@
-{% extends "base.html" %} 
-{% block title %}Gestión de recintos - Admin{% endblock %} 
+{% extends "base.html" %}
+{% block title %}Gestión de recintos - Admin{% endblock %}
 {% block content %}
 <div class="container py-4">
   <h1 class="mb-4">Gestión de recintos</h1>
 
-  {# Mensajes flash #} 
-  {% with messages = get_flashed_messages(with_categories=true) %} 
+  {# Mensajes flash #}
+  {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
   <div class="mb-3">
     {% for category, message in messages %}
@@ -15,15 +15,16 @@
     </div>
     {% endfor %}
   </div>
-  {% endif %} 
+  {% endif %}
   {% endwith %}
 
   {# Tabs de navegación #}
   {% set solicitudes_pendientes = solicitudes|selectattr('estado', 'equalto', 'pendiente')|list|length %}
   <ul class="nav nav-tabs" id="recintosTabs" role="tablist">
     <li class="nav-item" role="presentation">
-      <button class="nav-link {% if solicitudes_pendientes == 0 %}active{% endif %}" id="recintos-tab" data-bs-toggle="tab" data-bs-target="#recintos-panel" 
-              type="button" role="tab" aria-controls="recintos-panel" aria-selected="{% if solicitudes_pendientes == 0 %}true{% else %}false{% endif %}">
+      <button class="nav-link {% if solicitudes_pendientes == 0 %}active{% endif %}" id="recintos-tab"
+        data-bs-toggle="tab" data-bs-target="#recintos-panel" type="button" role="tab" aria-controls="recintos-panel"
+        aria-selected="{% if solicitudes_pendientes == 0 %}true{% else %}false{% endif %}">
         <i class="bi bi-building"></i> Recintos con propietario
         {% if recintos %}
         <span class="badge bg-primary ms-1">{{ recintos|length }}</span>
@@ -31,8 +32,10 @@
       </button>
     </li>
     <li class="nav-item" role="presentation">
-      <button class="nav-link {% if solicitudes_pendientes > 0 %}active{% endif %}" id="solicitudes-tab" data-bs-toggle="tab" data-bs-target="#solicitudes-panel" 
-              type="button" role="tab" aria-controls="solicitudes-panel" aria-selected="{% if solicitudes_pendientes > 0 %}true{% else %}false{% endif %}">
+      <button class="nav-link {% if solicitudes_pendientes > 0 %}active{% endif %}" id="solicitudes-tab"
+        data-bs-toggle="tab" data-bs-target="#solicitudes-panel" type="button" role="tab"
+        aria-controls="solicitudes-panel"
+        aria-selected="{% if solicitudes_pendientes > 0 %}true{% else %}false{% endif %}">
         <i class="bi bi-envelope"></i> Solicitudes
         {% if solicitudes_pendientes > 0 %}
         <span class="badge bg-warning text-dark ms-1">{{ solicitudes_pendientes }}</span>
@@ -43,9 +46,10 @@
 
   {# Contenido de los tabs #}
   <div class="tab-content border border-top-0 p-4" id="recintosTabsContent">
-    
+
     {# =========================== TAB 1: RECINTOS ASIGNADOS =========================== #}
-    <div class="tab-pane fade {% if solicitudes_pendientes == 0 %}show active{% endif %}" id="recintos-panel" role="tabpanel" aria-labelledby="recintos-tab">
+    <div class="tab-pane fade {% if solicitudes_pendientes == 0 %}show active{% endif %}" id="recintos-panel"
+      role="tabpanel" aria-labelledby="recintos-tab">
       {% if recintos %}
       <div class="table-responsive">
         <table id="tablaUsuarios" class="table table-hover table-bordered align-middle">
@@ -67,9 +71,9 @@
               <td>{{ recinto.nombre }}</td>
               <td>{{ "%.2f"|format(recinto.superficie_ha|float) }}</td>
               <td>
-                {% if recinto.propietario %} 
-                <i class="bi bi-person-fill text-primary"></i> {{ recinto.propietario.username }} 
-                {% else %} 
+                {% if recinto.propietario %}
+                <i class="bi bi-person-fill text-primary"></i> {{ recinto.propietario.username }}
+                {% else %}
                 <span class="text-muted">N/A</span>
                 {% endif %}
               </td>
@@ -87,19 +91,107 @@
                 {% endif %}
               </td>
               <td>
-                <a href="{{ url_for('dashboard.visor', recinto_id=recinto.id_recinto) }}" 
-                   class="btn btn-sm btn-info"
-                   onclick="event.stopPropagation();"
-                   title="Ver en el mapa">
+                <a href="{{ url_for('dashboard.visor', recinto_id=recinto.id_recinto) }}" class="btn btn-sm btn-info"
+                  onclick="event.stopPropagation();" title="Ver en el mapa">
                   <i class="bi bi-map"></i> Ver
                 </a>
-                <a class="btn btn-sm btn-warning" 
-                   onclick="event.stopPropagation();"
-                   title="Editar recinto">
+                <button class="btn btn-sm btn-warning" data-bs-toggle="modal"
+                  data-bs-target="#editarModal{{ recinto.id_recinto }}" onclick="event.stopPropagation();"
+                  title="Editar recinto">
                   <i class="bi bi-pencil"></i> Editar
-                </a>
+                </button>
               </td>
             </tr>
+            <div class="modal fade" id="editarModal{{ recinto.id_recinto }}" tabindex="-1" aria-hidden="true">
+              <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                  <form method="post"
+                    action="{{ url_for('admin.editar_recinto_admin', id_recinto=recinto.id_recinto) }}">
+
+                    <div class="modal-header bg-warning">
+                      <h5 class="modal-title">
+                        <i class="bi bi-pencil"></i> Editar recinto
+                      </h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+
+                      <!-- INFO SIGPAC -->
+                      <div class="mb-3">
+                        <label class="form-label fw-bold">
+                          <i class="bi bi-info-circle text-muted"></i> Información SIGPAC
+                        </label>
+                        <p class="mb-0 small text-muted">
+                          <code>{{ recinto.provincia }}-{{ recinto.municipio }}-{{ recinto.poligono }}-{{ recinto.parcela }}</code>
+                        </p>
+                        <p class="mb-0 small text-muted">
+                          {{ recinto.nombre_provincia }} - {{ recinto.nombre_municipio }}
+                        </p>
+                      </div>
+
+                      <!-- NOMBRE -->
+                      <div class="mb-3">
+                        <label class="form-label">
+                          <i class="bi bi-card-text"></i> Nombre del recinto <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control" name="nombre" value="{{ recinto.nombre }}"
+                          maxlength="200" required>
+                      </div>
+
+                      <div class="mb-3">
+                        <label class="form-label">
+                          <i class="bi bi-person"></i> Propietario
+                        </label>
+                        <select name="propietario_id" class="form-select">
+                          {% for usuario in usuarios %}
+                          <option value="{{ usuario.id }}" {% if recinto.propietario and
+                            recinto.propietario.id==usuario.id %}selected{% endif %}>
+                            {{ usuario.username }} ({{ usuario.email }})
+                          </option>
+                          {% endfor %}
+                        </select>
+                        <div class="form-text">
+                          Puedes asignar o cambiar el propietario del recinto
+                        </div>
+                      </div>
+
+                      <!-- ESTADO -->
+                      <div class="mb-3">
+                        <label class="form-label">
+                          <i class="bi bi-toggle-on"></i> Estado
+                        </label>
+                        <div class="form-check form-switch">
+                          <input class="form-check-input" type="checkbox" name="activa" value="1" {% if recinto.activa
+                            %}checked{% endif %}>
+                          <label class="form-check-label">Recinto activo</label>
+                        </div>
+                      </div>
+
+                      <!-- SUPERFICIE -->
+                      <div class="alert alert-info mb-0">
+                        <small>
+                          <i class="bi bi-info-circle"></i>
+                          <strong>Superficie:</strong> {{ "%.2f"|format(recinto.superficie_ha) }} ha
+                        </small>
+                      </div>
+
+                    </div>
+
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg"></i> Cancelar
+                      </button>
+                      <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-save"></i> Guardar cambios
+                      </button>
+                    </div>
+
+                  </form>
+                </div>
+              </div>
+            </div>
+
             {% endfor %}
           </tbody>
         </table>
@@ -112,7 +204,8 @@
     </div>
 
     {# =========================== TAB 2: SOLICITUDES =========================== #}
-    <div class="tab-pane fade {% if solicitudes_pendientes > 0 %}show active{% endif %}" id="solicitudes-panel" role="tabpanel" aria-labelledby="solicitudes-tab">
+    <div class="tab-pane fade {% if solicitudes_pendientes > 0 %}show active{% endif %}" id="solicitudes-panel"
+      role="tabpanel" aria-labelledby="solicitudes-tab">
       {% if solicitudes %}
       <div class="table-responsive">
         <table id="tablaRoles" class="table table-striped align-middle">
@@ -135,7 +228,7 @@
                 <i class="bi bi-person text-primary"></i> {{ s.usuario.username }}
               </td>
               <td>
-                {% if s.recinto %} 
+                {% if s.recinto %}
                 <code>{{ s.recinto.provincia }}-{{ s.recinto.municipio }}-{{ s.recinto.poligono }}-{{ s.recinto.parcela }}-{{ s.recinto.recinto }}</code>
                 {% else %}
                 <span class="text-danger"><i class="bi bi-exclamation-triangle"></i> Recinto eliminado</span>
@@ -148,59 +241,53 @@
                 <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aprobada</span>
                 {% elif s.estado == 'rechazada' %}
                 <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Rechazada</span>
-                {% else %} 
-                {{ s.estado }} 
+                {% else %}
+                {{ s.estado }}
                 {% endif %}
               </td>
               <td>
-                {% if s.fecha_solicitud %} 
+                {% if s.fecha_solicitud %}
                 <small>{{ s.fecha_solicitud.strftime('%d-%m-%Y %H:%M') }}</small>
-                {% else %} 
+                {% else %}
                 <span class="text-muted">—</span>
                 {% endif %}
               </td>
               <td>
-                {% if s.fecha_resolucion %} 
+                {% if s.fecha_resolucion %}
                 <small>{{ s.fecha_resolucion.strftime('%d-%m-%Y %H:%M') }}</small>
-                {% else %} 
+                {% else %}
                 <span class="text-muted">—</span>
                 {% endif %}
               </td>
               <td style="min-width: 260px">
                 {% if s.estado == 'pendiente' %}
                 {% if s.recinto %}
-                <a href="{{ url_for('dashboard.visor', recinto_id=s.recinto.id_recinto) }}" 
-                   class="btn btn-sm btn-info me-1"
-                   title="Ver recinto en el mapa">
+                <a href="{{ url_for('dashboard.visor', recinto_id=s.recinto.id_recinto) }}"
+                  class="btn btn-sm btn-info me-1" title="Ver recinto en el mapa">
                   <i class="bi bi-map"></i> Ver
                 </a>
                 {% else %}
                 <span class="text-muted small">Recinto no disponible</span>
                 {% endif %}
 
-                <form method="post" 
-                      action="{{ url_for('admin.aprobar_solicitud_recinto', id_solicitud=s.id_solicitud) }}"
-                      class="d-inline">
+                <form method="post"
+                  action="{{ url_for('admin.aprobar_solicitud_recinto', id_solicitud=s.id_solicitud) }}"
+                  class="d-inline">
                   <button class="btn btn-sm btn-success" title="Aprobar solicitud">
                     <i class="bi bi-check-lg"></i> Aprobar
                   </button>
                 </form>
 
-                <button class="btn btn-sm btn-outline-danger ms-1" 
-                        type="button" 
-                        data-bs-toggle="collapse"
-                        data-bs-target="#rechazo-{{ s.id_solicitud }}" 
-                        title="Rechazar solicitud">
+                <button class="btn btn-sm btn-outline-danger ms-1" type="button" data-bs-toggle="collapse"
+                  data-bs-target="#rechazo-{{ s.id_solicitud }}" title="Rechazar solicitud">
                   <i class="bi bi-x-lg"></i> Rechazar
                 </button>
 
                 <div class="collapse mt-2" id="rechazo-{{ s.id_solicitud }}">
                   <form method="post"
-                        action="{{ url_for('admin.rechazar_solicitud_recinto', id_solicitud=s.id_solicitud) }}">
-                    <textarea name="motivo_rechazo" 
-                              class="form-control form-control-sm mb-2" 
-                              rows="2"
-                              placeholder="Motivo del rechazo (opcional)"></textarea>
+                    action="{{ url_for('admin.rechazar_solicitud_recinto', id_solicitud=s.id_solicitud) }}">
+                    <textarea name="motivo_rechazo" class="form-control form-control-sm mb-2" rows="2"
+                      placeholder="Motivo del rechazo (opcional)"></textarea>
                     <button class="btn btn-sm btn-danger">
                       <i class="bi bi-x-circle"></i> Confirmar rechazo
                     </button>
@@ -215,6 +302,7 @@
                 {% endif %}
               </td>
             </tr>
+
             {% endfor %}
           </tbody>
         </table>
@@ -232,20 +320,20 @@
 {% block extra_js %}
 <script>
   $(document).ready(function () {
-      // DataTable para recintos
-      $('#tablaUsuarios').DataTable({
-          language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
-          pageLength: 25,
-          responsive: true
-      });
+    // DataTable para recintos
+    $('#tablaUsuarios').DataTable({
+      language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+      pageLength: 25,
+      responsive: true
+    });
 
-      // DataTable para solicitudes
-      $('#tablaRoles').DataTable({
-          language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
-          pageLength: 25,
-          responsive: true,
-          order: [[4, 'desc']]
-      });
+    // DataTable para solicitudes
+    $('#tablaRoles').DataTable({
+      language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+      pageLength: 25,
+      responsive: true,
+      order: [[4, 'desc']]
+    });
   });
 </script>
 {% endblock %}

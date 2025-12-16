@@ -5,14 +5,15 @@
 {% block content %}
 <div class="container-fluid py-4">
     {% with messages = get_flashed_messages(with_categories=true) %}
-              {% if messages %}
-                {% for category, message in messages %}
-                  <div class="alert alert-{{ 'success' if category=='success' else 'danger' }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
-                  </div>
-                {% endfor %}
-              {% endif %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ 'success' if category=='success' else 'danger' }} alert-dismissible fade show"
+        role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
     {% endwith %}
     <!-- Header -->
     <div class="row mb-4">
@@ -129,12 +130,12 @@
                                     }}</span>
                             </td>
                             <td style="white-space: nowrap;">
-    {% if usuario.telefono %}
-        <i class="bi bi-telephone me-2 text-muted"></i>{{ usuario.telefono|tel_es }}
-    {% else %}
-        <span class="text-muted">No especificado</span>
-    {% endif %}
-</td>
+                                {% if usuario.telefono %}
+                                <i class="bi bi-telephone me-2 text-muted"></i>{{ usuario.telefono|tel_es }}
+                                {% else %}
+                                <span class="text-muted">No especificado</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if usuario.rol == 'admin' %}
                                 <span class="badge bg-danger">

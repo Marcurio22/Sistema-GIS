@@ -116,10 +116,13 @@ def gestion_recintos():
         .all()
     )
 
+    usuarios = ( User.query.all() )
+
     return render_template(
         'admin/gestion_recintos.html',
         recintos=recintos,
         solicitudes=solicitudes,
+        usuarios=usuarios
     )
 
 @admin_bp.post("/gestion_recintos/<int:id_solicitud>/aprobar")
@@ -260,8 +263,9 @@ def editar_usuario():
 def editar_recinto_admin(id_recinto):
     recinto = Recinto.query.get_or_404(id_recinto)
 
+    
     recinto.nombre = request.form.get('nombre')
-    recinto.activa = 'activa' in request.form
+    recinto.activa = bool(request.form.get('activa'))
 
     db.session.commit()
     flash('Recinto actualizado correctamente', 'success')
