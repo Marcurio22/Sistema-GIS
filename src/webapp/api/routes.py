@@ -14,7 +14,8 @@ from .. import db
 from ..models import Recinto, Solicitudrecinto
 
 from . import api_bp
-from .services import recintos_geojson
+from .services import recintos_geojson, mis_recintos_geojson
+
 
 
 @api_bp.get("/recintos")
@@ -36,6 +37,18 @@ def recintos():
 
     return jsonify(fc)
 
+@api_bp.get("/mis-recintos")
+@login_required
+def mis_recintos():
+    bbox = request.args.get("bbox")
+    try:
+        fc = mis_recintos_geojson(bbox, current_user.id_usuario)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        return jsonify({"error": "Error interno en /api/mis-recintos"}), 500
+
+    return jsonify(fc)
 
 @api_bp.route("/solicitudes-recinto", methods=["POST"])
 @login_required

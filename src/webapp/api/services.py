@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from flask import current_app
+from sqlalchemy import text
+from .. import db
 import requests
 
 
@@ -64,3 +66,58 @@ def recintos_geojson(bbox_str: str | None) -> dict:
         raise RuntimeError("Respuesta de GeoServer no es un FeatureCollection válido")
 
     return data
+
+def mis_recintos_geojson(bbox: str | None, user_id: int):
+    """
+    Devuelve GeoJSON de public.recintos del usuario (id_propietario=user_id),
+    filtrado por bbox si viene.
+    """
+    if not bbox:
+        raise ValueError("bbox requerido")
+
+    parts = [p.strip() for p in bbox.split(",")]
+    if len(parts) != 4:
+        raise ValueError("bbox debe tener 4 valores: minx,miny,maxx,maxy")
+
+    minx, miny, maxx, maxy = map(float, parts)
+
+    sql = text("""
+        SELECT
+            r.id_recinto,
+            r.provincia, r.municipio, r.agregado, r.zona,
+            r.poligono, r.parcela, r.recinto,
+            COALESCE(u.username, 'N/A') AS propietario,
+            ST_AsGeoJSON(r.geom)::json AS geom_json
+        FROM public.recintos r
+        LEFT JOIN public.usuarios u ON u.id_usuario = r.id_propietario
+        WHERE r.id_propietario = :uid
+          AND ST_Intersects(
+                r.geom,
+                ST_MakeEnvelope(:minx, :miny, :maxx, :maxy, 4326)
+          )
+    """)
+
+    rows = db.session.execute(sql, {
+        "uid": user_id,
+        "minx": minx, "miny": miny, "maxx": maxx, "maxy": maxy
+    }).mappings().all()
+
+    features = []
+    for r in rows:
+        features.append({
+            "type": "Feature",
+            "geometry": r["geom_json"],
+            "properties": {
+                "id_recinto": r["id_recinto"],
+                "provincia": r["provincia"],
+                "municipio": r["municipio"],
+                "agregado": r["agregado"],
+                "zona": r["zona"],
+                "poligono": r["poligono"],
+                "parcela": r["parcela"],
+                "recinto": r["recinto"],
+                "propietario": r["propietario"],
+            },
+        })
+
+    return {"type": "FeatureCollection", "features": features}
