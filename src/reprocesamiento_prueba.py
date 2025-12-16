@@ -22,7 +22,7 @@ AOI_BBOX = {
     'maxy': 42.1274665349    # Latitud norte
 }
 # EPSG para ?
-OUTPUT_EPSG = 'EPSG:4326'  # Sistema oficial de España - ETRS89 UTM 30N - 25830?
+OUTPUT_EPSG = 'EPSG:25830'  # Sistema oficial de España - ETRS89 UTM 30N - 25830?
 
 # Bandas a procesar - PRIORIZAR RESOLUCIÓN 10m
 BANDAS_CONFIG = {
@@ -204,6 +204,59 @@ def crear_composicion_rgb(bandas_paths, output_folder, product_name):
         import traceback
         traceback.print_exc()
         return None
+    
+def calcular_ndvi(product_output, product_name, bandas_procesadas):
+    """Calcular NDVI a partir de las bandas B04 (rojo) y B08 (NIR)"""
+    try:
+        print("\n  Calculando NDVI...")
+        
+        # Leer banda roja (B04) y NIR (B08)
+        with rasterio.open(bandas_procesadas['B04']) as red_src:
+            red = red_src.read(1).astype('float32')
+            profile = red_src.profile.copy()
+            
+        with rasterio.open(bandas_procesadas['B08']) as nir_src:
+            nir = nir_src.read(1).astype('float32')
+        
+        # Calcular NDVI: (NIR - RED) / (NIR + RED)
+        # Evitar división por cero
+        np.seterr(divide='ignore', invalid='ignore')
+        ndvi = np.where(
+            (nir + red) == 0,
+            0,
+            (nir - red) / (nir + red)
+        )
+        
+        # Los valores de NDVI van de -1 a 1
+        # -1 a 0: agua, suelo desnudo, construcciones
+        # 0 a 0.3: vegetación escasa
+        # 0.3 a 0.6: vegetación moderada
+        # 0.6 a 1: vegetación densa y saludable
+        
+        # Actualizar perfil
+        profile.update({
+            'dtype': 'float32',
+            'count': 1,
+            'compress': 'lzw',
+            'nodata': -9999
+        })
+        
+        # Guardar NDVI
+        output_path = os.path.join(product_output, f"{product_name}_NDVI.tif")
+        with rasterio.open(output_path, 'w', **profile) as dst:
+            dst.write(ndvi, 1)
+        
+        file_size = os.path.getsize(output_path) / (1024 * 1024)
+        print(f"    ✓ NDVI calculado ({file_size:.2f} MB)")
+        print(f"    Rango de valores: {np.nanmin(ndvi):.3f} a {np.nanmax(ndvi):.3f}")
+        
+        return output_path
+        
+    except Exception as e:
+        print(f"    ✗ Error calculando NDVI: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return None
 
 def procesar_producto(zip_path):
     """Procesar un producto completo: descomprimir, recortar, reproyectar"""
@@ -246,6 +299,18 @@ def procesar_producto(zip_path):
     else:
         faltantes = [b for b in ['B04', 'B03', 'B02'] if b not in bandas_procesadas]
         print(f"\n⚠ No se puede crear RGB - faltan bandas: {', '.join(faltantes)}")
+
+    if all(b in bandas_procesadas for b in ['B04', 'B03', 'B02']):
+        crear_composicion_rgb(bandas_procesadas, product_output, product_name)
+    else:
+        faltantes = [b for b in ['B04', 'B03', 'B02'] if b not in bandas_procesadas]
+        print(f"\n⚠ No se puede crear RGB - faltan bandas: {', '.join(faltantes)}")
+
+    if 'B04' in bandas_procesadas and 'B08' in bandas_procesadas:
+        calcular_ndvi(product_output, product_name, bandas_procesadas)
+    else:
+        faltantes = [b for b in ['B04', 'B08'] if b not in bandas_procesadas]
+        print(f"\n⚠ No se puede calcular NDVI - faltan bandas: {', '.join(faltantes)}")
     
     # 6. Limpiar carpeta temporal
     print("\nLimpiando archivos temporales...")

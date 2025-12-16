@@ -15,6 +15,7 @@
     {% endfor %}
     {% endif %}
     {% endwith %}
+
     <!-- Header -->
     <div class="row mb-4">
         <div class="col-12">
@@ -33,72 +34,62 @@
     <div class="row mb-4">
         <div class="col-md-3 mb-3">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="text-muted mb-1 small">Total Usuarios</p>
-                            <h3 class="mb-0">{{ usuarios|length }}</h3>
-                        </div>
-                        <div class="bg-primary bg-opacity-10 p-3 rounded">
-                            <i class="bi bi-people fs-2 text-primary"></i>
-                        </div>
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">Total Usuarios</p>
+                        <h3 class="mb-0">{{ usuarios|length }}</h3>
+                    </div>
+                    <div class="bg-primary bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-people fs-2 text-primary"></i>
                     </div>
                 </div>
             </div>
         </div>
-
         <div class="col-md-3 mb-3">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="text-muted mb-1 small">Administradores</p>
-                            <h3 class="mb-0">{{ usuarios|selectattr('rol', 'equalto', 'admin')|list|length }}</h3>
-                        </div>
-                        <div class="bg-danger bg-opacity-10 p-3 rounded">
-                            <i class="bi bi-shield-check fs-2 text-danger"></i>
-                        </div>
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">Administradores</p>
+                        <h3 class="mb-0">{{ usuarios|selectattr('rol', 'equalto', 'admin')|list|length }}</h3>
+                    </div>
+                    <div class="bg-danger bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-shield-check fs-2 text-danger"></i>
                     </div>
                 </div>
             </div>
         </div>
-
         <div class="col-md-3 mb-3">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="text-muted mb-1 small">Usuarios Regulares</p>
-                            <h3 class="mb-0">{{ usuarios|selectattr('rol', 'equalto', 'user')|list|length }}</h3>
-                        </div>
-                        <div class="bg-success bg-opacity-10 p-3 rounded">
-                            <i class="bi bi-person-check fs-2 text-success"></i>
-                        </div>
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">Usuarios Regulares</p>
+                        <h3 class="mb-0">{{ usuarios|selectattr('rol', 'equalto', 'user')|list|length }}</h3>
+                    </div>
+                    <div class="bg-success bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-person-check fs-2 text-success"></i>
                     </div>
                 </div>
             </div>
         </div>
-
         <div class="col-md-3 mb-3">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <p class="text-muted mb-1 small">Usuarios Activos</p>
-                            <h3 class="mb-0">{{ usuarios|selectattr('activo', 'equalto', true)|list|length }}</h3>
-                        </div>
-                        <div class="bg-info bg-opacity-10 p-3 rounded">
-                            <i class="bi bi-check-circle fs-2 text-info"></i>
-                        </div>
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">Usuarios Activos</p>
+                        <h3 class="mb-0">{{ usuarios|selectattr('activo', 'equalto', true)|list|length }}</h3>
+                    </div>
+                    <div class="bg-info bg-opacity-10 p-3 rounded">
+                        <i class="bi bi-check-circle fs-2 text-info"></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Tabla de usuarios -->
     <h5 class="m-3">
         <i class="bi bi-table me-2"></i>Listado de Usuarios
     </h5>
-    <!-- Tabla de usuarios -->
     <div class="row">
         <div class="col-12">
             <div class="table-responsive">
@@ -119,15 +110,12 @@
                         {% if usuarios %}
                         {% for usuario in usuarios %}
                         <tr>
-                            <td class="px-3">
-                                <span class="badge bg-secondary">#{{ usuario.id_usuario }}</span>
-                            </td>
+                            <td class="px-3"><span class="badge bg-secondary">#{{ usuario.id_usuario }}</span></td>
                             <td>
                                 <div class="d-flex align-items-center">
                                     <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3"
                                         style="width: 40px; height: 40px; min-width: 40px;">
-                                        <span class="text-primary fw-bold">{{ usuario.username[0]|upper
-                                            }}</span>
+                                        <span class="text-primary fw-bold">{{ usuario.username[0]|upper }}</span>
                                     </div>
                                     <div>
                                         <div class="fw-semibold">{{ usuario.username }}</div>
@@ -139,17 +127,16 @@
                             </td>
                             <td>
                                 <i class="bi bi-envelope me-2 text-muted"></i>
-                                <span class="text-break">{{ usuario.email if usuario.email else 'No
-                                    especificado' }}</span>
+                                <span class="text-break">{{ usuario.email if usuario.email else 'No especificado'
+                                    }}</span>
                             </td>
-                            <td>
-                                {% if usuario.telefono %}
-                                <i class="bi bi-telephone me-2 text-muted"></i>
-                                {{ usuario.telefono|tel_es }}
-                                {% else %}
-                                <span class="text-muted">No especificado</span>
-                                {% endif %}
-                            </td>
+                            <td style="white-space: nowrap;">
+    {% if usuario.telefono %}
+        <i class="bi bi-telephone me-2 text-muted"></i>{{ usuario.telefono|tel_es }}
+    {% else %}
+        <span class="text-muted">No especificado</span>
+    {% endif %}
+</td>
                             <td>
                                 {% if usuario.rol == 'admin' %}
                                 <span class="badge bg-danger">
@@ -175,43 +162,111 @@
                             <td>
                                 <small class="text-muted">
                                     <i class="bi bi-calendar3 me-1"></i>
-                                    {{ usuario.fecha_registro.strftime('%d/%m/%Y') if usuario.fecha_registro
-                                    else 'N/A' }}
+                                    {{ usuario.fecha_registro.strftime('%d/%m/%Y') if usuario.fecha_registro else 'N/A'
+                                    }}
                                 </small>
                             </td>
-                            <td class="text-center">
+                            <td class="text-center" style="white-space: nowrap; min-width: 310px;">
                                 {% if usuario.id_usuario != current_user.id_usuario %}
-                                {% if usuario.activo %}
-                                <a href="{{ url_for('admin.desactivar_usuario', id=usuario.id_usuario) }}"
-                                    class="btn btn-sm btn-outline-warning" title="Desactivar usuario">
-                                    <i class="bi bi-pause-circle me-1"></i>Desactivar
-                                </a>
-                                {% else %}
-                                <a href="{{ url_for('admin.activar_usuario', id=usuario.id_usuario) }}"
-                                    class="btn btn-sm btn-success" title="Activar usuario">
-                                    <i class="bi bi-check-circle me-1"></i>Activar
-                                </a>
-                                {% endif %}
-                                {% if usuario.rol == 'user' and usuario.activo %}
-                                <a href="{{ url_for('admin.hacer_admin', id=usuario.id_usuario) }}"
-                                    class="btn btn-sm btn-outline-danger" title="Hacer administrador">
-                                    <i class="bi bi-person-check me-1"></i>Hacer Admin
-                                </a>
-                                {% endif %}
+                                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                    {% if usuario.activo %}
+                                    <a href="{{ url_for('admin.desactivar_usuario', id=usuario.id_usuario) }}"
+                                        class="btn btn-sm btn-outline-warning" title="Desactivar usuario">
+                                        <i class="bi bi-pause-circle me-1"></i>Desactivar
+                                    </a>
+                                    {% else %}
+                                    <a href="{{ url_for('admin.activar_usuario', id=usuario.id_usuario) }}"
+                                        class="btn btn-sm btn-success" title="Activar usuario">
+                                        <i class="bi bi-check-circle me-1"></i>Activar
+                                    </a>
+                                    {% endif %}
 
+                                    {% if usuario.rol == 'user' and usuario.activo %}
+                                    <a href="{{ url_for('admin.hacer_admin', id=usuario.id_usuario) }}"
+                                        class="btn btn-sm btn-outline-danger" title="Hacer administrador">
+                                        <i class="bi bi-person-check me-1"></i>Hacer Admin
+                                    </a>
+                                    {% endif %}
 
+                                    <!-- Botón Editar -->
+                                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                                        data-bs-target="#editarUsuarioModal{{ usuario.id_usuario }}">
+                                        <i class="bi bi-pencil-square me-1"></i>Editar
+                                    </button>
+                                </div>
                                 {% else %}
                                 <span class="badge bg-secondary">
                                     <i class="bi bi-lock me-1"></i>Tu cuenta
                                 </span>
                                 {% endif %}
-
                             </td>
+
                         </tr>
+
+                        <!-- Modal Editar Usuario -->
+                        <div class="modal fade" id="editarUsuarioModal{{ usuario.id_usuario }}" tabindex="-1"
+                            aria-labelledby="editarUsuarioModalLabel{{ usuario.id_usuario }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <form method="POST" action="{{ url_for('admin.editar_usuario') }}">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title"
+                                                id="editarUsuarioModalLabel{{ usuario.id_usuario }}">Editar Usuario</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                aria-label="Cerrar"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <input type="hidden" name="id_usuario" value="{{ usuario.id_usuario }}">
+
+                                            <div class="mb-3">
+                                                <label class="form-label">Usuario</label>
+                                                <input type="text" class="form-control" name="username"
+                                                    value="{{ usuario.username }}" required>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label">Email</label>
+                                                <input type="email" class="form-control" name="email"
+                                                    value="{{ usuario.email }}">
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label">Teléfono</label>
+                                                <input type="text" class="form-control" name="telefono"
+                                                    value="{{ usuario.telefono }}">
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label">Rol</label>
+                                                <select class="form-select" name="rol">
+                                                    <option value="user" {% if usuario.rol=='user' %}selected{% endif
+                                                        %}>Usuario</option>
+                                                    <option value="admin" {% if usuario.rol=='admin' %}selected{% endif
+                                                        %}>Administrador</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="activo"
+                                                    id="activo{{ usuario.id_usuario }}" {% if usuario.activo %}checked{%
+                                                    endif %}>
+                                                <label class="form-check-label"
+                                                    for="activo{{ usuario.id_usuario }}">Activo</label>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary"
+                                                data-bs-dismiss="modal">Cancelar</button>
+                                            <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
                         {% endfor %}
                         {% else %}
                         <tr>
-                            <td colspan="7" class="text-center py-5">
+                            <td colspan="8" class="text-center py-5">
                                 <i class="bi bi-inbox fs-1 text-muted d-block mb-3"></i>
                                 <h5 class="text-muted">No hay usuarios registrados</h5>
                                 <p class="text-muted mb-0">Los usuarios aparecerán aquí cuando se registren</p>
@@ -224,8 +279,10 @@
         </div>
     </div>
 </div>
+
 {% block extra_js %}
 <script>
+    // Inicializar DataTables
     $(document).ready(function () {
         if ($.fn.DataTable.isDataTable('#tablaUsuarios')) {
             $('#tablaUsuarios').DataTable().destroy();

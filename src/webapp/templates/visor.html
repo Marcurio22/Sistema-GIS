@@ -42,6 +42,7 @@
     <i class="bi bi-geo-alt-fill"></i> {{ weather.municipio }}
   </div>
 </div>
+<div id="notification-container"></div>
 {% endblock %}
 
 {% block content %}
@@ -131,7 +132,6 @@
   #basemap-panel-container.panel-open,
   #filtro-container.panel-open {
     right: 530px;
-    /* 20px + 420px (ancho panel) + 12px (margen) */
   }
 
   /* ---------- Botones flotantes ---------- */
@@ -311,6 +311,248 @@
       grid-template-columns: repeat(2, 1fr);
     }
   }
+  #notification-container {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 400px;
+}
+
+.notification {
+    background: white;
+    padding: 18px 20px;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    animation: slideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    border-left: 4px solid;
+    position: relative;
+    overflow: hidden;
+}
+
+.notification.removing {
+    animation: slideOut 0.3s ease forwards;
+}
+
+/* Animación centrada desde arriba */
+@keyframes slideIn {
+    from {
+        transform: translate(-50%, -40px);
+        opacity: 0;
+    }
+    to {
+        transform: translate(-50%, 0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    to {
+        transform: translate(-50%, -40px);
+        opacity: 0;
+    }
+}
+
+.notification-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.notification-content {
+    flex: 1;
+}
+
+.notification-title {
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 4px;
+    color: #1a1a1a;
+}
+
+.notification-message {
+    font-size: 14px;
+    color: #666;
+    line-height: 1.4;
+}
+
+.notification-close {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: transparent;
+    color: #999;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0;
+    transition: color 0.2s;
+}
+
+.notification-close:hover {
+    color: #333;
+}
+
+.notification-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: currentColor;
+    opacity: 0.3;
+    animation: progress 5s linear forwards;
+}
+
+@keyframes progress {
+    from {
+        width: 100%;
+    }
+    to {
+        width: 0%;
+    }
+}
+
+/* Tipos */
+.notification.success {
+    border-left-color: #198754;
+}
+
+.notification.success .notification-icon {
+    background: #d1f4e0;
+    color: #198754;
+}
+
+.notification.success .notification-progress {
+    color: #198754;
+}
+
+.notification.error {
+    border-left-color: #dc3545;
+}
+
+.notification.error .notification-icon {
+    background: #f8d7da;
+    color: #dc3545;
+}
+
+.notification.error .notification-progress {
+    color: #dc3545;
+}
+
+.notification.warning {
+    border-left-color: #ffc107;
+}
+
+.notification.warning .notification-icon {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.notification.warning .notification-progress {
+    color: #ffc107;
+}
+
+.notification.info {
+    border-left-color: #0dcaf0;
+}
+
+.notification.info .notification-icon {
+    background: #cff4fc;
+    color: #055160;
+}
+
+.notification.info .notification-progress {
+    color: #0dcaf0;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+    #notification-container {
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        top: 70px;
+        max-width: calc(100% - 20px);
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translate(-50%, -60px);
+            opacity: 0;
+        }
+        to {
+            transform: translate(-50%, 0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideOut {
+        to {
+            transform: translate(-50%, -60px);
+            opacity: 0;
+        }
+    }
+    
+}
+
+
+/* Dibujar? */
+ .hidden {
+    display: none !important;
+  }
+  
+  #editar-container {
+    display: flex;
+    gap: 8px;
+  }
+  
+  #editar-container button {
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.3s ease;
+  }
+  
+  #editar-btn {
+    background: #007bff;
+    color: white;
+  }
+  
+  #dibujar-btn {
+    background: #6f42c1;
+    color: white;
+  }
+  
+  #aceptar-btn {
+    background: #28a745;
+    color: white;
+  }
+  
+  #cancelar-btn {
+    background: #dc3545;
+    color: white;
+  }
+  
+  #editar-container button:hover {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
 </style>
 
 <div id="map"></div>
@@ -382,16 +624,117 @@
 </div>
 
 <div id="editar-container">
+  <button id="dibujar-btn" class="hidden" title="Dibujar Rectángulo">
+    <i class="bi bi-square"></i>
+  </button>
   <button id="editar-btn" title="Editar">
     <i class="bi bi-pencil-fill"></i>
   </button>
+  <button id="aceptar-btn" class="hidden" title="Aceptar">
+    <i class="bi bi-check-lg"></i>
+  </button>
+  
+  <button id="cancelar-btn" class="hidden" title="Cancelar">
+    <i class="bi bi-x-lg"></i>
+  </button>
+  <button id="limpiar-btn" class="hidden" title="Limpiar todo">
+    <i class="bi bi-trash-fill"></i>
+  </button>
 </div>
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <script>
+  const NotificationSystem = {
+    container: null,
+    initialized: false,
+    
+    init() {
+      if (this.initialized) return;
+      
+      this.container = document.getElementById('notification-container');
+      
+      if (!this.container) {
+        console.error('❌ Contenedor #notification-container no encontrado en el DOM');
+        // Crear el contenedor si no existe
+        this.container = document.createElement('div');
+        this.container.id = 'notification-container';
+        document.body.appendChild(this.container);
+        console.log('✅ Contenedor de notificaciones creado automáticamente');
+      } else {
+        console.log('✅ Sistema de notificaciones inicializado correctamente');
+      }
+      
+      this.initialized = true;
+    },
+    
+    show({ type = 'info', title, message, duration = 5000 }) {
+      // Inicializar si no está listo
+      if (!this.initialized) {
+        this.init();
+      }
+      
+      if (!this.container) {
+        console.error('❌ No se pudo crear el contenedor de notificaciones');
+        // Fallback a alert
+        alert(`${title}\n${message}`);
+        return;
+      }
+      
+      const notification = document.createElement('div');
+      notification.className = `notification ${type}`;
+      
+      const icons = {
+        success: '✓',
+        error: '✕',
+        warning: '⚠',
+        info: 'i'
+      };
+      
+      notification.innerHTML = `
+        <div class="notification-icon">${icons[type]}</div>
+        <div class="notification-content">
+          <div class="notification-title">${this.escapeHtml(title)}</div>
+          <div class="notification-message">${this.escapeHtml(message)}</div>
+        </div>
+        <button class="notification-close" aria-label="Cerrar">×</button>
+        <div class="notification-progress"></div>
+      `;
+      
+      // Evento de cierre
+      const closeBtn = notification.querySelector('.notification-close');
+      closeBtn.addEventListener('click', () => this.close(closeBtn));
+      
+      this.container.appendChild(notification);
+      
+      // Auto-cierre
+      if (duration > 0) {
+        setTimeout(() => {
+          this.close(closeBtn);
+        }, duration);
+      }
+    },
+    
+    close(button) {
+      const notification = button.closest('.notification');
+      if (!notification) return;
+      
+      notification.classList.add('removing');
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.remove();
+        }
+      }, 300);
+    },
+    
+    // Escapar HTML para prevenir XSS
+    escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  };
   document.addEventListener("DOMContentLoaded", function () {
+    NotificationSystem.init();
+    
     // -----------------------------------------
     // 1) ROI desde Flask
     // -----------------------------------------
@@ -480,9 +823,7 @@
     },
     onEachFeature: function (feature, layer) {
       const p = feature.properties || {};
-
-  
-
+        
       // Propietario: username o "N/A"
       const propietarioTexto =
         p.propietario && String(p.propietario).trim() !== ""
@@ -555,29 +896,42 @@
 
   // Función auxiliar para llamar a la API de solicitudes
 function solicitarRecinto(payload) {
-  fetch("/api/solicitudes-recinto", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  })
-    .then((response) => response.json().catch(() => ({})))
-    .then((data) => {
-      if (data && data.ok) {
-        alert("Solicitud enviada al administrador.");
-      } else {
-        // ✅ Corregido el manejo de errores
-        const msg = (data && data.error) || "No se ha podido crear la solicitud. ¿Estás identificado?";
-        console.error("Error en la respuesta de la API:", data);
-        alert(msg);
-      }
+    fetch("/api/solicitudes-recinto", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     })
-    .catch((err) => {
-      console.error("Error al crear la solicitud de recinto:", err);
-      alert("Error de comunicación con el servidor.");
-    });
-}
+      .then((response) => response.json().catch(() => ({})))
+      .then((data) => {
+        if (data && data.ok) {
+          NotificationSystem.show({
+            type: 'success',
+            title: '¡Solicitud enviada!',
+            message: 'Tu solicitud ha sido enviada al administrador correctamente.'
+          });
+        } else {
+          const msg = (data && data.error) || "No se ha podido crear la solicitud. ¿Estás identificado?";
+          console.error("Error en la respuesta de la API:", data);
+          
+          NotificationSystem.show({
+            type: 'error',
+            title: 'Error en la solicitud',
+            message: msg
+          });
+        }
+      })
+      .catch((err) => {
+        console.error("Error al crear la solicitud de recinto:", err);
+        
+        NotificationSystem.show({
+          type: 'warning',
+          title: 'Error de comunicación',
+          message: 'No se pudo conectar con el servidor. Por favor, intenta de nuevo.'
+        });
+      });
+  }
 
 // Handler global llamado desde el botón del popup
 window._solicitarRecintoDesdePopup = function (btn) {
@@ -754,6 +1108,287 @@ window._solicitarRecintoDesdePopup = function (btn) {
       }
     });
   }
+
+  // ============================================
+// CENTRAR EN RECINTO ESPECÍFICO
+// ============================================
+// Agregar esto al final del script, DENTRO del DOMContentLoaded, antes del último });
+
+// Recibir datos del recinto específico desde Flask
+const recintoData = {{ recinto_data|tojson|safe if recinto_data else 'null' }};
+
+// Variable para guardar la capa del recinto resaltado
+let recintoResaltado = null;
+
+// Función para centrar en un recinto específico
+function centrarEnRecinto(data) {
+  if (!data) return;
+  
+  console.log('Centrando en recinto:', data);
+  
+  try {
+    // Parsear el GeoJSON del recinto
+    const geojson = JSON.parse(data.geojson);
+    
+    // Crear el FeatureCollection completo
+    const featureCollection = {
+      type: 'FeatureCollection',
+      features: [{
+        type: 'Feature',
+        geometry: geojson,
+        properties: {
+          id_recinto: data.id,
+          provincia: data.provincia,
+          municipio: data.municipio,
+          poligono: data.poligono,
+          parcela: data.parcela,
+          recinto: data.recinto,
+          nombre: data.nombre,
+          superficie_ha: data.superficie_ha,
+          propietario: data.propietario
+        }
+      }]
+    };
+    
+    // Crear la geometría con Leaflet con estilo destacado
+    recintoResaltado = L.geoJSON(featureCollection, {
+      style: {
+        color: '#FF0000',
+        weight: 4,
+        fillColor: '#FF6B6B',
+        fillOpacity: 0.3,
+        dashArray: '10, 5'
+      }
+    }).addTo(map);
+    
+    // Crear contenido del popup
+    const popupContent = `
+      <div class="popup-recinto" style="min-width: 250px;">
+        <div class="popup-recinto-info" style="font-size: 0.9rem;">
+          <strong>Provincia:</strong> ${data.provincia}<br>
+          <strong>Municipio:</strong> ${data.municipio}<br>
+          <strong>Polígono:</strong> ${data.poligono}<br>
+          <strong>Parcela:</strong> ${data.parcela}<br>
+          <strong>Recinto:</strong> ${data.recinto}<br>
+          <strong>Superficie:</strong> ${data.superficie_ha.toFixed(2)} ha<br>
+          <strong>Propietario:</strong> ${data.propietario}
+        </div>
+      </div>
+    `;
+    
+    // Añadir popup
+    recintoResaltado.bindPopup(popupContent, {
+      maxWidth: 300,
+      className: 'recinto-destacado-popup'
+    });
+    
+    // Obtener bounds del recinto
+    const bounds = recintoResaltado.getBounds();
+    
+    // Calcular el zoom apropiado
+    const zoom = map.getBoundsZoom(bounds, false);
+    const targetZoom = Math.min(zoom, 18); // Máximo zoom 18
+    
+    // Primero hacer zoom para que se cargue la capa correcta
+    map.setView(bounds.getCenter(), Math.max(targetZoom, ZOOM_RECINTOS));
+    
+    // Después de un momento, ajustar el bounds con padding
+    setTimeout(() => {
+      map.fitBounds(bounds, {
+        padding: [80, 80],
+        maxZoom: 18,
+        animate: true,
+        duration: 0.5
+      });
+      
+      // Abrir el popup después del zoom
+      setTimeout(() => {
+        recintoResaltado.openPopup();
+      }, 600);
+    }, 300);
+    
+  } catch (error) {
+    console.error('Error al centrar en el recinto:', error);
+    
+    // Fallback: usar el bbox si falla el GeoJSON
+    if (data.bbox && data.bbox.length === 4) {
+      const [minx, miny, maxx, maxy] = data.bbox;
+      const bounds = [[miny, minx], [maxy, maxx]];
+      
+      map.setView(
+        [(miny + maxy) / 2, (minx + maxx) / 2],
+        Math.max(ZOOM_RECINTOS, 16)
+      );
+      
+      setTimeout(() => {
+        map.fitBounds(bounds, {
+          padding: [80, 80],
+          maxZoom: 18
+        });
+      }, 300);
+    }
+  }
+}
+
+// Si hay datos de recinto, centrar en él cuando el mapa esté listo
+if (recintoData) {
+  console.log('Recinto específico detectado, preparando centrado...');
+  
+  // Esperar a que el mapa esté completamente cargado
+  map.whenReady(function() {
+    console.log('Mapa listo, centrando en recinto...');
+    
+    // Activar recintos si están desactivados
+    if (!recintosActivos) {
+      recintosActivos = true;
+      const recintosOption = document.querySelector(
+        '.basemap-option.basemap-detail[data-detail="sigpac"]'
+      );
+      if (recintosOption) {
+        recintosOption.classList.add('active');
+      }
+    }
+    
+    // Pequeño delay para asegurar que todo esté inicializado
+    setTimeout(() => {
+      centrarEnRecinto(recintoData);
+    }, 500);
+  });
+}
+
+
+
+// Opcional: Agregar un botón para volver a centrar en el recinto
+if (recintoData) {
+  // Crear control personalizado
+  const RecentrarControl = L.Control.extend({
+    options: {
+      position: 'topleft'
+    },
+    
+    onAdd: function(map) {
+      const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+      const button = L.DomUtil.create('a', '', container);
+      
+      button.href = '#';
+      button.title = 'Volver a centrar en el recinto';
+      button.innerHTML = '<i class="bi bi-crosshair" style="font-size: 18px; line-height: 30px;"></i>';
+      button.style.width = '30px';
+      button.style.height = '30px';
+      button.style.lineHeight = '30px';
+      button.style.display = 'flex';
+      button.style.alignItems = 'center';
+      button.style.justifyContent = 'center';
+      button.style.backgroundColor = 'white';
+      button.style.textDecoration = 'none';
+      button.style.color = '#333';
+      
+      L.DomEvent.on(button, 'click', function(e) {
+        L.DomEvent.stopPropagation(e);
+        L.DomEvent.preventDefault(e);
+        centrarEnRecinto(recintoData);
+      });
+      
+      return container;
+    }
+  });
+  
+  map.addControl(new RecentrarControl());
+}
+
+const editarBtn = document.getElementById('editar-btn');
+  const dibujarBtn = document.getElementById('dibujar-btn');
+  const aceptarBtn = document.getElementById('aceptar-btn');
+  const cancelarBtn = document.getElementById('cancelar-btn');
+  const limpiarBtn = document.getElementById('limpiar-btn');
+
+  // FeatureGroup para guardar los elementos dibujados
+  const drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+
+  let rectangleDrawer = null;
+  let dibujosTemporales = [];
+
+  // Al hacer clic en editar
+  editarBtn.addEventListener('click', () => {
+    editarBtn.classList.add('hidden');
+    dibujarBtn.classList.remove('hidden');
+    aceptarBtn.classList.remove('hidden');
+    cancelarBtn.classList.remove('hidden');
+    limpiarBtn.classList.remove('hidden');
+    
+    // Guardar estado actual
+    dibujosTemporales = [];
+    drawnItems.eachLayer(layer => {
+      dibujosTemporales.push(layer);
+    });
+    
+    console.log('Modo edición activado');
+  });
+
+  // Al hacer clic en dibujar rectángulo
+  dibujarBtn.addEventListener('click', () => {
+    // Crear y activar el dibujador de rectángulos
+    rectangleDrawer = new L.Draw.Rectangle(map);
+    rectangleDrawer.enable();
+    
+    console.log('Modo dibujo de rectángulo activado');
+  });
+
+  // Evento cuando se completa el dibujo
+  map.on(L.Draw.Event.CREATED, (e) => {
+    const layer = e.layer;
+    drawnItems.addLayer(layer);
+    console.log('Rectángulo dibujado:', layer);
+  });
+
+  // Al hacer clic en aceptar
+  aceptarBtn.addEventListener('click', () => {
+    dibujarBtn.classList.add('hidden');
+    aceptarBtn.classList.add('hidden');
+    cancelarBtn.classList.add('hidden');
+    limpiarBtn.classList.add('hidden');
+    editarBtn.classList.remove('hidden');
+    
+    // Desactiva el modo de dibujo si está activo
+    if (rectangleDrawer) {
+      rectangleDrawer.disable();
+      rectangleDrawer = null;
+    }
+    
+    console.log('Cambios guardados');
+  });
+
+  // Al hacer clic en cancelar
+  cancelarBtn.addEventListener('click', () => {
+    dibujarBtn.classList.add('hidden');
+    aceptarBtn.classList.add('hidden');
+    cancelarBtn.classList.add('hidden');
+    limpiarBtn.classList.add('hidden');
+    editarBtn.classList.remove('hidden');
+    
+    // Desactiva el modo de dibujo
+    if (rectangleDrawer) {
+      rectangleDrawer.disable();
+      rectangleDrawer = null;
+    }
+    
+    // Restaurar estado anterior (eliminar dibujos nuevos)
+    drawnItems.clearLayers();
+    dibujosTemporales.forEach(layer => {
+      drawnItems.addLayer(layer);
+    });
+    
+    console.log('Edición cancelada');
+  });
+
+  // Al hacer clic en limpiar
+  limpiarBtn.addEventListener('click', () => {
+    // Eliminar todos los dibujos
+    drawnItems.clearLayers();
+    console.log('Todos los dibujos eliminados');
+  });
+ 
   });
 </script>
 

@@ -177,3 +177,31 @@ def rechazar_solicitud_recinto(id_solicitud):
     db.session.commit()
     flash("Solicitud rechazada.", "info")
     return redirect(url_for("admin.gestion_recintos"))
+
+
+@admin_bp.route('/editar_usuario', methods=['POST'])
+@login_required
+def editar_usuario():
+    # Obtener datos del formulario
+    id_usuario = request.form.get('id_usuario')
+    username = request.form.get('username')
+    email = request.form.get('email')
+    telefono = request.form.get('telefono')
+    rol = request.form.get('rol')
+    activo = 'activo' in request.form  # Checkbox devuelve 'on' si está marcado
+
+    # Buscar el usuario
+    usuario = User.query.get_or_404(id_usuario)
+
+    # Actualizar campos
+    usuario.username = username
+    usuario.email = email
+    usuario.telefono = telefono
+    usuario.rol = rol
+    usuario.activo = activo
+
+    # Guardar cambios
+    db.session.commit()
+
+    flash('Usuario actualizado correctamente', 'success')
+    return redirect(url_for('admin.gestion_usuarios'))

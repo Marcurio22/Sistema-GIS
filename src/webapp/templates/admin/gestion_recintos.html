@@ -19,7 +19,8 @@ endblock %} {% block content %}
 
   {% if recintos %}
   <div class="table-responsive mb-4">
-    <table class="table table-striped align-middle">
+    <table id="tablaUsuarios" class="table table-hover table-bordered align-middle" border="1">
+
       <thead>
         <tr>
           <th class="text-center">Nombre</th>
@@ -33,20 +34,18 @@ endblock %} {% block content %}
       </thead>
       <tbody>
         {% for recinto in recintos %}
-        <tr>
+        <tr onclick="window.location='{{ url_for("dashboard.detalle_recinto", id_recinto=recinto.id_recinto) }}'"
+          style="cursor:pointer;">
           <td>{{ recinto.nombre }}</td>
           <td>{{ "%.2f"|format(recinto.superficie_ha|float) }}</td>
           <td>
-            {% if recinto.propietario %} {{ recinto.propietario.username }} {%
-            else %} N/A {% endif %}
+            {% if recinto.propietario %} {{ recinto.propietario.username }} {% else %} N/A {% endif %}
           </td>
           <td>
-            {{ recinto.provincia }}{% if recinto.nombre_provincia %} - {{
-            recinto.nombre_provincia }}{% endif %}
+            {{ recinto.provincia }}{% if recinto.nombre_provincia %} - {{ recinto.nombre_provincia }}{% endif %}
           </td>
           <td>
-            {{ recinto.municipio }}{% if recinto.nombre_municipio %} - {{
-            recinto.nombre_municipio }}{% endif %}
+            {{ recinto.municipio }}{% if recinto.nombre_municipio %} - {{ recinto.nombre_municipio }}{% endif %}
           </td>
           <td>
             {% if recinto.activa %}
@@ -56,12 +55,19 @@ endblock %} {% block content %}
             {% endif %}
           </td>
           <td>
-            <a class="btn btn-sm btn-info">Ver</a>
-            <a class="btn btn-sm btn-warning">Editar</a>
+            <a href="{{ url_for('dashboard.visor', recinto_id=recinto.id_recinto) }}" class="btn btn-sm btn-info"
+              target="_blank" onclick="event.stopPropagation();">
+              <i class="bi bi-map"></i> Ver
+            </a>
+
+            <a class="btn btn-sm btn-warning" onclick="event.stopPropagation();">
+              <i class="bi bi-pencil"></i> Editar
+            </a>
           </td>
         </tr>
         {% endfor %}
       </tbody>
+
     </table>
   </div>
   {% else %}
@@ -74,7 +80,7 @@ endblock %} {% block content %}
 
   {% if solicitudes %}
   <div class="table-responsive">
-    <table class="table table-striped align-middle">
+    <table id="tablaRoles" class="table table-striped align-middle">
       <thead>
         <tr>
           <th>ID</th>
@@ -116,18 +122,25 @@ endblock %} {% block content %}
           </td>
           <td style="min-width: 260px">
             {% if s.estado == 'pendiente' %}
-            <a href="{{ url_for('dashboard.visor') }}"
-              class="btn btn-sm btn-info me-1" target="_blank">
+            {% if s.recinto %}
+            <a href="{{ url_for('dashboard.visor', recinto_id=s.recinto.id_recinto) }}" class="btn btn-sm btn-info me-1"
+              target="_blank" title="Ver recinto en el mapa">
               <i class="bi bi-map"></i> Ver Recinto
             </a>
+            {% else %}
+            <span class="text-muted small">Recinto no disponible</span>
+            {% endif %}
+
             <form method="post" action="{{ url_for('admin.aprobar_solicitud_recinto', id_solicitud=s.id_solicitud) }}"
               class="d-inline">
-              <button class="btn btn-sm btn-success">Aprobar</button>
+              <button class="btn btn-sm btn-success" title="Aprobar solicitud">
+                <i class="bi bi-check-lg"></i> Aprobar
+              </button>
             </form>
 
             <button class="btn btn-sm btn-outline-danger ms-1" type="button" data-bs-toggle="collapse"
-              data-bs-target="#rechazo-{{ s.id_solicitud }}">
-              Rechazar
+              data-bs-target="#rechazo-{{ s.id_solicitud }}" title="Rechazar solicitud">
+              <i class="bi bi-x-lg"></i> Rechazar
             </button>
 
             <div class="collapse mt-2" id="rechazo-{{ s.id_solicitud }}">
@@ -135,12 +148,18 @@ endblock %} {% block content %}
                 action="{{ url_for('admin.rechazar_solicitud_recinto', id_solicitud=s.id_solicitud) }}">
                 <textarea name="motivo_rechazo" class="form-control form-control-sm mb-2" rows="2"
                   placeholder="Motivo del rechazo (opcional)"></textarea>
-                <button class="btn btn-sm btn-danger">Confirmar rechazo</button>
+                <button class="btn btn-sm btn-danger">
+                  <i class="bi bi-x-circle"></i> Confirmar rechazo
+                </button>
               </form>
             </div>
-            {% else %} {% if s.motivo_rechazo %}
-            <small class="text-muted d-block">Motivo: {{ s.motivo_rechazo }}</small>
-            {% endif %} {% endif %}
+            {% else %}
+            {% if s.motivo_rechazo %}
+            <small class="text-muted d-block">
+              <strong>Motivo:</strong> {{ s.motivo_rechazo }}
+            </small>
+            {% endif %}
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -153,4 +172,22 @@ endblock %} {% block content %}
   </div>
   {% endif %}
 </div>
+{% block extra_js %}
+<script>
+  $(document).ready(function () {
+      $('#tablaUsuarios').DataTable({
+          language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+          pageLength: 25,
+          responsive: true
+      });
+
+      $('#tablaRoles').DataTable({
+          language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+          pageLength: 25,
+          responsive: true,
+          order: [[4, 'desc']]
+      });
+  });
+</script>
+{% endblock %}
 {% endblock %}

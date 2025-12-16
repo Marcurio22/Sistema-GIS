@@ -13,7 +13,7 @@ PASSWORD = os.getenv('COPERNICUS_PASSWORD')
 FECHA_ESPECIFICA = "2025-11-16"  # datetime.datetime.now().strftime('%Y-%m-%d')
 COBERTURA_NUBES_MAX = 100
 
-# Definir el bounding box [lon_min, lat_min, lon_max, lat_max]
+
 roi_bbox = [-4.6718708208, 41.7248613835, -3.8314839480, 42.1274665349]
 
 PRODUCTOS_A_DESCARGAR = 5  # Aumentado para cubrir el área completa

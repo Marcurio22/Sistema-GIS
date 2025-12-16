@@ -7,6 +7,7 @@ from datetime import datetime
 import logging
 from .utils_dashboard import obtener_datos_aemet, MunicipiosCodigosFinder
 import requests
+from ..models import Recinto
 
 
 logger = logging.getLogger('app.dashboard')
@@ -37,7 +38,70 @@ def visor():
     """
     Vista del visor SIG. Calcula la bbox de la ROI a partir de sigpac.recintos
     y la pasa al template como roi_bbox = [minx, miny, maxx, maxy].
+    
+    Si se recibe recinto_id como parámetro, también envía los datos de ese recinto específico.
     """
+    from flask import request
+    
+    # Obtener el ID del recinto si viene como parámetro
+    recinto_id = request.args.get('recinto_id', type=int)
+    recinto_data = None
+    
+    # Si hay un recinto específico, obtener sus datos y geometría
+    if recinto_id:
+        
+        
+        # Obtener el recinto del ORM
+        recinto = Recinto.query.get(recinto_id)
+        
+        if recinto:
+            # Construir la consulta SQL usando los campos SIGPAC como filtro
+            # La tabla sigpac.recintos probablemente usa provincia, municipio, poligono, parcela, recinto como identificadores
+            sql_recinto = text("""
+                SELECT
+                    ST_XMin(geometry) AS minx,
+                    ST_YMin(geometry) AS miny,
+                    ST_XMax(geometry) AS maxx,
+                    ST_YMax(geometry) AS maxy,
+                    ST_AsGeoJSON(geometry) AS geojson
+                FROM sigpac.recintos
+                WHERE provincia = :provincia
+                  AND municipio = :municipio
+                  AND poligono = :poligono
+                  AND parcela = :parcela
+                  AND recinto = :recinto
+            """)
+            
+            geom_row = db.session.execute(sql_recinto, {
+                'provincia': recinto.provincia,
+                'municipio': recinto.municipio,
+                'poligono': recinto.poligono,
+                'parcela': recinto.parcela,
+                'recinto': recinto.recinto
+            }).fetchone()
+            
+            if geom_row:
+                # Obtener el propietario del ORM
+                propietario = 'N/A'
+                if hasattr(recinto, 'id_propietario') and recinto.id_propietario:
+                    if recinto.propietario:
+                        propietario = recinto.propietario.username
+                
+                recinto_data = {
+                    'id': recinto_id,  # Usamos el id del modelo ORM
+                    'provincia': recinto.provincia,
+                    'municipio': recinto.municipio,
+                    'poligono': recinto.poligono,
+                    'parcela': recinto.parcela,
+                    'recinto': recinto.recinto,
+                    'nombre': recinto.nombre if recinto.nombre else f'Recinto {recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}-{recinto.recinto}',
+                    'superficie_ha': float(recinto.superficie_ha) if recinto.superficie_ha else 0,
+                    'propietario': propietario,
+                    'bbox': [geom_row.minx, geom_row.miny, geom_row.maxx, geom_row.maxy],
+                    'geojson': geom_row.geojson
+                }
+    
+    # Calcular bbox general (para vista inicial si no hay recinto específico)
     sql = text("""
         SELECT
             ST_XMin(extent) AS minx,
@@ -59,17 +123,22 @@ def visor():
         roi_bbox = [-4.6718708208, 41.7248613835,
                     -3.8314839480, 42.1274665349]
 
-    # Para saber el codigo del municipio hay que ver el numero de recintos que tiene el usuario en cada municipio y sacar el codigo del que mas recintos tiene
-
+    # Para saber el codigo del municipio
     municipios_codigos_finder = MunicipiosCodigosFinder()
     codigo_municipio = municipios_codigos_finder.codigo_recintos(current_user.id_usuario)
 
-
-    # Sacar codigo municipio de los recintos del usuario?
-
-
-
     weather = obtener_datos_aemet(codigo_municipio)
-    # OJO: ahora pasamos roi_bbox (no roi_bounds)
-    return render_template("visor.html", roi_bbox=roi_bbox,    weather=weather)
+    
+    # Pasar recinto_data al template
+    return render_template("visor.html", 
+                         roi_bbox=roi_bbox, 
+                         weather=weather,
+                         recinto_data=recinto_data)
 
+
+
+@dashboard_bp.route('/recinto/<int:id_recinto>')
+@login_required
+def detalle_recinto(id_recinto):
+    recinto = Recinto.query.get_or_404(id_recinto)
+    return render_template('detalle_recinto.html', recinto=recinto)
