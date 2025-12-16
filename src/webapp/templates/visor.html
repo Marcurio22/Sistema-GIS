@@ -511,44 +511,48 @@
 
 
 /* Dibujar? */
- .hidden {
-    display: none !important;
-  }
-  
-  #editar-container {
-    display: flex;
-    gap: 8px;
-  }
-  
-  #editar-container button {
-    border: none;
-    padding: 10px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 18px;
-    transition: all 0.3s ease;
-  }
-  
-  
-  #dibujar-btn {
-    background: #6f42c1;
-    color: white;
-  }
-  
-  #aceptar-btn {
-    background: #28a745;
-    color: white;
-  }
-  
-  #cancelar-btn {
-    background: #dc3545;
-    color: white;
-  }
-  
-  #editar-container button:hover {
-    opacity: 0.9;
-    transform: scale(1.05);
-  }
+.hidden {
+  display: none !important;
+}
+
+#editar-container {
+  display: flex;
+  gap: 8px;
+}
+
+#editar-container button {
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.3s ease;
+}
+
+#dibujar-btn {
+  background: white;
+  color: #28a745;
+}
+
+#poligono-btn {
+  background: white;
+  color: #28a745;
+}
+
+#aceptar-btn {
+  background: #28a745;
+  color: white;
+}
+
+#cancelar-btn {
+  background: #dc3545;
+  color: white;
+}
+
+#editar-container button:hover {
+  opacity: 0.9;
+  transform: scale(1.05);
+}
 </style>
 
 <div id="map"></div>
@@ -623,6 +627,9 @@
   <button id="dibujar-btn" class="hidden" title="Dibujar Rectángulo">
     <i class="bi bi-square"></i>
   </button>
+  <button id="poligono-btn" class="hidden" title="Dibujar Polígono">
+    <i class="bi bi-pentagon"></i>
+  </button>
   <button id="editar-btn" title="Editar">
     <i class="bi bi-pencil-fill"></i>
   </button>
@@ -635,7 +642,6 @@
   <button id="cancelar-btn" class="hidden" title="Cancelar">
     <i class="bi bi-x-lg"></i>
   </button>
-  
 </div>
 
 <script>
@@ -1294,97 +1300,131 @@ if (recintoData) {
 }
 
 const editarBtn = document.getElementById('editar-btn');
-  const dibujarBtn = document.getElementById('dibujar-btn');
-  const aceptarBtn = document.getElementById('aceptar-btn');
-  const cancelarBtn = document.getElementById('cancelar-btn');
-  const limpiarBtn = document.getElementById('limpiar-btn');
+const dibujarBtn = document.getElementById('dibujar-btn');
+const poligonoBtn = document.getElementById('poligono-btn');
+const aceptarBtn = document.getElementById('aceptar-btn');
+const cancelarBtn = document.getElementById('cancelar-btn');
+const limpiarBtn = document.getElementById('limpiar-btn');
 
-  // FeatureGroup para guardar los elementos dibujados
-  const drawnItems = new L.FeatureGroup();
-  map.addLayer(drawnItems);
+// FeatureGroup para guardar los elementos dibujados
+const drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
 
-  let rectangleDrawer = null;
-  let dibujosTemporales = [];
+let rectangleDrawer = null;
+let polygonDrawer = null;
+let dibujosTemporales = [];
 
-  // Al hacer clic en editar
-  editarBtn.addEventListener('click', () => {
-    editarBtn.classList.add('hidden');
-    dibujarBtn.classList.remove('hidden');
-    aceptarBtn.classList.remove('hidden');
-    cancelarBtn.classList.remove('hidden');
-    limpiarBtn.classList.remove('hidden');
-    
-    // Guardar estado actual
-    dibujosTemporales = [];
-    drawnItems.eachLayer(layer => {
-      dibujosTemporales.push(layer);
-    });
-    
-    console.log('Modo edición activado');
+// Al hacer clic en editar
+editarBtn.addEventListener('click', () => {
+  editarBtn.classList.add('hidden');
+  dibujarBtn.classList.remove('hidden');
+  poligonoBtn.classList.remove('hidden');
+  aceptarBtn.classList.remove('hidden');
+  cancelarBtn.classList.remove('hidden');
+  limpiarBtn.classList.remove('hidden');
+  
+  // Guardar estado actual
+  dibujosTemporales = [];
+  drawnItems.eachLayer(layer => {
+    dibujosTemporales.push(layer);
   });
+  
+  console.log('Modo edición activado');
+});
 
-  // Al hacer clic en dibujar rectángulo
-  dibujarBtn.addEventListener('click', () => {
-    // Crear y activar el dibujador de rectángulos
-    rectangleDrawer = new L.Draw.Rectangle(map);
-    rectangleDrawer.enable();
-    
-    console.log('Modo dibujo de rectángulo activado');
-  });
+// Al hacer clic en dibujar rectángulo
+dibujarBtn.addEventListener('click', () => {
+  // Desactivar polígono si está activo
+  if (polygonDrawer) {
+    polygonDrawer.disable();
+    polygonDrawer = null;
+  }
+  
+  // Crear y activar el dibujador de rectángulos
+  rectangleDrawer = new L.Draw.Rectangle(map);
+  rectangleDrawer.enable();
+  
+  console.log('Modo dibujo de rectángulo activado');
+});
 
-  // Evento cuando se completa el dibujo
-  map.on(L.Draw.Event.CREATED, (e) => {
-    const layer = e.layer;
+// Al hacer clic en dibujar polígono
+poligonoBtn.addEventListener('click', () => {
+  // Desactivar rectángulo si está activo
+  if (rectangleDrawer) {
+    rectangleDrawer.disable();
+    rectangleDrawer = null;
+  }
+  
+  // Crear y activar el dibujador de polígonos
+  polygonDrawer = new L.Draw.Polygon(map);
+  polygonDrawer.enable();
+  
+  console.log('Modo dibujo de polígono activado - Haz clic para añadir puntos, doble clic para terminar');
+});
+
+// Evento cuando se completa el dibujo
+map.on(L.Draw.Event.CREATED, (e) => {
+  const layer = e.layer;
+  drawnItems.addLayer(layer);
+  console.log('Forma dibujada:', layer);
+});
+
+// Al hacer clic en aceptar
+aceptarBtn.addEventListener('click', () => {
+  dibujarBtn.classList.add('hidden');
+  poligonoBtn.classList.add('hidden');
+  aceptarBtn.classList.add('hidden');
+  cancelarBtn.classList.add('hidden');
+  limpiarBtn.classList.add('hidden');
+  editarBtn.classList.remove('hidden');
+  
+  // Desactiva ambos modos de dibujo si están activos
+  if (rectangleDrawer) {
+    rectangleDrawer.disable();
+    rectangleDrawer = null;
+  }
+  if (polygonDrawer) {
+    polygonDrawer.disable();
+    polygonDrawer = null;
+  }
+  
+  console.log('Cambios guardados');
+});
+
+// Al hacer clic en cancelar
+cancelarBtn.addEventListener('click', () => {
+  dibujarBtn.classList.add('hidden');
+  poligonoBtn.classList.add('hidden');
+  aceptarBtn.classList.add('hidden');
+  cancelarBtn.classList.add('hidden');
+  limpiarBtn.classList.add('hidden');
+  editarBtn.classList.remove('hidden');
+  
+  // Desactiva ambos modos de dibujo
+  if (rectangleDrawer) {
+    rectangleDrawer.disable();
+    rectangleDrawer = null;
+  }
+  if (polygonDrawer) {
+    polygonDrawer.disable();
+    polygonDrawer = null;
+  }
+  
+  // Restaurar estado anterior (eliminar dibujos nuevos)
+  drawnItems.clearLayers();
+  dibujosTemporales.forEach(layer => {
     drawnItems.addLayer(layer);
-    console.log('Rectángulo dibujado:', layer);
   });
+  
+  console.log('Edición cancelada');
+});
 
-  // Al hacer clic en aceptar
-  aceptarBtn.addEventListener('click', () => {
-    dibujarBtn.classList.add('hidden');
-    aceptarBtn.classList.add('hidden');
-    cancelarBtn.classList.add('hidden');
-    limpiarBtn.classList.add('hidden');
-    editarBtn.classList.remove('hidden');
-    
-    // Desactiva el modo de dibujo si está activo
-    if (rectangleDrawer) {
-      rectangleDrawer.disable();
-      rectangleDrawer = null;
-    }
-    
-    console.log('Cambios guardados');
-  });
-
-  // Al hacer clic en cancelar
-  cancelarBtn.addEventListener('click', () => {
-    dibujarBtn.classList.add('hidden');
-    aceptarBtn.classList.add('hidden');
-    cancelarBtn.classList.add('hidden');
-    limpiarBtn.classList.add('hidden');
-    editarBtn.classList.remove('hidden');
-    
-    // Desactiva el modo de dibujo
-    if (rectangleDrawer) {
-      rectangleDrawer.disable();
-      rectangleDrawer = null;
-    }
-    
-    // Restaurar estado anterior (eliminar dibujos nuevos)
-    drawnItems.clearLayers();
-    dibujosTemporales.forEach(layer => {
-      drawnItems.addLayer(layer);
-    });
-    
-    console.log('Edición cancelada');
-  });
-
-  // Al hacer clic en limpiar
-  limpiarBtn.addEventListener('click', () => {
-    // Eliminar todos los dibujos
-    drawnItems.clearLayers();
-    console.log('Todos los dibujos eliminados');
-  });
+// Al hacer clic en limpiar
+limpiarBtn.addEventListener('click', () => {
+  // Eliminar todos los dibujos
+  drawnItems.clearLayers();
+  console.log('Todos los dibujos eliminados');
+});
  
   });
 </script>
