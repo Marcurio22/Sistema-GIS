@@ -263,7 +263,8 @@ def editar_usuario():
 def editar_recinto_admin(id_recinto):
     recinto = Recinto.query.get_or_404(id_recinto)
 
-    
+    propietario_id = request.form.get('propietario_id')
+    recinto.id_propietario = propietario_id 
     recinto.nombre = request.form.get('nombre')
     recinto.activa = bool(request.form.get('activa'))
 
