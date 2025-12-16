@@ -740,6 +740,8 @@
     }
   };
   document.addEventListener("DOMContentLoaded", function () {
+
+    const CURRENT_USER_ID = {{ current_user.id_usuario if current_user.is_authenticated else 'null' }};
     NotificationSystem.init();
 
     // -----------------------------------------
@@ -922,6 +924,9 @@
     style: () => MIS_RECINTO_STYLE,
   }).addTo(map);
 
+  // Mis IDs para evitar duplicados
+  const MIS_IDS = new Set();
+
   // Por defecto activos
   let misRecintosActivos = true;
 
@@ -948,7 +953,13 @@
       })
       .then((fc) => {
         misRecintosLayer.clearLayers();
+
+        MIS_IDS.clear();
         if (fc && fc.features && fc.features.length) {
+          fc.features.forEach(f => {
+            const p = f.properties || {};
+            if (p.id_recinto != null) MIS_IDS.add(String(p.id_recinto));
+          });
           misRecintosLayer.addData(fc);
         }
       })
@@ -1263,14 +1274,26 @@
         });
 
         if (targetLayer) {
-          // simula comportamiento normal: seleccionar + abrir popup
+          const p = (targetLayer.feature && targetLayer.feature.properties) || {};
+          const esMio = MIS_IDS.has(String(key));
+
+          // Si es mío: NO abrir popup ni aplicar estilo azul
+          if (esMio) {
+            if (selectedRecintoLayer) {
+              selectedRecintoLayer.setStyle(RECINTO_STYLE_DEFAULT);
+              selectedRecintoLayer = null;
+            }
+            return; // no abrir popup si es mío
+          }
+
+          // Si NO es mío: comportamiento normal (abrir popup "Añadir a mis recintos")
           if (selectedRecintoLayer && selectedRecintoLayer !== targetLayer) {
             selectedRecintoLayer.setStyle(RECINTO_STYLE_DEFAULT);
           }
           selectedRecintoLayer = targetLayer;
           targetLayer.setStyle(RECINTO_STYLE_SELECTED);
           targetLayer.openPopup();
-        }
+        }      
       }
 
       // Guardar la clave del recinto rojo
