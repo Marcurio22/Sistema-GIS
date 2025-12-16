@@ -770,6 +770,16 @@
 
   map.fitBounds(ROI_BOUNDS);
 
+  // --- Panes (orden de dibujo) ---
+  map.createPane('sigpacPane');
+  map.getPane('sigpacPane').style.zIndex = 400;
+
+  map.createPane('misPane');
+  map.getPane('misPane').style.zIndex = 450;
+
+  map.createPane('highlightPane');
+  map.getPane('highlightPane').style.zIndex = 650;
+
   // -----------------------------------------
   // 3) Capas base
   // -----------------------------------------
@@ -825,6 +835,7 @@
   let selectedRecintoLayer = null;
 
   const recintosLayer = L.geoJSON(null, {
+    pane: 'sigpacPane',
     style: function () {
       return RECINTO_STYLE_DEFAULT;
     },
@@ -900,11 +911,14 @@
 
   const MIS_RECINTO_STYLE = {
     color: "#00a86b",
-    weight: 3,
-    fillOpacity: 0.10,
+    weight: 5,
+    opacity: 1,
+    fillColor: "#00a86b",
+    fillOpacity: 0.22,
   };
 
   const misRecintosLayer = L.geoJSON(null, {
+    pane: 'misPane',
     style: () => MIS_RECINTO_STYLE,
   }).addTo(map);
 
@@ -1194,9 +1208,22 @@
   // Variable para guardar la capa del recinto resaltado
   let recintoResaltado = null;
 
+  // Función para limpieza de capa roja
+  function clearHighlight() {
+    if (recintoResaltado) {
+      try {
+        map.removeLayer(recintoResaltado); // Quita la capa roja
+      } catch (e) {}
+      recintoResaltado = null;
+    }
+  }
+
   // Función para centrar en un recinto específico
   function centrarEnRecinto(data) {
     if (!data) return;
+
+    // Limpiar cualquier resaltado previo
+    clearHighlight();
 
     console.log('Centrando en recinto:', data);
 
@@ -1224,8 +1251,34 @@
         }]
       };
 
+      // Función para abrir popup del recinto en la capa de recintos
+      function openSigpacPopupForKey(key) {
+        let targetLayer = null;
+
+        recintosLayer.eachLayer((lyr) => {
+          const p = (lyr.feature && lyr.feature.properties) || {};
+          if (String(p.id_recinto) === String(key)) {
+            targetLayer = lyr;
+          }
+        });
+
+        if (targetLayer) {
+          // simula comportamiento normal: seleccionar + abrir popup
+          if (selectedRecintoLayer && selectedRecintoLayer !== targetLayer) {
+            selectedRecintoLayer.setStyle(RECINTO_STYLE_DEFAULT);
+          }
+          selectedRecintoLayer = targetLayer;
+          targetLayer.setStyle(RECINTO_STYLE_SELECTED);
+          targetLayer.openPopup();
+        }
+      }
+
+      // Guardar la clave del recinto rojo
+      const highlightKey = String(data.id);
+
       // Crear la geometría con Leaflet con estilo destacado
       recintoResaltado = L.geoJSON(featureCollection, {
+        pane: 'highlightPane',
         style: {
           color: '#FF0000',
           weight: 4,
@@ -1234,6 +1287,8 @@
           dashArray: '10, 5'
         }
       }).addTo(map);
+      // asegurar arriba del todo
+      recintoResaltado.bringToFront();
 
       // Crear contenido del popup
       const popupContent = `
@@ -1255,6 +1310,29 @@
         maxWidth: 300,
         className: 'recinto-destacado-popup'
       });
+
+      // Quitar popup al cerrar
+      map.on('popupclose', (e) => {
+        if (!recintoResaltado) return;
+
+        // Si el popup que se ha cerrado pertenece a la capa roja
+        const src = e.popup && e.popup._source;
+        const esDeResaltado =
+          src && (recintoResaltado.hasLayer ? recintoResaltado.hasLayer(src) : false);
+
+        if (esDeResaltado) {
+          clearHighlight();
+          openSigpacPopupForKey(highlightKey);
+        }
+      });
+
+      // Cerrar popup al hacer clic en el recinto rojo
+      recintoResaltado.eachLayer((lyr) => {
+        lyr.on('click', () => {
+          try { lyr.closePopup(); } catch (e) {}
+        });
+      });
+
 
       // Obtener bounds del recinto
       const bounds = recintoResaltado.getBounds();
