@@ -522,7 +522,9 @@ class MunicipiosCodigosFinder:
         recintos = Recinto.query.filter_by(id_propietario=user_id).all()
         
         if not recintos:
-            return None
+            MUNICIPIO_POR_DEFECTO = "34120"
+
+            return MUNICIPIO_POR_DEFECTO
         
         # Contar recintos por municipio (asegurando formato correcto)
         contador = {}
