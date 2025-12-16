@@ -138,17 +138,17 @@
                         <input type="text" class="form-control" name="nombre" value="{{ recinto.nombre }}"
                           maxlength="200" required>
                       </div>
-
+                      
+                      <!-- PROPIETARIO -->
                       <div class="mb-3">
                         <label class="form-label">
                           <i class="bi bi-person"></i> Propietario
                         </label>
                         <select name="propietario_id" class="form-select">
                           {% for usuario in usuarios %}
-                          <option value="{{ usuario.id }}" {% if recinto.propietario and
-                            recinto.propietario.id==usuario.id %}selected{% endif %}>
-                            {{ usuario.username }} ({{ usuario.email }})
-                          </option>
+                          <option value="{{ usuario.id_usuario }}" {% if recinto.propietario and
+                            recinto.propietario.id==usuario.id %}selected{% endif %}>{{ usuario.username }} ({{
+                            usuario.email }})</option>
                           {% endfor %}
                         </select>
                         <div class="form-text">
