@@ -9,8 +9,23 @@
             <h1 class="mb-3">Mis recintos</h1>
         </div>
     </div>
+    
+  {# Mensajes flash #} 
+  {% with messages = get_flashed_messages(with_categories=true) %} 
+  {% if messages %}
+  <div class="mb-3">
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %} 
+  {% endwith %}
 
     <!-- Pestañas de navegación -->
+    {% set solicitudes_pendientes = solicitudes|selectattr('estado', 'equalto', 'pendiente')|list|length %}
     <ul class="nav nav-tabs mb-4" id="recintosTabs" role="tablist">
         <li class="nav-item" role="presentation">
             <button class="nav-link active" id="recintos-tab" data-bs-toggle="tab" data-bs-target="#recintos" 
@@ -25,8 +40,8 @@
             <button class="nav-link" id="solicitudes-tab" data-bs-toggle="tab" data-bs-target="#solicitudes" 
                     type="button" role="tab" aria-controls="solicitudes" aria-selected="false">
                 <i class="bi bi-clock-history"></i> Mis Solicitudes
-                {% if solicitudes %}
-                <span class="badge bg-warning rounded-pill ms-1">{{ solicitudes|length }}</span>
+                {% if solicitudes_pendientes > 0 %}
+                <span class="badge bg-warning text-dark rounded-pill ms-1">{{ solicitudes_pendientes }}</span>
                 {% endif %}
             </button>
         </li>
@@ -44,7 +59,7 @@
             </div>
 
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
+                <table id="tablaRecintos" class="table table-striped table-hover">
                     <thead class="table-dark">
                         <tr>
                             <th>Nombre</th>
@@ -76,12 +91,93 @@
                                     class="btn btn-sm btn-info"  title="Ver en el mapa">
                                     <i class="bi bi-map"></i> Ver
                                 </a>
-                                <a class="btn btn-sm btn-warning">
+                                <button class="btn btn-sm btn-warning" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#editarModal{{ recinto.id_recinto }}"
+                                        title="Editar recinto">
                                     <i class="bi bi-pencil"></i> Editar
-                                </a>
+                                </button>
                             </td>
                         </tr>
+
+                        <!-- Modal para editar recinto -->
+                        <div class="modal fade" id="editarModal{{ recinto.id_recinto }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <form method="post" action="{{ url_for('auth.editar_recinto', id_recinto=recinto.id_recinto) }}">
+                                        <div class="modal-header bg-warning">
+                                            <h5 class="modal-title">
+                                                <i class="bi bi-pencil"></i> Editar Recinto
+                                            </h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">
+                                                    <i class="bi bi-info-circle text-muted"></i> Información SIGPAC
+                                                </label>
+                                                <p class="mb-0 small text-muted">
+                                                    <code>{{ recinto.provincia }}-{{ recinto.municipio }}-{{ recinto.poligono }}-{{ recinto.parcela }}</code>
+                                                </p>
+                                                <p class="mb-0 small text-muted">
+                                                    {{ recinto.nombre_provincia }} - {{ recinto.nombre_municipio }}
+                                                </p>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label for="nombre{{ recinto.id_recinto }}" class="form-label">
+                                                    <i class="bi bi-card-text"></i> Nombre del recinto <span class="text-danger">*</span>
+                                                </label>
+                                                <input type="text" 
+                                                       class="form-control" 
+                                                       id="nombre{{ recinto.id_recinto }}" 
+                                                       name="nombre" 
+                                                       value="{{ recinto.nombre }}" 
+                                                       required
+                                                       maxlength="200"
+                                                       placeholder="Ej: Finca El Olivar">
+                                                <div class="form-text">Máximo 200 caracteres</div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label">
+                                                    <i class="bi bi-toggle-on"></i> Estado del recinto
+                                                </label>
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" 
+                                                           type="checkbox" 
+                                                           id="activa{{ recinto.id_recinto }}" 
+                                                           name="activa" 
+                                                           value="1"
+                                                           {% if recinto.activa %}checked{% endif %}>
+                                                    <label class="form-check-label" for="activa{{ recinto.id_recinto }}">
+                                                        Recinto activo
+                                                    </label>
+                                                </div>
+                                            
+                                            </div>
+                                            <div class="alert alert-info mb-0">
+                                                <small>
+                                                    <i class="bi bi-info-circle"></i> 
+                                                    <strong>Superficie:</strong> {{ "%.2f"|format(recinto.superficie_ha) }} ha
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                                <i class="bi bi-x-lg"></i> Cancelar
+                                            </button>
+                                            <button type="submit" class="btn btn-warning">
+                                                <i class="bi bi-save"></i> Guardar cambios
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
                         {% endfor %}
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -98,11 +194,10 @@
             {% if solicitudes %}
             <div class="alert alert-secondary mb-3">
                 <strong>Total de solicitudes:</strong> {{ solicitudes|length }}
-                {% set pendientes = solicitudes|selectattr('estado', 'equalto', 'pendiente')|list|length %}
                 {% set aprobadas = solicitudes|selectattr('estado', 'equalto', 'aprobada')|list|length %}
                 {% set rechazadas = solicitudes|selectattr('estado', 'equalto', 'rechazada')|list|length %}
-                {% if pendientes > 0 %}
-                | <span class="text-warning"><strong>Pendientes:</strong> {{ pendientes }}</span>
+                {% if solicitudes_pendientes > 0 %}
+                | <span class="text-warning"><strong>Pendientes:</strong> {{ solicitudes_pendientes }}</span>
                 {% endif %}
                 {% if aprobadas > 0 %}
                 | <span class="text-success"><strong>Aprobadas:</strong> {{ aprobadas }}</span>
@@ -113,7 +208,7 @@
             </div>
 
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
+                <table id="tablaSolicitudes" class="table table-striped table-hover">
                     <thead class="table-dark">
                         <tr>
                             <th>Recinto</th>
@@ -208,4 +303,26 @@
 
     </div>
 </div>
+
+{% block extra_js %}
+<script>
+  $(document).ready(function () {
+      // DataTable para recintos
+      $('#tablaRecintos').DataTable({
+          language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+          pageLength: 25,
+          responsive: true,
+          order: [[0, 'asc']]
+      });
+
+      // DataTable para solicitudes
+      $('#tablaSolicitudes').DataTable({
+          language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+          pageLength: 25,
+          responsive: true,
+          order: [[5, 'desc']]
+      });
+  });
+</script>
+{% endblock %}
 {% endblock %}

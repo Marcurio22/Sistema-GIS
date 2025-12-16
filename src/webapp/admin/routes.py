@@ -6,7 +6,7 @@ from .. import db
 from ..models import User, Recinto, Solicitudrecinto
 from datetime import datetime, timezone
 import logging
-
+from ..utils.utils import normalizar_telefono_es
 
 logger = logging.getLogger('app.admin')
 logger.setLevel(logging.INFO)
@@ -182,26 +182,88 @@ def rechazar_solicitud_recinto(id_solicitud):
 @admin_bp.route('/editar_usuario', methods=['POST'])
 @login_required
 def editar_usuario():
-    # Obtener datos del formulario
-    id_usuario = request.form.get('id_usuario')
-    username = request.form.get('username')
-    email = request.form.get('email')
-    telefono = request.form.get('telefono')
-    rol = request.form.get('rol')
-    activo = 'activo' in request.form  # Checkbox devuelve 'on' si está marcado
-
-    # Buscar el usuario
-    usuario = User.query.get_or_404(id_usuario)
-
-    # Actualizar campos
-    usuario.username = username
-    usuario.email = email
-    usuario.telefono = telefono
-    usuario.rol = rol
-    usuario.activo = activo
-
-    # Guardar cambios
-    db.session.commit()
-
-    flash('Usuario actualizado correctamente', 'success')
+    try:
+        # Obtener datos del formulario
+        id_usuario = request.form.get('id_usuario')
+        nuevo_username = request.form.get('username', '').strip()
+        nuevo_email = request.form.get('email', '').strip()
+        nuevo_telefono = request.form.get('telefono', '').strip()
+        nuevo_rol = request.form.get('rol')
+        nuevo_activo = 'activo' in request.form
+        
+        # Buscar el usuario
+        usuario = User.query.get_or_404(id_usuario)
+        
+        # Validaciones básicas
+        if not nuevo_username or not nuevo_email:
+            flash('El nombre de usuario y el correo son obligatorios', 'danger')
+            return redirect(url_for('admin.gestion_usuarios'))
+        
+        # Verificar si el username ya existe (excepto el del usuario actual)
+        if nuevo_username != usuario.username:
+            usuario_existente = User.query.filter_by(username=nuevo_username).first()
+            if usuario_existente:
+                flash('El nombre de usuario ya está en uso', 'danger')
+                return redirect(url_for('admin.gestion_usuarios'))
+        
+        # Verificar si el email ya existe (excepto el del usuario actual)
+        if nuevo_email != usuario.email:
+            email_existente = User.query.filter_by(email=nuevo_email).first()
+            if email_existente:
+                flash('El correo electrónico ya está en uso', 'danger')
+                return redirect(url_for('admin.gestion_usuarios'))
+        
+        # Validar y normalizar teléfono
+        telefono_normalizado = None
+        if nuevo_telefono:
+            try:
+                telefono_normalizado = normalizar_telefono_es(nuevo_telefono)
+            except ValueError as e:
+                flash(str(e), 'danger')
+                logger.warning(
+                    f'Formato de teléfono inválido en edición de usuario: {nuevo_telefono}',
+                    extra={'tipo_operacion': 'EDICION_USUARIO', 'modulo': 'ADMIN'}
+                )
+                return redirect(url_for('admin.gestion_usuarios'))
+        
+        # Actualizar los datos del usuario
+        usuario.username = nuevo_username
+        usuario.email = nuevo_email
+        usuario.telefono = telefono_normalizado
+        usuario.rol = nuevo_rol
+        usuario.activo = nuevo_activo
+        
+        # Guardar cambios en la base de datos
+        db.session.commit()
+        
+        # Registrar el cambio en logs
+        logger.info(
+            f'Administrador editó el usuario {usuario.username} (ID: {id_usuario})',
+            extra={'tipo_operacion': 'EDICION_USUARIO', 'modulo': 'ADMIN'}
+        )
+        
+        flash('Usuario actualizado correctamente', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(
+            f'Error al actualizar usuario: {str(e)}',
+            extra={'tipo_operacion': 'EDICION_USUARIO', 'modulo': 'ADMIN'}
+        )
+        flash('Error al actualizar el usuario', 'danger')
+    
     return redirect(url_for('admin.gestion_usuarios'))
+
+@admin_bp.route('/recintos/<int:id_recinto>/editar', methods=['POST'])
+@login_required
+@admin_required
+def editar_recinto_admin(id_recinto):
+    recinto = Recinto.query.get_or_404(id_recinto)
+
+    recinto.nombre = request.form.get('nombre')
+    recinto.activa = 'activa' in request.form
+
+    db.session.commit()
+    flash('Recinto actualizado correctamente', 'success')
+
+    return redirect(url_for('admin.gestion_recintos'))
