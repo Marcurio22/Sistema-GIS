@@ -56,7 +56,7 @@ endblock %} {% block content %}
           </td>
           <td>
             <a href="{{ url_for('dashboard.visor', recinto_id=recinto.id_recinto) }}" class="btn btn-sm btn-info"
-              target="_blank" onclick="event.stopPropagation();">
+               onclick="event.stopPropagation();">
               <i class="bi bi-map"></i> Ver
             </a>
 
@@ -124,7 +124,7 @@ endblock %} {% block content %}
             {% if s.estado == 'pendiente' %}
             {% if s.recinto %}
             <a href="{{ url_for('dashboard.visor', recinto_id=s.recinto.id_recinto) }}" class="btn btn-sm btn-info me-1"
-              target="_blank" title="Ver recinto en el mapa">
+              title="Ver recinto en el mapa">
               <i class="bi bi-map"></i> Ver Recinto
             </a>
             {% else %}

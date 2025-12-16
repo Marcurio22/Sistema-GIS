@@ -73,7 +73,7 @@
                             </td>
                             <td>
                                 <a href="{{ url_for('dashboard.visor', recinto_id=recinto.id_recinto) }}"
-                                    class="btn btn-sm btn-info" target="_blank" title="Ver en el mapa">
+                                    class="btn btn-sm btn-info"  title="Ver en el mapa">
                                     <i class="bi bi-map"></i> Ver
                                 </a>
                                 <a class="btn btn-sm btn-warning">
@@ -155,7 +155,7 @@
                             <td>{{ solicitud.fecha_solicitud.strftime('%d/%m/%Y %H:%M') }}</td>
                             <td>
                                 <a href="{{ url_for('dashboard.visor', recinto_id=solicitud.recinto.id_recinto) }}"
-                                    class="btn btn-sm btn-info" target="_blank" title="Ver en el mapa">
+                                    class="btn btn-sm btn-info" title="Ver en el mapa">
                                     <i class="bi bi-map"></i> Ver
                                 </a>
                                 {% if solicitud.estado == 'rechazada' and solicitud.motivo_rechazo %}
