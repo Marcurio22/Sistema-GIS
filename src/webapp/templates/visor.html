@@ -109,6 +109,7 @@
     bottom: 0;
     z-index: 1;
   }
+  
 
   /* ---------- Contenedores de botones ---------- */
   #basemap-panel-container,
@@ -567,6 +568,95 @@
     opacity: 0.9;
     transform: scale(1.05);
   }
+
+  /* ================================
+   MODO SPLIT (panel derecho vacío)
+   ================================ */
+
+  /* ancho del panel derecho (lo que queda en blanco) */
+  :root {
+    --side-panel-w: 0px; /* normal */
+  }
+
+  /* cuando está activo el split */
+  body.split-mode {
+    --side-panel-w: 40vw; /* deja el mapa en ~60% (3/5) */
+  }
+
+  /* El mapa deja hueco a la derecha */
+  body.split-mode #map {
+    right: var(--side-panel-w);
+    transition: right 0.25s ease-out;
+  }
+  #map { transition: right 0.25s ease-out; }
+
+  /* Todos los flotantes “pegados a la derecha del mapa” se mueven a la izquierda */
+  body.split-mode #basemap-panel-container,
+  body.split-mode #filtro-container,
+  body.split-mode #editar-container,
+  body.split-mode #basemap-panel {
+    right: calc(20px + var(--side-panel-w));
+    transition: right 0.25s ease-out;
+  }
+
+  /* En móvil, NO hacemos split (ocupa todo) */
+  @media (max-width: 576px) {
+    body.split-mode {
+      --side-panel-w: 0px;
+    }
+    body.split-mode #basemap-panel-container,
+    body.split-mode #filtro-container,
+    body.split-mode #editar-container,
+    body.split-mode #basemap-panel {
+      right: 10px;
+    }
+  }
+
+  /* ================================
+   PANEL DERECHO (split)
+  ================================ */
+
+  #side-panel {
+    position: fixed;
+    top: 65px; /* debajo de la barra verde */
+    right: 0;
+    bottom: 0;
+    width: 40vw;
+    background: #ffffff;
+    z-index: 900;
+    display: none;
+  }
+
+  /* Visible solo en split */
+  body.split-mode #side-panel {
+    display: block;
+  }
+
+  /* Botón cerrar */
+  #close-split {
+    position: absolute;
+    top: 14px;
+    right: 18px;
+    border: none;
+    background: transparent;
+    font-size: 22px;
+    font-weight: 600;
+    cursor: pointer;
+    color: #000;
+    transition: color 0.15s ease, transform 0.15s ease;
+  }
+
+  #close-split:hover {
+    color: #dc3545;
+    transform: scale(1.15);
+  }
+
+/* Ajuste correcto bajo la navbar SOLO en split */
+  body.split-mode #map,
+  body.split-mode #side-panel {
+    top: var(--navbar-h, 65px);
+  }
+
 </style>
 
 <div id="map"></div>
@@ -655,6 +745,13 @@
   </button>
   <button id="cancelar-btn" class="hidden" title="Cancelar">
     <i class="bi bi-x-lg"></i>
+  </button>
+</div>
+
+<!-- Panel derecho (vacío por ahora) -->
+<div id="side-panel">
+  <button id="close-split" title="Cerrar">
+    &times;
   </button>
 </div>
 
@@ -748,6 +845,21 @@
       return div.innerHTML;
     }
   };
+
+  // Función para establecer la variable CSS con la altura de la navbar
+  function setNavbarHeightVar() {
+    const navbar = document.querySelector("nav");
+    if (!navbar) return;
+    const h = navbar.getBoundingClientRect().height;
+    document.documentElement.style.setProperty("--navbar-h", `${h}px`);
+  }
+
+  // calcular al cargar
+  setNavbarHeightVar();
+
+  // recalcular por si cambia (responsive)
+  window.addEventListener("resize", setNavbarHeightVar);
+
   document.addEventListener("DOMContentLoaded", function () {
 
   const CURRENT_USER_ID = {{ current_user.id_usuario if current_user.is_authenticated else 'null' }};
@@ -790,6 +902,26 @@
 
   map.createPane('highlightPane');
   map.getPane('highlightPane').style.zIndex = 650;
+
+  // --- Modo split (panel derecho vacío) ---
+  let splitOpen = false;
+
+  function setSplitMode(on) {
+    splitOpen = !!on;
+    document.body.classList.toggle("split-mode", splitOpen);
+
+    // Leaflet necesita recalcular tamaño tras cambiar el ancho
+    setTimeout(() => {
+      try { map.invalidateSize(); } catch (e) {}
+    }, 280);
+  }
+
+  const closeSplitBtn = document.getElementById("close-split");
+  if (closeSplitBtn) {
+    closeSplitBtn.addEventListener("click", () => {
+      setSplitMode(false);
+    });
+  }
 
   // -----------------------------------------
   // 3) Capas base
@@ -931,6 +1063,17 @@
   const misRecintosLayer = L.geoJSON(null, {
     pane: 'misPane',
     style: () => MIS_RECINTO_STYLE,
+    onEachFeature: function (feature, layer) {
+      layer.on("click", function (e) {
+        // IMPORTANTÍSIMO: evita que el click burbujee al mapa
+        L.DomEvent.stop(e);
+
+        // Debug opcional (para verificar que entra aquí)
+        console.log("✅ Click en MIS recintos:", feature?.properties?.id_recinto);
+
+        setSplitMode(true);
+      });
+    }
   }).addTo(map);
 
   // Mis IDs para evitar duplicados
@@ -1220,7 +1363,6 @@
   // ============================================
   // CENTRAR EN RECINTO ESPECÍFICO
   // ============================================
-  // Agregar esto al final del script, DENTRO del DOMContentLoaded, antes del último });
 
   // Recibir datos del recinto específico desde Flask
   const recintoData = {{ recinto_data| tojson | safe if recinto_data else 'null' }};
