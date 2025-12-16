@@ -243,6 +243,7 @@
     height: 115px;
     border-radius: 12px;
     border: 3px solid transparent;
+    position: relative;
     overflow: hidden;
     background-size: cover;
     background-position: center;
@@ -278,6 +279,14 @@
 
   .basemap-option.active .basemap-thumb {
     border-color: #198754;
+    border-width: 5px;
+    box-shadow: 0 0 0 4px rgba(25, 135, 84, .25), 0 10px 22px rgba(0, 0, 0, .30);
+    transform: translateY(-2px) scale(1.02);
+  }
+
+  .basemap-option.active .basemap-option-label {
+    color: #198754;
+    font-weight: 700;
   }
 
   .basemap-option.disabled {
@@ -741,18 +750,18 @@
   };
   document.addEventListener("DOMContentLoaded", function () {
 
-    const CURRENT_USER_ID = {{ current_user.id_usuario if current_user.is_authenticated else 'null' }};
-    NotificationSystem.init();
+  const CURRENT_USER_ID = {{ current_user.id_usuario if current_user.is_authenticated else 'null' }};
+  NotificationSystem.init();
 
-    // -----------------------------------------
-    // 1) ROI desde Flask
-    // -----------------------------------------
-    const roiBbox = [
-      {{ roi_bbox[0] }},
+  // -----------------------------------------
+  // 1) ROI desde Flask
+  // -----------------------------------------
+  const roiBbox = [
+    {{ roi_bbox[0] }},
     {{ roi_bbox[1] }},
     {{ roi_bbox[2] }},
     {{ roi_bbox[3] }}
-    ];
+  ];
 
   const ROI_BOUNDS = L.latLngBounds(
     [roiBbox[1], roiBbox[0]],
@@ -1224,7 +1233,7 @@
     if (recintoResaltado) {
       try {
         map.removeLayer(recintoResaltado); // Quita la capa roja
-      } catch (e) {}
+      } catch (e) { }
       recintoResaltado = null;
     }
   }
@@ -1293,7 +1302,7 @@
           selectedRecintoLayer = targetLayer;
           targetLayer.setStyle(RECINTO_STYLE_SELECTED);
           targetLayer.openPopup();
-        }      
+        }
       }
 
       // Guardar la clave del recinto rojo
@@ -1352,7 +1361,7 @@
       // Cerrar popup al hacer clic en el recinto rojo
       recintoResaltado.eachLayer((lyr) => {
         lyr.on('click', () => {
-          try { lyr.closePopup(); } catch (e) {}
+          try { lyr.closePopup(); } catch (e) { }
         });
       });
 
