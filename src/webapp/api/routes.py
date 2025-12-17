@@ -14,7 +14,7 @@ from .. import db
 from ..models import Recinto, Solicitudrecinto
 
 from . import api_bp
-from .services import recintos_geojson, mis_recintos_geojson
+from .services import recintos_geojson, mis_recintos_geojson, mis_recinto_detalle
 
 
 
@@ -139,3 +139,14 @@ def crear_solicitud_recinto():
     db.session.commit()
 
     return jsonify({"ok": True})
+
+@api_bp.get("/mis-recinto/<int:recinto_id>")
+@login_required
+def mi_recinto_detalle(recinto_id: int):
+    try:
+        data = mis_recinto_detalle(recinto_id, current_user.id_usuario)
+        if not data:
+            return jsonify({"error": "Recinto no encontrado"}), 404
+        return jsonify(data)
+    except Exception:
+        return jsonify({"error": "Error interno en /api/mis-recinto"}), 500

@@ -570,91 +570,191 @@
   }
 
   /* ================================
-   MODO SPLIT (panel derecho vacío)
-   ================================ */
+   PANEL DERECHO (split)
+  ================================ */
 
-  /* ancho del panel derecho (lo que queda en blanco) */
-  :root {
-    --side-panel-w: 0px; /* normal */
+/* Ajuste correcto bajo la navbar SOLO en split */
+  :root{
+    --navbar-h: 65px;      /* fallback seguro */
+    --side-panel-w: 0px;
   }
 
-  /* cuando está activo el split */
-  body.split-mode {
-    --side-panel-w: 40vw; /* deja el mapa en ~60% (3/5) */
+  body.split-mode{
+    --side-panel-w: 40vw;
   }
 
-  /* El mapa deja hueco a la derecha */
-  body.split-mode #map {
+  /* En split, el mapa deja hueco a la derecha y además respeta la navbar real */
+  body.split-mode #map{
+    top: var(--navbar-h);
     right: var(--side-panel-w);
-    transition: right 0.25s ease-out;
+    transition: right .25s ease-out, top .25s ease-out;
   }
-  #map { transition: right 0.25s ease-out; }
 
-  /* Todos los flotantes “pegados a la derecha del mapa” se mueven a la izquierda */
+  /* En normal, mantén tu top original (65px) */
+  #map{
+    top: 65px;
+    transition: right .25s ease-out, top .25s ease-out;
+  }
+
+  /* Flotantes: siguen “pegados al mapa” a la derecha */
   body.split-mode #basemap-panel-container,
   body.split-mode #filtro-container,
   body.split-mode #editar-container,
-  body.split-mode #basemap-panel {
+  body.split-mode #basemap-panel{
     right: calc(20px + var(--side-panel-w));
-    transition: right 0.25s ease-out;
+    transition: right .25s ease-out;
   }
 
-  /* En móvil, NO hacemos split (ocupa todo) */
-  @media (max-width: 576px) {
-    body.split-mode {
-      --side-panel-w: 0px;
-    }
+  /* Móvil: sin split */
+  @media (max-width: 576px){
+    body.split-mode{ --side-panel-w: 0px; }
+    body.split-mode #map{ right: 0px; }
     body.split-mode #basemap-panel-container,
     body.split-mode #filtro-container,
     body.split-mode #editar-container,
-    body.split-mode #basemap-panel {
+    body.split-mode #basemap-panel{
       right: 10px;
     }
   }
 
-  /* ================================
-   PANEL DERECHO (split)
-  ================================ */
-
-  #side-panel {
+  /* SPLIT: estilos del panel derecho */
+  /* Panel derecho */
+  #side-panel{
     position: fixed;
-    top: 65px; /* debajo de la barra verde */
+    top: 65px;           /* igual que el mapa */
     right: 0;
     bottom: 0;
-    width: 40vw;
-    background: #ffffff;
-    z-index: 900;
+    width: var(--side-panel-w);
+    background: #fff;
+    z-index: 950;        /* por encima del mapa */
     display: none;
+    overflow: auto;
   }
 
-  /* Visible solo en split */
-  body.split-mode #side-panel {
+  body.split-mode #side-panel{
     display: block;
   }
 
-  /* Botón cerrar */
-  #close-split {
+  /* Botón X */
+  #side-close{
     position: absolute;
-    top: 14px;
-    right: 18px;
+    top: 10px;
+    right: 12px;
     border: none;
     background: transparent;
-    font-size: 22px;
-    font-weight: 600;
+    color: #111;
+    font-size: 34px;
+    line-height: 1;
     cursor: pointer;
-    color: #000;
-    transition: color 0.15s ease, transform 0.15s ease;
+    padding: 6px 10px;
+    z-index: 2000;     /* Por encima de todo dentro del panel */
   }
 
-  #close-split:hover {
-    color: #dc3545;
-    transform: scale(1.15);
+  #side-close:hover{ 
+    color: #dc3545; 
   }
 
-/* Ajuste correcto bajo la navbar SOLO en split */
-  body.split-mode #map,
-  body.split-mode #side-panel {
-    top: var(--navbar-h, 65px);
+  /* Contenido */
+  .side-content{
+    padding: 22px 22px 26px;
+  }
+
+  .side-header{
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end; /* acciones a la derecha */
+    min-height: 52px;
+    padding-right: 44px; /* aire para que no choque con la X */
+  }
+
+  #side-title{
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    text-align: center;
+    max-width: calc(100% - 160px); /* evita pisar acciones */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .side-actions{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+  }
+
+  .icon-btn{
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    padding: 6px;
+  }
+
+  .icon-btn.edit{ color: #198754; }
+  .icon-btn.delete{ color: #dc3545; }
+
+  .side-divider{
+    height: 2px;
+    background: #111;
+    opacity: .25;
+    margin: 14px 0 18px;
+    width: 100%;
+  }
+
+  .side-row{
+    display:flex;
+    gap: 12px;
+    align-items:flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(0,0,0,.12);
+  }
+
+  .side-ico{
+    font-size: 22px;
+    color: #198754;
+    margin-top: 2px;
+  }
+
+  .side-line{
+    display:flex;
+    align-items:baseline;
+    gap: 10px;
+  }
+
+  .side-row-title{
+    font-weight: 700;
+    font-size: 20px;
+  }
+
+  .side-row-value{
+    font-size: 20px;
+    opacity: .85;
+  }
+
+  .side-row-text{
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  /* Toggle */
+  .side-toggle{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    margin-top: 16px;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .side-toggle input{
+    width: 18px;
+    height: 18px;
   }
 
 </style>
@@ -727,6 +827,7 @@
   </button>
 </div>
 
+<!-- Botón de dibujar -->
 <div id="editar-container">
   <button id="dibujar-btn" class="hidden" title="Dibujar Rectángulo">
     <i class="bi bi-square"></i>
@@ -748,12 +849,56 @@
   </button>
 </div>
 
-<!-- Panel derecho (vacío por ahora) -->
-<div id="side-panel">
-  <button id="close-split" title="Cerrar">
-    &times;
-  </button>
-</div>
+<!-- Panel derecho (split) -->
+<aside id="side-panel" aria-hidden="true">
+  <button id="side-close" type="button" title="Cerrar">×</button>
+
+  <div class="side-content">
+    <div class="side-header">
+      <h1 id="side-title">Nombre Parcela</h1>
+
+      <div class="side-actions">
+        <button id="btn-edit-name" type="button" class="icon-btn edit" title="Editar nombre">
+          <i class="bi bi-pencil-fill"></i>
+        </button>
+        <button id="btn-delete-recinto" type="button" class="icon-btn delete" title="Eliminar recinto">
+          <i class="bi bi-trash-fill"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="side-divider"></div>
+
+  <div class="side-row">
+    <i class="bi bi-globe2 side-ico"></i>
+    <div class="side-line">
+      <span class="side-row-title">Superficie:</span>
+      <span id="side-area" class="side-row-value">-</span>
+    </div>
+  </div>
+
+    <div class="side-row">
+      <i class="bi bi-person-fill side-ico"></i>
+      <div class="side-row-text">
+        <div class="side-row-title">Propietario:</div>
+        <div id="side-owner" class="side-row-value">-</div>
+      </div>
+    </div>
+
+    <div class="side-row">
+      <i class="bi bi-clock-fill side-ico"></i>
+      <div class="side-row-text">
+        <div class="side-row-title">Fecha de creación:</div>
+        <div id="side-created" class="side-row-value">-</div>
+      </div>
+    </div>
+
+    <label class="side-toggle">
+      <input id="side-active" type="checkbox" checked />
+      <span>Recinto activo</span>
+    </label>
+  </div>
+</aside>
 
 <script>
   const NotificationSystem = {
@@ -908,20 +1053,88 @@
 
   function setSplitMode(on) {
     splitOpen = !!on;
+
+    if (splitOpen) {
+      setNavbarHeightVar(); // ✅ calcula SOLO al abrir split
+    }
+
     document.body.classList.toggle("split-mode", splitOpen);
 
-    // Leaflet necesita recalcular tamaño tras cambiar el ancho
     setTimeout(() => {
       try { map.invalidateSize(); } catch (e) {}
     }, 280);
   }
 
-  const closeSplitBtn = document.getElementById("close-split");
-  if (closeSplitBtn) {
-    closeSplitBtn.addEventListener("click", () => {
+  window.addEventListener('resize', () => {
+    if (splitOpen) {
+      setNavbarHeightVar();
+      try { map.invalidateSize(); } catch (e) {}
+    }
+  });
+
+  // Cerrar split
+  const sideCloseBtn = document.getElementById("side-close");
+  if (sideCloseBtn) {
+    sideCloseBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       setSplitMode(false);
     });
   }
+
+  function safeText(v, fallback = "-") {
+    if (v === null || v === undefined) return fallback;
+    const s = String(v).trim();
+    return s === "" ? fallback : s;
+  }
+
+  function parseBool(v, def = true) {
+    if (v === undefined || v === null) return def;
+    if (typeof v === "boolean") return v;
+    if (typeof v === "number") return v !== 0;
+    const s = String(v).toLowerCase().trim();
+    if (["t","true","1","yes","y","si","sí"].includes(s)) return true;
+    if (["f","false","0","no","n"].includes(s)) return false;
+    return def;
+  }
+
+  function formatAreaHa(p) {
+    const a = p.superficie_ha ?? p.superficie ?? p.area_ha ?? p.area ?? null;
+    if (a === null || a === undefined || a === "") return "-";
+    const n = Number(a);
+    if (!Number.isFinite(n)) return safeText(a);
+    return `${n.toFixed(2).replace(".", ",")} ha`;
+  }
+
+  function formatDateValue(v) {
+    if (!v) return "-";
+    const d = new Date(v);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleString("es-ES", {
+        day: "2-digit", month: "2-digit", year: "2-digit",
+        hour: "2-digit", minute: "2-digit"
+      });
+    }
+    return safeText(v);
+  }
+
+  function renderSidePanelFromProps(p) {
+    document.getElementById("side-title").textContent = safeText(p.nombre, "Recinto");
+    document.getElementById("side-area").textContent = (p.superficie_ha == null)
+      ? "-"
+      : `${Number(p.superficie_ha).toFixed(2).replace(".", ",")} ha`;
+    document.getElementById("side-owner").textContent = safeText(p.propietario, "N/A");
+    document.getElementById("side-created").textContent = safeText(p.fecha_creacion, "-");
+    document.getElementById("side-active").checked = (p.activa == null) ? true : !!p.activa;
+  }
+
+    // CHECKBOX activo (solo UI, sin backend aún)
+    const sideActive = document.getElementById("side-active");
+    if (sideActive) {
+      sideActive.addEventListener("change", () => {
+        // Aquí luego haremos el POST al backend cuando toque.
+      });
+    }
 
   // -----------------------------------------
   // 3) Capas base
@@ -1060,22 +1273,76 @@
     fillOpacity: 0.22,
   };
 
+  function setNavbarHeightVar() {
+    // buscamos una navbar "real" (sticky/fixed)
+    const candidates = [
+      'nav.navbar.fixed-top',
+      'nav.navbar.sticky-top',
+      '.navbar.fixed-top',
+      '.navbar.sticky-top',
+      'header.fixed-top',
+      'header.sticky-top',
+      'nav'
+    ];
+
+    let el = null;
+    for (const sel of candidates) {
+      const found = document.querySelector(sel);
+      if (!found) continue;
+
+      const cs = window.getComputedStyle(found);
+      const pos = cs.position;
+      // solo nos vale si realmente está fija o sticky
+      if (pos === 'fixed' || pos === 'sticky') {
+        el = found;
+        break;
+      }
+    }
+
+    let h = 65; // fallback
+    if (el) {
+      // bottom es mejor que height porque incluye padding/border y evita cosas raras
+      const rect = el.getBoundingClientRect();
+      h = Math.round(rect.bottom);
+    }
+
+    // clamp: si sale algo absurdo, volvemos al fallback
+    if (h < 40 || h > 120) h = 65;
+
+    document.documentElement.style.setProperty('--navbar-h', `${h}px`);
+  }
+
   const misRecintosLayer = L.geoJSON(null, {
     pane: 'misPane',
     style: () => MIS_RECINTO_STYLE,
     onEachFeature: function (feature, layer) {
-      layer.on("click", function (e) {
-        // IMPORTANTÍSIMO: evita que el click burbujee al mapa
-        L.DomEvent.stop(e);
+      layer.on("click", async function (e) {
+        try { L.DomEvent.stop(e); } catch (_) {}
 
-        // Debug opcional (para verificar que entra aquí)
-        console.log("✅ Click en MIS recintos:", feature?.properties?.id_recinto);
+        const id = feature?.properties?.id_recinto;
+        if (!id) return;
 
-        setSplitMode(true);
+        try {
+          const r = await fetch(`/api/mis-recinto/${id}`);
+          if (!r.ok) throw new Error("No se pudo cargar detalle del recinto");
+          const data = await r.json();
+
+          // 1) abre split
+          setSplitMode(true);
+
+          // 2) pinta panel con campos BBDD reales
+          renderSidePanelFromProps(data);
+
+          // 3) si quieres reutilizar el “rojo” y el zoom, usa los mismos datos
+          centrarEnRecinto(data);
+
+        } catch (err) {
+          console.error(err);
+        }
       });
     }
   }).addTo(map);
-
+    
   // Mis IDs para evitar duplicados
   const MIS_IDS = new Set();
 

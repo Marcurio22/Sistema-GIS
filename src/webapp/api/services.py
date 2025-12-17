@@ -4,6 +4,7 @@ from flask import current_app
 from sqlalchemy import text
 from .. import db
 import requests
+import json
 
 
 def recintos_geojson(bbox_str: str | None) -> dict:
@@ -121,3 +122,47 @@ def mis_recintos_geojson(bbox: str | None, user_id: int):
         })
 
     return {"type": "FeatureCollection", "features": features}
+
+def mis_recinto_detalle(id_recinto: int, user_id: int) -> dict:
+    """
+    Devuelve los datos completos de UN recinto del usuario, con geojson.
+    """
+    sql = text("""
+        SELECT
+            r.id_recinto,
+            r.nombre,
+            r.superficie_ha,
+            r.fecha_creacion,
+            r.activa,
+            r.provincia, r.municipio, r.agregado, r.zona,
+            r.poligono, r.parcela, r.recinto,
+            COALESCE(u.username, 'N/A') AS propietario,
+            ST_AsGeoJSON(r.geom)::json AS geom_json
+        FROM public.recintos r
+        LEFT JOIN public.usuarios u ON u.id_usuario = r.id_propietario
+        WHERE r.id_recinto = :rid
+          AND r.id_propietario = :uid
+        LIMIT 1
+    """)
+
+    row = db.session.execute(sql, {"rid": id_recinto, "uid": user_id}).mappings().first()
+    if not row:
+        return None
+
+    return {
+        "id": row["id_recinto"],
+        "provincia": row["provincia"],
+        "municipio": row["municipio"],
+        "agregado": row["agregado"],
+        "zona": row["zona"],
+        "poligono": row["poligono"],
+        "parcela": row["parcela"],
+        "recinto": row["recinto"],
+        "nombre": row["nombre"],
+        "superficie_ha": float(row["superficie_ha"]) if row["superficie_ha"] is not None else None,
+        "fecha_creacion": row["fecha_creacion"].isoformat() if row["fecha_creacion"] else None,
+        "activa": bool(row["activa"]) if row["activa"] is not None else True,
+        "propietario": row["propietario"],
+        "geojson": json.dumps(row["geom_json"])
+    }
+
