@@ -640,18 +640,30 @@
     position: absolute;
     top: 10px;
     right: 12px;
-    border: none;
-    background: transparent;
+
+    width: 40px;
+    height: 40px;
+
+    border: 1px solid rgba(0,0,0,.2);
+    border-radius: 8px;
+    background: #fff;
     color: #111;
-    font-size: 34px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 0;
     line-height: 1;
+    font-size: 26px;
+
     cursor: pointer;
-    padding: 6px 10px;
-    z-index: 2000;     /* Por encima de todo dentro del panel */
+    z-index: 2000;
   }
 
-  #side-close:hover{ 
-    color: #dc3545; 
+  #side-close:hover{
+    background: #f8f9fa;
+    border-color: #dc3545;
   }
 
   /* Contenido */
@@ -674,10 +686,16 @@
     transform: translateX(-50%);
     margin: 0;
     text-align: center;
-    max-width: calc(100% - 160px); /* evita pisar acciones */
+    max-width: calc(100% - 160px);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  #side-title[contenteditable="true"]{
+    outline: 2px solid #0d6efd;
+    border-radius: 4px;
+    padding: 4px 8px;
   }
 
   .side-actions{
@@ -898,6 +916,7 @@
       <span>Recinto activo</span>
     </label>
   </div>
+  <div id="side-alerts"></div>
 </aside>
 
 <script>
@@ -1005,6 +1024,9 @@
   // recalcular por si cambia (responsive)
   window.addEventListener("resize", setNavbarHeightVar);
 
+  // -----------------------------------------
+  // DOM Content Loaded
+  // -----------------------------------------
   document.addEventListener("DOMContentLoaded", function () {
 
   const CURRENT_USER_ID = {{ current_user.id_usuario if current_user.is_authenticated else 'null' }};
@@ -1082,6 +1104,85 @@
     });
   }
 
+  // ============================
+  // EDITAR NOMBRE (lápiz)
+  // Enter o blur => guardar
+  // Escape => cancelar
+  // ============================
+
+  let currentSideRecintoId = null;
+  let originalTitleText = "";
+
+  const btnEdit = document.getElementById("btn-edit-name");
+  const titleEl = document.getElementById("side-title");
+
+  if (btnEdit && titleEl) {
+
+    btnEdit.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!currentSideRecintoId) {
+        console.warn("No hay currentSideRecintoId");
+        return;
+      }
+
+      originalTitleText = titleEl.textContent.trim();
+      titleEl.setAttribute("contenteditable", "true");
+      titleEl.focus();
+
+      // Seleccionar todo el texto
+      const range = document.createRange();
+      range.selectNodeContents(titleEl);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+
+    titleEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        titleEl.blur();
+      }
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        titleEl.textContent = originalTitleText;
+        titleEl.removeAttribute("contenteditable");
+      }
+    });
+
+    titleEl.addEventListener("blur", async () => {
+      titleEl.removeAttribute("contenteditable");
+
+      const nuevoNombre = titleEl.textContent.trim();
+
+      if (!nuevoNombre || nuevoNombre === originalTitleText) {
+        titleEl.textContent = originalTitleText;
+        return;
+      }
+
+      try {
+        const r = await fetch(
+          `/api/mis-recinto/${currentSideRecintoId}/nombre`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nombre: nuevoNombre })
+          }
+        );
+
+        if (!r.ok) throw new Error();
+
+      } catch (err) {
+        console.error(err);
+        titleEl.textContent = originalTitleText;
+        mostrarErrorInline("No se pudo guardar el nombre");
+      }
+    });
+
+  }
+
   function safeText(v, fallback = "-") {
     if (v === null || v === undefined) return fallback;
     const s = String(v).trim();
@@ -1109,32 +1210,89 @@
   function formatDateValue(v) {
     if (!v) return "-";
     const d = new Date(v);
-    if (!Number.isNaN(d.getTime())) {
-      return d.toLocaleString("es-ES", {
-        day: "2-digit", month: "2-digit", year: "2-digit",
-        hour: "2-digit", minute: "2-digit"
-      });
-    }
-    return safeText(v);
+    if (Number.isNaN(d.getTime())) return safeText(v);
+
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = String(d.getFullYear());
+    const hh = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
   }
 
   function renderSidePanelFromProps(p) {
+    currentSideRecintoId = p.id || p.id_recinto;
     document.getElementById("side-title").textContent = safeText(p.nombre, "Recinto");
     document.getElementById("side-area").textContent = (p.superficie_ha == null)
       ? "-"
       : `${Number(p.superficie_ha).toFixed(2).replace(".", ",")} ha`;
     document.getElementById("side-owner").textContent = safeText(p.propietario, "N/A");
-    document.getElementById("side-created").textContent = safeText(p.fecha_creacion, "-");
+    document.getElementById("side-created").textContent = formatDateValue(p.fecha_creacion);
     document.getElementById("side-active").checked = (p.activa == null) ? true : !!p.activa;
   }
 
-    // CHECKBOX activo (solo UI, sin backend aún)
+  async function guardarNombreRecinto(nombre) {
+    if (!currentSideRecintoId) return;
+
+    try {
+      const r = await fetch(
+        `/api/mis-recinto/${currentSideRecintoId}/nombre`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre })
+        }
+      );
+
+      if (!r.ok) throw new Error();
+    } catch (e) {
+      mostrarErrorInline("No se pudo guardar el nombre");
+    }
+  }
+
+
+    // CHECKBOX activo
     const sideActive = document.getElementById("side-active");
     if (sideActive) {
-      sideActive.addEventListener("change", () => {
-        // Aquí luego haremos el POST al backend cuando toque.
+      sideActive.addEventListener("change", async () => {
+        if (!currentSideRecintoId) return;
+
+        const prev = !sideActive.checked; // estado anterior
+        const next = sideActive.checked;
+
+        sideActive.disabled = true;
+
+        try {
+          const r = await fetch(`/api/mis-recinto/${currentSideRecintoId}/activa`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ activa: next }),
+          });
+
+          const resp = await r.json().catch(() => ({}));
+          if (!r.ok || !resp.ok) {
+            throw new Error(resp.error || "No se pudo actualizar 'activa'");
+          }
+
+          // asegurar checkbox según backend
+          sideActive.checked = !!resp.activa;
+
+        } catch (err) {
+          console.error(err);
+          // revertir si falla
+          sideActive.checked = prev;
+
+          NotificationSystem.show({
+            type: "error",
+            title: "No se pudo guardar",
+            message: "No se ha podido actualizar el estado del recinto. Intenta de nuevo."
+          });
+        } finally {
+          sideActive.disabled = false;
+        }
       });
     }
+
 
   // -----------------------------------------
   // 3) Capas base
@@ -1331,6 +1489,7 @@
           setSplitMode(true);
 
           // 2) pinta panel con campos BBDD reales
+          currentSideRecintoId = data.id;
           renderSidePanelFromProps(data);
 
           // 3) si quieres reutilizar el “rojo” y el zoom, usa los mismos datos
@@ -1425,6 +1584,19 @@
           message: 'No se pudo conectar con el servidor. Por favor, intenta de nuevo.'
         });
       });
+  }
+
+  // Función auxiliar para mensajes tipo bootstrap
+  function mostrarErrorInline(msg) {
+    const c = document.getElementById("side-alerts");
+    if (!c) return;
+
+    c.innerHTML = `
+      <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        ${msg}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    `;
   }
 
   // Handler global llamado desde el botón del popup

@@ -150,3 +150,51 @@ def mi_recinto_detalle(recinto_id: int):
         return jsonify(data)
     except Exception:
         return jsonify({"error": "Error interno en /api/mis-recinto"}), 500
+    
+@api_bp.patch("/mis-recinto/<int:recinto_id>/activa")
+@login_required
+def actualizar_activa(recinto_id: int):
+    data = request.get_json(silent=True) or {}
+    activa = data.get("activa", None)
+
+    if activa is None:
+        return jsonify({"ok": False, "error": "Campo 'activa' requerido"}), 400
+
+    # Normaliza (por si llega "true"/"false")
+    if isinstance(activa, str):
+        activa = activa.strip().lower() in ("1", "true", "t", "yes", "y", "si", "sí")
+
+    if not isinstance(activa, bool):
+        return jsonify({"ok": False, "error": "Campo 'activa' debe ser boolean"}), 400
+
+    recinto = Recinto.query.filter_by(
+        id_recinto=recinto_id,
+        id_propietario=current_user.id_usuario
+    ).first()
+
+    if not recinto:
+        return jsonify({"ok": False, "error": "Recinto no encontrado"}), 404
+
+    recinto.activa = activa
+    db.session.commit()
+
+    return jsonify({"ok": True, "activa": recinto.activa})
+
+@api_bp.post("/mis-recinto/<int:recinto_id>/nombre")
+@login_required
+def editar_nombre_recinto(recinto_id):
+    data = request.get_json(silent=True) or {}
+    nombre = data.get("nombre", "").strip()
+
+    if not nombre:
+        return jsonify({"error": "Nombre inválido"}), 400
+
+    recinto = Recinto.query.get_or_404(recinto_id)
+
+    if recinto.id_propietario != current_user.id_usuario:
+        return jsonify({"error": "Sin permiso"}), 403
+
+    recinto.nombre = nombre
+    db.session.commit()
+
+    return jsonify({"ok": True, "nombre": nombre})
