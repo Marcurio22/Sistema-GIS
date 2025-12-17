@@ -42,6 +42,15 @@
         {% endif %}
       </button>
     </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="logs-tab" data-bs-toggle="tab" data-bs-target="#logs-panel" type="button" role="tab"
+        aria-controls="logs-panel" aria-selected="false">
+        <i class="bi bi-clock-history"></i> Log de solicitudes
+        {% if logs %}
+        <span class="badge bg-secondary ms-1">{{ logs|length }}</span>
+        {% endif %}
+      </button>
+    </li>
   </ul>
 
   {# Contenido de los tabs #}
@@ -314,6 +323,66 @@
       {% endif %}
     </div>
 
+    {# =========================== TAB 3: LOG DE SOLICITUDES =========================== #}
+
+
+    <div class="tab-pane fade" id="logs-panel" role="tabpanel" aria-labelledby="logs-tab">
+      {% if logs_solicitudes %}
+
+      <div class="table-responsive">
+  <table id="tablaLogs" class="table table-sm table-hover align-middle">
+    <thead class="table-dark">
+      <tr>
+        <th style="width: 15%">Fecha y hora</th>
+        <th style="width: 15%">Admin</th>
+        <th style="width: 20%">Operación</th>
+        <th style="width: 50%">Detalles</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs_solicitudes %}
+      <tr>
+        <td style="width: 15%; height: 60px;">
+          <small><i class="bi bi-calendar3"></i> {{ log.fecha_hora.strftime('%d-%m-%Y %H:%M:%S') }}</small>
+        </td>
+        <td style="width: 15%; height: 60px;">
+          <i class="bi bi-person-badge text-primary"></i>
+          <strong>{{ log.id_usuario }} - {{ log.usuario.username }}</strong>
+        </td>
+        <td style="width: 20%; height: 60px;">
+          {% if log.tipo_operacion == 'APROBAR_SOLICITUD' %}
+          <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aprobación</span>
+          {% elif log.tipo_operacion == 'RECHAZAR_SOLICITUD' %}
+          <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Rechazo manual</span>
+          {% elif log.tipo_operacion == 'RECHAZO_AUTOMATICO_SOLICITUD' %}
+          <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle"></i> Rechazo automático</span>
+          {% elif log.tipo_operacion == 'APROBAR_SOLICITUD_YA_PROCESADA' %}
+          <span class="badge bg-secondary"><i class="bi bi-info-circle"></i> Intento aprobación procesada</span>
+          {% elif log.tipo_operacion == 'RECHAZAR_SOLICITUD_YA_PROCESADA' %}
+          <span class="badge bg-secondary"><i class="bi bi-info-circle"></i> Intento rechazo procesada</span>
+          {% else %}
+          <span class="badge bg-secondary">{{ log.tipo_operacion }}</span>
+          {% endif %}
+        </td>
+        <td style="width: 50%; height: 60px;">
+          <div class="small">
+            {{ log.mensaje }}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+
+      {% else %}
+      <div class="alert alert-info mb-0">
+        <i class="bi bi-info-circle"></i> No hay registros de logs de solicitudes todavía.
+      </div>
+      {% endif %}
+    </div>
+
   </div>
 </div>
 
@@ -333,6 +402,14 @@
       pageLength: 25,
       responsive: true,
       order: [[4, 'desc']]
+    });
+
+    // DataTable para logs
+    $('#tablaLogs').DataTable({
+      language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+      pageLength: 50,
+      responsive: true,
+      order: [[0, 'desc']] // Ordenar por fecha descendente
     });
   });
 </script>

@@ -3,13 +3,19 @@ from flask_login import login_required, current_user
 from functools import wraps
 from . import admin_bp
 from .. import db
-from ..models import User, Recinto, Solicitudrecinto
+from ..models import User, Recinto, Solicitudrecinto, LogsSistema
 from datetime import datetime, timezone
 import logging
 from ..utils.utils import normalizar_telefono_es
+from ..utils.logging_handler import SQLAlchemyHandler
 
 logger = logging.getLogger('app.admin')
 logger.setLevel(logging.INFO)
+
+db_handler = SQLAlchemyHandler()
+formatter = logging.Formatter('%(levelname)s - %(message)s')
+db_handler.setFormatter(formatter)
+logger.addHandler(db_handler)
 
 # Decorador para verificar que el usuario es admin
 def admin_required(f):
@@ -118,11 +124,14 @@ def gestion_recintos():
 
     usuarios = ( User.query.all() )
 
+    logs_solicitudes = LogsSistema.query.filter(LogsSistema.modulo == 'SOLICITUDES').all()
+
     return render_template(
         'admin/gestion_recintos.html',
         recintos=recintos,
         solicitudes=solicitudes,
-        usuarios=usuarios
+        usuarios=usuarios,
+        logs_solicitudes=logs_solicitudes,
     )
 
 @admin_bp.post("/gestion_recintos/<int:id_solicitud>/aprobar")
@@ -133,9 +142,14 @@ def aprobar_solicitud_recinto(id_solicitud):
 
     if solicitud.estado != "pendiente":
         flash("La solicitud ya está procesada.", "warning")
+        logger.warning(
+            f'Admin {current_user.username} intentó aprobar solicitud {id_solicitud} que ya estaba procesada (estado: {solicitud.estado})',
+            extra={'tipo_operacion': 'APROBAR_SOLICITUD_YA_PROCESADA', 'modulo': 'SOLICITUDES'}
+        )
         return redirect(url_for("admin.gestion_recintos"))
 
     recinto = Recinto.query.get_or_404(solicitud.id_recinto)
+    usuario_solicitante = User.query.get(solicitud.id_usuario)
 
     print(recinto, recinto.id_propietario, solicitud.id_usuario)
     # Si ya tiene propietario y es otro usuario → rechazamos automáticamente
@@ -144,6 +158,12 @@ def aprobar_solicitud_recinto(id_solicitud):
         solicitud.fecha_resolucion = datetime.now(timezone.utc)
         solicitud.motivo_rechazo = "El recinto ya tiene propietario."
         db.session.commit()
+        
+        logger.warning(
+            f'Admin {current_user.username} rechazó automáticamente solicitud {id_solicitud} del usuario {usuario_solicitante.username if usuario_solicitante else "desconocido"} para recinto {recinto.id_recinto} (ya tenía propietario)',
+            extra={'tipo_operacion': 'RECHAZO_AUTOMATICO_SOLICITUD', 'modulo': 'SOLICITUDES'}
+        )
+        
         flash("El recinto ya tenía propietario. Solicitud rechazada.", "danger")
         return redirect(url_for("admin.gestion_recintos"))
 
@@ -155,6 +175,12 @@ def aprobar_solicitud_recinto(id_solicitud):
     solicitud.fecha_resolucion = datetime.now(timezone.utc)
 
     db.session.commit()
+    
+    logger.info(
+        f'Admin {current_user.username} aprobó solicitud {id_solicitud} del usuario {usuario_solicitante.username if usuario_solicitante else "desconocido"} para recinto {recinto.id_recinto} (Prov: {recinto.provincia}, Mun: {recinto.municipio}, Pol: {recinto.poligono}, Par: {recinto.parcela})',
+        extra={'tipo_operacion': 'APROBAR_SOLICITUD', 'modulo': 'SOLICITUDES'}
+    )
+    
     flash("Recinto asignado correctamente al usuario.", "success")
     return redirect(url_for("admin.gestion_recintos"))
 
@@ -167,17 +193,30 @@ def rechazar_solicitud_recinto(id_solicitud):
 
     if solicitud.estado != "pendiente":
         flash("La solicitud ya está procesada.", "warning")
+        logger.warning(
+            f'Admin {current_user.username} intentó rechazar solicitud {id_solicitud} que ya estaba procesada (estado: {solicitud.estado})',
+            extra={'tipo_operacion': 'RECHAZAR_SOLICITUD_YA_PROCESADA', 'modulo': 'SOLICITUDES'}
+        )
         return redirect(url_for("admin.gestion_recintos"))
 
     motivo = request.form.get("motivo_rechazo", "").strip()
     if not motivo:
         motivo = "Solicitud rechazada por el administrador."
 
+    recinto = Recinto.query.get(solicitud.id_recinto)
+    usuario_solicitante = User.query.get(solicitud.id_usuario)
+
     solicitud.estado = "rechazada"
     solicitud.fecha_resolucion = datetime.now(timezone.utc)
     solicitud.motivo_rechazo = motivo
 
     db.session.commit()
+    
+    logger.info(
+        f'Admin {current_user.username} rechazó solicitud {id_solicitud} del usuario {usuario_solicitante.username if usuario_solicitante else "desconocido"} para recinto {recinto.id_recinto if recinto else "desconocido"}. Motivo: {motivo}',
+        extra={'tipo_operacion': 'RECHAZAR_SOLICITUD', 'modulo': 'SOLICITUDES'}
+    )
+    
     flash("Solicitud rechazada.", "info")
     return redirect(url_for("admin.gestion_recintos"))
 
@@ -264,8 +303,15 @@ def editar_recinto_admin(id_recinto):
     recinto = Recinto.query.get_or_404(id_recinto)
 
     propietario_id = request.form.get('propietario_id')
-    recinto.id_propietario = propietario_id 
-    recinto.nombre = request.form.get('nombre')
+
+    if propietario_id:
+        recinto.id_propietario = propietario_id 
+        recinto.nombre = request.form.get('nombre')
+        logger.info(
+            f'Administrador {current_user.username} asignó el propietario (ID: {propietario_id}) al recinto {recinto.id_recinto}',
+            extra={'tipo_operacion': 'EDICION_RECINTO', 'modulo': 'SOLICITUDES'}
+        )
+
     recinto.activa = bool(request.form.get('activa'))
 
     db.session.commit()

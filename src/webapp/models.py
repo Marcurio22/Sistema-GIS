@@ -60,6 +60,9 @@ class LogsSistema(db.Model):
     mensaje = db.Column(db.Text, nullable=False)
     datos_adicionales = db.Column(db.Text)
 
+
+    usuario = db.relationship('User', backref='logs_sistema', lazy=True)
+
     def __repr__(self):
         return f'<Log {self.tipo_operacion} by User {self.id_usuario} at {self.fecha_hora}>'
 
