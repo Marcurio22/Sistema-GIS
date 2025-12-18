@@ -1526,18 +1526,40 @@
 
       const dataDb = await r.json();
 
-      // ✅ Es mío -> abrir panel con datos reales de BBDD
+      // Es mío -> abrir panel con datos reales de BBDD
       setSplitMode(true);
       currentSideRecintoId = dataDb.id;
       renderSidePanelFromProps(dataDb);
 
     } catch (_) {
-      // ❌ No es mío (admin u otro) -> NO abrir panel
+      // No es mío (admin u otro) -> NO abrir panel
       setSplitMode(false);
-
-      // Abrir el popup SIGPAC (el de “Añadir a mis recintos”) cuando la capa esté lista
-      openSigpacPopupForKeyWithRetry(String(dataFlask.id));
     }
+  }
+
+  async function abrirSidePanelSiEsMio(recintoId) {
+    if (!recintoId) return false;
+
+    try {
+      const r = await fetch(`/api/mis-recinto/${recintoId}`);
+      if (!r.ok) return false;
+
+      const dataDb = await r.json();
+
+      setSplitMode(true);
+      currentSideRecintoId = dataDb.id;
+      renderSidePanelFromProps(dataDb);
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function centrarYAbrirPanelSiEsMio(dataFlask) {
+    if (!dataFlask || !dataFlask.id) return;
+    centrarEnRecinto(dataFlask);
+    await abrirSidePanelSiEsMio(dataFlask.id);
   }
 
   const misRecintosLayer = L.geoJSON(null, {
@@ -1986,21 +2008,6 @@
         className: 'recinto-destacado-popup'
       });
 
-      // Quitar popup al cerrar
-      map.on('popupclose', (e) => {
-        if (!recintoResaltado) return;
-
-        // Si el popup que se ha cerrado pertenece a la capa roja
-        const src = e.popup && e.popup._source;
-        const esDeResaltado =
-          src && (recintoResaltado.hasLayer ? recintoResaltado.hasLayer(src) : false);
-
-        if (esDeResaltado) {
-          clearHighlight();
-          openSigpacPopupForKey(highlightKey);
-        }
-      });
-
       // Cerrar popup al hacer clic en el recinto rojo
       recintoResaltado.eachLayer((lyr) => {
         lyr.on('click', () => {
@@ -2111,7 +2118,7 @@
         L.DomEvent.on(button, 'click', function (e) {
           L.DomEvent.stopPropagation(e);
           L.DomEvent.preventDefault(e);
-          centrarEnRecinto(recintoData);
+          centrarYAbrirPanelSiEsMio(recintoData);
         });
 
         return container;
