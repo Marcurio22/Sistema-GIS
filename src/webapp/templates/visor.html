@@ -37,7 +37,6 @@
     {% endif %}
   </div>
 
-  <!-- Ubicación (solo en pantallas grandes) -->
   <div class="d-none d-lg-block text-muted small">
     <i class="bi bi-geo-alt-fill"></i> {{ weather.municipio }}
   </div>
@@ -923,16 +922,13 @@
       this.container = document.getElementById('notification-container');
 
       if (!this.container) {
-        console.error('❌ Contenedor #notification-container no encontrado en el DOM');
         // Crear el contenedor si no existe
         this.container = document.createElement('div');
         this.container.id = 'notification-container';
         document.body.appendChild(this.container);
-        console.log('✅ Contenedor de notificaciones creado automáticamente');
+      
       } else {
-        console.log('✅ Sistema de notificaciones inicializado correctamente');
       }
-
       this.initialized = true;
     },
 
@@ -1689,7 +1685,6 @@
     if (!btn || btn.disabled) return;
 
     const ds = btn.dataset;
-    console.log("Solicitud de recinto desde popup:", ds);
 
     const payload = {
       id_recinto: ds.idrecinto || null,
