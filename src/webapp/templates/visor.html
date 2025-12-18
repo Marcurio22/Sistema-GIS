@@ -903,14 +903,6 @@
       </div>
     </div>
 
-    <div class="side-row">
-      <i class="bi bi-clock-fill side-ico"></i>
-      <div class="side-row-text">
-        <div class="side-row-title">Fecha de creación:</div>
-        <div id="side-created" class="side-row-value">-</div>
-      </div>
-    </div>
-
     <label class="side-toggle">
       <input id="side-active" type="checkbox" checked />
       <span>Recinto activo</span>
@@ -1100,7 +1092,18 @@
     sideCloseBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
+
+      // 1) cerrar cualquier popup abierto
+      try { map.closePopup(); } catch (_) {}
+
+      // 2) quitar resaltado rojo
+      clearHighlight();
+
+      // 3) cerrar panel
       setSplitMode(false);
+
+      // (opcional) reset id actual
+      currentSideRecintoId = null;
     });
   }
 
@@ -1227,7 +1230,6 @@
       ? "-"
       : `${Number(p.superficie_ha).toFixed(2).replace(".", ",")} ha`;
     document.getElementById("side-owner").textContent = safeText(p.propietario, "N/A");
-    document.getElementById("side-created").textContent = formatDateValue(p.fecha_creacion);
     document.getElementById("side-active").checked = (p.activa == null) ? true : !!p.activa;
   }
 
@@ -1423,6 +1425,31 @@
     },
   }).addTo(map);
 
+  function openSigpacPopupForKey(key) {
+    let targetLayer = null;
+
+    recintosLayer.eachLayer((lyr) => {
+      const p = (lyr.feature && lyr.feature.properties) || {};
+      if (String(p.id_recinto) === String(key)) targetLayer = lyr;
+    });
+
+    if (!targetLayer) return false;
+
+    if (selectedRecintoLayer && selectedRecintoLayer !== targetLayer) {
+      selectedRecintoLayer.setStyle(RECINTO_STYLE_DEFAULT);
+    }
+    selectedRecintoLayer = targetLayer;
+    targetLayer.setStyle(RECINTO_STYLE_SELECTED);
+    targetLayer.openPopup();
+    return true;
+  }
+
+  function openSigpacPopupForKeyWithRetry(key, tries = 12) {
+    if (openSigpacPopupForKey(key)) return;
+    if (tries <= 0) return;
+    setTimeout(() => openSigpacPopupForKeyWithRetry(key, tries - 1), 250);
+  }
+
   const MIS_RECINTO_STYLE = {
     color: "#00a86b",
     weight: 5,
@@ -1470,6 +1497,49 @@
     document.documentElement.style.setProperty('--navbar-h', `${h}px`);
   }
 
+  async function abrirRecintoEnPanel(data) {
+    if (!data || !data.id) return;
+
+    // abrir split
+    setSplitMode(true);
+
+    // setear id global
+    currentSideRecintoId = data.id;
+
+    // pintar panel
+    renderSidePanelFromProps(data);
+
+    // centrar y resaltar
+    centrarEnRecinto(data);
+  }
+
+  async function abrirRecintoDesdeVer(dataFlask) {
+    if (!dataFlask || !dataFlask.id) return;
+
+    // Siempre centramos y resaltamos en rojo
+    centrarEnRecinto(dataFlask);
+
+    // Comprobar si es mío intentando pedir detalle "mis-recinto"
+    try {
+      const r = await fetch(`/api/mis-recinto/${dataFlask.id}`);
+      if (!r.ok) throw new Error("No es mío");
+
+      const dataDb = await r.json();
+
+      // ✅ Es mío -> abrir panel con datos reales de BBDD
+      setSplitMode(true);
+      currentSideRecintoId = dataDb.id;
+      renderSidePanelFromProps(dataDb);
+
+    } catch (_) {
+      // ❌ No es mío (admin u otro) -> NO abrir panel
+      setSplitMode(false);
+
+      // Abrir el popup SIGPAC (el de “Añadir a mis recintos”) cuando la capa esté lista
+      openSigpacPopupForKeyWithRetry(String(dataFlask.id));
+    }
+  }
+
   const misRecintosLayer = L.geoJSON(null, {
     pane: 'misPane',
     style: () => MIS_RECINTO_STYLE,
@@ -1485,15 +1555,7 @@
           if (!r.ok) throw new Error("No se pudo cargar detalle del recinto");
           const data = await r.json();
 
-          // 1) abre split
-          setSplitMode(true);
-
-          // 2) pinta panel con campos BBDD reales
-          currentSideRecintoId = data.id;
-          renderSidePanelFromProps(data);
-
-          // 3) si quieres reutilizar el “rojo” y el zoom, usa los mismos datos
-          centrarEnRecinto(data);
+          abrirRecintoEnPanel(data);
 
         } catch (err) {
           console.error(err);
@@ -2016,8 +2078,8 @@
 
       // Pequeño delay para asegurar que todo esté inicializado
       setTimeout(() => {
-        centrarEnRecinto(recintoData);
-      }, 500);
+        abrirRecintoDesdeVer(recintoData);
+      }, 300);
     });
   }
 
