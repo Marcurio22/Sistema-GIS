@@ -797,6 +797,13 @@
       <div class="basemap-option-label">Imagen<br>Satelital</div>
     </div>
 
+    <div class="basemap-option basemap-main {% if sentinel2_version == 0 %}disabled{% endif %}" data-layer="sentinel_recent">
+      <div class="basemap-thumb">
+        <img src="{{ url_for('static', filename='img/thumb_sentinel2.png') }}" alt="Sentinel-2 reciente" />
+      </div>
+      <div class="basemap-option-label">Satélite<br>reciente</div>
+    </div>
+
     <div class="basemap-option basemap-main" data-layer="ndvi">
       <div class="basemap-thumb">
         <img src="{{ url_for('static', filename='img/thumb_ndvi.png') }}" alt="Vigor Vegetal (NDVI)" />
@@ -1314,14 +1321,21 @@
     }
   );
 
+ const baseSentinelRecent = L.imageOverlay(
+    `/static/sentinel2/s2_rgb_latest.png?v={{ sentinel2_version }}`,
+    ROI_BOUNDS,
+    { opacity: 1.0, interactive: false }
+  );
+
   const baseNdvi = L.imageOverlay(
-    "/static/ndvi/ndvi_latest.png",
+    `/static/ndvi/ndvi_latest.png?v={{ ndvi_version }}`,
     ROI_BOUNDS,
     { opacity: 1.0 }
   );
 
   const highZoomLayers = {
     satellite: baseSat,
+    sentinel_recent: baseSentinelRecent,
     ndvi: baseNdvi
   };
 
@@ -1824,6 +1838,7 @@
   document
     .querySelectorAll(".basemap-option.basemap-main[data-layer]")
     .forEach((option) => {
+      if (option.classList.contains("disabled")) return;
       option.addEventListener("click", () => {
         const layerKey = option.dataset.layer;
         if (!highZoomLayers[layerKey]) {

@@ -8,6 +8,7 @@ import logging
 from .utils_dashboard import obtener_datos_aemet, MunicipiosCodigosFinder
 import requests
 from ..models import Recinto
+import os
 
 
 logger = logging.getLogger('app.dashboard')
@@ -128,12 +129,22 @@ def visor():
     codigo_municipio = municipios_codigos_finder.codigo_recintos(current_user.id_usuario)
 
     weather = obtener_datos_aemet(codigo_municipio)
+
+    # --- Sentinel-2 RGB (mosaico reciente) ---
+    s2_path = os.path.join(current_app.root_path, "static", "sentinel2", "s2_rgb_latest.png")
+    sentinel2_version = int(os.path.getmtime(s2_path)) if os.path.exists(s2_path) else 0
+    
+    # --- NDVI (mosaico reciente) ---
+    ndvi_path = os.path.join(current_app.root_path, "static", "ndvi", "ndvi_latest.png")
+    ndvi_version = int(os.path.getmtime(ndvi_path)) if os.path.exists(ndvi_path) else 0
     
     # Pasar recinto_data al template
     return render_template("visor.html", 
                          roi_bbox=roi_bbox, 
                          weather=weather,
-                         recinto_data=recinto_data)
+                         recinto_data=recinto_data,
+                         sentinel2_version=sentinel2_version,
+                         ndvi_version=ndvi_version)
 
 
 
