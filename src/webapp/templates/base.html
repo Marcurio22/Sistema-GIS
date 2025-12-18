@@ -32,27 +32,19 @@
                 <a class="nav-link {% if request.path == url_for('dashboard.dashboard') %}text-success fw-bold{% else %}text-dark{% endif %} py-4 px-4 border-bottom border-white border-opacity-10 d-flex align-items-center"
                     href="{{ url_for('dashboard.dashboard') }}">
                     <i class="bi bi-house-door me-3 fs-4"></i>
-                    <span class="fs-6">Página principal</span>
+                    <span class="fs-5">Página principal</span>
                 </a>
 
                 <a class="nav-link {% if request.path == url_for('auth.mis_recintos') %}text-success fw-bold{% else %}text-dark{% endif %} py-4 px-4 border-bottom border-white border-opacity-10 d-flex align-items-center"
                     href="{{ url_for('auth.mis_recintos') }}">
                    <i class="bi bi-grid me-3 fs-4"></i>
-
-
-                    <span class="fs-6">Mis recintos</span>
-                </a>
-
-                <a class="nav-link {% if request.path == url_for('auth.perfil') %}text-success fw-bold{% else %}text-dark{% endif %} py-4 px-4 border-bottom border-white border-opacity-10 d-flex align-items-center"
-                    href="{{ url_for('auth.perfil') }}">
-                    <i class="bi bi-person me-3 fs-4"></i>
-                    <span class="fs-6">Perfil</span>
+                    <span class="fs-5">Mis recintos</span>
                 </a>
 
                 <a class="nav-link {% if request.path == url_for('dashboard.visor') %}text-success fw-bold{% else %}text-dark{% endif %} py-4 px-4 border-bottom border-white border-opacity-10 d-flex align-items-center"
                     href="{{ url_for('dashboard.visor') }}">
                     <i class="bi bi-map me-3 fs-4"></i>
-                    <span class="fs-6">Visor</span>
+                    <span class="fs-5">Visor</span>
                 </a>
                 
             </nav>
@@ -68,7 +60,7 @@
                         <div class="d-flex align-items-center py-3 text-dark hover-bg-light rounded px-2"
                             style="cursor: pointer; transition: background-color 0.2s;">
                             <i class="bi bi-people me-3 fs-4"></i>
-                            <span class="fs-6">Gestión de Usuarios</span>
+                            <span class="fs-5">Gestión de Usuarios</span>
                         </div>
                     </a>
                 </div>
@@ -77,28 +69,36 @@
                         <div class="d-flex align-items-center py-3 text-dark hover-bg-light rounded px-2"
                             style="cursor: pointer; transition: background-color 0.2s;">
                             <i class="bi bi-grid-3x3-gap me-3 fs-4"></i>
-                            <span class="fs-6">Gestión de recintos</span>
+                            <span class="fs-5">Gestión de recintos</span>
                         </div>
                     </a>
                 </div>
-
-
             </div>
+            {% else %}
+            <div class="mt-auto"></div>
             {% endif %}
 
-            <!-- Cerrar sesión al final -->
-            <div class="mt-auto px-4 py-4 border-top border-white border-opacity-10">
-                <a class="nav-link text-danger d-inline-flex align-items-center fs-5"
-                    href="{{ url_for('auth.logout') }}">
-                    <i class="bi bi-box-arrow-right me-3 fs-3"></i>
-                    <span class="fs-5">Cerrar Sesión</span>
+            <!-- Perfil -->
+            <div class="mt-auto bg-secondary bg-opacity-10 py-4 px-4">
+                <a class="nav-link {% if request.path == url_for('auth.perfil') %}text-success fw-bold{% else %}text-dark{% endif %} d-flex align-items-center"
+                    href="{{ url_for('auth.perfil') }}"
+                    style="cursor: pointer; transition: background-color 0.2s;">
+                    <i class="bi bi-person me-3 fs-4"></i>
+                    <span class="fs-5">Perfil</span>
                 </a>
             </div>
 
-            </a>
+            <!-- Cerrar sesión -->
+            <div class="bg-secondary bg-opacity-10 py-4 px-4">
+                <a class="nav-link text-danger d-flex align-items-center fw-bold"
+                    href="{{ url_for('auth.logout') }}"
+                    style="cursor: pointer; transition: background-color 0.2s;">
+                    <i class="bi bi-box-arrow-right me-3 fs-4 fw-bold"></i>
+                    <span class="fs-5 ">Cerrar Sesión</span>
+                </a>
+            </div>
 
         </div>
-    </div>
     </div>
 
     <!-- Navbar -->

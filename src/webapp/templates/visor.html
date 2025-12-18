@@ -3,7 +3,7 @@
 {% block title %}Visor SIG{% endblock %}
 
 {% block navbar_extra %}
-<div class="d-flex align-items-center gap-3 bg-white rounded-3 px-3 py-2 shadow-sm">
+<div class="d-none d-md-flex align-items-center gap-3 bg-white rounded-3 px-3 py-2 shadow-sm">
   <!-- Temperatura principal -->
   <div class="d-flex align-items-center">
     <i class="bi bi-{{ weather.icono }} {{ weather.color_icono }}" style="font-size: 1.5rem;"></i>
@@ -14,7 +14,7 @@
   <div class="vr opacity-50"></div>
 
   <!-- Datos compactos -->
-  <div class="d-none d-md-flex gap-3 small text-dark">
+  <div class="d-flex gap-3 small text-dark">
     {% if weather.humedad %}
     <div class="d-flex align-items-center">
       <i class="bi bi-droplet-fill text-info me-1"></i>
@@ -46,6 +46,7 @@
 {% endblock %}
 
 {% block content %}
+
 
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
