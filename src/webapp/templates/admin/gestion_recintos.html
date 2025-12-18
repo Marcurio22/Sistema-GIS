@@ -65,12 +65,12 @@
           <thead class="table-light">
             <tr>
               <th class="text-center">Nombre</th>
-              <th>Superficie (ha)</th>
-              <th>Propietario</th>
-              <th>Provincia</th>
-              <th>Municipio</th>
-              <th>Estado</th>
-              <th>Acciones</th>
+              <th class="text-center">Superficie (ha)</th>
+              <th class="text-center">Propietario</th>
+              <th class="text-center">Provincia</th>
+              <th class="text-center">Municipio</th>
+              <th class="text-center">Estado</th>
+              <th class="text-center">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -217,16 +217,16 @@
       role="tabpanel" aria-labelledby="solicitudes-tab">
       {% if solicitudes %}
       <div class="table-responsive">
-        <table id="tablaRoles" class="table table-striped align-middle">
+        <table id="tablaRoles" class="table table-hover table-bordered align-middle">
           <thead class="table-light">
             <tr>
-              <th>ID</th>
-              <th>Usuario</th>
-              <th>Recinto SIGPAC</th>
-              <th>Estado</th>
-              <th>Fecha solicitud</th>
-              <th>Fecha resolución</th>
-              <th>Acciones</th>
+              <th class="text-center">ID</th>
+              <th class="text-center">Usuario</th>
+              <th class="text-center">Recinto SIGPAC</th>
+              <th class="text-center">Estado</th>
+              <th class="text-center">Fecha solicitud</th>
+              <th class="text-center">Fecha resolución</th>
+              <th class="text-center">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -323,59 +323,52 @@
       {% endif %}
     </div>
 
-    {# =========================== TAB 3: LOG DE SOLICITUDES =========================== #}
-
-
+     {# =========================== TAB 3: LOG DE SOLICITUDES =========================== #}
     <div class="tab-pane fade" id="logs-panel" role="tabpanel" aria-labelledby="logs-tab">
       {% if logs_solicitudes %}
-
       <div class="table-responsive">
-  <table id="tablaLogs" class="table table-sm table-hover align-middle">
-    <thead class="table-dark">
-      <tr>
-        <th style="width: 15%">Fecha y hora</th>
-        <th style="width: 15%">Admin</th>
-        <th style="width: 20%">Operación</th>
-        <th style="width: 50%">Detalles</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for log in logs_solicitudes %}
-      <tr>
-        <td style="width: 15%; height: 60px;">
-          <small><i class="bi bi-calendar3"></i> {{ log.fecha_hora.strftime('%d-%m-%Y %H:%M:%S') }}</small>
-        </td>
-        <td style="width: 15%; height: 60px;">
-          <i class="bi bi-person-badge text-primary"></i>
-          <strong>{{ log.id_usuario }} - {{ log.usuario.username }}</strong>
-        </td>
-        <td style="width: 20%; height: 60px;">
-          {% if log.tipo_operacion == 'APROBAR_SOLICITUD' %}
-          <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aprobación</span>
-          {% elif log.tipo_operacion == 'RECHAZAR_SOLICITUD' %}
-          <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Rechazo manual</span>
-          {% elif log.tipo_operacion == 'RECHAZO_AUTOMATICO_SOLICITUD' %}
-          <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle"></i> Rechazo automático</span>
-          {% elif log.tipo_operacion == 'APROBAR_SOLICITUD_YA_PROCESADA' %}
-          <span class="badge bg-secondary"><i class="bi bi-info-circle"></i> Intento aprobación procesada</span>
-          {% elif log.tipo_operacion == 'RECHAZAR_SOLICITUD_YA_PROCESADA' %}
-          <span class="badge bg-secondary"><i class="bi bi-info-circle"></i> Intento rechazo procesada</span>
-          {% else %}
-          <span class="badge bg-secondary">{{ log.tipo_operacion }}</span>
-          {% endif %}
-        </td>
-        <td style="width: 50%; height: 60px;">
-          <div class="small">
-            {{ log.mensaje }}
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-
+        <table id="tablaLogs" class="table table-hover table-bordered align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 12%;" class="text-center">Fecha y hora</th>
+              <th style="width: 10%;" class="text-center">Admin</th>
+              <th style="width: 15%;" class="text-center">Operación</th>
+              <th style="width: 63%;" class="text-center">Detalles</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for log in logs_solicitudes %}
+            <tr>
+              <td style="width: 12%;">
+                <small><i class="bi bi-calendar3"></i> {{ log.fecha_hora.strftime('%d-%m-%Y %H:%M:%S') }}</small>
+              </td>
+              <td style="width: 10%;">
+                <i class="bi bi-person-badge text-primary"></i>
+                <small><strong>{{ log.usuario.username }}</strong></small>
+              </td>
+              <td style="width: 15%;">
+                {% if log.tipo_operacion == 'APROBAR_SOLICITUD' %}
+                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aprobación</span>
+                {% elif log.tipo_operacion == 'RECHAZAR_SOLICITUD' %}
+                <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Rechazo manual</span>
+                {% elif log.tipo_operacion == 'RECHAZO_AUTOMATICO_SOLICITUD' %}
+                <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle"></i> Rechazo automático</span>
+                {% elif log.tipo_operacion == 'APROBAR_SOLICITUD_YA_PROCESADA' %}
+                <span class="badge bg-secondary"><i class="bi bi-info-circle"></i> Intento aprobación procesada</span>
+                {% elif log.tipo_operacion == 'RECHAZAR_SOLICITUD_YA_PROCESADA' %}
+                <span class="badge bg-secondary"><i class="bi bi-info-circle"></i> Intento rechazo procesada</span>
+                {% else %}
+                <span class="badge bg-secondary">{{ log.tipo_operacion }}</span>
+                {% endif %}
+              </td>
+              <td style="width: 63%;">
+                <small>{{ log.mensaje }}</small>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
       {% else %}
       <div class="alert alert-info mb-0">
         <i class="bi bi-info-circle"></i> No hay registros de logs de solicitudes todavía.
@@ -409,7 +402,7 @@
       language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
       pageLength: 50,
       responsive: true,
-      order: [[0, 'desc']] // Ordenar por fecha descendente
+      order: [[0, 'desc']]
     });
   });
 </script>
