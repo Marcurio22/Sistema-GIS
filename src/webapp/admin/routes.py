@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import logging
 from ..utils.utils import normalizar_telefono_es
 from ..utils.logging_handler import SQLAlchemyHandler
+from ..utils.email_service import enviar_notificacion_aceptacion, enviar_notificacion_rechazo
 
 logger = logging.getLogger('app.admin')
 logger.setLevel(logging.INFO)
@@ -175,6 +176,17 @@ def aprobar_solicitud_recinto(id_solicitud):
     solicitud.fecha_resolucion = datetime.now(timezone.utc)
 
     db.session.commit()
+
+    if usuario_solicitante and usuario_solicitante.email:
+        numero_parcela = f"{recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}"
+        direccion_parcela = f"Provincia: {recinto.provincia}, Municipio: {recinto.municipio}, Polígono: {recinto.poligono}, Parcela: {recinto.parcela}"
+        
+        enviar_notificacion_aceptacion(
+            destinatario=usuario_solicitante.email,
+            nombre_usuario=usuario_solicitante.username,
+            numero_parcela=numero_parcela,
+            direccion_parcela=direccion_parcela
+        )
     
     logger.info(
         f'Admin {current_user.username} aprobó solicitud {id_solicitud} del usuario {usuario_solicitante.username if usuario_solicitante else "desconocido"} para recinto {recinto.id_recinto} (Prov: {recinto.provincia}, Mun: {recinto.municipio}, Pol: {recinto.poligono}, Par: {recinto.parcela})',
@@ -216,6 +228,18 @@ def rechazar_solicitud_recinto(id_solicitud):
         f'Admin {current_user.username} rechazó solicitud {id_solicitud} del usuario {usuario_solicitante.username if usuario_solicitante else "desconocido"} para recinto {recinto.id_recinto if recinto else "desconocido"}. Motivo: {motivo}',
         extra={'tipo_operacion': 'RECHAZAR_SOLICITUD', 'modulo': 'SOLICITUDES'}
     )
+
+
+    if usuario_solicitante and usuario_solicitante.email and recinto:
+            numero_parcela = f"{recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}"
+            
+            enviar_notificacion_rechazo(
+                destinatario=usuario_solicitante.email,
+                nombre_usuario=usuario_solicitante.username,
+                numero_parcela=numero_parcela,
+                motivo_rechazo=motivo
+            )
+
     
     flash("Solicitud rechazada.", "info")
     return redirect(url_for("admin.gestion_recintos"))

@@ -24,6 +24,9 @@ class User(UserMixin, db.Model):
     activo = db.Column(db.Boolean, default=False)
     telefono = db.Column(db.String(20), nullable=True)
 
+
+    notificaciones_activas = db.Column(db.Boolean, default=True)
+
     # Relaciones
     recintos = db.relationship('Recinto', back_populates='propietario', lazy=True)
     solicitudes_recintos = db.relationship(

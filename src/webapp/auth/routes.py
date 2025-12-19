@@ -1,4 +1,4 @@
-from flask import render_template, request, redirect, url_for, flash
+from flask import render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from . import auth_bp 
 from .. import db, login_manager
@@ -6,6 +6,7 @@ from sqlalchemy import desc
 from ..models import LogsSistema, User, Recinto, Solicitudrecinto
 from ..utils.logging_handler import SQLAlchemyHandler
 from ..utils.utils import normalizar_telefono_es
+from ..utils.email_service import enviar_correo_prueba
 import logging
 import re
 
@@ -327,3 +328,44 @@ def editar_recinto(id_recinto):
     db.session.commit()
     flash('Recinto actualizado correctamente', 'success')
     return redirect(url_for('auth.mis_recintos'))
+
+@auth_bp.route('/actualizar_notificaciones', methods=['POST'])
+@login_required
+def actualizar_notificaciones():
+    """Actualiza las preferencias de notificaciones del usuario"""
+    try:
+        data = request.get_json()
+        activo = data.get('activo', False)
+        
+        # Actualizar en la base de datos
+        current_user.notificaciones_activas = activo
+        db.session.commit()
+        
+
+        return jsonify({
+            'success': True, 
+            'activo': activo,
+            'mensaje': 'Notificaciones ' + ('activadas' if activo else 'desactivadas')
+        })
+    
+    except Exception as e:
+        print(f"Error al actualizar notificaciones: {e}")
+        return jsonify({
+            'success': False, 
+            'error': str(e)
+        }), 500
+
+
+
+@auth_bp.route('/test-email')
+@login_required
+def test_email():
+    """Ruta de prueba para enviar un correo"""
+    resultado = enviar_correo_prueba(current_user.email)
+    
+    if resultado:
+        flash('✓ Correo de prueba enviado. Revisa tu bandeja en Mailtrap.io', 'success')
+    else:
+        flash('✗ Error al enviar el correo de prueba', 'danger')
+    
+    return redirect(url_for('auth.perfil'))

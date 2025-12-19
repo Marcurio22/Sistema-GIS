@@ -38,3 +38,14 @@ class Config:
     GEOSERVER_USER = os.getenv("GEOSERVER_USER")
     GEOSERVER_PASSWORD = os.getenv("GEOSERVER_PASSWORD")
     GEOSERVER_RECINTOS_TYPENAME = os.getenv("GEOSERVER_RECINTOS_TYPENAME", "gis_project:recintos_con_propietario")
+
+
+    # Configuración de correo electrónico
+    MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.example.com")
+    MAIL_PORT = int(os.getenv("MAIL_PORT", "25"))
+    MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "True") == "True"
+    MAIL_USE_SSL = os.getenv("MAIL_USE_SSL", "False") == "True"
+    MAIL_USERNAME = os.getenv("MAIL_USERNAME", "your_username")
+    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "your_password")
+    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER")
+    
