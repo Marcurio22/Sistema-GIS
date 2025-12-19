@@ -73,8 +73,8 @@
                             </div>
                         </div>
                         <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" checked
-                                style="width: 50px; height: 26px;">
+                            <input class="form-check-input" type="checkbox" role="switch" id="switchNotificaciones" {%
+                                if user.notificaciones_activas %}checked{% endif %} style="width: 50px; height: 26px;">
                         </div>
                     </div>
 
@@ -227,4 +227,61 @@
     </div>
 </div>
 
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const switchNotificaciones = document.getElementById('switchNotificaciones');
+
+        if (switchNotificaciones) {
+            switchNotificaciones.addEventListener('change', function () {
+                const activo = this.checked;
+
+                // Mostrar indicador de carga (opcional)
+                this.disabled = true;
+
+                fetch('{{ url_for("auth.actualizar_notificaciones") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        activo: activo
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            console.log('✓ Notificaciones ' + (activo ? 'activadas' : 'desactivadas'));
+
+                            // Opcional: mostrar una alerta de Bootstrap
+                            const alertDiv = document.createElement('div');
+                            alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                            alertDiv.innerHTML = `
+                        ${data.mensaje}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    `;
+                            document.querySelector('.container').insertBefore(alertDiv, document.querySelector('.container').firstChild);
+
+                            // Auto-ocultar después de 3 segundos
+                            setTimeout(() => alertDiv.remove(), 3000);
+                        } else {
+                            console.error('Error:', data.error);
+                            // Revertir el switch si hay error
+                            this.checked = !activo;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        // Revertir el switch si hay error
+                        this.checked = !activo;
+                        alert('Error al actualizar las notificaciones');
+                    })
+                    .finally(() => {
+                        // Rehabilitar el switch
+                        this.disabled = false;
+                    });
+            });
+        }
+    });
+</script>
 {% endblock %}
+

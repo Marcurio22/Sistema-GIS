@@ -109,7 +109,10 @@
                         {% if usuarios %}
                         {% for usuario in usuarios %}
                         <tr>
-                            <td class="px-3"><span class="badge bg-secondary">#{{ usuario.id_usuario }}</span></td>
+                            <td class="px-3" data-order="{{ usuario.id_usuario }}">
+                                <span class="badge bg-secondary">#{{ usuario.id_usuario }}</span>
+                            </td>
+
                             <td>
                                 <div class="d-flex align-items-center">
                                     <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center me-3"
@@ -158,7 +161,8 @@
                                 </span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td
+                                data-order="{{ usuario.fecha_registro.strftime('%Y-%m-%d') if usuario.fecha_registro else '' }}">
                                 <small class="text-muted">
                                     <i class="bi bi-calendar3 me-1"></i>
                                     {{ usuario.fecha_registro.strftime('%d/%m/%Y') if usuario.fecha_registro else 'N/A'

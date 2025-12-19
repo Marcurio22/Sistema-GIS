@@ -86,12 +86,15 @@
                 <span class="text-muted">N/A</span>
                 {% endif %}
               </td>
-              <td>
-                {{ recinto.provincia }}{% if recinto.nombre_provincia %} - {{ recinto.nombre_provincia }}{% endif %}
+              <td data-order="{{ recinto.nombre_provincia or recinto.provincia }}">
+                {{ recinto.provincia }}
+                {% if recinto.nombre_provincia %} - {{ recinto.nombre_provincia }}{% endif %}
               </td>
-              <td>
-                {{ recinto.municipio }}{% if recinto.nombre_municipio %} - {{ recinto.nombre_municipio }}{% endif %}
+              <td data-order="{{ recinto.nombre_municipio or recinto.municipio }}">
+                {{ recinto.municipio }}
+                {% if recinto.nombre_municipio %} - {{ recinto.nombre_municipio }}{% endif %}
               </td>
+
               <td>
                 {% if recinto.activa %}
                 <span class="badge bg-success"><i class="bi bi-check-circle"></i> Activa</span>
@@ -147,7 +150,7 @@
                         <input type="text" class="form-control" name="nombre" value="{{ recinto.nombre }}"
                           maxlength="200" required>
                       </div>
-                      
+
                       <!-- PROPIETARIO -->
                       <div class="mb-3">
                         <label class="form-label">
@@ -232,7 +235,9 @@
           <tbody>
             {% for s in solicitudes %}
             <tr>
-              <td><strong>#{{ s.id_solicitud }}</strong></td>
+              <td data-order="{{ s.id_solicitud }}">
+                <strong>#{{ s.id_solicitud }}</strong>
+              </td>
               <td>
                 <i class="bi bi-person text-primary"></i> {{ s.usuario.username }}
               </td>
@@ -254,20 +259,21 @@
                 {{ s.estado }}
                 {% endif %}
               </td>
-              <td>
+              <td data-order="{{ s.fecha_solicitud.strftime('%Y-%m-%d %H:%M:%S') if s.fecha_solicitud else '' }}">
                 {% if s.fecha_solicitud %}
                 <small>{{ s.fecha_solicitud.strftime('%d-%m-%Y %H:%M') }}</small>
                 {% else %}
                 <span class="text-muted">—</span>
                 {% endif %}
               </td>
-              <td>
+              <td data-order="{{ s.fecha_resolucion.strftime('%Y-%m-%d %H:%M:%S') if s.fecha_resolucion else '' }}">
                 {% if s.fecha_resolucion %}
                 <small>{{ s.fecha_resolucion.strftime('%d-%m-%Y %H:%M') }}</small>
                 {% else %}
                 <span class="text-muted">—</span>
                 {% endif %}
               </td>
+
               <td style="min-width: 260px">
                 {% if s.estado == 'pendiente' %}
                 {% if s.recinto %}
@@ -323,7 +329,7 @@
       {% endif %}
     </div>
 
-     {# =========================== TAB 3: LOG DE SOLICITUDES =========================== #}
+    {# =========================== TAB 3: LOG DE SOLICITUDES =========================== #}
     <div class="tab-pane fade" id="logs-panel" role="tabpanel" aria-labelledby="logs-tab">
       {% if logs_solicitudes %}
       <div class="table-responsive">
@@ -339,8 +345,11 @@
           <tbody>
             {% for log in logs_solicitudes %}
             <tr>
-              <td style="width: 12%;">
-                <small><i class="bi bi-calendar3"></i> {{ log.fecha_hora.strftime('%d-%m-%Y %H:%M:%S') }}</small>
+              <td style="width: 12%;" data-order="{{ log.fecha_hora.strftime('%Y-%m-%d %H:%M:%S') }}">
+                <small>
+                  <i class="bi bi-calendar3"></i>
+                  {{ log.fecha_hora.strftime('%d-%m-%Y %H:%M:%S') }}
+                </small>
               </td>
               <td style="width: 10%;">
                 <i class="bi bi-person-badge text-primary"></i>
@@ -352,7 +361,8 @@
                 {% elif log.tipo_operacion == 'RECHAZAR_SOLICITUD' %}
                 <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Rechazo manual</span>
                 {% elif log.tipo_operacion == 'RECHAZO_AUTOMATICO_SOLICITUD' %}
-                <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle"></i> Rechazo automático</span>
+                <span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle"></i> Rechazo
+                  automático</span>
                 {% elif log.tipo_operacion == 'APROBAR_SOLICITUD_YA_PROCESADA' %}
                 <span class="badge bg-secondary"><i class="bi bi-info-circle"></i> Intento aprobación procesada</span>
                 {% elif log.tipo_operacion == 'RECHAZAR_SOLICITUD_YA_PROCESADA' %}
