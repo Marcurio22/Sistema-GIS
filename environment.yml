@@ -6,6 +6,8 @@ dependencies:
   - pip
   - jupyterlab
   - ipykernel
+
+  # ciencia de datos / GIS
   - numpy
   - pandas
   - matplotlib
@@ -15,13 +17,27 @@ dependencies:
   - pyproj
   - fiona
   - gdal
+  - libgdal-jp2openjpeg
+
+  # visualización / web
   - folium
   - plotly
-  - nodejs>=18  # para jupyterlab extensions y Dash en dev
-  - psycopg2
+  - nodejs>=18
+
+  # backend + DB
+  - flask
+  - flask-login
+  - flask-sqlalchemy
+  - flask-mail
   - sqlalchemy
-  - psycopg2-binary  # útil en dev rápido (ver nota)
-  - libgdal-jp2openjpeg
+  - psycopg2
+  - geoalchemy2
+
+  # imágenes y STAC / Planetary Computer
+  - pillow
+  - pystac-client
+  - planetary-computer
+
   - pip:
       - dash
       - python-dotenv
