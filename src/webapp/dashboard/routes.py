@@ -1,12 +1,10 @@
 from sqlalchemy import text
 from webapp import db
-from flask import Blueprint, render_template, redirect, url_for, flash, current_app
+from flask import render_template, current_app
 from flask_login import login_required, current_user
 from . import dashboard_bp
-from datetime import datetime
 import logging
 from .utils_dashboard import obtener_datos_aemet, MunicipiosCodigosFinder
-import requests
 from ..models import Recinto
 import os
 
