@@ -114,7 +114,7 @@ def enviar_correo_prueba(destinatario):
                             <tr>
                                 <td style="background-color: #f9f9f9; padding: 20px; text-align: center; border-top: 1px solid #eee;">
                                     <p style="color: #999; font-size: 12px; margin: 0;">
-                                        © 2024 Sistema GIS - Correo automático
+                                        © 2026 Sistema GIS - Correo automático
                                     </p>
                                 </td>
                             </tr>
@@ -271,7 +271,7 @@ def enviar_notificacion_aceptacion(destinatario, nombre_usuario, numero_parcela,
                         <tr>
                             <td style="background-color: #f9f9f9; padding: 20px; text-align: center; border-top: 1px solid #eee;">
                                 <p style="color: #999; font-size: 12px; margin: 0;">
-                                    © 2024 Sistema GIS - Correo automático
+                                    © 2026 Sistema GIS - Correo automático
                                 </p>
                             </td>
                         </tr>
@@ -414,7 +414,7 @@ def enviar_notificacion_rechazo(destinatario, nombre_usuario, numero_parcela, mo
                         <tr>
                             <td style="background-color: #f9f9f9; padding: 20px; text-align: center; border-top: 1px solid #eee;">
                                 <p style="color: #999; font-size: 12px; margin: 0;">
-                                    © 2024 Sistema GIS - Correo automático
+                                    © 2026 Sistema GIS - Correo automático
                                 </p>
                             </td>
                         </tr>

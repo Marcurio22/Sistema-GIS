@@ -87,3 +87,4 @@ if __name__ == "__main__":
     if puerto_funcional:
         print(f"\n¡Usa el puerto {puerto_funcional} en tu .env!")
         print(f"MAIL_PORT={puerto_funcional}")
+
