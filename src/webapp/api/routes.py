@@ -116,20 +116,6 @@ def crear_solicitud_recinto():
             "code": "ya_solicitada",
         }), 400
 
-
-        # ✅ Evitar que otro usuario solicite el mismo recinto si ya hay una solicitud pendiente
-        #existing_any_pending = Solicitudrecinto.query.filter_by(
-        #    id_recinto=recinto_obj.id_recinto,
-         #   estado="pendiente",
-        #).first()
-
-        #if existing_any_pending:
-          #  return jsonify({
-             #   "ok": False,
-               # "error": "Este recinto ya está solicitado por otro usuario",
-               #"code": "ya_solicitado_por_otro",
-            #}), 400
-
     solicitud = Solicitudrecinto(
         id_usuario=current_user.id_usuario,
         id_recinto=recinto_obj.id_recinto,
