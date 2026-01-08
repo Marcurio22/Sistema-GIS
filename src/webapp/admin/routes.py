@@ -18,11 +18,11 @@ formatter = logging.Formatter('%(levelname)s - %(message)s')
 db_handler.setFormatter(formatter)
 logger.addHandler(db_handler)
 
-# Decorador para verificar que el usuario es admin
+# Decorador para verificar que el usuario es admin o superadmin
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or current_user.rol != 'admin':
+        if not current_user.is_authenticated or current_user.rol not in ['admin', 'superadmin']:
             logger.warning(
                 f'Intento de acceso no autorizado al panel admin por: {current_user.username if current_user.is_authenticated else "anónimo"}',
                 extra={'tipo_operacion': 'ACCESO_DENEGADO', 'modulo': 'ADMIN'}
@@ -31,10 +31,25 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# Decorador para verificar que el usuario es superadmin
+def superadmin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or current_user.rol != 'superadmin':
+            logger.warning(
+                f'Intento de acceso no autorizado a función de superadmin por: {current_user.username if current_user.is_authenticated else "anónimo"}',
+                extra={'tipo_operacion': 'ACCESO_DENEGADO', 'modulo': 'SUPERADMIN'}
+            )
+            flash('Esta acción solo está disponible para superadministradores.', 'danger')
+            return redirect(url_for('admin.gestion_usuarios'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 @admin_bp.route('/usuarios')
 @login_required
 @admin_required
 def gestion_usuarios():
+    
     usuarios = User.query.order_by(
         User.rol.asc(),       # Admins primero (asumiendo que 'admin' > 'user')
         User.activo.desc(),    # Activos antes que inactivos
@@ -83,7 +98,7 @@ def desactivar_usuario(id):
 
 @admin_bp.route('/usuarios/<int:id>/hacer_admin')
 @login_required
-@admin_required
+@superadmin_required
 def hacer_admin(id):
     usuario = User.query.get_or_404(id)
 
@@ -92,6 +107,46 @@ def hacer_admin(id):
     flash(f"{usuario.username} ahora es administrador.", "success")
     return redirect(url_for('admin.gestion_usuarios'))
 
+
+
+@admin_bp.route('/usuarios/<int:id>/quitar_admin')
+@login_required
+@superadmin_required
+def quitar_admin(id):
+    usuario = User.query.get_or_404(id)
+
+    usuario.rol = 'user'
+    db.session.commit()
+    flash(f"{usuario.username} ahora es usuario normal.", "success")
+    return redirect(url_for('admin.gestion_usuarios'))
+
+
+
+@admin_bp.route('/usuarios/<int:id>/hacer_superadmin')
+@login_required
+@superadmin_required
+def hacer_superadmin(id):
+    usuario = User.query.get_or_404(id)
+    
+    if usuario.rol == 'superadmin':
+        flash('Este usuario ya es superadministrador.', 'info')
+        return redirect(url_for('admin.gestion_usuarios'))
+
+    # Promover al usuario a superadmin
+    usuario.rol = 'superadmin'
+    
+    # El superadmin que hace la promoción pasa a ser admin
+    current_user.rol = 'admin'
+    
+    db.session.commit()
+    
+    logger.info(
+        f'Superadmin {current_user.username} promovió a {usuario.username} a superadministrador y pasó a ser admin',
+        extra={'tipo_operacion': 'HACER_SUPERADMIN', 'modulo': 'SUPERADMIN'}
+    )
+    
+    flash(f"{usuario.username} ahora es superadministrador. Tú has pasado a ser administrador.", "success")
+    return redirect(url_for('admin.gestion_usuarios'))
 
 
 @admin_bp.route('/gestion_recintos')
@@ -247,6 +302,7 @@ def rechazar_solicitud_recinto(id_solicitud):
 
 @admin_bp.route('/editar_usuario', methods=['POST'])
 @login_required
+@admin_required
 def editar_usuario():
     try:
         # Obtener datos del formulario

@@ -36,7 +36,7 @@
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
                         <p class="text-muted mb-1 small">Total Usuarios</p>
-                        <h3 class="mb-0">{{ usuarios|length }}</h3>
+                        <h3 class="mb-0">{{ usuarios|length - 1 }}</h3>
                     </div>
                     <div class="bg-primary bg-opacity-10 p-3 rounded">
                         <i class="bi bi-people fs-2 text-primary"></i>
@@ -108,6 +108,7 @@
                     <tbody>
                         {% if usuarios %}
                         {% for usuario in usuarios %}
+                        {% if usuario.id_usuario != 10 %}
                         <tr>
                             <td class="px-3" data-order="{{ usuario.id_usuario }}">
                                 <span class="badge bg-secondary">#{{ usuario.id_usuario }}</span>
@@ -139,10 +140,15 @@
                                 <span class="text-muted">No especificado</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="text-center">
                                 {% if usuario.rol == 'admin' %}
                                 <span class="badge bg-danger">
                                     <i class="bi bi-shield-check me-1"></i>Administrador
+                                </span>
+                                {% elif usuario.rol =='superadmin' %}
+                                <span class="badge bg-dark">
+                                    <i class="bi bi-shield-lock me-1"></i>
+                                    Superadmin
                                 </span>
                                 {% else %}
                                 <span class="badge bg-success">
@@ -150,7 +156,7 @@
                                 </span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="text-center">
                                 {% if usuario.activo %}
                                 <span class="badge bg-success bg-opacity-10 text-success">
                                     <i class="bi bi-check-circle-fill me-1"></i>Activo
@@ -172,6 +178,23 @@
                             <td class="text-center" style="white-space: nowrap; min-width: 310px;">
                                 {% if usuario.id_usuario != current_user.id_usuario %}
                                 <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                    {# Solo superadmin puede desactivar/activar admins y superadmins #}
+                                    {% if usuario.rol in ['admin', 'superadmin'] %}
+                                    {% if current_user.rol == 'superadmin' %}
+                                    {% if usuario.activo %}
+                                    <a href="{{ url_for('admin.desactivar_usuario', id=usuario.id_usuario) }}"
+                                        class="btn btn-sm btn-outline-warning" title="Desactivar administrador">
+                                        <i class="bi bi-pause-circle me-1"></i>Desactivar
+                                    </a>
+                                    {% else %}
+                                    <a href="{{ url_for('admin.activar_usuario', id=usuario.id_usuario) }}"
+                                        class="btn btn-sm btn-success" title="Activar administrador">
+                                        <i class="bi bi-check-circle me-1"></i>Activar
+                                    </a>
+                                    {% endif %}
+                                    {% endif %}
+                                    {% else %}
+                                    {# Usuarios regulares pueden ser desactivados por cualquier admin #}
                                     {% if usuario.activo %}
                                     <a href="{{ url_for('admin.desactivar_usuario', id=usuario.id_usuario) }}"
                                         class="btn btn-sm btn-outline-warning" title="Desactivar usuario">
@@ -183,19 +206,44 @@
                                         <i class="bi bi-check-circle me-1"></i>Activar
                                     </a>
                                     {% endif %}
+                                    {% endif %}
 
-                                    {% if usuario.rol == 'user' and usuario.activo %}
+                                    {# Solo superadmin puede hacer administradores #}
+                                    {% if usuario.rol == 'user' and usuario.activo and current_user.rol == 'superadmin'
+                                    %}
                                     <a href="{{ url_for('admin.hacer_admin', id=usuario.id_usuario) }}"
                                         class="btn btn-sm btn-outline-danger" title="Hacer administrador">
                                         <i class="bi bi-person-check me-1"></i>Hacer Admin
                                     </a>
                                     {% endif %}
 
+                                    {% if usuario.rol == 'admin' and usuario.activo and current_user.rol == 'superadmin'
+                                    %}
+                                    <a href="{{ url_for('admin.quitar_admin', id=usuario.id_usuario) }}"
+                                        class="btn btn-sm btn-outline-danger" title="Quitar administrador">
+                                        <i class="bi bi-person-check me-1"></i>Quitar admin
+                                    </a>
+                                    {% endif %}
+
+                                    {# Solo superadmin puede promover a otros admins a superadmin #}
+                                    {% if usuario.rol == 'admin' and usuario.activo and current_user.rol == 'superadmin'
+                                    %}
+                                    <button type="button" class="btn btn-sm btn-outline-dark" data-bs-toggle="modal"
+                                        data-bs-target="#confirmarSuperadminModal{{ usuario.id_usuario }}"
+                                        title="Promover a Superadministrador">
+                                        <i class="bi bi-shield-lock me-1"></i>Hacer Superadmin
+                                    </button>
+                                    {% endif %}
+
                                     <!-- Botón Editar -->
-                                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                                    {# Superadmin puede editar a todos, admin solo a usuarios regulares #}
+                                    {% if current_user.rol == 'superadmin' or (current_user.rol == 'admin' and
+                                    usuario.rol == 'user') %}
+                                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal"
                                         data-bs-target="#editarUsuarioModal{{ usuario.id_usuario }}">
                                         <i class="bi bi-pencil-square me-1"></i>Editar
                                     </button>
+                                    {% endif %}
                                 </div>
                                 {% else %}
                                 <span class="badge bg-secondary">
@@ -206,7 +254,63 @@
 
                         </tr>
 
+                        <!-- Modal Confirmar Hacer Superadmin -->
+                        {% if usuario.rol == 'admin' and usuario.activo and current_user.rol == 'superadmin' %}
+                        <div class="modal fade" id="confirmarSuperadminModal{{ usuario.id_usuario }}" tabindex="-1"
+                            aria-labelledby="confirmarSuperadminModalLabel{{ usuario.id_usuario }}" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <div class="modal-header bg-dark text-white">
+                                        <h5 class="modal-title"
+                                            id="confirmarSuperadminModalLabel{{ usuario.id_usuario }}">
+                                            <i class="bi bi-shield-lock me-2"></i>Promover a Superadministrador
+                                        </h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                            aria-label="Cerrar"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="alert alert-warning" role="alert">
+                                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                            <strong>¡Advertencia importante!</strong>
+                                        </div>
+                                        <p class="mb-3">
+                                            Estás a punto de promover a <strong>{{ usuario.username }}</strong> a
+                                            Superadministrador.
+                                        </p>
+                                        <div class="bg-light p-3 rounded mb-3">
+                                            <h6 class="fw-bold mb-2">Consecuencias de esta acción:</h6>
+                                            <ul class="mb-0">
+                                                <li><strong>{{ usuario.username }}</strong> obtendrá privilegios de
+                                                    Superadministrador</li>
+                                                <li><strong>Tú ({{ current_user.username }})</strong> pasarás a ser
+                                                    Administrador</li>
+                                                <li>Perderás la capacidad de promover usuarios a Superadmin</li>
+                                                <li>Esta acción es <strong class="text-danger">irreversible</strong>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        <p class="text-muted mb-0">
+                                            <i class="bi bi-info-circle me-1"></i>
+                                            Solo puede haber un Superadministrador activo en el sistema.
+                                        </p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                            <i class="bi bi-x-circle me-1"></i>Cancelar
+                                        </button>
+                                        <a href="{{ url_for('admin.hacer_superadmin', id=usuario.id_usuario) }}"
+                                            class="btn btn-dark">
+                                            <i class="bi bi-shield-lock me-1"></i>Confirmar Promoción
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
                         <!-- Modal Editar Usuario -->
+                        {% if current_user.rol == 'superadmin' or (current_user.rol == 'admin' and usuario.rol ==
+                        'user') %}
                         <div class="modal fade" id="editarUsuarioModal{{ usuario.id_usuario }}" tabindex="-1"
                             aria-labelledby="editarUsuarioModalLabel{{ usuario.id_usuario }}" aria-hidden="true">
                             <div class="modal-dialog">
@@ -236,9 +340,12 @@
                                             <div class="mb-3">
                                                 <label class="form-label">Teléfono</label>
                                                 <input type="text" class="form-control" name="telefono"
-                                                    value="{{ usuario.telefono }}">
+                                                    value="{{ usuario.telefono if usuario.telefono else '' }}"
+                                                    placeholder="Ej: +34 666 66 66 66">
                                             </div>
 
+
+                                            {% if current_user.rol == 'superadmin' %}
                                             <div class="mb-3">
                                                 <label class="form-label">Rol</label>
                                                 <select class="form-select" name="rol">
@@ -248,6 +355,8 @@
                                                         %}>Administrador</option>
                                                 </select>
                                             </div>
+                                            {% endif %}
+
 
                                             <div class="form-check">
                                                 <input class="form-check-input" type="checkbox" name="activo"
@@ -266,6 +375,8 @@
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
+                        {% endif %}
                         {% endfor %}
                         {% else %}
                         <tr>

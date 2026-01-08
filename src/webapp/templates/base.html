@@ -56,7 +56,7 @@
                 
             </nav>
 
-            {% if current_user.rol == 'admin' %}
+            {% if current_user.rol == 'admin' or 'superadmin' %}
             <!-- Panel de Administrador al final del sidebar -->
             <div class="mt-auto px-4 py-4 bg-success bg-opacity-10 rounded">
                 <!-- Separador / Título -->

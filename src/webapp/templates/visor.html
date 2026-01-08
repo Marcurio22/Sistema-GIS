@@ -1350,7 +1350,7 @@
 
   const RECINTO_STYLE_DEFAULT = {
     color: "#ff8800",
-    weight: 1,
+    weight: 2,
   };
 
   const RECINTO_STYLE_SELECTED = {
@@ -1384,8 +1384,8 @@
       const html = `
         <div class="popup-recinto">
           <div class="popup-recinto-info">
-            <strong>Provincia:</strong> ${p.provincia ?? "-"}<br>
-            <strong>Municipio:</strong> ${p.municipio ?? "-"}<br>
+            <strong>Provincia:</strong> ${p.provincia ?? "-"} - ${p.nombre_provincia ?? "-"}<br>
+            <strong>Municipio:</strong> ${p.municipio ?? "-"} - ${p.nombre_municipio ?? "-"}<br>
             <strong>Polígono:</strong> ${p.poligono ?? "-"}<br>
             <strong>Parcela:</strong> ${p.parcela ?? "-"}<br>
             <strong>Recinto:</strong> ${p.recinto ?? "-"}<br>
@@ -1704,12 +1704,15 @@
       id_recinto: ds.idrecinto || null,
       provincia: ds.provincia ? Number(ds.provincia) : null,
       municipio: ds.municipio ? Number(ds.municipio) : null,
+      nombre_municipio: ds.nombre_municipio ? ds.nombre_municipio : null,
+      nombre_provincia: ds.nombre_provincia ? ds.nombre_provincia : null,
       agregado: ds.agregado ? Number(ds.agregado) : null,
       zona: ds.zona ? Number(ds.zona) : null,
       poligono: ds.poligono ? Number(ds.poligono) : null,
       parcela: ds.parcela ? Number(ds.parcela) : null,
       recinto: ds.recinto ? Number(ds.recinto) : null,
     };
+
 
     solicitarRecinto(payload);
   };
@@ -1937,6 +1940,8 @@
             id_recinto: data.id,
             provincia: data.provincia,
             municipio: data.municipio,
+            nombre_municipio: data.nombre_municipio,
+            nombre_provincia: data.nombre_provincia,
             poligono: data.poligono,
             parcela: data.parcela,
             recinto: data.recinto,
@@ -1998,12 +2003,13 @@
       // asegurar arriba del todo
       recintoResaltado.bringToFront();
 
+
       // Crear contenido del popup
       const popupContent = `
       <div class="popup-recinto" style="min-width: 250px;">
         <div class="popup-recinto-info" style="font-size: 0.9rem;">
-          <strong>Provincia:</strong> ${data.provincia}<br>
-          <strong>Municipio:</strong> ${data.municipio}<br>
+          <strong>Provincia:</strong> ${data.provincia} - ${data.nombre_provincia}<br>
+          <strong>Municipio:</strong> ${data.municipio} - ${data.nombre_municipio}<br>
           <strong>Polígono:</strong> ${data.poligono}<br>
           <strong>Parcela:</strong> ${data.parcela}<br>
           <strong>Recinto:</strong> ${data.recinto}<br>
