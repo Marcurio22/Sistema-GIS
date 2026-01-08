@@ -86,6 +86,11 @@ ALTER TABLE public.cultivos
   ADD CONSTRAINT fk_cultivos_cod_producto
   FOREIGN KEY (cod_producto) REFERENCES public.productos_fega(codigo);
 
+-- 8) Capo de Observaciones
+ALTER TABLE public.cultivos
+  ADD COLUMN observaciones text NULL;
+
+
 ------ Otros checks útiles ------
 
 -- Orden lógico de fechas (si se informan)
