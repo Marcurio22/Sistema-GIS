@@ -7,6 +7,7 @@ import logging
 from .utils_dashboard import obtener_datos_aemet, MunicipiosCodigosFinder
 from ..models import Recinto
 import os
+from webapp.dashboard.utils_dashboard import municipios_finder
 
 
 logger = logging.getLogger('app.dashboard')
@@ -85,7 +86,8 @@ def visor():
                 if hasattr(recinto, 'id_propietario') and recinto.id_propietario:
                     if recinto.propietario:
                         propietario = recinto.propietario.username
-                
+                nombre_provincia = municipios_finder.obtener_nombre_provincia(recinto.provincia)
+                nombre_recinto = municipios_finder.obtener_nombre_municipio(recinto.provincia, recinto.municipio)
                 recinto_data = {
                     'id': recinto_id,  # Usamos el id del modelo ORM
                     'provincia': recinto.provincia,
@@ -93,6 +95,8 @@ def visor():
                     'poligono': recinto.poligono,
                     'parcela': recinto.parcela,
                     'recinto': recinto.recinto,
+                    'nombre_provincia': nombre_provincia,
+                    'nombre_municipio': nombre_recinto,
                     'nombre': recinto.nombre if recinto.nombre else f'Recinto {recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}-{recinto.recinto}',
                     'superficie_ha': float(recinto.superficie_ha) if recinto.superficie_ha else 0,
                     'propietario': propietario,
