@@ -236,12 +236,13 @@ def aprobar_solicitud_recinto(id_solicitud):
         numero_parcela = f"{recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}"
         direccion_parcela = f"Provincia: {recinto.provincia}, Municipio: {recinto.municipio}, Polígono: {recinto.poligono}, Parcela: {recinto.parcela}"
         
-        enviar_notificacion_aceptacion(
-            destinatario=usuario_solicitante.email,
-            nombre_usuario=usuario_solicitante.username,
-            numero_parcela=numero_parcela,
-            direccion_parcela=direccion_parcela
-        )
+        if usuario_solicitante.notificaciones_activas == True:
+            enviar_notificacion_aceptacion(
+                destinatario=usuario_solicitante.email,
+                nombre_usuario=usuario_solicitante.username,
+                numero_parcela=numero_parcela,
+                direccion_parcela=direccion_parcela
+            )
     
     logger.info(
         f'Admin {current_user.username} aprobó solicitud {id_solicitud} del usuario {usuario_solicitante.username if usuario_solicitante else "desconocido"} para recinto {recinto.id_recinto} (Prov: {recinto.provincia}, Mun: {recinto.municipio}, Pol: {recinto.poligono}, Par: {recinto.parcela})',
@@ -287,13 +288,14 @@ def rechazar_solicitud_recinto(id_solicitud):
 
     if usuario_solicitante and usuario_solicitante.email and recinto:
             numero_parcela = f"{recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}"
-            
-            enviar_notificacion_rechazo(
-                destinatario=usuario_solicitante.email,
-                nombre_usuario=usuario_solicitante.username,
-                numero_parcela=numero_parcela,
-                motivo_rechazo=motivo
-            )
+
+            if usuario_solicitante.notificaciones_activas == True:
+                enviar_notificacion_rechazo(
+                    destinatario=usuario_solicitante.email,
+                    nombre_usuario=usuario_solicitante.username,
+                    numero_parcela=numero_parcela,
+                    motivo_rechazo=motivo
+                )
 
     
     flash("Solicitud rechazada.", "info")
