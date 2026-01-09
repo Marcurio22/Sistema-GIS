@@ -1477,7 +1477,7 @@
 
     try {
       const cultivo = await getCultivoRecinto(recintoId);
-      renderCultivoView(container, cultivo, usos, productos);
+      renderCultivoView(container, recintoId, cultivo, usos, productos);
     } catch (e) {
       if (e && e.status === 404) {
         renderCultivoEmpty(container, recintoId, usos, productos);
@@ -1537,7 +1537,7 @@
     return safeText(val, "N/A");
   }
 
-  function renderCultivoView(container, cultivo, usos, productos) {
+  function renderCultivoView(container, recintoId, cultivo, usos, productos) {
     const usosMap = byCodigo(usos);
     const tipoReg = tipoRegistroLabel(cultivo.tipo_registro);
     const isCamp = String(cultivo.tipo_registro || "").toUpperCase().includes("CAMP");
@@ -1610,11 +1610,11 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ observaciones: val }),
         });
-        NotificationSystem.show("Observaciones guardadas", "success");
+        NotificationSystem.show({type:"success", title:"Observaciones guardadas", message:"Las observaciones han sido guardadas correctamente"});
         renderCultivosForRecinto(cultivo.id_recinto);
       } catch (e) {
         console.warn(e);
-        NotificationSystem.show("No se pudieron guardar las observaciones", "error");
+        NotificationSystem.show({type:"error", title:"Error al guardar observaciones", message:"No se pudieron guardar las observaciones"});
       }
     });
 
@@ -1624,11 +1624,11 @@
 
       try {
         await fetchJson(`/api/mis-recinto/${recintoId}/cultivo`, { method: "DELETE" });
-        NotificationSystem.show("Cultivo eliminado", "success");
+        NotificationSystem.show({type:"success", title:"Cultivo eliminado", message:"El cultivo ha sido eliminado correctamente"});
         renderCultivosForRecinto(cultivo.id_recinto);
       } catch (e) {
         console.warn(e);
-        NotificationSystem.show("No se pudo eliminar el cultivo", "error");
+        NotificationSystem.show({type:"error", title:"Error al eliminar cultivo", message:"No se pudo eliminar el cultivo"});
       }
     });
   }
@@ -1978,7 +1978,7 @@
 
     container.querySelector("#btn-cancel-cultivo").addEventListener("click", () => {
       if (cultivo) {
-        renderCultivoView(container, cultivo, usos, productos);
+        renderCultivoView(container, recintoId, cultivo, usos, productos);
       } else {
         renderCultivoEmpty(container, recintoId, usos, productos);
       }
@@ -2087,7 +2087,7 @@
           });
         }
 
-        NotificationSystem.show("Cultivo guardado", "success");
+        NotificationSystem.show({type:"success", title:"Cultivo guardado", message:"El cultivo ha sido guardado correctamente"});
         renderCultivosForRecinto(recintoId);
       } catch (e) {
         console.warn(e);

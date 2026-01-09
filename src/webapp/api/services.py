@@ -263,6 +263,53 @@ def get_cultivo_recinto(recinto_id: int) -> dict | None:
         "observaciones": row["observaciones"],
     }
 
+def normalize_cultivo_payload(data: dict, existing: dict | None = None) -> dict:
+    """
+    Normaliza el payload para evitar errores típicos:
+    - Si tipo_registro=CAMPANA: asegura fecha_siembra y fecha_implantacion (al menos una y las duplica).
+    - Si tipo_registro=IMPLANTACION: asegura fecha_implantacion (y opcionalmente duplica a fecha_siembra).
+    - Si campana es None en CAMPANA: la calcula como año de fecha inicio.
+    """
+    d = dict(data or {})
+
+    # tipo_registro final
+    tr = (d.get("tipo_registro") or (existing.get("tipo_registro") if existing else "") or "").upper().strip()
+    if not tr:
+        tr = "CAMPANA"  # default razonable
+
+    # fechas nuevas o existentes
+    fecha_siembra = d.get("fecha_siembra") or (existing.get("fecha_siembra") if existing else None)
+    fecha_implantacion = d.get("fecha_implantacion") or (existing.get("fecha_implantacion") if existing else None)
+
+    # Normalización
+    if tr == "CAMPANA":
+        # Si sólo llega una, copia a la otra
+        if fecha_siembra and not fecha_implantacion:
+            d["fecha_implantacion"] = fecha_siembra
+            fecha_implantacion = fecha_siembra
+        elif fecha_implantacion and not fecha_siembra:
+            d["fecha_siembra"] = fecha_implantacion
+            fecha_siembra = fecha_implantacion
+
+        # Campaña: si viene vacía, usa el año de la fecha de inicio
+        if d.get("campana") in (None, "", 0):
+            base = fecha_siembra or fecha_implantacion
+            if base and isinstance(base, str) and len(base) >= 4 and base[:4].isdigit():
+                d["campana"] = int(base[:4])
+
+    elif tr == "IMPLANTACION":
+        # Para implantación, asegura fecha_implantacion si sólo llega siembra
+        if fecha_siembra and not fecha_implantacion:
+            d["fecha_implantacion"] = fecha_siembra
+            fecha_implantacion = fecha_siembra
+
+        # Garantizar que siempre exista fecha_siembra también:
+        if fecha_implantacion and not d.get("fecha_siembra"):
+            d["fecha_siembra"] = fecha_implantacion
+
+    # Devuelve payload ya corregido
+    d["tipo_registro"] = tr
+    return d
 
 def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     """
@@ -272,8 +319,9 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     if existing:
         raise ValueError("ya_existe")
 
-    # Campos esperados
-    # Nota: el trigger rellena tipo_cultivo según origen/cod_producto/cultivo_custom.
+    # Normaliza antes de insertar
+    data = normalize_cultivo_payload(data)
+
     params = {
         "id_recinto": recinto_id,
         "uso_sigpac": data.get("uso_sigpac"),
@@ -348,6 +396,9 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     cultivo = get_cultivo_recinto(recinto_id)
     if not cultivo:
         raise ValueError("no_existe")
+    
+    # Normaliza antes de actualizar
+    data = normalize_cultivo_payload(data, existing=cultivo)
 
     # Construcción dinámica del UPDATE
     allowed = {
