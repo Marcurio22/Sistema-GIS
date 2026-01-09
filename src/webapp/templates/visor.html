@@ -73,7 +73,6 @@
     border-radius: 12px;
     border: none;
     background-color: #198754;
-    /* mismo verde que otros botones */
     color: #ffffff;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
     cursor: pointer;
@@ -775,6 +774,83 @@
     height: 18px;
   }
 
+/* Sección Cultivos */
+  .side-section-title{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    margin: 6px 0 12px;
+  }
+  .side-section-label{
+    font-weight: 800;
+    font-size: 22px;
+    line-height: 1;
+  }
+
+  .cultivo-grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 18px;
+    margin-top: 6px;
+  }
+  .cultivo-field{
+    display:flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .cultivo-field .k{
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .cultivo-field .v{
+    font-size: 16px;
+    opacity: .9;
+  }
+  .cultivo-actions{
+    display:flex;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .cultivo-actions .btn{
+    border-radius: 999px;
+  }
+
+  /* SearchSelect (combo con búsqueda) */
+  .ss{
+    position: relative;
+  }
+  .ss-menu{
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    max-height: 220px;
+    overflow: auto;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,.15);
+    border-radius: 10px;
+    box-shadow: 0 10px 22px rgba(0,0,0,.12);
+    z-index: 9999;
+    display: none;
+  }
+  .ss.open .ss-menu{ display:block; }
+  .ss-item{
+    padding: 8px 10px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1.25;
+  }
+  .ss-item:hover{
+    background: rgba(25,135,84,.10);
+  }
+  .ss-item small{
+    opacity: .7;
+  }
+
+  @media (max-width: 520px){
+    .cultivo-grid{ grid-template-columns: 1fr; }
+  }
+
 </style>
 
 <div id="map"></div>
@@ -914,6 +990,17 @@
       <input id="side-active" type="checkbox" checked />
       <span>Recinto activo</span>
     </label>
+    <div class="side-divider"></div>
+
+    <div class="side-section">
+      <div class="side-section-title">
+        <i class="bi bi-wheat side-ico" style="color:#198754"></i>
+        <div class="side-section-label">Cultivos</div>
+      </div>
+
+      <div id="cultivos-container"></div>
+    </div>
+
   </div>
   <div id="side-alerts"></div>
 </aside>
@@ -1235,6 +1322,779 @@
       : `${Number(p.superficie_ha).toFixed(2).replace(".", ",")} ha`;
     document.getElementById("side-owner").textContent = safeText(p.propietario, "N/A");
     document.getElementById("side-active").checked = (p.activa == null) ? true : !!p.activa;
+
+    // Cultivos del recinto
+    renderCultivosForRecinto(currentSideRecintoId);
+  }
+
+    // ==========================================================
+  // Cultivos (UI del panel derecho)
+  // Requiere endpoints (a implementar en backend):
+  //   GET    /api/catalogos/usos-sigpac
+  //   GET    /api/catalogos/productos-fega
+  //   GET    /api/mis-recinto/<id>/cultivo            -> 404 si no hay
+  //   POST   /api/cultivos                           -> crea
+  //   PATCH  /api/cultivos/<id_cultivo>              -> actualiza
+  //   DELETE /api/cultivos/<id_cultivo>              -> elimina
+  // ==========================================================
+
+  let _usosSigpac = null;     // [{codigo, descripcion, grupo}]
+  let _productosFega = null;  // [{codigo, descripcion}]
+
+  // Para "N/A - ALTRAMUZ", etc. (origen_cultivo='C', cod_producto=NULL)
+  const _cultivosCustom = [
+    { codigo: null, descripcion: "ALTRAMUZ" },
+    { codigo: null, descripcion: "ALTRAMUZ DULCE" },
+    { codigo: null, descripcion: "ALTRAMUZ AMARILLO" },
+    { codigo: null, descripcion: "ALTRAMUZ BLANCO" },
+  ];
+
+  async function fetchJson(url, opts) {
+    const resp = await fetch(url, opts);
+    if (!resp.ok) {
+      const txt = await resp.text().catch(() => "");
+      const err = new Error(`HTTP ${resp.status} en ${url}`);
+      err.status = resp.status;
+      err.body = txt;
+      throw err;
+    }
+    return resp.json();
+  }
+
+  // Convierte fechas de inputs a ISO (YYYY-MM-DD).
+  // Acepta: YYYY-MM-DD (input type="date"), DD/MM/YYYY y DD-MM-YYYY.
+  function parseDateToISO(v) {
+    if (!v) return null;
+    const s = String(v).trim();
+    if (!s) return null;
+
+    // Ya viene en ISO
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+    // DD/MM/YYYY
+    let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+
+    // DD-MM-YYYY
+    m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+
+    // Como último recurso: intenta Date()
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+
+    return null;
+  }
+
+  async function loadUsosSigpac() {
+    if (_usosSigpac) return _usosSigpac;
+    _usosSigpac = await fetchJson("/api/catalogos/usos-sigpac");
+    return _usosSigpac;
+  }
+
+  async function loadProductosFega() {
+    if (_productosFega) return _productosFega;
+    _productosFega = await fetchJson("/api/catalogos/productos-fega");
+    return _productosFega;
+  }
+
+  function byCodigo(list) {
+    const m = new Map();
+    (list || []).forEach(it => m.set(String(it.codigo), it));
+    return m;
+  }
+
+  function norm(s) {
+    return String(s ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  }
+
+  function formatCodigoDesc(codigo, descripcion) {
+    const code = (codigo === null || codigo === undefined || codigo === "") ? "N/A" : String(codigo);
+    const desc = safeText(descripcion, "N/A");
+    return `${code}-${desc}`;
+  }
+
+  function guessGrupoUso(usoCode, usosMap) {
+    const u = usosMap.get(String(usoCode));
+    return u?.grupo || null;
+  }
+
+  function productosFiltradosPorUso(grupo, productos) {
+    if (!grupo) return productos;
+
+    // Heurística simple: mejora UX (no bloquea nada).
+    // "Ver todos" permite saltarse este filtro.
+    const g = norm(grupo);
+    if (g.includes("past")) {
+      const kws = ["pasto", "pastiz", "raygrass", "festuca", "trebol", "forraj", "zulla", "dactilo", "poa"];
+      return productos.filter(p => {
+        const d = norm(p.descripcion);
+        const c = Number(p.codigo);
+        return (Number.isFinite(c) && c >= 60 && c <= 78) || kws.some(k => d.includes(k));
+      });
+    }
+    if (g.includes("perman")) {
+      return productos.filter(p => {
+        const c = Number(p.codigo);
+        if (!Number.isFinite(c)) return false;
+        // En FEGA, muchísimos permanentes / leñosos están >= 100
+        return c >= 100;
+      });
+    }
+    if (g.includes("tierras")) {
+      return productos.filter(p => {
+        const c = Number(p.codigo);
+        const d = norm(p.descripcion);
+        return (Number.isFinite(c) && c < 100) || d.includes("huerta") || d.includes("tomate") || d.includes("patata");
+      });
+    }
+    // No agrícolas / otros: por defecto muy restrictivo
+    return productos.filter(p => Number(p.codigo) === 0);
+  }
+
+  async function getCultivoRecinto(recintoId) {
+    return fetchJson(`/api/mis-recinto/${recintoId}/cultivo`);
+  }
+
+  async function renderCultivosForRecinto(recintoId) {
+    const container = document.getElementById("cultivos-container");
+    if (!container) return;
+
+    container.innerHTML = `<div class="text-muted">Cargando cultivos...</div>`;
+
+    let usos = [];
+    let productos = [];
+    try {
+      [usos, productos] = await Promise.all([loadUsosSigpac(), loadProductosFega()]);
+    } catch (e) {
+      console.warn(e);
+      container.innerHTML = `
+        <div class="text-danger">No se pudieron cargar los catálogos (SIGPAC/FEGA).</div>
+        <div class="text-muted" style="font-size:12px">Revisa /api/catalogos/usos-sigpac y /api/catalogos/productos-fega</div>
+      `;
+      return;
+    }
+
+    try {
+      const cultivo = await getCultivoRecinto(recintoId);
+      renderCultivoView(container, cultivo, usos, productos);
+    } catch (e) {
+      if (e && e.status === 404) {
+        renderCultivoEmpty(container, recintoId, usos, productos);
+        return;
+      }
+      console.warn(e);
+      container.innerHTML = `<div class="text-danger">Error cargando cultivo del recinto.</div>`;
+    }
+  }
+
+  function renderCultivoEmpty(container, recintoId, usos, productos) {
+    container.innerHTML = `
+      <button id="btn-add-cultivo" type="button" class="btn btn-success w-100">
+        Añadir cultivo
+      </button>
+      <div class="text-muted" style="font-size:12px; margin-top:8px">
+        Añade un cultivo a este recinto (FEGA o personalizado).
+      </div>
+    `;
+    container.querySelector("#btn-add-cultivo").addEventListener("click", () => {
+      renderCultivoForm(container, { recintoId, cultivo: null, usos, productos });
+    });
+  }
+
+  function formatDateOnly(v) {
+    if (!v) return "N/A";
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return safeText(v);
+    const dd = String(d.getDate()).padStart(2,"0");
+    const mm = String(d.getMonth()+1).padStart(2,"0");
+    const yy = d.getFullYear();
+    return `${dd}/${mm}/${yy}`;
+  }
+
+  function cultivoTipoLabel(c) {
+    const code = (c.cod_producto == null) ? "N/A" : String(c.cod_producto);
+    const name = safeText(c.tipo_cultivo || c.cultivo_custom, "N/A");
+    return `${code}-${name}`;
+  }
+
+  function cultivoUsoLabel(c, usosMap) {
+    const u = usosMap.get(String(c.uso_sigpac));
+    return formatCodigoDesc(c.uso_sigpac, u?.descripcion || c.uso_sigpac);
+  }
+
+  function sistemaLabel(val) {
+    const v = String(val || "").toUpperCase();
+    if (v === "R") return "Regadío";
+    if (v === "S") return "Secano";
+    return "N/A";
+  }
+
+  function tipoRegistroLabel(val) {
+    const v = String(val || "").toUpperCase();
+    if (v.includes("IMPL")) return "Implantación";
+    if (v.includes("CAMP")) return "Campaña";
+    return safeText(val, "N/A");
+  }
+
+  function renderCultivoView(container, cultivo, usos, productos) {
+    const usosMap = byCodigo(usos);
+    const tipoReg = tipoRegistroLabel(cultivo.tipo_registro);
+    const isCamp = String(cultivo.tipo_registro || "").toUpperCase().includes("CAMP");
+
+    const inicio = isCamp ? cultivo.fecha_siembra : cultivo.fecha_implantacion;
+    const fin = cultivo.fecha_cosecha_real || cultivo.fecha_cosecha_estimada;
+
+    const variedad = cultivo.variedad ? safeText(cultivo.variedad) : "N/A";
+    const obs = cultivo.observaciones || "";
+
+    container.innerHTML = `
+      <div class="cultivo-grid">
+        <div class="cultivo-field">
+          <div class="k">Uso SIGPAC</div>
+          <div class="v">${safeText(cultivoUsoLabel(cultivo, usosMap))}</div>
+        </div>
+        <div class="cultivo-field">
+          <div class="k">Tipo cultivo</div>
+          <div class="v">${safeText(cultivoTipoLabel(cultivo))}</div>
+        </div>
+
+        <div class="cultivo-field">
+          <div class="k">Variedad</div>
+          <div class="v">${safeText(variedad)}</div>
+        </div>
+        <div class="cultivo-field">
+          <div class="k">Explotación</div>
+          <div class="v">${safeText(sistemaLabel(cultivo.sistema_explotacion))}</div>
+        </div>
+
+        <div class="cultivo-field">
+          <div class="k">${isCamp ? "Campaña" : "Tipo registro"}</div>
+          <div class="v">${isCamp ? safeText(cultivo.campana, "N/A") : safeText(tipoReg)}</div>
+        </div>
+        <div class="cultivo-field">
+          <div class="k">Estado</div>
+          <div class="v">${safeText(cultivo.estado, "N/A")}</div>
+        </div>
+
+        <div class="cultivo-field">
+          <div class="k">Fecha inicio</div>
+          <div class="v">${safeText(formatDateOnly(inicio))}</div>
+        </div>
+        <div class="cultivo-field">
+          <div class="k">Fecha fin</div>
+          <div class="v">${safeText(formatDateOnly(fin))}</div>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <div class="fw-bold mb-1">Observaciones</div>
+        <textarea id="cultivo-obs" class="form-control" rows="3" placeholder="(Opcional)">${safeText(obs, "")}</textarea>
+        <div class="cultivo-actions">
+          <button id="btn-save-obs" class="btn btn-outline-success btn-sm" type="button">Guardar observaciones</button>
+          <button id="btn-edit-cultivo" class="btn btn-outline-secondary btn-sm" type="button">Editar cultivo</button>
+          <button id="btn-del-cultivo" class="btn btn-outline-danger btn-sm" type="button">Eliminar cultivo</button>
+        </div>
+      </div>
+    `;
+
+    container.querySelector("#btn-edit-cultivo").addEventListener("click", () => {
+      renderCultivoForm(container, { recintoId: cultivo.id_recinto, cultivo, usos, productos });
+    });
+
+    container.querySelector("#btn-save-obs").addEventListener("click", async () => {
+      try {
+        const val = container.querySelector("#cultivo-obs").value;
+        await fetchJson(`/api/mis-recinto/${recintoId}/cultivo`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ observaciones: val }),
+        });
+        NotificationSystem.show("Observaciones guardadas", "success");
+        renderCultivosForRecinto(cultivo.id_recinto);
+      } catch (e) {
+        console.warn(e);
+        NotificationSystem.show("No se pudieron guardar las observaciones", "error");
+      }
+    });
+
+    container.querySelector("#btn-del-cultivo").addEventListener("click", async () => {
+      const ok = confirm("¿Seguro que deseas eliminar el cultivo? (Este proceso no es reversible)");
+      if (!ok) return;
+
+      try {
+        await fetchJson(`/api/mis-recinto/${recintoId}/cultivo`, { method: "DELETE" });
+        NotificationSystem.show("Cultivo eliminado", "success");
+        renderCultivosForRecinto(cultivo.id_recinto);
+      } catch (e) {
+        console.warn(e);
+        NotificationSystem.show("No se pudo eliminar el cultivo", "error");
+      }
+    });
+  }
+
+  function openSs(ssEl) { ssEl.classList.add("open"); }
+  function closeSs(ssEl) { ssEl.classList.remove("open"); }
+
+  function attachSearchSelect(ssEl, items, opts) {
+    const input = ssEl.querySelector("input");
+    const menu = ssEl.querySelector(".ss-menu");
+    const hidden = ssEl.querySelector("input[type=hidden]");
+    const {
+      getLabel,
+      getValue,
+      onSelect,
+      allowFreeText = false,
+      emptyText = "Sin resultados",
+    } = opts;
+
+    function renderList(list) {
+      menu.innerHTML = "";
+      if (!list.length) {
+        const d = document.createElement("div");
+        d.className = "ss-item text-muted";
+        d.textContent = emptyText;
+        menu.appendChild(d);
+        return;
+      }
+      for (const it of list) {
+        const d = document.createElement("div");
+        d.className = "ss-item";
+        d.textContent = getLabel(it);
+        d.addEventListener("mousedown", (ev) => {
+          ev.preventDefault(); // evita perder foco antes de seleccionar
+          const val = getValue(it);
+          hidden.value = (val === null || val === undefined) ? "" : String(val);
+          input.value = getLabel(it);
+          closeSs(ssEl);
+          onSelect?.(it);
+        });
+        menu.appendChild(d);
+      }
+    }
+
+    function filterNow() {
+      const q = norm(input.value);
+      const list = items.filter(it => {
+        const label = norm(getLabel(it));
+        const val = norm(getValue(it));
+        return !q || label.includes(q) || val.includes(q);
+      });
+      renderList(list.slice(0, 200));
+    }
+
+    input.addEventListener("focus", () => { openSs(ssEl); filterNow(); });
+    input.addEventListener("input", () => { openSs(ssEl); filterNow(); });
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeSs(ssEl);
+      if (allowFreeText && e.key === "Enter") closeSs(ssEl);
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!ssEl.contains(e.target)) closeSs(ssEl);
+    });
+
+    // inicial
+    renderList(items.slice(0, 50));
+    return {
+      setItems(newItems) {
+        items = newItems;
+        filterNow();
+      },
+      getSelectedValue() {
+        return hidden.value || null;
+      }
+    };
+  }
+
+  function renderCultivoForm(container, { recintoId, cultivo, usos, productos }) {
+    const usosMap = byCodigo(usos);
+    const productosAll = productos || [];
+
+    const estadoOpts = ["planificado", "implantado", "en_curso", "cosechado", "abandonado"];
+    const tipoRegOpts = [
+      { v: "CAMPANA", l: "Campaña (año a año)" },
+      { v: "IMPLANTACION", l: "Implantación (permanente)" },
+    ];
+
+    container.innerHTML = `
+      <div class="card" style="border-radius:16px">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="fw-bold">${cultivo ? "Editar cultivo" : "Añadir cultivo"}</div>
+            <button id="btn-cancel-cultivo" type="button" class="btn btn-sm btn-outline-secondary">Cancelar</button>
+          </div>
+
+          <div class="mb-3 ss" id="ss-uso">
+            <label class="form-label fw-bold">Uso SIGPAC *</label>
+            <input class="form-control" type="text" placeholder="Busca: CI-Cítricos, OV-Olivar, TA-Tierras arables..." autocomplete="off">
+            <input type="hidden" id="uso_sigpac_val">
+            <div class="ss-menu"></div>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label fw-bold mb-0">Tipo de cultivo *</label>
+            <button id="btn-ver-todos" type="button" class="btn btn-sm btn-outline-success" disabled>Ver todos</button>
+          </div>
+
+          <div class="mb-3 ss" id="ss-prod">
+            <input class="form-control" type="text" placeholder="Busca por código o nombre: 99-PATATA, N/A-ALTRAMUZ..." autocomplete="off" disabled>
+            <input type="hidden" id="cod_producto_val">
+            <div class="ss-menu"></div>
+            <div class="form-text" id="prod-help">Selecciona primero el uso SIGPAC.</div>
+          </div>
+
+          <div class="mb-3" id="custom-wrap" style="display:none">
+            <label class="form-label fw-bold">Cultivo personalizado</label>
+            <input id="cultivo_custom" class="form-control" type="text" placeholder="Escribe el cultivo (p.ej. ALTRAMUZ)">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Variedad (opcional)</label>
+            <input id="variedad" class="form-control" type="text" placeholder="Ej: Picual, Arbequina, Kennebec...">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Estado</label>
+            <select id="estado" class="form-select">
+              ${estadoOpts.map(e => `<option value="${e}">${e}</option>`).join("")}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Explotación</label>
+            <div class="d-flex gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="sistema_explotacion" id="exp-sec" value="S" checked>
+                <label class="form-check-label" for="exp-sec">Secano</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="sistema_explotacion" id="exp-reg" value="R">
+                <label class="form-check-label" for="exp-reg">Regadío</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Tipo de registro</label>
+            <select id="tipo_registro" class="form-select">
+              ${tipoRegOpts.map(o => `<option value="${o.v}">${o.l}</option>`).join("")}
+            </select>
+          </div>
+
+          <div class="mb-3" id="campana-wrap" style="display:none">
+            <label class="form-label fw-bold">Campaña</label>
+            <input id="campana" class="form-control" type="number" min="1900" max="2200" placeholder="2026">
+          </div>
+
+          <div class="mb-3" id="fecha-inicio-wrap">
+            <label class="form-label fw-bold" id="lbl-fecha-inicio">Fecha siembra</label>
+            <input id="fecha_inicio" class="form-control" type="date">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Fecha fin (opcional)</label>
+            <input id="fecha_fin" class="form-control" type="date">
+            <div class="form-text">Si no indicas fecha fin, se estimará automáticamente.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Observaciones (opcional)</label>
+            <textarea id="observaciones" class="form-control" rows="3" placeholder="Escribe notas..."></textarea>
+          </div>
+
+          <button id="btn-save-cultivo" type="button" class="btn btn-success w-100">Guardar</button>
+          <div id="cultivo-form-msg" class="text-muted" style="font-size:12px; margin-top:8px"></div>
+        </div>
+      </div>
+    `;
+
+    const ssUsoEl = container.querySelector("#ss-uso");
+    const ssProdEl = container.querySelector("#ss-prod");
+    const btnVerTodos = container.querySelector("#btn-ver-todos");
+
+    const usoItems = usos.map(u => ({
+      codigo: u.codigo,
+      descripcion: u.descripcion,
+      grupo: u.grupo,
+      label: formatCodigoDesc(u.codigo, u.descripcion),
+    }));
+
+    let modoVerTodos = false;
+    let selectedUso = null;
+    let selectedProd = null;
+
+    const ssUso = attachSearchSelect(ssUsoEl, usoItems, {
+      getLabel: (it) => it.label,
+      getValue: (it) => it.codigo,
+      onSelect: (it) => {
+        selectedUso = it;
+        // habilita selector de producto
+        ssProdEl.querySelector("input").disabled = false;
+        ssProdEl.querySelector("#prod-help").style.display = "none";
+        btnVerTodos.disabled = false;
+        modoVerTodos = false;
+        btnVerTodos.textContent = "Ver todos";
+        actualizarListaProductos();
+      }
+    });
+
+    function buildProductosList() {
+      const base = productosAll.map(p => ({
+        codigo: p.codigo,
+        descripcion: p.descripcion,
+        origen: "F",
+        label: formatCodigoDesc(p.codigo, p.descripcion),
+      }));
+      const custom = _cultivosCustom.map(p => ({
+        codigo: null,
+        descripcion: p.descripcion,
+        origen: "C",
+        label: formatCodigoDesc(null, p.descripcion),
+      }));
+      // Añadimos "OTRO" para permitir escribir
+      const otro = [{ codigo: "__OTRO__", descripcion: "OTRO (escribir...)", origen: "C", label: "N/A-OTRO (escribir...)" }];
+      return [...base, ...custom, ...otro];
+    }
+
+    let productosItems = buildProductosList();
+    let ssProd = attachSearchSelect(ssProdEl, [], {
+      getLabel: (it) => it.label,
+      getValue: (it) => (it.codigo === null ? "" : it.codigo),
+      onSelect: (it) => {
+        selectedProd = it;
+        const customWrap = container.querySelector("#custom-wrap");
+        const customInput = container.querySelector("#cultivo_custom");
+        const codHidden = container.querySelector("#cod_producto_val");
+
+        if (it.codigo === "__OTRO__") {
+          customWrap.style.display = "";
+          codHidden.value = ""; // null
+          customInput.focus();
+        } else if (it.origen === "C") {
+          customWrap.style.display = "";
+          codHidden.value = ""; // null
+          customInput.value = it.descripcion;
+        } else {
+          customWrap.style.display = "none";
+          codHidden.value = String(it.codigo);
+          customInput.value = "";
+        }
+      }
+    });
+
+    function actualizarListaProductos() {
+      // Filtrado por uso (heurística). "Ver todos" lo desactiva.
+      const grupo = selectedUso?.grupo || guessGrupoUso(selectedUso?.codigo, usosMap);
+      const fega = productosAll.map(p => ({ codigo: p.codigo, descripcion: p.descripcion, origen: "F", label: formatCodigoDesc(p.codigo, p.descripcion) }));
+      const custom = _cultivosCustom.map(p => ({ codigo: null, descripcion: p.descripcion, origen: "C", label: formatCodigoDesc(null, p.descripcion) }));
+      const otro = [{ codigo: "__OTRO__", descripcion: "OTRO (escribir...)", origen: "C", label: "N/A-OTRO (escribir...)" }];
+
+      let list = fega;
+      if (!modoVerTodos) {
+        const fegaFiltered = productosFiltradosPorUso(grupo, fega.map(x => ({codigo: x.codigo, descripcion: x.descripcion})));
+        const keep = new Set(fegaFiltered.map(p => String(p.codigo)));
+        list = fega.filter(p => keep.has(String(p.codigo)));
+      }
+      productosItems = [...list, ...custom, ...otro];
+      ssProd.setItems(productosItems);
+    }
+
+    btnVerTodos.addEventListener("click", () => {
+      modoVerTodos = !modoVerTodos;
+      btnVerTodos.textContent = modoVerTodos ? "Filtrar" : "Ver todos";
+      actualizarListaProductos();
+    });
+
+    // Tipo registro: muestra campaña o cambia etiqueta de fecha
+    const tipoRegSel = container.querySelector("#tipo_registro");
+    const campWrap = container.querySelector("#campana-wrap");
+    const lblInicio = container.querySelector("#lbl-fecha-inicio");
+
+    function syncTipoRegistroUi() {
+      const v = tipoRegSel.value;
+      const isCamp = v === "CAMPANA";
+      campWrap.style.display = isCamp ? "" : "none";
+      lblInicio.textContent = isCamp ? "Fecha siembra" : "Fecha implantación";
+    }
+    tipoRegSel.addEventListener("change", syncTipoRegistroUi);
+    syncTipoRegistroUi();
+
+    // Si venimos de editar
+    if (cultivo) {
+      // Uso sigpac
+      const u = usosMap.get(String(cultivo.uso_sigpac));
+      if (cultivo.uso_sigpac) {
+        ssUsoEl.querySelector("input").value = formatCodigoDesc(cultivo.uso_sigpac, u?.descripcion || cultivo.uso_sigpac);
+        ssUsoEl.querySelector("#uso_sigpac_val").value = cultivo.uso_sigpac;
+        selectedUso = { codigo: cultivo.uso_sigpac, grupo: u?.grupo };
+        ssProdEl.querySelector("input").disabled = false;
+        btnVerTodos.disabled = false;
+        actualizarListaProductos();
+      }
+
+      // Tipo cultivo
+      const customWrap = container.querySelector("#custom-wrap");
+      const customInput = container.querySelector("#cultivo_custom");
+      const codHidden = container.querySelector("#cod_producto_val");
+      const isFega = (cultivo.origen_cultivo || "").toUpperCase() === "F";
+
+      if (isFega && cultivo.cod_producto != null) {
+        const p = productosAll.find(x => String(x.codigo) === String(cultivo.cod_producto));
+        ssProdEl.querySelector("input").value = formatCodigoDesc(cultivo.cod_producto, p?.descripcion || cultivo.tipo_cultivo);
+        codHidden.value = String(cultivo.cod_producto);
+        customWrap.style.display = "none";
+      } else {
+        ssProdEl.querySelector("input").value = formatCodigoDesc(null, cultivo.cultivo_custom || cultivo.tipo_cultivo);
+        codHidden.value = "";
+        customWrap.style.display = "";
+        customInput.value = cultivo.cultivo_custom || cultivo.tipo_cultivo || "";
+      }
+
+      // resto campos
+      container.querySelector("#variedad").value = cultivo.variedad || "";
+      container.querySelector("#estado").value = cultivo.estado || "en_curso";
+
+      const exp = (cultivo.sistema_explotacion || "S").toUpperCase();
+      container.querySelector("#exp-sec").checked = (exp === "S");
+      container.querySelector("#exp-reg").checked = (exp === "R");
+
+      const tr = String(cultivo.tipo_registro || "CAMPANA").toUpperCase().includes("IMPL") ? "IMPLANTACION" : "CAMPANA";
+      tipoRegSel.value = tr;
+      syncTipoRegistroUi();
+
+      container.querySelector("#campana").value = cultivo.campana || "";
+      const inicio = (tr === "CAMPANA") ? cultivo.fecha_siembra : cultivo.fecha_implantacion;
+      container.querySelector("#fecha_inicio").value = inicio ? String(inicio).slice(0,10) : "";
+      const fin = cultivo.fecha_cosecha_real || cultivo.fecha_cosecha_estimada;
+      container.querySelector("#fecha_fin").value = fin ? String(fin).slice(0,10) : "";
+
+      container.querySelector("#observaciones").value = cultivo.observaciones || "";
+    } else {
+      // defaults
+      container.querySelector("#estado").value = "planificado";
+    }
+
+    container.querySelector("#btn-cancel-cultivo").addEventListener("click", () => {
+      if (cultivo) {
+        renderCultivoView(container, cultivo, usos, productos);
+      } else {
+        renderCultivoEmpty(container, recintoId, usos, productos);
+      }
+    });
+
+    container.querySelector("#btn-save-cultivo").addEventListener("click", async () => {
+      const msg = container.querySelector("#cultivo-form-msg");
+      msg.textContent = "";
+
+      const uso = container.querySelector("#uso_sigpac_val").value;
+      if (!uso) {
+        msg.textContent = "Selecciona un uso SIGPAC.";
+        msg.className = "text-danger";
+        return;
+      }
+
+      const cod = container.querySelector("#cod_producto_val").value;
+      const custom = container.querySelector("#cultivo_custom").value.trim();
+
+      let origen = "F";
+      let cod_producto = null;
+      let cultivo_custom = null;
+
+      if (cod) {
+        origen = "F";
+        cod_producto = Number(cod);
+      } else {
+        origen = "C";
+        cultivo_custom = custom || (selectedProd?.descripcion || "");
+      }
+
+      if (origen === "C" && !cultivo_custom) {
+        msg.textContent = "Indica el cultivo personalizado (o elige uno de la lista).";
+        msg.className = "text-danger";
+        return;
+      }
+
+      const variedad = container.querySelector("#variedad").value.trim() || null;
+      const estado = container.querySelector("#estado").value || "en_curso";
+      const sistema = container.querySelector("input[name='sistema_explotacion']:checked")?.value || "S";
+
+      const tipo_registro = container.querySelector("#tipo_registro").value;
+      const campana = (tipo_registro === "CAMPANA")
+        ? (Number(container.querySelector("#campana").value) || null)
+        : null;
+
+      const fechaInicioRaw = container.querySelector("#fecha_inicio").value || null;
+      const fechaFinRaw = container.querySelector("#fecha_fin").value || null;
+      const fechaInicio = parseDateToISO(fechaInicioRaw);
+      const fechaFin = parseDateToISO(fechaFinRaw);
+
+      if (!fechaInicio) {
+        msg.textContent = "Selecciona la fecha de inicio.";
+        msg.className = "text-danger";
+        return;
+      }
+
+      // Si no hay fecha fin: estimación simple
+      let fechaCosechaEst = fechaFin;
+      let cosechaAuto = false;
+      if (!fechaFin) {
+        cosechaAuto = true;
+        const d = new Date(fechaInicio);
+        const deltaDays = (tipo_registro === "CAMPANA") ? 120 : 365;
+        d.setDate(d.getDate() + deltaDays);
+        fechaCosechaEst = d.toISOString().slice(0,10);
+      }
+
+      const observaciones = container.querySelector("#observaciones").value || null;
+
+      const payload = {
+        id_recinto: recintoId,
+        uso_sigpac: uso,
+        sistema_explotacion: sistema,
+        tipo_registro: tipo_registro,
+        campana: campana,
+        estado: estado,
+        variedad: variedad,
+        origen_cultivo: origen,
+        cod_producto: cod_producto,
+        cultivo_custom: cultivo_custom,
+        observaciones: observaciones,
+        cosecha_estimada_auto: cosechaAuto,
+      };
+
+      // Fechas según tipo_registro
+      if (tipo_registro === "CAMPANA") {
+        payload.fecha_siembra = fechaInicio;
+      } else {
+        payload.fecha_implantacion = fechaInicio;
+      }
+      payload.fecha_cosecha_estimada = fechaCosechaEst;
+
+      try {
+        if (cultivo) {
+          await fetchJson(`/api/mis-recinto/${recintoId}/cultivo`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        } else {
+          await fetchJson(`/api/mis-recinto/${recintoId}/cultivo`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        }
+
+        NotificationSystem.show("Cultivo guardado", "success");
+        renderCultivosForRecinto(recintoId);
+      } catch (e) {
+        console.warn(e);
+        msg.textContent = "No se pudo guardar el cultivo.";
+        msg.className = "text-danger";
+      }
+    });
   }
 
   async function guardarNombreRecinto(nombre) {
@@ -1712,7 +2572,6 @@
       parcela: ds.parcela ? Number(ds.parcela) : null,
       recinto: ds.recinto ? Number(ds.recinto) : null,
     };
-
 
     solicitarRecinto(payload);
   };

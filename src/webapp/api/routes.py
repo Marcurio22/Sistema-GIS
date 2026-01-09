@@ -14,7 +14,17 @@ from .. import db
 from ..models import Recinto, Solicitudrecinto
 
 from . import api_bp
-from .services import recintos_geojson, mis_recintos_geojson, mis_recinto_detalle
+from .services import (
+    recintos_geojson,
+    mis_recintos_geojson,
+    mis_recinto_detalle,
+    catalogo_usos_sigpac,
+    catalogo_productos_fega,
+    get_cultivo_recinto,
+    create_cultivo_recinto,
+    patch_cultivo_recinto,
+    delete_cultivo_recinto,
+)
 
 
 
@@ -184,3 +194,122 @@ def editar_nombre_recinto(recinto_id):
     db.session.commit()
 
     return jsonify({"ok": True, "nombre": nombre})
+
+# ---------------------------
+# Catálogos para el frontend
+# ---------------------------
+
+@api_bp.get("/catalogos/usos-sigpac")
+@login_required
+def api_catalogo_usos_sigpac():
+    try:
+        return jsonify(catalogo_usos_sigpac())
+    except Exception:
+        return jsonify({"error": "Error interno en /api/catalogos/usos-sigpac"}), 500
+
+
+@api_bp.get("/catalogos/productos-fega")
+@login_required
+def api_catalogo_productos_fega():
+    try:
+        return jsonify(catalogo_productos_fega())
+    except Exception:
+        return jsonify({"error": "Error interno en /api/catalogos/productos-fega"}), 500
+
+
+# ---------------------------
+# Cultivo único por recinto
+# ---------------------------
+
+@api_bp.get("/mis-recinto/<int:recinto_id>/cultivo")
+@login_required
+def api_get_cultivo(recinto_id: int):
+    try:
+        recinto = Recinto.query.filter_by(
+            id_recinto=recinto_id,
+            id_propietario=current_user.id_usuario
+        ).first()
+
+        if not recinto:
+            return jsonify({"error": "Recinto no encontrado"}), 404
+
+        cultivo = get_cultivo_recinto(recinto_id)
+        if not cultivo:
+            return jsonify({"error": "Cultivo no encontrado"}), 404
+
+        return jsonify(cultivo)
+    except Exception:
+        return jsonify({"error": "Error interno en GET /api/mis-recinto/<id>/cultivo"}), 500
+
+
+@api_bp.post("/mis-recinto/<int:recinto_id>/cultivo")
+@login_required
+def api_create_cultivo(recinto_id: int):
+    data = request.get_json(silent=True) or {}
+    try:
+        recinto = Recinto.query.filter_by(
+            id_recinto=recinto_id,
+            id_propietario=current_user.id_usuario
+        ).first()
+
+        if not recinto:
+            return jsonify({"ok": False, "error": "Recinto no encontrado"}), 404
+
+        cultivo = create_cultivo_recinto(recinto_id, data)
+        return jsonify({"ok": True, "cultivo": cultivo}), 201
+
+    except ValueError as e:
+        if str(e) == "ya_existe":
+            return jsonify({"ok": False, "error": "El recinto ya tiene un cultivo"}), 400
+        return jsonify({"ok": False, "error": "Datos inválidos"}), 400
+
+    except Exception:
+        return jsonify({"ok": False, "error": "Error interno en POST /api/mis-recinto/<id>/cultivo"}), 500
+
+
+@api_bp.patch("/mis-recinto/<int:recinto_id>/cultivo")
+@login_required
+def api_patch_cultivo(recinto_id: int):
+    data = request.get_json(silent=True) or {}
+    try:
+        recinto = Recinto.query.filter_by(
+            id_recinto=recinto_id,
+            id_propietario=current_user.id_usuario
+        ).first()
+
+        if not recinto:
+            return jsonify({"ok": False, "error": "Recinto no encontrado"}), 404
+
+        cultivo = patch_cultivo_recinto(recinto_id, data)
+        return jsonify({"ok": True, "cultivo": cultivo})
+
+    except ValueError as e:
+        if str(e) == "no_existe":
+            return jsonify({"ok": False, "error": "Cultivo no encontrado"}), 404
+        return jsonify({"ok": False, "error": "Datos inválidos"}), 400
+
+    except Exception:
+        return jsonify({"ok": False, "error": "Error interno en PATCH /api/mis-recinto/<id>/cultivo"}), 500
+
+
+@api_bp.delete("/mis-recinto/<int:recinto_id>/cultivo")
+@login_required
+def api_delete_cultivo(recinto_id: int):
+    try:
+        recinto = Recinto.query.filter_by(
+            id_recinto=recinto_id,
+            id_propietario=current_user.id_usuario
+        ).first()
+
+        if not recinto:
+            return jsonify({"ok": False, "error": "Recinto no encontrado"}), 404
+
+        ok = delete_cultivo_recinto(recinto_id)
+        if not ok:
+            return jsonify({"ok": False, "error": "Cultivo no encontrado"}), 404
+
+        return jsonify({"ok": True})
+
+    except Exception:
+        return jsonify({"ok": False, "error": "Error interno en DELETE /api/mis-recinto/<id>/cultivo"}), 500
+

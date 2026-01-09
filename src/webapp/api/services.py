@@ -178,3 +178,225 @@ def mis_recinto_detalle(id_recinto: int, user_id: int) -> dict:
         "geojson": json.dumps(row["geom_json"])
     }
 
+# ---------------------------
+# Catálogos
+# ---------------------------
+
+def catalogo_usos_sigpac() -> list[dict]:
+    sql = text("""
+        SELECT codigo, descripcion, grupo
+        FROM public.usos_sigpac
+        ORDER BY grupo, codigo
+    """)
+    rows = db.session.execute(sql).mappings().all()
+    return [{"codigo": r["codigo"], "descripcion": r["descripcion"], "grupo": r["grupo"]} for r in rows]
+
+
+def catalogo_productos_fega() -> list[dict]:
+    sql = text("""
+        SELECT codigo, descripcion
+        FROM public.productos_fega
+        ORDER BY codigo
+    """)
+    rows = db.session.execute(sql).mappings().all()
+    return [{"codigo": int(r["codigo"]), "descripcion": r["descripcion"]} for r in rows]
+
+
+# ---------------------------
+# Cultivos
+# ---------------------------
+
+def get_cultivo_recinto(recinto_id: int) -> dict | None:
+    # Devuelve el cultivo del recinto si existe.
+    sql = text("""
+        SELECT
+          c.id_cultivo,
+          c.id_recinto,
+          c.tipo_cultivo,
+          c.variedad,
+          c.fecha_siembra,
+          c.fecha_implantacion,
+          c.fecha_cosecha_estimada,
+          c.fecha_cosecha_real,
+          c.estado,
+          c.uso_sigpac,
+          c.sistema_explotacion,
+          c.tipo_registro,
+          c.campana,
+          c.id_padre,
+          c.cod_producto,
+          c.cultivo_custom,
+          c.origen_cultivo,
+          c.cosecha_estimada_auto,
+          c.observaciones
+        FROM public.cultivos c
+        WHERE c.id_recinto = :rid
+        ORDER BY c.id_cultivo DESC
+        LIMIT 1
+    """)
+    row = db.session.execute(sql, {"rid": recinto_id}).mappings().first()
+    if not row:
+        return None
+
+    def _d(x):
+        return x.isoformat() if x else None
+
+    return {
+        "id_cultivo": row["id_cultivo"],
+        "id_recinto": row["id_recinto"],
+        "tipo_cultivo": row["tipo_cultivo"],
+        "variedad": row["variedad"],
+        "fecha_siembra": _d(row["fecha_siembra"]),
+        "fecha_implantacion": _d(row["fecha_implantacion"]),
+        "fecha_cosecha_estimada": _d(row["fecha_cosecha_estimada"]),
+        "fecha_cosecha_real": _d(row["fecha_cosecha_real"]),
+        "estado": row["estado"],
+        "uso_sigpac": row["uso_sigpac"],
+        "sistema_explotacion": row["sistema_explotacion"],
+        "tipo_registro": row["tipo_registro"],
+        "campana": row["campana"],
+        "id_padre": row["id_padre"],
+        "cod_producto": row["cod_producto"],
+        "cultivo_custom": row["cultivo_custom"],
+        "origen_cultivo": row["origen_cultivo"],
+        "cosecha_estimada_auto": bool(row["cosecha_estimada_auto"]) if row["cosecha_estimada_auto"] is not None else False,
+        "observaciones": row["observaciones"],
+    }
+
+
+def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
+    """
+    Crea el único cultivo del recinto. Si ya existe, error.
+    """
+    existing = get_cultivo_recinto(recinto_id)
+    if existing:
+        raise ValueError("ya_existe")
+
+    # Campos esperados
+    # Nota: el trigger rellena tipo_cultivo según origen/cod_producto/cultivo_custom.
+    params = {
+        "id_recinto": recinto_id,
+        "uso_sigpac": data.get("uso_sigpac"),
+        "sistema_explotacion": data.get("sistema_explotacion"),
+        "tipo_registro": data.get("tipo_registro"),
+        "campana": data.get("campana"),
+        "id_padre": data.get("id_padre"),
+        "cod_producto": data.get("cod_producto"),
+        "cultivo_custom": data.get("cultivo_custom"),
+        "origen_cultivo": data.get("origen_cultivo"),
+        "variedad": data.get("variedad"),
+        "estado": data.get("estado", "planificado"),
+        "fecha_siembra": data.get("fecha_siembra"),
+        "fecha_implantacion": data.get("fecha_implantacion"),
+        "fecha_cosecha_estimada": data.get("fecha_cosecha_estimada"),
+        "fecha_cosecha_real": data.get("fecha_cosecha_real"),
+        "cosecha_estimada_auto": data.get("cosecha_estimada_auto", False),
+        "observaciones": data.get("observaciones"),
+    }
+
+    sql = text("""
+        INSERT INTO public.cultivos (
+          id_recinto,
+          uso_sigpac,
+          sistema_explotacion,
+          tipo_registro,
+          campana,
+          id_padre,
+          cod_producto,
+          cultivo_custom,
+          origen_cultivo,
+          variedad,
+          estado,
+          fecha_siembra,
+          fecha_implantacion,
+          fecha_cosecha_estimada,
+          fecha_cosecha_real,
+          cosecha_estimada_auto,
+          observaciones
+        )
+        VALUES (
+          :id_recinto,
+          :uso_sigpac,
+          :sistema_explotacion,
+          :tipo_registro,
+          :campana,
+          :id_padre,
+          :cod_producto,
+          :cultivo_custom,
+          :origen_cultivo,
+          :variedad,
+          :estado,
+          :fecha_siembra,
+          :fecha_implantacion,
+          :fecha_cosecha_estimada,
+          :fecha_cosecha_real,
+          :cosecha_estimada_auto,
+          :observaciones
+        )
+        RETURNING id_cultivo
+    """)
+
+    new_id = db.session.execute(sql, params).scalar_one()
+    db.session.commit()
+    return get_cultivo_recinto(recinto_id)
+
+
+def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
+    """
+    Actualiza parcialmente el cultivo (por ejemplo observaciones, fechas, variedad, etc).
+    """
+    cultivo = get_cultivo_recinto(recinto_id)
+    if not cultivo:
+        raise ValueError("no_existe")
+
+    # Construcción dinámica del UPDATE
+    allowed = {
+        "uso_sigpac",
+        "sistema_explotacion",
+        "tipo_registro",
+        "campana",
+        "id_padre",
+        "cod_producto",
+        "cultivo_custom",
+        "origen_cultivo",
+        "variedad",
+        "estado",
+        "fecha_siembra",
+        "fecha_implantacion",
+        "fecha_cosecha_estimada",
+        "fecha_cosecha_real",
+        "cosecha_estimada_auto",
+        "observaciones",
+    }
+
+    sets = []
+    params = {"rid": recinto_id}
+
+    for k, v in (data or {}).items():
+        if k in allowed:
+            sets.append(f"{k} = :{k}")
+            params[k] = v
+
+    if not sets:
+        return cultivo  # nada que actualizar
+
+    sql = text(f"""
+        UPDATE public.cultivos
+        SET {", ".join(sets)}
+        WHERE id_recinto = :rid
+        RETURNING id_cultivo
+    """)
+
+    db.session.execute(sql, params)
+    db.session.commit()
+    return get_cultivo_recinto(recinto_id)
+
+
+def delete_cultivo_recinto(recinto_id: int) -> bool:
+    sql = text("""
+        DELETE FROM public.cultivos
+        WHERE id_recinto = :rid
+    """)
+    res = db.session.execute(sql, {"rid": recinto_id})
+    db.session.commit()
+    return res.rowcount > 0

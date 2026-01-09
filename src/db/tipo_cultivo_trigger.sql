@@ -1,4 +1,3 @@
--- NOTA: De momento este trigger no se incluye en el update_cultivos.sql (NO LO USAMOS)
 -- 1) Función del trigger
 CREATE OR REPLACE FUNCTION public.trg_set_tipo_cultivo()
 RETURNS trigger
