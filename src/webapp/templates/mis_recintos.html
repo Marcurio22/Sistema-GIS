@@ -209,13 +209,14 @@
                         <tr>
                             <th>Recinto</th>
                             <th>SIGPAC</th>
-                            <th>Provincia/Municipio</th>
-                            <th>Superficie (ha)</th>
+                            <th style="width: 160px;">Provincia/Municipio</th>
+                            <th style="width: 110px;" class="text-end">Superficie (ha)</th>
                             <th>Estado</th>
-                            <th>Fecha Solicitud</th>
-                            <th>Acciones</th>
+                            <th style="width: 150px;">Fecha Solicitud</th>
+                            <th style="width: 130px;">Acciones</th>
                         </tr>
                     </thead>
+
                     <tbody>
                         {% for solicitud in solicitudes %}
                         <tr>
@@ -314,7 +315,10 @@
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
             pageLength: 25,
             responsive: true,
-            order: [[0, 'asc']]
+            order: [[0, 'asc']],
+            columnDefs: [
+                { orderable: false, targets: -1 }
+            ]
         });
 
         // DataTable para solicitudes
@@ -322,7 +326,11 @@
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
             pageLength: 25,
             responsive: true,
-            order: [[5, 'desc']]
+            order: [[5, 'desc']],
+            columnDefs: [
+                { orderable: false, targets: -1 }
+            ]
+
         });
     });
 </script>

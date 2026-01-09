@@ -1,0 +1,104 @@
+{% if solicitudes %}
+<div class="table-responsive">
+  <table id="tablaRoles" class="table table-hover table-bordered align-middle">
+    <thead class="table-light">
+      <tr>
+        <th class="text-center">ID</th>
+        <th class="text-center">Usuario</th>
+        <th class="text-center">Recinto SIGPAC</th>
+        <th class="text-center">Estado</th>
+        <th class="text-center">Fecha solicitud</th>
+        <th class="text-center">Fecha resolución</th>
+        <th class="text-center">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in solicitudes %}
+      <tr>
+        <td data-order="{{ s.id_solicitud }}">
+          <strong>#{{ s.id_solicitud }}</strong>
+        </td>
+        <td>
+          <i class="bi bi-person text-primary"></i> {{ s.usuario.username }}
+        </td>
+        <td>
+          {% if s.recinto %}
+          <code>{{ s.recinto.provincia }}-{{ s.recinto.municipio }}-{{ s.recinto.poligono }}-{{ s.recinto.parcela }}-{{ s.recinto.recinto }}</code>
+          {% else %}
+          <span class="text-danger"><i class="bi bi-exclamation-triangle"></i> Recinto eliminado</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if s.estado == 'pendiente' %}
+          <span class="badge bg-warning text-dark"><i class="bi bi-clock"></i> Pendiente</span>
+          {% elif s.estado == 'aprobada' %}
+          <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aprobada</span>
+          {% elif s.estado == 'rechazada' %}
+          <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Rechazada</span>
+          {% else %}
+          {{ s.estado }}
+          {% endif %}
+        </td>
+        <td data-order="{{ s.fecha_solicitud.strftime('%Y-%m-%d %H:%M:%S') if s.fecha_solicitud else '' }}">
+          {% if s.fecha_solicitud %}
+          <small>{{ s.fecha_solicitud.strftime('%d-%m-%Y %H:%M') }}</small>
+          {% else %}
+          <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td data-order="{{ s.fecha_resolucion.strftime('%Y-%m-%d %H:%M:%S') if s.fecha_resolucion else '' }}">
+          {% if s.fecha_resolucion %}
+          <small>{{ s.fecha_resolucion.strftime('%d-%m-%Y %H:%M') }}</small>
+          {% else %}
+          <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td style="min-width: 260px">
+          {% if s.estado == 'pendiente' %}
+          {% if s.recinto %}
+          <a href="{{ url_for('dashboard.visor', recinto_id=s.recinto.id_recinto) }}"
+            class="btn btn-sm btn-info me-1" title="Ver recinto en el mapa">
+            <i class="bi bi-map"></i> Ver
+          </a>
+          {% else %}
+          <span class="text-muted small">Recinto no disponible</span>
+          {% endif %}
+          <form method="post"
+            action="{{ url_for('admin.aprobar_solicitud_recinto', id_solicitud=s.id_solicitud) }}"
+            class="d-inline">
+            <button class="btn btn-sm btn-success" title="Aprobar solicitud">
+              <i class="bi bi-check-lg"></i> Aprobar
+            </button>
+          </form>
+          <button class="btn btn-sm btn-outline-danger ms-1" type="button" data-bs-toggle="collapse"
+            data-bs-target="#rechazo-{{ s.id_solicitud }}" title="Rechazar solicitud">
+            <i class="bi bi-x-lg"></i> Rechazar
+          </button>
+          <div class="collapse mt-2" id="rechazo-{{ s.id_solicitud }}">
+            <form method="post"
+              action="{{ url_for('admin.rechazar_solicitud_recinto', id_solicitud=s.id_solicitud) }}">
+              <textarea name="motivo_rechazo" class="form-control form-control-sm mb-2" rows="2"
+                placeholder="Motivo del rechazo (opcional)"></textarea>
+              <button class="btn btn-sm btn-danger">
+                <i class="bi bi-x-circle"></i> Confirmar rechazo
+              </button>
+            </form>
+          </div>
+          {% else %}
+          {% if s.motivo_rechazo %}
+          <small class="text-muted d-block">
+            <strong>Motivo:</strong> {{ s.motivo_rechazo }}
+          </small>
+          {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info mb-0">
+  <i class="bi bi-info-circle"></i> No hay solicitudes de recintos actualmente.
+</div>
+{% endif %}

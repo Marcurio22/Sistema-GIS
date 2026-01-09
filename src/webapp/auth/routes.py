@@ -171,10 +171,6 @@ def perfil():
         LogsSistema.tipo_operacion == 'ACCESO'
     ).order_by(desc(LogsSistema.fecha_hora)).first()
 
-    logger.info(
-        f'Usuario {current_user.username} accedió al perfil',
-        extra={'tipo_operacion': 'ACCESO', 'modulo': 'PERFIL'}
-    )
     return render_template('perfil.html', user=current_user, ultimo_acceso=ultimo_log.fecha_hora if ultimo_log else None)
 
 
@@ -300,10 +296,6 @@ def index():
 @auth_bp.route('/mis_recintos')
 @login_required
 def mis_recintos():
-    logger.info(
-        f'Usuario {current_user.username} accedió a sus recintos',
-        extra={'tipo_operacion': 'ACCESO', 'modulo': 'MIS_RECINTOS'}
-    )
     recintos = Recinto.query.filter_by(id_propietario=current_user.id_usuario).all()
     solicitudes = Solicitudrecinto.query.filter_by(
         id_usuario=current_user.id_usuario

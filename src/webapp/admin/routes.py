@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, flash, request
+from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from functools import wraps
 from . import admin_bp
@@ -55,10 +55,6 @@ def gestion_usuarios():
         User.activo.desc(),    # Activos antes que inactivos
         User.id_usuario        # Por último por ID ascendente
     ).all()
-    logger.info(
-        f'Admin {current_user.username} accedió a gestión de usuarios',
-        extra={'tipo_operacion': 'ACCESO', 'modulo': 'ADMIN'}
-    )
     
     return render_template('admin/gestion_usuario.html', usuarios=usuarios)
 
@@ -105,6 +101,12 @@ def hacer_admin(id):
     usuario.rol = 'admin'
     db.session.commit()
     flash(f"{usuario.username} ahora es administrador.", "success")
+
+    logger.info(
+        f'Superadmin {current_user.username} promovió a {usuario.username} a administrador',
+        extra={'tipo_operacion': 'HACER_ADMIN', 'modulo': 'SUPERADMIN'}
+    )
+
     return redirect(url_for('admin.gestion_usuarios'))
 
 
@@ -118,6 +120,12 @@ def quitar_admin(id):
     usuario.rol = 'user'
     db.session.commit()
     flash(f"{usuario.username} ahora es usuario normal.", "success")
+
+    logger.info(
+        f'Superadmin {current_user.username} degradó a {usuario.username} a usuario normal',
+        extra={'tipo_operacion': 'QUITAR_ADMIN', 'modulo': 'SUPERADMIN'}
+    )
+
     return redirect(url_for('admin.gestion_usuarios'))
 
 
@@ -153,10 +161,6 @@ def hacer_superadmin(id):
 @login_required
 @admin_required
 def gestion_recintos():
-    logger.info(
-        f'Admin {current_user.username} accedió a gestión de recintos',
-        extra={'tipo_operacion': 'ACCESO', 'modulo': 'ADMIN'}
-    )
 
     # recintos que ya tienen propietario asignado
     recintos = (
@@ -400,3 +404,32 @@ def editar_recinto_admin(id_recinto):
     flash('Recinto actualizado correctamente', 'success')
 
     return redirect(url_for('admin.gestion_recintos'))
+
+
+
+
+@admin_bp.route('/solicitudes/ajax')
+@login_required
+# @admin_required
+def obtener_solicitudes_ajax():
+    try:
+        solicitudes = Solicitudrecinto.query.order_by(
+            Solicitudrecinto.fecha_solicitud.desc()
+        ).all()
+        
+        # Contar solicitudes pendientes
+        solicitudes_pendientes = sum(1 for s in solicitudes if s.estado == 'pendiente')
+        
+        # Renderizar el HTML de la tabla
+        html = render_template('admin/partials/solicitudes_tabla.html', 
+                             solicitudes=solicitudes)
+        
+        # Devolver JSON con el HTML y el contador
+        return jsonify({
+            'html': html,
+            'solicitudes_pendientes': solicitudes_pendientes
+        })
+        
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500

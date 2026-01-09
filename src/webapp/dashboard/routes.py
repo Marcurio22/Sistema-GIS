@@ -17,10 +17,7 @@ logger.setLevel(logging.INFO)
 @dashboard_bp.route('/dashboard')
 @login_required
 def dashboard():
-    logger.info(
-        f'Usuario {current_user.username} accedió al dashboard',
-        extra={'tipo_operacion': 'ACCESO', 'modulo': 'DASHBOARD'}
-    )
+
     # Obtener datos meteorológicos de AEMET
     weather = obtener_datos_aemet("34023")
 
