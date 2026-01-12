@@ -2061,7 +2061,14 @@ function mostrarMensajeExito(mensaje) {
     const usosMap = byCodigo(usos);
     const productosAll = productos || [];
 
-    const estadoOpts = ["planificado", "implantado", "en_curso", "cosechado", "abandonado"];
+    const estadoOpts = [
+      { v: "planificado", l: "Planificado" },
+      { v: "implantado",  l: "Plantado" },
+      { v: "en_curso",    l: "En cultivo" },
+      { v: "cosechado",   l: "Cosechado" },
+      { v: "abandonado",  l: "Abandonado" }
+    ];
+
     const tipoRegOpts = [
       { v: "CAMPANA", l: "Campaña (año a año)" },
       { v: "IMPLANTACION", l: "Plantación (permanente)" },
@@ -2107,7 +2114,7 @@ function mostrarMensajeExito(mensaje) {
           <div class="mb-3">
             <label class="form-label fw-bold">Estado</label>
             <select id="estado" class="form-select">
-              ${estadoOpts.map(e => `<option value="${e}">${e}</option>`).join("")}
+              ${estadoOpts.map(o => `<option value="${o.v}">${o.l}</option>`).join("")}
             </select>
           </div>
 
