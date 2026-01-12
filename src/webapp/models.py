@@ -150,10 +150,12 @@ class Solicitudrecinto(db.Model):
     fecha_solicitud = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     fecha_resolucion = db.Column(db.DateTime(timezone=True), nullable=True)
     motivo_rechazo = db.Column(db.Text, nullable=True)
+    tipo_solicitud = db.Column(db.String(100), nullable=True)
 
     # Relaciones
     usuario = db.relationship("User", back_populates="solicitudes_recintos")
     recinto = db.relationship("Recinto", back_populates="solicitudes")
+
 
     def __repr__(self):
         return f"<Solicitud {self.id_solicitud} - Usuario {self.id_usuario} - Recinto {self.id_recinto} - {self.estado}>"

@@ -1466,6 +1466,111 @@
     renderCultivosForRecinto(currentSideRecintoId);
   }
 
+
+
+const btnDelete = document.getElementById("btn-delete-recinto");
+
+if (btnDelete) {
+  btnDelete.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!currentSideRecintoId) {
+      console.warn("No hay recinto seleccionado");
+      return;
+    }
+
+    // Crear modal de confirmación personalizado
+    const modalHTML = `
+      <div class="modal fade" id="modalEliminarRecinto" tabindex="-1">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Solicitar eliminación de recinto</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <p>¿Estás seguro de que deseas solicitar la eliminación de este recinto?</p>
+              <p class="text-muted small mb-0">Un administrador deberá aprobar la solicitud antes de que el recinto sea eliminado.</p>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="button" class="btn btn-danger" id="confirmar-eliminar">Solicitar eliminación</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Eliminar modal anterior si existe
+    const modalExistente = document.getElementById("modalEliminarRecinto");
+    if (modalExistente) modalExistente.remove();
+
+    // Insertar modal
+    document.body.insertAdjacentHTML("beforeend", modalHTML);
+    const modalEl = document.getElementById("modalEliminarRecinto");
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+
+    // Manejar confirmación
+    document.getElementById("confirmar-eliminar").addEventListener("click", async () => {
+      modal.hide();
+      
+      try {
+        console.log("Solicitando eliminación del recinto ID:", currentSideRecintoId);
+        const response = await fetch(`/api/solicitud-eliminar-recinto/${currentSideRecintoId}/borrar`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json" 
+          }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Error al crear la solicitud");
+        }
+
+        console.log("Solicitud de eliminación creada:", data);
+        // Mostrar mensaje de éxito
+        mostrarMensajeExito(data.mensaje || "Solicitud de eliminación enviada correctamente");
+        
+      } catch (err) {
+        console.error("Error al solicitar eliminación:", err);
+        mostrarErrorInline(err.message || "Error al solicitar eliminación");
+      }
+    });
+
+    // Limpiar modal al cerrarse
+    modalEl.addEventListener("hidden.bs.modal", () => {
+      modalEl.remove();
+    });
+  });
+}
+
+// Función auxiliar para mostrar mensajes de éxito
+function mostrarMensajeExito(mensaje) {
+  const alertHTML = `
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+      ${mensaje}
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  `;
+  
+  // Insertar al inicio del contenido del panel lateral
+  const sideContent = document.querySelector(".side-content");
+  if (sideContent) {
+    sideContent.insertAdjacentHTML("afterbegin", alertHTML);
+    
+    // Auto-ocultar después de 5 segundos
+    setTimeout(() => {
+      const alert = sideContent.querySelector(".alert");
+      if (alert) alert.remove();
+    }, 5000);
+  }
+}
+
+
   // ==========================================================
   // Cultivos (UI del panel derecho)
   // Requiere endpoints (a implementar en backend):
@@ -1746,11 +1851,11 @@
           </button>
         </div>
 
-        <div class="cultivo-actions mt-2 d-none" id="obs-edit-actions">
-          <button id="btn-obs-accept" class="btn btn-success btn-sm" type="button">Aceptar</button>
-          <button id="btn-obs-cancel" class="btn btn-secondary btn-sm" type="button">Cancelar</button>
-        </div>
-      </div>
+            <div class="cultivo-actions mt-2 d-none" id="obs-edit-actions">
+              <button id="btn-obs-accept" class="btn btn-success btn-sm" type="button">Aceptar</button>
+              <button id="btn-obs-cancel" class="btn btn-secondary btn-sm" type="button">Cancelar</button>
+            </div>
+          </div>
     `;
 
     // --- Observaciones: render “texto normal” ---
