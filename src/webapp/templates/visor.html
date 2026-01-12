@@ -2046,13 +2046,7 @@ if (btnDelete) {
     const usosMap = byCodigo(usos);
     const productosAll = productos || [];
 
-    const estadoOpts = [
-      { v: "planificado", l: "Planificado" },
-      { v: "implantado",  l: "Plantado" },
-      { v: "en_curso",    l: "En cultivo" },
-      { v: "cosechado",   l: "Cosechado" },
-      { v: "abandonado",  l: "Abandonado" }
-    ];
+    const estadoOpts = ["Planificado", "Plantado", "En cultivo", "Cosechado", "Abandonado"];
 
     const tipoRegOpts = [
       { v: "CAMPANA", l: "Campaña (año a año)" },
@@ -2099,7 +2093,7 @@ if (btnDelete) {
           <div class="mb-3">
             <label class="form-label fw-bold">Estado</label>
             <select id="estado" class="form-select">
-              ${estadoOpts.map(o => `<option value="${o.v}">${o.l}</option>`).join("")}
+              ${estadoOpts.map(e => `<option value="${e}">${e}</option>`).join("")}
             </select>
           </div>
 
