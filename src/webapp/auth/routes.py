@@ -348,16 +348,3 @@ def actualizar_notificaciones():
         }), 500
 
 
-
-@auth_bp.route('/test-email')
-@login_required
-def test_email():
-    """Ruta de prueba para enviar un correo"""
-    resultado = enviar_correo_prueba(current_user.email)
-    
-    if resultado:
-        flash('✓ Correo de prueba enviado. Revisa tu bandeja en Mailtrap.io', 'success')
-    else:
-        flash('✗ Error al enviar el correo de prueba', 'danger')
-    
-    return redirect(url_for('auth.perfil'))

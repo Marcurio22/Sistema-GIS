@@ -33,8 +33,8 @@ CLOUD_MAX = float(os.getenv("S2_CLOUD_MAX", "60"))
 MAX_ITEMS_TOTAL = int(os.getenv("S2_MAX_ITEMS_TOTAL", "30"))
 PER_TILE = int(os.getenv("S2_MAX_ITEMS_PER_TILE", "5"))
 FETCH_LIMIT = int(os.getenv("S2_FETCH_LIMIT", "200"))
-
-NDVI_MAX_DIM = int(os.getenv("NDVI_MAX_DIM", "2048"))
+# 1o píxeles, conservar metros con crs
+NDVI_MAX_DIM = int(os.getenv("NDVI_MAX_DIM", "2048")) #FIJAR RESOLUCION PIXELES
 NDVI_COMPOSITE = os.getenv("NDVI_COMPOSITE", "max").lower()  # max | median
 MIN_VALID_FRAC = float(os.getenv("NDVI_MIN_VALID_FRAC", "0.02"))
 
@@ -309,9 +309,9 @@ def main():
         # Firma Planetary Computer (tokens SAS)
         items = [pc.sign(item) for item in items]
 
-        width, height = compute_output_shape(minx, miny, maxx, maxy, max_dim=NDVI_MAX_DIM)
-        dst_crs = "EPSG:4326"
-        dst_transform = from_bounds(minx, miny, maxx, maxy, width, height)
+        width, height = compute_output_shape(minx, miny, maxx, maxy, max_dim=NDVI_MAX_DIM) #ESTE PARAMETRO HAY QUE FIJARLO
+        dst_crs = "EPSG:4326" #codigo 25830 #sacar metadatos del sentinel, leer el crs desde la imagen de sentinel directamente
+        dst_transform = from_bounds(minx, miny, maxx, maxy, width, height) #CLAVE
 
         ndvi_stack = []
         used_ids = []
