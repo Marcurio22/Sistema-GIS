@@ -1516,29 +1516,33 @@ if (btnDelete) {
     document.getElementById("confirmar-eliminar").addEventListener("click", async () => {
       modal.hide();
       
-      try {
-        console.log("Solicitando eliminación del recinto ID:", currentSideRecintoId);
-        const response = await fetch(`/api/solicitud-eliminar-recinto/${currentSideRecintoId}/borrar`, {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json" 
-          }
-        });
+     try {
+  const response = await fetch(`/api/solicitud-eliminar-recinto/${currentSideRecintoId}/borrar`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" }
+  });
 
-        const data = await response.json();
+  const data = await response.json();
 
-        if (!response.ok) {
-          throw new Error(data.error || "Error al crear la solicitud");
-        }
+  if (!response.ok) {
+    throw new Error(data.error || "Error al crear la solicitud");
+  }
 
-        console.log("Solicitud de eliminación creada:", data);
-        // Mostrar mensaje de éxito
-        mostrarMensajeExito(data.mensaje || "Solicitud de eliminación enviada correctamente");
-        
-      } catch (err) {
-        console.error("Error al solicitar eliminación:", err);
-        mostrarErrorInline(err.message || "Error al solicitar eliminación");
-      }
+  NotificationSystem.show({
+    type: "success",
+    title: "Solicitud enviada",
+    message: data.mensaje || "La solicitud se creó correctamente"
+  });
+
+} catch (err) {
+  console.error("Error al solicitar eliminación:", err);
+  NotificationSystem.show({
+    type: "error",
+    title: "Error",
+    message: err.message || "Error al solicitar eliminación"
+  });
+}
+
     });
 
     // Limpiar modal al cerrarse
@@ -1549,26 +1553,7 @@ if (btnDelete) {
 }
 
 // Función auxiliar para mostrar mensajes de éxito
-function mostrarMensajeExito(mensaje) {
-  const alertHTML = `
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-      ${mensaje}
-      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-  `;
-  
-  // Insertar al inicio del contenido del panel lateral
-  const sideContent = document.querySelector(".side-content");
-  if (sideContent) {
-    sideContent.insertAdjacentHTML("afterbegin", alertHTML);
-    
-    // Auto-ocultar después de 5 segundos
-    setTimeout(() => {
-      const alert = sideContent.querySelector(".alert");
-      if (alert) alert.remove();
-    }, 5000);
-  }
-}
+
 
 
   // ==========================================================
@@ -2863,11 +2848,11 @@ function mostrarMensajeExito(mensaje) {
       .then((response) => response.json().catch(() => ({})))
       .then((data) => {
         if (data && data.ok) {
-          NotificationSystem.show({
+         NotificationSystem.show({
             type: 'success',
             title: '¡Solicitud enviada!',
             message: 'Tu solicitud ha sido enviada al administrador correctamente.'
-          });
+          }); 
         } else {
           const msg = (data && data.error) || "No se ha podido crear la solicitud. ¿Estás identificado?";
           console.error("Error en la respuesta de la API:", data);

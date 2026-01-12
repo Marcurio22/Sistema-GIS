@@ -9,6 +9,7 @@
         <th class="text-center">Estado</th>
         <th class="text-center">Fecha solicitud</th>
         <th class="text-center">Fecha resolución</th>
+        <th class="text-center">Tipo de solicitud</th>
         <th class="text-center">Acciones</th>
       </tr>
     </thead>
@@ -51,6 +52,21 @@
           <small>{{ s.fecha_resolucion.strftime('%d-%m-%Y %H:%M') }}</small>
           {% else %}
           <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if s.tipo_solicitud == 'aceptacion' %}
+          <span class="badge border border-success text-success">
+            <i class="bi bi-check-lg"></i> Aceptación
+          </span>
+          {% elif s.tipo_solicitud == 'eliminacion' %}
+          <span class="badge border border-danger text-danger">
+            <i class="bi bi-x-lg"></i> Eliminación
+          </span>
+          {% else %}
+          <span class="badge border border-secondary text-secondary">
+            <i class="bi bi-question-lg"></i> Desconocido
+          </span>
           {% endif %}
         </td>
         <td style="min-width: 260px">

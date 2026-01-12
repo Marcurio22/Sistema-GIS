@@ -117,6 +117,7 @@ def crear_solicitud_recinto():
     existing = Solicitudrecinto.query.filter_by(
         id_usuario=current_user.id_usuario,
         id_recinto=recinto_obj.id_recinto,
+        tipo_solicitud="aceptacion",
     ).first()
 
     if existing:
@@ -130,6 +131,7 @@ def crear_solicitud_recinto():
         id_usuario=current_user.id_usuario,
         id_recinto=recinto_obj.id_recinto,
         estado="pendiente",
+        tipo_solicitud="aceptacion"
     )
     db.session.add(solicitud)
     db.session.commit()

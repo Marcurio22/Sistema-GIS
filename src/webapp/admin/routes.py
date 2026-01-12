@@ -211,51 +211,97 @@ def aprobar_solicitud_recinto(id_solicitud):
     recinto = Recinto.query.get_or_404(solicitud.id_recinto)
     usuario_solicitante = User.query.get(solicitud.id_usuario)
 
-    print(recinto, recinto.id_propietario, solicitud.id_usuario)
-    # Si ya tiene propietario y es otro usuario → rechazamos automáticamente
-    if recinto.id_propietario is not None and recinto.id_propietario != solicitud.id_usuario:
-        solicitud.estado = "rechazada"
+    # Determinar el tipo de solicitud
+    tipo_solicitud = solicitud.tipo_solicitud
+
+    if tipo_solicitud == "eliminacion":
+        # SOLICITUD DE ELIMINACIÓN
+        # Verificar que el usuario sea el propietario actual
+       
+        # Eliminar propietario (liberar recinto)
+        recinto.id_propietario = None
+        solicitud.estado = "aprobada"
         solicitud.fecha_resolucion = datetime.now(timezone.utc)
-        solicitud.motivo_rechazo = "El recinto ya tiene propietario."
-        db.session.commit()
         
-        logger.warning(
-            f'Admin {current_user.username} rechazó automáticamente solicitud {id_solicitud} del usuario {usuario_solicitante.username if usuario_solicitante else "desconocido"} para recinto {recinto.id_recinto} (ya tenía propietario)',
-            extra={'tipo_operacion': 'RECHAZO_AUTOMATICO_SOLICITUD', 'modulo': 'SOLICITUDES'}
+        # Eliminar la solicitud de aceptación anterior (si existe y está aprobada)
+        solicitud_aceptacion = Solicitudrecinto.query.filter_by(
+            id_usuario=solicitud.id_usuario,
+            id_recinto=recinto.id_recinto,
+            tipo_solicitud="aceptacion",
+            estado="aprobada"
+        ).first()
+        
+        print(solicitud_aceptacion)
+        
+        if solicitud_aceptacion:
+            db.session.delete(solicitud_aceptacion)
+            logger.info(
+                f'Se eliminó la solicitud de aceptación {solicitud_aceptacion.id_solicitud} al aprobar la eliminación {id_solicitud}',
+                extra={'tipo_operacion': 'ELIMINAR_SOLICITUD_ACEPTACION', 'modulo': 'SOLICITUDES'}
+            )
+        
+        db.session.commit()
+
+        # Enviar notificación de eliminación aprobada
+        if usuario_solicitante and usuario_solicitante.email:
+            numero_parcela = f"{recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}"
+            direccion_parcela = f"Provincia: {recinto.provincia}, Municipio: {recinto.municipio}, Polígono: {recinto.poligono}, Parcela: {recinto.parcela}"
+            
+            
+        logger.info(
+            f'Admin {current_user.username} aprobó solicitud de eliminación {id_solicitud} del usuario {usuario_solicitante.username if usuario_solicitante else "desconocido"} para recinto {recinto.id_recinto} (Prov: {recinto.provincia}, Mun: {recinto.municipio}, Pol: {recinto.poligono}, Par: {recinto.parcela})',
+            extra={'tipo_operacion': 'APROBAR_SOLICITUD_ELIMINACION', 'modulo': 'SOLICITUDES'}
         )
         
-        flash("El recinto ya tenía propietario. Solicitud rechazada.", "danger")
-        return redirect(url_for("admin.gestion_recintos"))
-
-    # Asignar propietario
-    recinto.id_propietario = solicitud.id_usuario
-    # La relación recinto.propietario se resolverá sola a partir de id_propietario
-
-    solicitud.estado = "aprobada"
-    solicitud.fecha_resolucion = datetime.now(timezone.utc)
-
-    db.session.commit()
-
-    if usuario_solicitante and usuario_solicitante.email:
-        numero_parcela = f"{recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}"
-        direccion_parcela = f"Provincia: {recinto.provincia}, Municipio: {recinto.municipio}, Polígono: {recinto.poligono}, Parcela: {recinto.parcela}"
+        flash("Recinto liberado correctamente. El propietario ha sido eliminado.", "success")
         
-        if usuario_solicitante.notificaciones_activas == True:
-            enviar_notificacion_aceptacion(
-                destinatario=usuario_solicitante.email,
-                nombre_usuario=usuario_solicitante.username,
-                numero_parcela=numero_parcela,
-                direccion_parcela=direccion_parcela
+    else:  # tipo_solicitud == "aceptacion" o valor por defecto
+        # SOLICITUD DE ACEPTACIÓN (código original)
+        print(recinto, recinto.id_propietario, solicitud.id_usuario)
+        
+        # Si ya tiene propietario y es otro usuario → rechazamos automáticamente
+        if recinto.id_propietario is not None and recinto.id_propietario != solicitud.id_usuario:
+            solicitud.estado = "rechazada"
+            solicitud.fecha_resolucion = datetime.now(timezone.utc)
+            solicitud.motivo_rechazo = "El recinto ya tiene propietario."
+            db.session.commit()
+            
+            logger.warning(
+                f'Admin {current_user.username} rechazó automáticamente solicitud {id_solicitud} del usuario {usuario_solicitante.username if usuario_solicitante else "desconocido"} para recinto {recinto.id_recinto} (ya tenía propietario)',
+                extra={'tipo_operacion': 'RECHAZO_AUTOMATICO_SOLICITUD', 'modulo': 'SOLICITUDES'}
             )
-    
-    logger.info(
-        f'Admin {current_user.username} aprobó solicitud {id_solicitud} del usuario {usuario_solicitante.username if usuario_solicitante else "desconocido"} para recinto {recinto.id_recinto} (Prov: {recinto.provincia}, Mun: {recinto.municipio}, Pol: {recinto.poligono}, Par: {recinto.parcela})',
-        extra={'tipo_operacion': 'APROBAR_SOLICITUD', 'modulo': 'SOLICITUDES'}
-    )
-    
-    flash("Recinto asignado correctamente al usuario.", "success")
-    return redirect(url_for("admin.gestion_recintos"))
+            
+            flash("El recinto ya tenía propietario. Solicitud rechazada.", "danger")
+            return redirect(url_for("admin.gestion_recintos"))
 
+        # Asignar propietario
+        recinto.id_propietario = solicitud.id_usuario
+        solicitud.estado = "aprobada"
+        solicitud.fecha_resolucion = datetime.now(timezone.utc)
+
+        db.session.commit()
+
+        # Enviar notificación de aceptación
+        if usuario_solicitante and usuario_solicitante.email:
+            numero_parcela = f"{recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}"
+            direccion_parcela = f"Provincia: {recinto.provincia}, Municipio: {recinto.municipio}, Polígono: {recinto.poligono}, Parcela: {recinto.parcela}"
+            
+            if usuario_solicitante.notificaciones_activas == True:
+                enviar_notificacion_aceptacion(
+                    destinatario=usuario_solicitante.email,
+                    nombre_usuario=usuario_solicitante.username,
+                    numero_parcela=numero_parcela,
+                    direccion_parcela=direccion_parcela
+                )
+        
+        logger.info(
+            f'Admin {current_user.username} aprobó solicitud {id_solicitud} del usuario {usuario_solicitante.username if usuario_solicitante else "desconocido"} para recinto {recinto.id_recinto} (Prov: {recinto.provincia}, Mun: {recinto.municipio}, Pol: {recinto.poligono}, Par: {recinto.parcela})',
+            extra={'tipo_operacion': 'APROBAR_SOLICITUD', 'modulo': 'SOLICITUDES'}
+        )
+        
+        flash("Recinto asignado correctamente al usuario.", "success")
+    
+    return redirect(url_for("admin.gestion_recintos"))
 
 @admin_bp.post("/gestion_recintos/<int:id_solicitud>/rechazar")
 @login_required
