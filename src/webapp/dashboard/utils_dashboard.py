@@ -5,6 +5,9 @@ from pathlib import Path
 from ..models import Recinto
 from datetime import datetime, timedelta
 
+import rasterio
+from rasterio.warp import transform_bounds
+
 # Mapeo de descripción de AEMET a datos de visualización
 estados_clima = {
     # Despejado
@@ -571,3 +574,14 @@ class MunicipiosCodigosFinder:
     
     
 municipios_finder = MunicipiosCodigosFinder()
+
+
+def leaflet_bounds_from_tif(tif_path: str):
+    with rasterio.open(tif_path) as src:
+        b = src.bounds
+        epsg = src.crs.to_epsg() if src.crs else None
+        if epsg and epsg != 4326:
+            b = transform_bounds(src.crs, "EPSG:4326", b.left, b.bottom, b.right, b.top, densify_pts=21)
+            return [[b[1], b[0]], [b[3], b[2]]]
+
+        return [[b.bottom, b.left], [b.top, b.right]]

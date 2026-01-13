@@ -1282,6 +1282,8 @@
     [roiBbox[3], roiBbox[2]]
   );
 
+  const NDVI_BOUNDS = L.latLngBounds({{ ndvi_bounds | tojson | safe }});
+
   const ZOOM_RECINTOS = 15;
 
   // -----------------------------------------
@@ -1294,6 +1296,15 @@
   });
 
   map.fitBounds(ROI_BOUNDS);
+
+  // DEBUG: mostrar bounds en consola
+  console.log("ROI_BOUNDS:", ROI_BOUNDS.toBBoxString());
+  console.log("NDVI_BOUNDS:", NDVI_BOUNDS.toBBoxString());
+
+  // Dibujar rectángulos de referencia
+  L.rectangle(ROI_BOUNDS, {weight: 2, fill: false}).addTo(map);
+  L.rectangle(NDVI_BOUNDS, {weight: 2, fill: false}).addTo(map);
+  // ---------- Fin Debug -----------
 
   // --- Panes (orden de dibujo) ---
   map.createPane('sigpacPane');
@@ -2512,12 +2523,8 @@ if (btnDelete) {
 
   const baseNdvi = L.imageOverlay(
     `/static/ndvi/ndvi_20260112_125847.png?v={{ ndvi_version }}`,
-    ROI_BOUNDS,
-    {
-      opacity: 1.0,
-      interactive: false,
-      className: "ndvi-overlay"
-    }
+    NDVI_BOUNDS,
+    { opacity: 1.0, className: "ndvi-overlay", interactive: false }
   );
 
   const highZoomLayers = {

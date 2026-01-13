@@ -4,7 +4,7 @@ from flask import render_template, current_app
 from flask_login import login_required, current_user
 from . import dashboard_bp
 import logging
-from .utils_dashboard import obtener_datos_aemet, MunicipiosCodigosFinder
+from .utils_dashboard import leaflet_bounds_from_tif, obtener_datos_aemet, MunicipiosCodigosFinder
 from ..models import Recinto
 import os
 from webapp.dashboard.utils_dashboard import municipios_finder
@@ -122,6 +122,15 @@ def visor():
         # Fallback por si la consulta no devuelve nada
         roi_bbox = [-4.6718708208, 41.7248613835,
                     -3.8314839480, 42.1274665349]
+        
+    # Calcular bounds del NDVI (suponiendo que el NDVI cubre la misma área que la ROI)
+    ndvi_tif = os.path.join(
+        current_app.static_folder,
+        "ndvi",
+        "ndvi_latest.tif"
+    )
+
+    ndvi_bounds = leaflet_bounds_from_tif(ndvi_tif)
 
     # Para saber el codigo del municipio
     municipios_codigos_finder = MunicipiosCodigosFinder()
@@ -140,6 +149,7 @@ def visor():
     # Pasar recinto_data al template
     return render_template("visor.html", 
                          roi_bbox=roi_bbox, 
+                         ndvi_bounds=ndvi_bounds,
                          weather=weather,
                          recinto_data=recinto_data,
                          sentinel2_version=sentinel2_version,
