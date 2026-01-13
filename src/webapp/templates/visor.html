@@ -1469,86 +1469,55 @@
 
 
 const btnDelete = document.getElementById("btn-delete-recinto");
-
 if (btnDelete) {
   btnDelete.addEventListener("click", async (e) => {
     e.preventDefault();
     e.stopPropagation();
-
+    
     if (!currentSideRecintoId) {
       console.warn("No hay recinto seleccionado");
       return;
     }
 
-    // Crear modal de confirmación personalizado
-    const modalHTML = `
-      <div class="modal fade" id="modalEliminarRecinto" tabindex="-1">
-        <div class="modal-dialog">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title">Solicitar eliminación de recinto</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-              <p>¿Estás seguro de que deseas solicitar la eliminación de este recinto?</p>
-              <p class="text-muted small mb-0">Un administrador deberá aprobar la solicitud antes de que el recinto sea eliminado.</p>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-              <button type="button" class="btn btn-danger" id="confirmar-eliminar">Solicitar eliminación</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    // Eliminar modal anterior si existe
-    const modalExistente = document.getElementById("modalEliminarRecinto");
-    if (modalExistente) modalExistente.remove();
-
-    // Insertar modal
-    document.body.insertAdjacentHTML("beforeend", modalHTML);
-    const modalEl = document.getElementById("modalEliminarRecinto");
-    const modal = new bootstrap.Modal(modalEl);
-    modal.show();
-
-    // Manejar confirmación
-    document.getElementById("confirmar-eliminar").addEventListener("click", async () => {
-      modal.hide();
-      
-     try {
-  const response = await fetch(`/api/solicitud-eliminar-recinto/${currentSideRecintoId}/borrar`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" }
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Error al crear la solicitud");
-  }
-
-  NotificationSystem.show({
-    type: "success",
-    title: "Solicitud enviada",
-    message: data.mensaje || "La solicitud se creó correctamente"
-  });
-
-} catch (err) {
-  console.error("Error al solicitar eliminación:", err);
-  NotificationSystem.show({
-    type: "error",
-    title: "Error",
-    message: err.message || "Error al solicitar eliminación"
-  });
-}
-
+    // Abrir modal de confirmación
+    const ok = await AppConfirm.open({
+      title: "Solicitar eliminación de recinto",
+      message: "¿Estás seguro de que deseas solicitar la eliminación de este recinto? Un administrador deberá aprobar la solicitud antes de que el recinto sea eliminado.",
+      okText: "Solicitar eliminación",
+      cancelText: "Cancelar",
+      okClass: "btn-danger"
     });
 
-    // Limpiar modal al cerrarse
-    modalEl.addEventListener("hidden.bs.modal", () => {
-      modalEl.remove();
-    });
+    // Si el usuario cancela, salir
+    if (!ok) return;
+
+    // Si confirma, proceder con la eliminación
+    try {
+      const response = await fetch(`/api/solicitud-eliminar-recinto/${currentSideRecintoId}/borrar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Error al crear la solicitud");
+      }
+
+      NotificationSystem.show({
+        type: "success",
+        title: "Solicitud enviada",
+        message: data.mensaje || "La solicitud se creó correctamente"
+      });
+
+    } catch (err) {
+      console.error("Error al solicitar eliminación:", err);
+      NotificationSystem.show({
+        type: "error",
+        title: "Error",
+        message: err.message || "Error al solicitar eliminación"
+      });
+    }
   });
 }
 
@@ -2561,6 +2530,7 @@ if (btnDelete) {
   };
 
   let selectedRecintoLayer = null;
+  
 
   const recintosLayer = L.geoJSON(null, {
     pane: 'sigpacPane',
