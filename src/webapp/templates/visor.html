@@ -1297,14 +1297,8 @@
 
   map.fitBounds(ROI_BOUNDS);
 
-  // DEBUG: mostrar bounds en consola
-  console.log("ROI_BOUNDS:", ROI_BOUNDS.toBBoxString());
-  console.log("NDVI_BOUNDS:", NDVI_BOUNDS.toBBoxString());
 
-  // Dibujar rectángulos de referencia
-  L.rectangle(ROI_BOUNDS, {weight: 2, fill: false}).addTo(map);
-  L.rectangle(NDVI_BOUNDS, {weight: 2, fill: false}).addTo(map);
-  // ---------- Fin Debug -----------
+  
 
   // --- Panes (orden de dibujo) ---
   map.createPane('sigpacPane');
@@ -3350,9 +3344,23 @@ if (btnDelete) {
   const drawnItems = new L.FeatureGroup();
   map.addLayer(drawnItems);
 
-  let rectangleDrawer = null;
+ let rectangleDrawer = null;
   let polygonDrawer = null;
   let dibujosTemporales = [];
+  let modoEdicion = false;
+
+  // Función para deshabilitar/habilitar interacción con recintos
+  function toggleInteraccionRecintos(enabled) {
+    if (enabled) {
+      // Reactivar popups
+      recintosLayer.eachLayer(layer => {
+        if (layer._popup) layer.bindPopup(layer._popup);
+      });
+    } else {
+      // Desactivar popups
+      recintosLayer.eachLayer(layer => layer.unbindPopup());
+    }
+  }
 
   // Al hacer clic en editar
   editarBtn.addEventListener('click', () => {
@@ -3362,6 +3370,10 @@ if (btnDelete) {
     aceptarBtn.classList.remove('hidden');
     cancelarBtn.classList.remove('hidden');
     limpiarBtn.classList.remove('hidden');
+
+    // Activar modo edición y deshabilitar interacción con recintos
+    modoEdicion = true;
+    toggleInteraccionRecintos(false);
 
     // Guardar estado actual
     dibujosTemporales = [];
@@ -3418,6 +3430,10 @@ if (btnDelete) {
     limpiarBtn.classList.add('hidden');
     editarBtn.classList.remove('hidden');
 
+    // Desactivar modo edición y reactivar interacción
+    modoEdicion = false;
+    toggleInteraccionRecintos(true);
+
     // Desactiva ambos modos de dibujo si están activos
     if (rectangleDrawer) {
       rectangleDrawer.disable();
@@ -3439,6 +3455,10 @@ if (btnDelete) {
     cancelarBtn.classList.add('hidden');
     limpiarBtn.classList.add('hidden');
     editarBtn.classList.remove('hidden');
+
+    // Desactivar modo edición y reactivar interacción
+    modoEdicion = false;
+    toggleInteraccionRecintos(true);
 
     // Desactiva ambos modos de dibujo
     if (rectangleDrawer) {

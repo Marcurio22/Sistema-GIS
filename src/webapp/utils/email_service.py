@@ -178,15 +178,15 @@ def enviar_correo_prueba(destinatario):
         return False
     
 
-def enviar_notificacion_aceptacion(destinatario, nombre_usuario, numero_parcela, direccion_parcela):
+def enviar_notificacion_aceptacion(destinatario, nombre_usuario, numero_recinto, direccion_recinto):
     """
-    Envía notificación cuando se acepta una solicitud de parcela
+    Envía notificación cuando se acepta una solicitud de añadir recinto
     
     Args:
         destinatario: Email del usuario
         nombre_usuario: Nombre del usuario
-        numero_parcela: Número o ID de la parcela
-        direccion_parcela: Dirección de la parcela
+        numero_recinto: Número o ID del recinto
+        direccion_recinto: Dirección del recinto
     """
     
     html_body = f"""
@@ -238,21 +238,19 @@ def enviar_notificacion_aceptacion(destinatario, nombre_usuario, numero_parcela,
                                 </p>
                                 
                                 <p style="color: #333; font-size: 16px; line-height: 1.5; margin: 0 0 20px;">
-                                    El administrador ha <strong style="color: #4CAF50;">aceptado tu solicitud</strong> de parcela. 
+                                    El administrador ha <strong style="color: #4CAF50;">aceptado tu solicitud</strong> de recinto. 
                                 </p>
                                 
-                                <!-- Info de la parcela -->
+                                <!-- Info del recinto -->
                                 <table width="100%" cellpadding="15" style="background-color: #f9f9f9; border-radius: 6px; margin: 20px 0;">
                                     <tr>
                                         <td>
-                                            <p style="margin: 0 0 10px; color: #666; font-size: 14px;"><strong>📋 Detalles de tu Parcela</strong></p>
-                                            <p style="margin: 5px 0; color: #333; font-size: 14px;"><strong>Número:</strong> {numero_parcela}</p>
-                                            <p style="margin: 5px 0; color: #333; font-size: 14px;"><strong>Ubicación:</strong> {direccion_parcela}</p>
+                                            <p style="margin: 0 0 10px; color: #666; font-size: 14px;"><strong>📋 Detalles de tu Recinto</strong></p>
+                                            <p style="margin: 5px 0; color: #333; font-size: 14px;"><strong>Número:</strong> {numero_recinto}</p>
+                                            <p style="margin: 5px 0; color: #333; font-size: 14px;"><strong>Ubicación:</strong> {direccion_recinto}</p>
                                         </td>
                                     </tr>
                                 </table>
-                                
-                               
                                 
                                 <!-- Botón -->
                                 <table cellpadding="0" cellspacing="0" style="margin: 20px 0;">
@@ -289,11 +287,11 @@ def enviar_notificacion_aceptacion(destinatario, nombre_usuario, numero_parcela,
     
     Hola {nombre_usuario},
     
-    El administrador ha aceptado tu solicitud de parcela.
+    El administrador ha aceptado tu solicitud de recinto.
     
     Detalles:
-    - Número: {numero_parcela}
-    - Ubicación: {direccion_parcela}
+    - Número: {numero_recinto}
+    - Ubicación: {direccion_recinto}
     
     Accede a tu panel para más información.
     
@@ -302,8 +300,11 @@ def enviar_notificacion_aceptacion(destinatario, nombre_usuario, numero_parcela,
     """
     
     try:
+        from webapp import mail
+        from flask_mail import Message
+        
         msg = Message(
-            subject="✅ Tu solicitud de parcela ha sido aceptada",
+            subject="✅ Tu solicitud de recinto ha sido aceptada",
             recipients=[destinatario],
             body=text_body,
             html=html_body
@@ -320,23 +321,190 @@ def enviar_notificacion_aceptacion(destinatario, nombre_usuario, numero_parcela,
         return False
 
 
-def enviar_notificacion_rechazo(destinatario, nombre_usuario, numero_parcela, motivo_rechazo=""):
+def enviar_notificacion_eliminacion_aceptada(destinatario, nombre_usuario, numero_recinto, direccion_recinto):
     """
-    Envía notificación cuando se rechaza una solicitud de parcela
+    Envía notificación cuando el admin ACEPTA la solicitud de eliminación de recinto
     
     Args:
         destinatario: Email del usuario
         nombre_usuario: Nombre del usuario
-        numero_parcela: Número o ID de la parcela solicitada
+        numero_recinto: Número o ID del recinto
+        direccion_recinto: Dirección del recinto
+    """
+    
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            @media only screen and (max-width: 600px) {{
+                .container {{
+                    width: 100% !important;
+                    max-width: 100% !important;
+                }}
+                .content {{
+                    padding: 20px !important;
+                }}
+                .header {{
+                    padding: 20px !important;
+                }}
+                h1 {{
+                    font-size: 20px !important;
+                }}
+                .button {{
+                    padding: 10px 20px !important;
+                    font-size: 14px !important;
+                }}
+            }}
+        </style>
+    </head>
+    <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+                <td align="center" style="padding: 20px;">
+                    <table class="container" width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        
+                        <!-- Header -->
+                        <tr>
+                            <td class="header" style="background-color: #ff9800; padding: 30px; text-align: center;">
+                                <h1 style="color: #ffffff; margin: 0; font-size: 24px;">✅ Solicitud de Eliminación Aprobada</h1>
+                            </td>
+                        </tr>
+                        
+                        <!-- Contenido -->
+                        <tr>
+                            <td class="content" style="padding: 30px;">
+                                <p style="color: #333; font-size: 16px; line-height: 1.5; margin: 0 0 20px;">
+                                    Hola <strong>{nombre_usuario}</strong>,
+                                </p>
+                                
+                                <p style="color: #333; font-size: 16px; line-height: 1.5; margin: 0 0 20px;">
+                                    El administrador ha <strong style="color: #ff9800;">aceptado tu solicitud de eliminación</strong> de recinto.
+                                </p>
+                                
+                                <!-- Info del recinto eliminado -->
+                                <table width="100%" cellpadding="15" style="background-color: #f9f9f9; border-radius: 6px; margin: 20px 0;">
+                                    <tr>
+                                        <td>
+                                            <p style="margin: 0 0 10px; color: #666; font-size: 14px;"><strong>📋 Recinto Eliminado</strong></p>
+                                            <p style="margin: 5px 0; color: #333; font-size: 14px;"><strong>Número:</strong> {numero_recinto}</p>
+                                            <p style="margin: 5px 0; color: #333; font-size: 14px;"><strong>Ubicación:</strong> {direccion_recinto}</p>
+                                        </td>
+                                    </tr>
+                                </table>
+                                
+                                <p style="color: #333; font-size: 16px; line-height: 1.5; margin: 20px 0;">
+                                    El recinto ha sido eliminado del sistema. Si necesitas solicitar un nuevo recinto en el futuro, puedes hacerlo desde tu panel.
+                                </p>
+                                
+                                <!-- Botón -->
+                                <table cellpadding="0" cellspacing="0" style="margin: 20px 0;">
+                                    <tr>
+                                        <td align="center">
+                                            <a href="http://100.102.237.86:5000/mis_recintos" class="button" style="background-color: #2196F3; color: #ffffff; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; display: inline-block;">
+                                                Ver mis recintos
+                                            </a>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                        
+                        <!-- Footer -->
+                        <tr>
+                            <td style="background-color: #f9f9f9; padding: 20px; text-align: center; border-top: 1px solid #eee;">
+                                <p style="color: #999; font-size: 12px; margin: 0;">
+                                    © 2026 Sistema GIS - Correo automático
+                                </p>
+                            </td>
+                        </tr>
+                        
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    """
+    
+    text_body = f"""
+    Solicitud de Eliminación Aprobada
+    
+    Hola {nombre_usuario},
+    
+    El administrador ha aceptado tu solicitud de eliminación de recinto.
+    
+    Recinto eliminado:
+    - Número: {numero_recinto}
+    - Ubicación: {direccion_recinto}
+    
+    El recinto ha sido eliminado del sistema.
+    
+    Saludos,
+    Sistema GIS
+    """
+    
+    try:
+        from webapp import mail
+        from flask_mail import Message
+        
+        msg = Message(
+            subject="✅ Solicitud de eliminación aprobada",
+            recipients=[destinatario],
+            body=text_body,
+            html=html_body
+        )
+        
+        mail.send(msg)
+        print(f"✓ Notificación de eliminación aceptada enviada a {destinatario}")
+        return True
+        
+    except Exception as e:
+        print(f"✗ Error enviando notificación de eliminación aceptada: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def enviar_notificacion_rechazo(destinatario, nombre_usuario, numero_recinto, tipo_solicitud, motivo_rechazo=""):
+    """
+    Envía notificación cuando se rechaza una solicitud (tanto de creación como de eliminación)
+    
+    Args:
+        destinatario: Email del usuario
+        nombre_usuario: Nombre del usuario
+        numero_recinto: Número o ID del recinto
+        tipo_solicitud: 'creacion' o 'eliminacion'
         motivo_rechazo: Razón del rechazo (opcional)
     """
     
-    # Si hay motivo, mostrarlo, sino mensaje genérico
+    # Textos según el tipo de solicitud
+    if tipo_solicitud == 'eliminacion':
+        texto_accion = "eliminación"
+        emoji_estado = "ℹ️"
+        color_header = "#2196F3"
+        mensaje_estado = "Tu recinto <strong>permanece activo</strong> en el sistema."
+        estado_recinto = '<p style="margin: 10px 0 0; color: #4CAF50; font-size: 14px;"><strong>Estado:</strong> Sigue activo</p>'
+    else:  # creacion
+        texto_accion = "creación"
+        emoji_estado = "❌"
+        color_header = "#f44336"
+        mensaje_estado = "Puedes realizar una nueva solicitud o contactar con el administrador para más información."
+        estado_recinto = ''
+    
+    # Si hay motivo, mostrarlo
     if motivo_rechazo:
         mensaje_motivo = f"""
-        <p style="color: #333; font-size: 16px; line-height: 1.5; margin: 0 0 20px;">
-            <strong>Motivo:</strong> {motivo_rechazo}
-        </p>
+        <table width="100%" cellpadding="15" style="background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 6px; margin: 20px 0;">
+            <tr>
+                <td>
+                    <p style="margin: 0; color: #856404; font-size: 14px;"><strong>💬 Motivo del rechazo:</strong></p>
+                    <p style="margin: 5px 0 0; color: #856404; font-size: 14px;">{motivo_rechazo}</p>
+                </td>
+            </tr>
+        </table>
         """
         texto_motivo = f"\n\nMotivo: {motivo_rechazo}"
     else:
@@ -379,8 +547,8 @@ def enviar_notificacion_rechazo(destinatario, nombre_usuario, numero_parcela, mo
                         
                         <!-- Header -->
                         <tr>
-                            <td class="header" style="background-color: #f44336; padding: 30px; text-align: center;">
-                                <h1 style="color: #ffffff; margin: 0; font-size: 24px;">❌ Solicitud No Aprobada</h1>
+                            <td class="header" style="background-color: {color_header}; padding: 30px; text-align: center;">
+                                <h1 style="color: #ffffff; margin: 0; font-size: 24px;">{emoji_estado} Solicitud de {texto_accion.capitalize()} Rechazada</h1>
                             </td>
                         </tr>
                         
@@ -392,10 +560,25 @@ def enviar_notificacion_rechazo(destinatario, nombre_usuario, numero_parcela, mo
                                 </p>
                                 
                                 <p style="color: #333; font-size: 16px; line-height: 1.5; margin: 0 0 20px;">
-                                    Tu solicitud de la parcela <strong>{numero_parcela}</strong> no ha sido aprobada.
+                                    Tu solicitud de <strong>{texto_accion}</strong> del recinto <strong>{numero_recinto}</strong> no ha sido aprobada.
                                 </p>
                                 
+                                <!-- Info del recinto -->
+                                <table width="100%" cellpadding="15" style="background-color: #f9f9f9; border-radius: 6px; margin: 20px 0;">
+                                    <tr>
+                                        <td>
+                                            <p style="margin: 0 0 10px; color: #666; font-size: 14px;"><strong>📋 Recinto</strong></p>
+                                            <p style="margin: 5px 0; color: #333; font-size: 14px;"><strong>Número:</strong> {numero_recinto}</p>
+                                            {estado_recinto}
+                                        </td>
+                                    </tr>
+                                </table>
+                                
                                 {mensaje_motivo}
+                                
+                                <p style="color: #333; font-size: 16px; line-height: 1.5; margin: 20px 0;">
+                                    {mensaje_estado}
+                                </p>
                                 
                                 <!-- Botón -->
                                 <table cellpadding="0" cellspacing="0" style="margin: 20px 0;">
@@ -428,28 +611,31 @@ def enviar_notificacion_rechazo(destinatario, nombre_usuario, numero_parcela, mo
     """
     
     text_body = f"""
-    Solicitud No Aprobada
+    Solicitud de {texto_accion.capitalize()} Rechazada
     
     Hola {nombre_usuario},
     
-    Tu solicitud de la parcela {numero_parcela} no ha sido aprobada.{texto_motivo}
+    Tu solicitud de {texto_accion} del recinto {numero_recinto} no ha sido aprobada.{texto_motivo}
     
-    Puedes realizar una nueva solicitud o contactar con el administrador para más información.
+    {mensaje_estado}
     
     Saludos,
     Sistema GIS
     """
     
     try:
+        from webapp import mail
+        from flask_mail import Message
+        
         msg = Message(
-            subject="❌ Solicitud de parcela no aprobada",
+            subject=f"{emoji_estado} Solicitud de {texto_accion} rechazada",
             recipients=[destinatario],
             body=text_body,
             html=html_body
         )
         
         mail.send(msg)
-        print(f"✓ Notificación de rechazo enviada a {destinatario}")
+        print(f"✓ Notificación de rechazo de {texto_accion} enviada a {destinatario}")
         return True
         
     except Exception as e:

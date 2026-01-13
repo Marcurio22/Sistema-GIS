@@ -8,8 +8,7 @@ from datetime import datetime, timezone
 import logging
 from ..utils.utils import normalizar_telefono_es
 from ..utils.logging_handler import SQLAlchemyHandler
-from ..utils.email_service import enviar_notificacion_aceptacion, enviar_notificacion_rechazo
-
+from ..utils.email_service import enviar_notificacion_aceptacion, enviar_notificacion_rechazo, enviar_notificacion_eliminacion_aceptada
 logger = logging.getLogger('app.admin')
 logger.setLevel(logging.INFO)
 
@@ -244,8 +243,17 @@ def aprobar_solicitud_recinto(id_solicitud):
 
         # Enviar notificación de eliminación aprobada
         if usuario_solicitante and usuario_solicitante.email:
-            numero_parcela = f"{recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}"
-            direccion_parcela = f"Provincia: {recinto.provincia}, Municipio: {recinto.municipio}, Polígono: {recinto.poligono}, Parcela: {recinto.parcela}"
+            numero_recinto = f"{recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}"
+            direccion_recinto = f"Provincia: {recinto.provincia}, Municipio: {recinto.municipio}, Polígono: {recinto.poligono}, Parcela: {recinto.parcela}"
+            
+
+            if usuario_solicitante.notificaciones_activas == True:
+                enviar_notificacion_eliminacion_aceptada(
+                    destinatario=usuario_solicitante.email,
+                    nombre_usuario=usuario_solicitante.username,
+                    numero_recinto=numero_recinto,
+                    direccion_recinto=direccion_recinto
+                )
             
             
         logger.info(
@@ -256,7 +264,7 @@ def aprobar_solicitud_recinto(id_solicitud):
         flash("Recinto liberado correctamente. El propietario ha sido eliminado.", "success")
         
     else:  # tipo_solicitud == "aceptacion" o valor por defecto
-        # SOLICITUD DE ACEPTACIÓN (código original)
+        # SOLICITUD DE ACEPTACIÓN
         print(recinto, recinto.id_propietario, solicitud.id_usuario)
         
         # Si ya tiene propietario y es otro usuario → rechazamos automáticamente
@@ -283,15 +291,15 @@ def aprobar_solicitud_recinto(id_solicitud):
 
         # Enviar notificación de aceptación
         if usuario_solicitante and usuario_solicitante.email:
-            numero_parcela = f"{recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}"
-            direccion_parcela = f"Provincia: {recinto.provincia}, Municipio: {recinto.municipio}, Polígono: {recinto.poligono}, Parcela: {recinto.parcela}"
+            numero_recinto = f"{recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}"
+            direccion_recinto = f"Provincia: {recinto.provincia}, Municipio: {recinto.municipio}, Polígono: {recinto.poligono}, Parcela: {recinto.parcela}"
             
             if usuario_solicitante.notificaciones_activas == True:
                 enviar_notificacion_aceptacion(
                     destinatario=usuario_solicitante.email,
                     nombre_usuario=usuario_solicitante.username,
-                    numero_parcela=numero_parcela,
-                    direccion_parcela=direccion_parcela
+                    numero_recinto=numero_recinto,
+                    direccion_recinto=direccion_recinto
                 )
         
         logger.info(
@@ -321,8 +329,11 @@ def rechazar_solicitud_recinto(id_solicitud):
     if not motivo:
         motivo = "Solicitud rechazada por el administrador."
 
+    
+
     recinto = Recinto.query.get(solicitud.id_recinto)
     usuario_solicitante = User.query.get(solicitud.id_usuario)
+
 
     solicitud.estado = "rechazada"
     solicitud.fecha_resolucion = datetime.now(timezone.utc)
@@ -337,13 +348,14 @@ def rechazar_solicitud_recinto(id_solicitud):
 
 
     if usuario_solicitante and usuario_solicitante.email and recinto:
-            numero_parcela = f"{recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}"
+            numero_recinto = f"{recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}"
 
             if usuario_solicitante.notificaciones_activas == True:
                 enviar_notificacion_rechazo(
                     destinatario=usuario_solicitante.email,
                     nombre_usuario=usuario_solicitante.username,
-                    numero_parcela=numero_parcela,
+                    numero_recinto=numero_recinto,
+                    tipo_solicitud=solicitud.tipo_solicitud,
                     motivo_rechazo=motivo
                 )
 
