@@ -492,6 +492,19 @@
     color: #0dcaf0;
   }
 
+  /* Last satelite */
+  .last-overlay {
+    image-rendering: pixelated;    /* Chrome/Edge */
+    image-rendering: crisp-edges;  /* Firefox (fallback) */
+  }
+
+    /* Solo para ese overlay */
+  .ndvi-overlay {
+    image-rendering: pixelated;    /* Chrome/Edge */
+    image-rendering: crisp-edges;  /* Firefox (fallback) */
+  }
+
+
   /* Responsive */
   @media (max-width: 576px) {
     #notification-container {
@@ -2494,13 +2507,17 @@ if (btnDelete) {
  const baseSentinelRecent = L.imageOverlay(
     `/static/sentinel2/s2_rgb_latest.png?v={{ sentinel2_version }}`,
     ROI_BOUNDS,
-    { opacity: 1.0, interactive: false }
+    { opacity: 1.0, interactive: false, className: "ndvi-overlay" }
   );
 
   const baseNdvi = L.imageOverlay(
-    `/static/ndvi/ndvi_latest.png?v={{ ndvi_version }}`,
+    `/static/ndvi/ndvi_20260112_125847.png?v={{ ndvi_version }}`,
     ROI_BOUNDS,
-    { opacity: 1.0 }
+    {
+      opacity: 1.0,
+      interactive: false,
+      className: "ndvi-overlay"
+    }
   );
 
   const highZoomLayers = {
