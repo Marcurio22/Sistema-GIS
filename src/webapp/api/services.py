@@ -145,7 +145,9 @@ def mis_recinto_detalle(id_recinto: int, user_id: int) -> dict:
             r.provincia, r.municipio, r.agregado, r.zona,
             r.poligono, r.parcela, r.recinto,
             COALESCE(u.username, 'N/A') AS propietario,
-            ST_AsGeoJSON(r.geom)::json AS geom_json
+            ST_AsGeoJSON(r.geom)::json AS geom_json,
+            ST_Y(ST_Centroid(r.geom)) AS centroid_lat,
+            ST_X(ST_Centroid(r.geom)) AS centroid_lng
         FROM public.recintos r
         LEFT JOIN public.usuarios u ON u.id_usuario = r.id_propietario
         WHERE r.id_recinto = :rid
@@ -175,7 +177,9 @@ def mis_recinto_detalle(id_recinto: int, user_id: int) -> dict:
         "fecha_creacion": row["fecha_creacion"].isoformat() if row["fecha_creacion"] else None,
         "activa": bool(row["activa"]) if row["activa"] is not None else True,
         "propietario": row["propietario"],
-        "geojson": json.dumps(row["geom_json"])
+        "geojson": json.dumps(row["geom_json"]),
+        "centroid_lat": float(row["centroid_lat"]) if row["centroid_lat"] is not None else None,
+        "centroid_lng": float(row["centroid_lng"]) if row["centroid_lng"] is not None else None
     }
 
 # ---------------------------

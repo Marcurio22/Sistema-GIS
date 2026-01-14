@@ -1030,12 +1030,21 @@
     <div class="side-divider"></div>
 
   <div class="side-row">
-    <i class="bi bi-globe2 side-ico"></i>
-    <div class="side-line">
-      <span class="side-row-title">Superficie:</span>
-      <span id="side-area" class="side-row-value">-</span>
-    </div>
-  </div>
+  <i class="bi bi-globe2 side-ico"></i>
+
+<div class="side-line" style="display:flex;align-items:center;width:100%;">
+  <span class="side-row-title">Superficie:</span>
+  <span id="side-area" class="side-row-value ms-2">-</span>
+
+<!-- Icono localización decorativo a la derecha -->
+  <i class="bi bi-geo-alt-fill ms-auto text-success" style="font-size:1.6rem" aria-hidden="true">
+  </i>
+
+  <!-- Coordenadas -->
+  <span id="side-coords" class="fw-bold side-row-value ms-2"></span>
+</div>
+</div>
+
 
     <div class="side-row">
       <i class="bi bi-person-fill side-ico"></i>
@@ -1480,9 +1489,17 @@
     document.getElementById("side-owner").textContent = safeText(p.propietario, "N/A");
     document.getElementById("side-active").checked = (p.activa == null) ? true : !!p.activa;
 
+    // Mostrar coordenadas del centroide
+    const coordsText = document.getElementById("side-coords");
+    if (p.centroid_lat != null && p.centroid_lng != null) {
+      coordsText.textContent = `${p.centroid_lat.toFixed(6)}, ${p.centroid_lng.toFixed(6)}`;
+    } else {
+      coordsText.textContent = "-";
+    }
+
     // Cultivos del recinto
     renderCultivosForRecinto(currentSideRecintoId);
-  }
+}
 
 
 
@@ -2538,7 +2555,7 @@ if (btnDelete) {
 
   const RECINTO_STYLE_DEFAULT = {
     color: "#ff8800",
-    weight: 2,
+    weight: 1,
   };
 
   const RECINTO_STYLE_SELECTED = {
