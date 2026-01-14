@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from flask import jsonify, request
 from flask_login import login_required, current_user
+from sqlalchemy import text
 
 from .. import db
 from ..models import Recinto, Solicitudrecinto
@@ -227,10 +228,25 @@ def api_catalogo_productos_fega():
         return jsonify(catalogo_productos_fega())
     except Exception:
         return jsonify({"error": "Error interno en /api/catalogos/productos-fega"}), 500
+    
+
+@api_bp.get("/catalogos/productos-fega/<string:uso_sigpac>")
+@login_required
+def api_catalogo_productos_fega_filtrado(uso_sigpac):
+    sql = text("""
+        SELECT DISTINCT pf.codigo, pf.descripcion
+        FROM public.cultivos c
+        JOIN public.productos_fega pf ON pf.codigo = c.cod_producto
+        WHERE c.uso_sigpac = :uso
+          AND c.cod_producto IS NOT NULL
+        ORDER BY pf.descripcion
+    """)
+    rows = db.session.execute(sql, {"uso": uso_sigpac}).mappings().all()
+    return jsonify([{"codigo": int(r["codigo"]), "descripcion": r["descripcion"]} for r in rows])
 
 
 # ---------------------------
-# Cultivo único por recinto
+# Cultivos por recinto
 # ---------------------------
 
 @api_bp.get("/mis-recinto/<int:recinto_id>/cultivo")
@@ -269,11 +285,6 @@ def api_create_cultivo(recinto_id: int):
 
         cultivo = create_cultivo_recinto(recinto_id, data)
         return jsonify({"ok": True, "cultivo": cultivo}), 201
-
-    except ValueError as e:
-        if str(e) == "ya_existe":
-            return jsonify({"ok": False, "error": "El recinto ya tiene un cultivo"}), 400
-        return jsonify({"ok": False, "error": "Datos inválidos"}), 400
 
     except Exception:
         return jsonify({"ok": False, "error": "Error interno en POST /api/mis-recinto/<id>/cultivo"}), 500
@@ -325,7 +336,17 @@ def api_delete_cultivo(recinto_id: int):
     except Exception:
         return jsonify({"ok": False, "error": "Error interno en DELETE /api/mis-recinto/<id>/cultivo"}), 500
     
-
+@api_bp.get("/mis-recinto/<int:recinto_id>/cultivos-historico")
+@login_required
+def api_get_cultivos_historico(recinto_id: int):
+    sql = text("""
+        SELECT *
+        FROM public.cultivos
+        WHERE id_recinto = :rid
+        ORDER BY COALESCE(fecha_siembra, fecha_implantacion) DESC, id_cultivo DESC
+    """)
+    rows = db.session.execute(sql, {"rid": recinto_id}).mappings().all()
+    return jsonify([dict(r) for r in rows]) 
 
 @api_bp.route('/solicitud-eliminar-recinto/<int:id_recinto>/borrar', methods=['POST'])
 @login_required

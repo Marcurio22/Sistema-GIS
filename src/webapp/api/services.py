@@ -320,8 +320,6 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     Crea el único cultivo del recinto. Si ya existe, error.
     """
     existing = get_cultivo_recinto(recinto_id)
-    if existing:
-        raise ValueError("ya_existe")
 
     # Normaliza antes de insertar
     data = normalize_cultivo_payload(data)
@@ -345,6 +343,9 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
         "cosecha_estimada_auto": data.get("cosecha_estimada_auto", False),
         "observaciones": data.get("observaciones"),
     }
+
+    if existing:
+        params["id_padre"] = existing["id_cultivo"]
 
     sql = text("""
         INSERT INTO public.cultivos (
@@ -395,14 +396,11 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
 
 def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     """
-    Actualiza parcialmente el cultivo (por ejemplo observaciones, fechas, variedad, etc).
+    Actualiza parcialmente SOLO el cultivo actual (el último) del recinto.
     """
     cultivo = get_cultivo_recinto(recinto_id)
     if not cultivo:
         raise ValueError("no_existe")
-    
-    # Normaliza antes de actualizar
-    data = normalize_cultivo_payload(data, existing=cultivo)
 
     # Construcción dinámica del UPDATE
     allowed = {
@@ -410,7 +408,6 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
         "sistema_explotacion",
         "tipo_registro",
         "campana",
-        "id_padre",
         "cod_producto",
         "cultivo_custom",
         "origen_cultivo",
@@ -425,7 +422,10 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     }
 
     sets = []
-    params = {"rid": recinto_id}
+    params = {
+        "rid": recinto_id,
+        "cid": cultivo["id_cultivo"],  # solo el último
+    }
 
     for k, v in (data or {}).items():
         if k in allowed:
@@ -439,6 +439,7 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
         UPDATE public.cultivos
         SET {", ".join(sets)}
         WHERE id_recinto = :rid
+          AND id_cultivo = :cid
         RETURNING id_cultivo
     """)
 
@@ -448,10 +449,19 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
 
 
 def delete_cultivo_recinto(recinto_id: int) -> bool:
+    """
+    Elimina SOLO el cultivo actual (el último) del recinto.
+    """
+    cultivo = get_cultivo_recinto(recinto_id)
+    if not cultivo:
+        return False
+
     sql = text("""
         DELETE FROM public.cultivos
         WHERE id_recinto = :rid
+          AND id_cultivo = :cid
     """)
-    res = db.session.execute(sql, {"rid": recinto_id})
+    res = db.session.execute(sql, {"rid": recinto_id, "cid": cultivo["id_cultivo"]})
     db.session.commit()
     return res.rowcount > 0
+

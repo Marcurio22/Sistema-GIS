@@ -222,8 +222,6 @@
     <div id="cultivos-container"></div>
   </div>
 
-
-  <div id="cultivos-container"></div>
 <div class="side-divider"></div>
 <div id="galeria-imagenes" class="galeria-container mt-4">
   <h2 class="side-section-title mb-3">
@@ -249,6 +247,27 @@
 
   </div>
   <div id="side-alerts"></div>
+
+  <!-- Overlay: Histórico de cultivos -->
+  <div id="cultivos-historico-panel" class="d-none" aria-hidden="true">
+    <div class="side-section-head mb-2">
+      <button id="btn-volver-historico" class="btn btn-link p-0 me-2" type="button">
+        <i class="bi bi-arrow-left fs-4" style="color:#198754"></i>
+      </button>
+
+      <h2 class="side-section-title">
+        <i class="fa-solid fa-wheat-awn me-2" style="color:#198754"></i>
+        <span class="side-section-label">Cultivos</span>
+      </h2>
+
+      <div></div>
+    </div>
+
+    <div class="side-divider"></div>
+
+    <div id="cultivos-historico-list" class="pb-3"></div>
+  </div>
+
 </aside>
 
 <!-- Modal confirmación -->
@@ -839,6 +858,17 @@ if (btnDelete) {
     return _productosFega;
   }
 
+  const _productosFegaByUso = new Map(); // cache
+
+  async function loadProductosFegaPorUso(usoSigpac) {
+    const key = String(usoSigpac || "").trim();
+    if (!key) return [];
+    if (_productosFegaByUso.has(key)) return _productosFegaByUso.get(key);
+    const list = await fetchJson(`/api/catalogos/productos-fega/${encodeURIComponent(key)}`);
+    _productosFegaByUso.set(key, list || []);
+    return list || [];
+  }
+
   function byCodigo(list) {
     const m = new Map();
     (list || []).forEach(it => m.set(String(it.codigo), it));
@@ -927,6 +957,12 @@ if (btnDelete) {
       console.warn(e);
       container.innerHTML = `<div class="text-danger">Error cargando cultivo del recinto.</div>`;
     }
+  }
+
+  async function loadProductosByUso(usoCodigo) {
+    const grupo = usoCodigo.split('-')[0]; // ejemplo: "OV-OLIVAR" -> "OV"
+    const resp = await fetchJson(`/api/catalogos/productos-fega/${grupo}`);
+    renderProductos(resp);
   }
 
   function renderCultivoEmpty(container, recintoId, usos, productos) {
@@ -1182,9 +1218,9 @@ if (btnDelete) {
   }
 
   // Histórico de cultivos (pendiente de implementar)
-  document.getElementById("btn-historico-cultivos")?.addEventListener("click", () => {
-    NotificationSystem.show({type:"info", title:"Histórico", message:"(Pendiente de implementar)"});
-  });
+//  document.getElementById("btn-historico-cultivos")?.addEventListener("click", () => {
+ //   NotificationSystem.show({type:"info", title:"Histórico", message:"(Pendiente de implementar)"});
+ // });
 
   function openSs(ssEl) { ssEl.classList.add("open"); }
   function closeSs(ssEl) { ssEl.classList.remove("open"); }
@@ -1267,10 +1303,10 @@ if (btnDelete) {
 
     const estadoOpts = [
       { v: "planificado", l: "Planificado" },
-      { v: "implantado",  l: "Plantado" },
-      { v: "en_curso",    l: "En cultivo" },
-      { v: "cosechado",   l: "Cosechado" },
-      { v: "abandonado",  l: "Abandonado" }
+      { v: "en_curso", l: "En curso" },
+      { v: "implantado", l: "Plantado" },
+      { v: "cosechado", l: "Cosechado" },
+      { v: "abandonado", l: "Abandonado" }
     ];
 
     const tipoRegOpts = [
@@ -1368,6 +1404,20 @@ if (btnDelete) {
           <div id="cultivo-form-msg" class="text-muted" style="font-size:12px; margin-top:8px"></div>
         </div>
       </div>
+
+      <div id="historico-cultivos-panel" class="d-none">
+        <div class="side-section-head mb-2">
+          <button id="btn-volver-cultivos" class="btn btn-link p-0 me-2">
+            <i class="bi bi-arrow-left fs-4" style="color:#198754"></i>
+          </button>
+          <h2 class="side-section-title">
+            <i class="bi bi-seedling" style="color:#198754"></i>
+            <span class="side-section-label">Cultivos</span>
+          </h2>
+          <div></div>
+        </div>
+        <div id="historico-lista"></div>
+      </div>
     `;
 
     const ssUsoEl = container.querySelector("#ss-uso");
@@ -1388,14 +1438,23 @@ if (btnDelete) {
     const ssUso = attachSearchSelect(ssUsoEl, usoItems, {
       getLabel: (it) => it.label,
       getValue: (it) => it.codigo,
-      onSelect: (it) => {
+      onSelect: async (it) => {
         selectedUso = it;
-        // habilita selector de producto
+
         ssProdEl.querySelector("input").disabled = false;
         ssProdEl.querySelector("#prod-help").style.display = "none";
         btnVerTodos.disabled = false;
+
         modoVerTodos = false;
         btnVerTodos.textContent = "Ver todos";
+
+        // <<< AQUÍ: carga lista filtrada real por uso_sigpac
+        try {
+          productosUso = await loadProductosFegaPorUso(it.codigo);
+        } catch (_) {
+          productosUso = [];
+        }
+
         actualizarListaProductos();
       }
     });
@@ -1445,7 +1504,7 @@ if (btnDelete) {
     });
 
     function actualizarListaProductos() {
-      // Filtrado por uso (heurística). "Ver todos" lo desactiva.
+      // Filtrado por uso. "Ver todos" lo desactiva.
       const grupo = selectedUso?.grupo || guessGrupoUso(selectedUso?.codigo, usosMap);
       const fega = productosAll.map(p => ({ codigo: p.codigo, descripcion: p.descripcion, origen: "F", label: formatCodigoDesc(p.codigo, p.descripcion) }));
       const custom = _cultivosCustom.map(p => ({ codigo: null, descripcion: p.descripcion, origen: "C", label: formatCodigoDesc(null, p.descripcion) }));
@@ -2718,6 +2777,7 @@ if (btnDelete) {
   });
  
   });
+
 </script>
 
 {% endblock %}

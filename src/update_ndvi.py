@@ -17,6 +17,7 @@ import rasterio
 from rasterio.warp import reproject, Resampling, transform_bounds, transform_geom, calculate_default_transform
 from rasterio.transform import from_bounds
 from rasterio.mask import mask
+from rasterio.features import geometry_mask
 
 from pystac_client import Client
 import planetary_computer as pc
@@ -24,6 +25,7 @@ import planetary_computer as pc
 from sqlalchemy import text
 from webapp import create_app, db
 
+print("[NDVI] RUNNING FILE:", __file__)
 
 # -----------------------------
 # Config (por entorno)
@@ -357,17 +359,44 @@ def fetch_recintos_geojson():
     return [(int(r.id_recinto), r.geojson, int(r.srid) if r.srid else 4326) for r in rows]
 
 
-def zonal_stats_for_geom(dataset, geom):
-    data, _ = mask(dataset, [geom], crop=True, nodata=np.nan, filled=True)
-    arr = data[0].astype(np.float32)
-    arr = arr[np.isfinite(arr)]
-    if arr.size == 0:
+def zonal_stats_for_geom_fast(dataset, geom):
+    # bounds en CRS del dataset
+    minx, miny, maxx, maxy = geom.bounds
+
+    # ventana mínima del raster que cubre el recinto
+    win = from_bounds(minx, miny, maxx, maxy, transform=dataset.transform)
+
+    # recorta a límites del raster
+    win = win.round_offsets().round_lengths()
+    if win.width <= 0 or win.height <= 0:
         return None
+
+    # lee solo la ventana
+    arr = dataset.read(1, window=win).astype(np.float32)
+
+    # si todo es NaN, fuera
+    if not np.any(np.isfinite(arr)):
+        return None
+
+    # máscara del polígono en la ventana
+    win_transform = dataset.window_transform(win)
+    m = geometry_mask(
+        [mapping(geom)],
+        transform=win_transform,
+        out_shape=arr.shape,
+        invert=True
+    )
+
+    vals = arr[m]
+    vals = vals[np.isfinite(vals)]
+    if vals.size == 0:
+        return None
+
     return {
-        "mean": float(np.mean(arr)),
-        "min": float(np.min(arr)),
-        "max": float(np.max(arr)),
-        "std": float(np.std(arr)),
+        "mean": float(vals.mean()),
+        "min": float(vals.min()),
+        "max": float(vals.max()),
+        "std": float(vals.std()),
     }
 
 
@@ -565,6 +594,17 @@ def main():
         meta_json.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+        print(f"OK: NDVI meta.json -> {meta_json}")
+
+        # -----------------------------
+        # Debugs de BBDD
+        # -----------------------------
+        t_db0 = time.perf_counter()
+        recintos = fetch_recintos_geojson()
+        print(f"[BBDD] recintos a procesar: {len(recintos)} | t={time.perf_counter()-t_db0:.2f}s")
+
+        t_loop0 = time.perf_counter()
+    
         # -----------------------------
         # BBDD
         # -----------------------------
@@ -605,10 +645,15 @@ def main():
                     geom_proj_gj = transform_geom(f"EPSG:{srid}", ds_crs, geom_rec_gj, precision=6)
                     geom_proj = shape(geom_proj_gj)
 
-                    stats = zonal_stats_for_geom(ds, geom_proj)
+                    stats = zonal_stats_for_geom_fast(ds, geom_proj)
                     if not stats:
                         continue
 
+                    # Debug progreso    
+                    if inserted % 50 == 0 and inserted > 0:
+                        elapsed = time.perf_counter() - t_loop0
+                        print(f"[BBDD] procesados {inserted} recintos | {elapsed:.1f}s | ~{(elapsed/inserted):.2f}s/recinto")
+                    # ---------------------------------------------
 
                     sql_idx = text("""
                         INSERT INTO public.indices_raster
@@ -618,7 +663,10 @@ def main():
                           (:id_imagen, :id_recinto, NULL, :tipo, :fecha, :epsg, :res,
                            :mean, :min, :max, :std, :ruta)
                     """)
-                    db.session.execute(sql_idx, {
+                    rows_to_insert = []
+
+                    # dentro del loop, cuando tengas stats:
+                    rows_to_insert.append({
                         "id_imagen": int(id_imagen),
                         "id_recinto": int(id_recinto),
                         "tipo": "NDVI",
@@ -631,7 +679,14 @@ def main():
                         "std": stats["std"],
                         "ruta": ruta_rel,
                     })
-                    inserted += 1
+
+                    # y cada X recintos:
+                    if len(rows_to_insert) >= 500:
+                        db.session.execute(sql_idx, rows_to_insert)
+                        rows_to_insert.clear()
+
+            if rows_to_insert:
+                db.session.execute(sql_idx, rows_to_insert)
 
             db.session.commit()
             print(f"OK: NDVI guardado en BBDD -> imagenes.id_imagen={id_imagen} | indices_raster insertados={inserted}")

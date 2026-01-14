@@ -34,5 +34,7 @@ Write-Host "RES_M=$env:NDVI_RES_M  MAX_DIM=$env:NDVI_MAX_DIM"
 # Ejecución
 # ============================
 
+Write-Host ("START: " + (Get-Date))
 python .\update_ndvi.py
+Write-Host ("END: " + (Get-Date))
 exit $LASTEXITCODE
