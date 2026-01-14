@@ -225,32 +225,33 @@
 
   <div id="cultivos-container"></div>
 <div class="side-divider"></div>
-  <div id="galeria-imagenes" class="galeria-container mt-4">
-    <h2 class="side-section-title mb-3">
-      <i class="fa-solid fa-image me-2" style="color:#198754"></i>
-      Galería
-    </h2>
+<div id="galeria-imagenes" class="galeria-container mt-4">
+  <h2 class="side-section-title mb-3">
+    <i class="fa-solid fa-image me-2" style="color:#198754"></i>
+    Galería
+  </h2>
 
-    <!-- Grid de imágenes -->
-    <div class="galeria-grid" id="galeria-grid">
-      <!-- Las imágenes se cargarán dinámicamente con JavaScript -->
-    </div>
+  <!-- Botón Añadir Imagen -->
+  <div class="mb-3">
+    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalSubida">
+      <i class="fa-solid fa-plus me-1"></i> Añadir Imagen
+    </button>
+  </div>
 
-    <!-- Modal para ver imagen en grande -->
-    <div id="modal-imagen" class="modal-galeria">
-      <span class="modal-close"></span>
-      <img class="modal-content" id="img-modal">
-      <div class="modal-caption" id="caption"></div>
-    </div>
+  <!-- Grid de imágenes -->
+  <div class="galeria-grid" id="galeria-grid">
+    <!-- Se llenará dinámicamente -->
   </div>
 </div>
+
+
 
 
   </div>
   <div id="side-alerts"></div>
 </aside>
 
-<!-- Modal confirmación (estilo app) -->
+<!-- Modal confirmación -->
 <div id="app-confirm-backdrop" class="app-confirm-backdrop d-none" aria-hidden="true">
   <div class="app-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="app-confirm-title">
     <div class="app-confirm-header">
@@ -268,6 +269,37 @@
   </div>
 </div>
 
+<!-- Modal para subir nueva imagen -->
+<div class="modal fade" id="modalSubida" tabindex="-1" aria-labelledby="modalSubidaLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="form-subida" enctype="multipart/form-data">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalSubidaLabel">Subir Nueva Imagen</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="imagen-file" class="form-label">Selecciona Imagen</label>
+            <input class="form-control" type="file" id="imagen-file" accept="image/*" required>
+          </div>
+          <div class="mb-3">
+            <label for="imagen-titulo" class="form-label">Título</label>
+            <input type="text" class="form-control" id="imagen-titulo" required>
+          </div>
+          <div class="mb-3">
+            <label for="imagen-descripcion" class="form-label">Descripción</label>
+            <textarea class="form-control" id="imagen-descripcion" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success">Subir Imagen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
 <script>
   const NotificationSystem = {

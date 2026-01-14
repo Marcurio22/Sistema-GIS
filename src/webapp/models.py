@@ -159,3 +159,19 @@ class Solicitudrecinto(db.Model):
 
     def __repr__(self):
         return f"<Solicitud {self.id_solicitud} - Usuario {self.id_usuario} - Recinto {self.id_recinto} - {self.estado}>"
+    
+
+
+
+class Galeria(db.Model):
+    _tablename__ = "galeria"
+    id_imagen = db.Column(db.Integer, primary_key=True, index=True)
+    id_usuario = db.Column(
+        db.Integer,
+        db.ForeignKey("recintos.id_recinto", ondelete="CASCADE"),
+        nullable=False
+    )
+    nombre = db.Column(db.String(200), nullable=False)
+    descripcion = db.Column(db.Text, nullable=True)
+    url = db.Column(db.String(500), nullable=False)
+    fecha_subida = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
