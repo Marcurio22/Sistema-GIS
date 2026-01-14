@@ -51,9 +51,9 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/visor.css') }}">
-<style>
-  
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/galeria.css') }}">
+<script src="{{ url_for('static', filename='js/galeria.js') }}"></script>
+
 
 <div id="map"></div>
 
@@ -206,17 +206,33 @@
     <div class="side-divider"></div>
 
     <div class="side-section">
-      <h2 class="side-section-title mb-3">
-        <i class="fa-solid fa-wheat-awn me-2" style="color:#198754"></i> Cultivos
-      </h2>
+  <h2 class="side-section-title mb-4 ">
+    <i class="fa-solid fa-wheat-awn me-2" style="color:#198754"></i>
+    Cultivos
+  </h2>
 
-      <div id="cultivos-container"></div>
+  <div id="cultivos-container"></div>
+<div class="side-divider"></div>
+  <div id="galeria-imagenes" class="galeria-container mt-4">
+    <h2 class="side-section-title mb-3">
+      <i class="fa-solid fa-image me-2" style="color:#198754"></i>
+      Galería
+    </h2>
 
-      <div id="galeria-imagenes">
-        Galeria de imagenes
-      </div>
-    
+    <!-- Grid de imágenes -->
+    <div class="galeria-grid" id="galeria-grid">
+      <!-- Las imágenes se cargarán dinámicamente con JavaScript -->
     </div>
+
+    <!-- Modal para ver imagen en grande -->
+    <div id="modal-imagen" class="modal-galeria">
+      <span class="modal-close"></span>
+      <img class="modal-content" id="img-modal">
+      <div class="modal-caption" id="caption"></div>
+    </div>
+  </div>
+</div>
+
 
   </div>
   <div id="side-alerts"></div>
