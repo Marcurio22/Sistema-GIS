@@ -175,21 +175,20 @@
     <div class="side-divider"></div>
 
   <div class="side-row">
-  <i class="bi bi-globe2 side-ico"></i>
+    <i class="bi bi-globe2 side-ico"></i>
 
-<div class="side-line" style="display:flex;align-items:center;width:100%;">
-  <span class="side-row-title">Superficie:</span>
-  <span id="side-area" class="side-row-value ms-2">-</span>
+  <div class="side-line" style="display:flex;align-items:center;width:100%;">
+    <span class="side-row-title">Superficie:</span>
+    <span id="side-area" class="side-row-value ms-2">-</span>
 
-<!-- Icono localización decorativo a la derecha -->
-  <i class="bi bi-geo-alt-fill ms-auto text-success" style="font-size:1.6rem" aria-hidden="true">
-  </i>
+  <!-- Icono localización decorativo a la derecha -->
+    <i class="bi bi-geo-alt-fill ms-auto text-success" style="font-size:1.6rem" aria-hidden="true">
+    </i>
 
-  <!-- Coordenadas -->
-  <span id="side-coords" class="side-row-value ms-2"></span>
+    <!-- Coordenadas -->
+    <span id="side-coords" class="side-row-value ms-2"></span>
+  </div>
 </div>
-</div>
-
 
     <div class="side-row">
       <i class="bi bi-person-fill side-ico"></i>
@@ -205,11 +204,24 @@
     </label>
     <div class="side-divider"></div>
 
-    <div class="side-section">
-  <h2 class="side-section-title mb-4 ">
-    <i class="fa-solid fa-wheat-awn me-2" style="color:#198754"></i>
-    Cultivos
-  </h2>
+  <div class="side-section">
+    <div class="side-section-head">
+      <div></div>
+
+      <h2 class="side-section-title mb-4">
+        <i class="fa-solid fa-wheat-awn me-2" style="color:#198754"></i>
+        <span class="side-section-label">Cultivos</span>
+      </h2>
+
+      <button id="btn-historico-cultivos" type="button"
+              class="btn btn-success btn-historico">
+        Histórico de cultivos
+      </button>
+    </div>
+
+    <div id="cultivos-container"></div>
+  </div>
+
 
   <div id="cultivos-container"></div>
 <div class="side-divider"></div>
@@ -542,6 +554,7 @@
   const btnEdit = document.getElementById("btn-edit-name");
   const titleEl = document.getElementById("side-title");
 
+
   if (btnEdit && titleEl) {
 
     btnEdit.addEventListener("click", (e) => {
@@ -665,7 +678,7 @@
 
     // Cultivos del recinto
     renderCultivosForRecinto(currentSideRecintoId);
-}
+  }
 
 
 
@@ -723,8 +736,6 @@ if (btnDelete) {
 }
 
 // Función auxiliar para mostrar mensajes de éxito
-
-
 
   // ==========================================================
   // Cultivos (UI del panel derecho)
@@ -985,6 +996,7 @@ if (btnDelete) {
         </div>
       </div>
 
+      <div class="side-soft-divider"></div>
       <div class="mt-3">
         <div class="fw-bold mb-1">Observaciones</div>
 
@@ -1136,6 +1148,11 @@ if (btnDelete) {
       });
     }
   }
+
+  // Histórico de cultivos (pendiente de implementar)
+  document.getElementById("btn-historico-cultivos")?.addEventListener("click", () => {
+    NotificationSystem.show({type:"info", title:"Histórico", message:"(Pendiente de implementar)"});
+  });
 
   function openSs(ssEl) { ssEl.classList.add("open"); }
   function closeSs(ssEl) { ssEl.classList.remove("open"); }
@@ -1626,7 +1643,6 @@ if (btnDelete) {
       mostrarErrorInline("No se pudo guardar el nombre");
     }
   }
-
 
     // CHECKBOX activo
     const sideActive = document.getElementById("side-active");

@@ -12,8 +12,9 @@ from shapely.geometry import box, mapping, shape
 
 from PIL import Image
 
+import math
 import rasterio
-from rasterio.warp import reproject, Resampling
+from rasterio.warp import reproject, Resampling, transform_bounds, transform_geom, calculate_default_transform
 from rasterio.transform import from_bounds
 from rasterio.mask import mask
 
@@ -22,6 +23,7 @@ import planetary_computer as pc
 
 from sqlalchemy import text
 from webapp import create_app, db
+
 
 # -----------------------------
 # Config (por entorno)
@@ -33,10 +35,16 @@ CLOUD_MAX = float(os.getenv("S2_CLOUD_MAX", "60"))
 MAX_ITEMS_TOTAL = int(os.getenv("S2_MAX_ITEMS_TOTAL", "30"))
 PER_TILE = int(os.getenv("S2_MAX_ITEMS_PER_TILE", "5"))
 FETCH_LIMIT = int(os.getenv("S2_FETCH_LIMIT", "200"))
-# 1o píxeles, conservar metros con crs
-NDVI_MAX_DIM = int(os.getenv("NDVI_MAX_DIM", "2048")) #FIJAR RESOLUCION PIXELES
+# 10 píxeles, conservar metros con crs
+# Resolución objetivo en metros/píxel (Sentinel-2 B04/B08 = 10 m)
+NDVI_RES_M = float(os.getenv("NDVI_RES_M", "10"))
 NDVI_COMPOSITE = os.getenv("NDVI_COMPOSITE", "max").lower()  # max | median
 MIN_VALID_FRAC = float(os.getenv("NDVI_MIN_VALID_FRAC", "0.02"))
+
+# Salvaguarda por si la bbox es enorme: limita dimensión máxima
+NDVI_MAX_DIM = int(os.getenv("NDVI_MAX_DIM", "12000"))
+# NDVI_MAX_DIM = os.getenv("NDVI_MAX_DIM")
+# NDVI_MAX_DIM = int(NDVI_MAX_DIM) if NDVI_MAX_DIM else None
 
 DEBUG_STAC = os.getenv("DEBUG_STAC", "0") == "1"
 DEBUG_S2 = os.getenv("DEBUG_S2", "0") == "1"
@@ -112,6 +120,89 @@ def reproject_to_grid(href, dst_transform, dst_crs, width, height, resampling, d
                 dst_nodata=nodata,
             )
             return dst
+
+def warp_tif_to_3857(src_tif: str, dst_tif: str):
+    dst_crs = "EPSG:3857"
+    with rasterio.open(src_tif) as src:
+        transform, width, height = calculate_default_transform(
+            src.crs, dst_crs, src.width, src.height, *src.bounds
+        )
+        kwargs = src.meta.copy()
+        kwargs.update({
+            "crs": dst_crs,
+            "transform": transform,
+            "width": width,
+            "height": height,
+            "nodata": src.nodata,
+        })
+
+        with rasterio.open(dst_tif, "w", **kwargs) as dst:
+            reproject(
+                source=rasterio.band(src, 1),
+                destination=rasterio.band(dst, 1),
+                src_transform=src.transform,
+                src_crs=src.crs,
+                dst_transform=transform,
+                dst_crs=dst_crs,
+                resampling=Resampling.bilinear,
+                src_nodata=src.nodata,
+                dst_nodata=src.nodata,
+            )
+
+        
+def get_item_asset_crs(item, asset_key="B04"):
+    """
+    Lee el CRS real del asset (normalmente UTM por tile) abriendo el raster.
+    """
+    a = item.assets
+    if asset_key not in a:
+        raise ValueError(f"Item {item.id} no tiene asset {asset_key}")
+
+    href = _href_readable(a[asset_key].href)
+    env_opts = dict(
+        AWS_NO_SIGN_REQUEST="YES",
+        GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+        GDAL_HTTP_MAX_RETRY="4",
+        GDAL_HTTP_RETRY_DELAY="1",
+    )
+    with rasterio.Env(**env_opts):
+        with rasterio.open(href) as src:
+            if src.crs is None:
+                raise ValueError(f"Asset {asset_key} de {item.id} no tiene CRS")
+            return src.crs
+
+
+def compute_grid_from_bbox_meters(bbox4326, dst_crs, res_m, max_dim=None):
+    """
+    bbox4326: (minx, miny, maxx, maxy) en EPSG:4326
+    dst_crs: CRS proyectado (UTM, etc.)
+    res_m: tamaño de píxel en metros
+    max_dim: (opcional) límite para evitar grids gigantes
+
+    Devuelve: (width, height, dst_transform, dst_bounds_proj)
+    """
+    minx, miny, maxx, maxy = bbox4326
+
+    # Pasamos bounds 4326 -> dst_crs (en metros). densify para más precisión.
+    b = transform_bounds("EPSG:4326", dst_crs, minx, miny, maxx, maxy, densify_pts=21)
+    minx_p, miny_p, maxx_p, maxy_p = b
+
+    span_x = maxx_p - minx_p
+    span_y = maxy_p - miny_p
+    if span_x <= 0 or span_y <= 0:
+        raise ValueError("BBox proyectada inválida (span <= 0)")
+
+    width = int(math.ceil(span_x / res_m))
+    height = int(math.ceil(span_y / res_m))
+
+    if max_dim is not None:
+        # Mantiene aspecto pero limita el tamaño si es enorme
+        scale = max(width / max_dim, height / max_dim, 1.0)
+        width = int(math.ceil(width / scale))
+        height = int(math.ceil(height / scale))
+
+    dst_transform = from_bounds(minx_p, miny_p, maxx_p, maxy_p, width, height)
+    return width, height, dst_transform, (minx_p, miny_p, maxx_p, maxy_p)
 
 
 def compute_ndvi(red, nir):
@@ -258,12 +349,12 @@ def pick_items(items):
 # -----------------------------
 def fetch_recintos_geojson():
     sql = text("""
-        SELECT id_recinto, ST_AsGeoJSON(geom) AS geojson
+        SELECT id_recinto, ST_AsGeoJSON(geom) AS geojson, ST_SRID(geom) AS srid
         FROM public.recintos
         WHERE geom IS NOT NULL
     """)
     rows = db.session.execute(sql).fetchall()
-    return [(int(r.id_recinto), r.geojson) for r in rows]
+    return [(int(r.id_recinto), r.geojson, int(r.srid) if r.srid else 4326) for r in rows]
 
 
 def zonal_stats_for_geom(dataset, geom):
@@ -309,9 +400,25 @@ def main():
         # Firma Planetary Computer (tokens SAS)
         items = [pc.sign(item) for item in items]
 
-        width, height = compute_output_shape(minx, miny, maxx, maxy, max_dim=NDVI_MAX_DIM) #ESTE PARAMETRO HAY QUE FIJARLO
-        dst_crs = "EPSG:4326" #codigo 25830 #sacar metadatos del sentinel, leer el crs desde la imagen de sentinel directamente
-        dst_transform = from_bounds(minx, miny, maxx, maxy, width, height) #CLAVE
+        # --- Rejilla destino correcta (10 m reales) ---
+        # 1) Sacar CRS desde la imagen Sentinel (B04 del primer item usable)
+        dst_crs = get_item_asset_crs(items[0], asset_key="B04")
+
+        # 2) Construir rejilla a resolución fija en metros
+        width, height, dst_transform, dst_bounds_proj = compute_grid_from_bbox_meters(
+            bbox4326=(minx, miny, maxx, maxy),
+            dst_crs=dst_crs,
+            res_m=NDVI_RES_M,
+            max_dim=NDVI_MAX_DIM,   # salvaguarda opcional
+        )
+
+        if DEBUG_S2:
+            minx_p, miny_p, maxx_p, maxy_p = dst_bounds_proj
+            print(f"[NDVI] dst_crs: {dst_crs}")
+            print(f"[NDVI] grid: {width}x{height} | res_m={NDVI_RES_M}")
+            print(f"[NDVI] bounds_proj: {(minx_p, miny_p, maxx_p, maxy_p)}")
+            print(f"[NDVI] GRID FINAL: {width} x {height} = {width*height:,} px")
+
 
         ndvi_stack = []
         used_ids = []
@@ -363,22 +470,28 @@ def main():
         if not np.any(np.isfinite(comp)):
             print("Composite NDVI vacío (todo nubes/NaN).")
             return 0
+    
+        print(f"[NDVI] Escenas usadas ({len(used_ids)}): {used_ids}")
+        print(f"[NDVI] Escenas saltadas: {skipped}")
 
         # -----------------------------
-        # Guardar GeoTIFF + latest PNG (RGBA)
+        # Guardar GeoTIFF UTM + reproyectado 3857 + PNG 3857 + meta.json
         # -----------------------------
         static_ndvi_dir = Path(app.root_path) / "static" / "ndvi"
         static_ndvi_dir.mkdir(parents=True, exist_ok=True)
 
-        # versionado por timestamp (evita choques si lo tienes abierto)
         ts = now.strftime("%Y%m%d_%H%M%S")
-        tif_path = static_ndvi_dir / f"ndvi_{ts}.tif"
-        png_path = static_ndvi_dir / f"ndvi_{ts}.png"
 
-        latest_tif = static_ndvi_dir / "ndvi_latest.tif"
-        latest_png = static_ndvi_dir / "ndvi_latest.png"
+        tif_path_utm = static_ndvi_dir / f"ndvi_{ts}_utm.tif"
+        tif_path_3857 = static_ndvi_dir / f"ndvi_{ts}_3857.tif"
+        png_path_3857 = static_ndvi_dir / f"ndvi_{ts}_3857.png"
+
+        latest_tif_utm = static_ndvi_dir / "ndvi_latest_utm.tif"
+        latest_tif_3857 = static_ndvi_dir / "ndvi_latest_3857.tif"
+        latest_png_3857 = static_ndvi_dir / "ndvi_latest_3857.png"
         meta_json = static_ndvi_dir / "ndvi_latest.json"
 
+        # Preparar profile GeoTIFF
         profile = {
             "driver": "GTiff",
             "height": comp.shape[0],
@@ -391,28 +504,42 @@ def main():
             "compress": "deflate",
         }
 
-        # GeoTIFF (primero a versionado)
-        with rasterio.open(str(tif_path), "w", **profile) as dst:
+        # 1) Guardar GeoTIFF UTM versionado
+        with rasterio.open(str(tif_path_utm), "w", **profile) as dst:
             dst.write(comp.astype(np.float32), 1)
+        print(f"OK: NDVI GeoTIFF UTM -> {tif_path_utm}")
 
-        # PNG RGBA (primero a versionado)
-        rgba = ndvi_to_rgba(comp)
-        Image.fromarray(rgba, mode="RGBA").save(str(png_path), format="PNG", optimize=True)
+        # 2) Warpear a EPSG:3857
+        warp_tif_to_3857(str(tif_path_utm), str(tif_path_3857))
+        print(f"OK: NDVI GeoTIFF 3857 -> {tif_path_3857}")
 
-        print(f"OK: NDVI GeoTIFF -> {tif_path}")
-        print(f"OK: NDVI PNG -> {png_path}")
+        # 3) PNG RGBA SIEMPRE desde el 3857
+        with rasterio.open(str(tif_path_3857)) as ds3857:
+            comp3857 = ds3857.read(1).astype(np.float32)
 
-        # intenta actualizar latest (robusto en Windows)
-        # si está bloqueado, no crashea; deja los versionados y avisa
-        ok_tif = safe_replace(str(tif_path), str(latest_tif))
-        ok_png = safe_replace(str(png_path), str(latest_png))
+        rgba_3857 = ndvi_to_rgba(comp3857)
+        Image.fromarray(rgba_3857, mode="RGBA").save(str(png_path_3857), format="PNG", optimize=True)
+        print(f"OK: NDVI PNG 3857 -> {png_path_3857}")
 
-        if not ok_tif:
-            print("WARNING: no pude reemplazar ndvi_latest.tif (bloqueado). Se queda la versión con timestamp.")
-        if not ok_png:
-            print("WARNING: no pude reemplazar ndvi_latest.png (bloqueado). Se queda la versión con timestamp.")
+        # 4) Actualizar latest
+        ok_tif_utm  = safe_replace(str(tif_path_utm),  str(latest_tif_utm))
+        ok_tif_3857 = safe_replace(str(tif_path_3857), str(latest_tif_3857))
+        ok_png_3857 = safe_replace(str(png_path_3857), str(latest_png_3857))
 
-        # meta (Leaflet bounds correctos)
+        if not ok_tif_utm:
+            print("WARNING: no pude reemplazar ndvi_latest_utm.tif (bloqueado).")
+        if not ok_tif_3857:
+            print("WARNING: no pude reemplazar ndvi_latest_3857.tif (bloqueado).")
+        if not ok_png_3857:
+            print("WARNING: no pude reemplazar ndvi_latest_3857.png (bloqueado).")
+
+        # 5) Bounds Leaflet reales desde el raster 3857
+        tif_3857_to_read = latest_tif_3857 if ok_tif_3857 else tif_path_3857
+        with rasterio.open(str(tif_3857_to_read)) as ds:
+            b = transform_bounds(ds.crs, "EPSG:4326", *ds.bounds, densify_pts=21)
+            minx2, miny2, maxx2, maxy2 = map(float, b)
+
+        # 6) meta.json (útil para debug/visor si lo lees)
         meta = {
             "updated_utc": now.isoformat(),
             "window": [start_dt.isoformat(), end_dt.isoformat()],
@@ -421,23 +548,28 @@ def main():
             "items_used": used_ids,
             "used": len(used_ids),
             "skipped": skipped,
-            "bbox": [minx, miny, maxx, maxy],  # lon/lat
-            "bounds_leaflet": [[miny, minx], [maxy, maxx]],  # lat/lon
-            "size": [width, height],
+
+            # Bounds reales del NDVI 3857 pero expresados en 4326 para Leaflet
+            "bbox": [minx2, miny2, maxx2, maxy2],  # lon/lat
+            "bounds_leaflet": [[miny2, minx2], [maxy2, maxx2]],  # lat/lon
+
+            "size": [int(comp.shape[1]), int(comp.shape[0])],  # (width,height) del UTM base
             "cloud_max": CLOUD_MAX,
             "per_tile": PER_TILE,
             "min_valid_frac": MIN_VALID_FRAC,
-            "latest_png": str(latest_png.name),
-            "latest_tif": str(latest_tif.name),
+
+            "latest_png": latest_png_3857.name,
+            "latest_tif_utm": latest_tif_utm.name,
+            "latest_tif_3857": latest_tif_3857.name,
         }
         meta_json.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
 
         # -----------------------------
         # BBDD
         # -----------------------------
         try:
             # 1) Insert en public.imagenes (cumple CHECK: origen en {satelite,dron})
-            # OJO: bbox geom está en EPSG:4326 => ST_MakeEnvelope(xmin,ymin,xmax,ymax,4326)
             sql_img = text("""
                 INSERT INTO public.imagenes
                   (origen, fecha_adquisicion, epsg, sensor, resolucion_m, bbox, ruta_archivo)
@@ -446,28 +578,37 @@ def main():
                 RETURNING id_imagen
             """)
             # guardamos ruta relativa (más portable)
-            ruta_rel = str(Path("static") / "ndvi" / "ndvi_latest.tif")
+            ruta_rel = str(Path("static") / "ndvi" / "ndvi_latest_utm.tif")
             id_imagen = db.session.execute(sql_img, {
                 "origen": "satelite",
                 "fecha": now,
-                "epsg": 4326,
+                "epsg": int(dst_crs.to_epsg() or 0),
                 "sensor": f"Sentinel-2 L2A (Planetary Computer) NDVI | composite={NDVI_COMPOSITE}",
-                "res": 10.0,
-                "minx": minx, "miny": miny, "maxx": maxx, "maxy": maxy,
+                "res": float(NDVI_RES_M),
+                "minx": minx2, "miny": miny2, "maxx": maxx2, "maxy": maxy2,
                 "ruta": ruta_rel,
             }).scalar()
 
             recintos = fetch_recintos_geojson()
 
-            # Abrimos el latest_tif (si está bloqueado y no se pudo reemplazar, abrimos el versionado)
-            tif_to_open = latest_tif if ok_tif else Path(str(tif_path))
+            tif_to_open: Path = latest_tif_utm if ok_tif_utm else tif_path_utm
+
             with rasterio.open(str(tif_to_open)) as ds:
                 inserted = 0
-                for id_recinto, gj in recintos:
+                ds_crs = ds.crs
+
+                for id_recinto, gj, srid in recintos:
                     geom_rec = shape(json.loads(gj))
-                    stats = zonal_stats_for_geom(ds, geom_rec)
+
+                    # reproyecta geom_rec desde su SRID real al CRS del raster NDVI
+                    geom_rec_gj = mapping(geom_rec)
+                    geom_proj_gj = transform_geom(f"EPSG:{srid}", ds_crs, geom_rec_gj, precision=6)
+                    geom_proj = shape(geom_proj_gj)
+
+                    stats = zonal_stats_for_geom(ds, geom_proj)
                     if not stats:
                         continue
+
 
                     sql_idx = text("""
                         INSERT INTO public.indices_raster
@@ -482,8 +623,8 @@ def main():
                         "id_recinto": int(id_recinto),
                         "tipo": "NDVI",
                         "fecha": now,
-                        "epsg": 4326,
-                        "res": 10.0,
+                        "epsg": int(dst_crs.to_epsg() or 0),
+                        "res": float(NDVI_RES_M),
                         "mean": stats["mean"],
                         "min": stats["min"],
                         "max": stats["max"],

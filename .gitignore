@@ -209,6 +209,7 @@ logs/
 # GDAL/OGR/GeoTIFF sidecars and pyramids
 *.aux.xml
 *.ovr
+*.tif
 
 # World files
 *.tfw
