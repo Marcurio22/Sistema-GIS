@@ -769,9 +769,15 @@
     z-index: 5000;
   }
 
-  /* cuando el overlay está abierto ocultamos el contenido normal y la X */
-  #side-panel.cultivos-historico-open .side-content{ display:none; }
-  #side-panel.cultivos-historico-open #side-close{ display:none; }
+  /* Cuando el overlay está abierto: ocultar TODO menos el overlay */
+  #side-panel.cultivos-historico-open .side-content > *:not(#cultivos-historico-panel){
+    display: none;
+  }
+
+  /* Ocultamos la X para que se use “volver” */
+  #side-panel.cultivos-historico-open #side-close{
+    display: none;
+  }
 
   .historico-card{
     border-bottom: 1px solid rgba(0,0,0,.12);

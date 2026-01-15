@@ -11,6 +11,9 @@ from flask import jsonify, request
 from flask_login import login_required, current_user
 from sqlalchemy import text
 
+from datetime import date, datetime
+from decimal import Decimal
+
 from .. import db
 from ..models import Recinto, Solicitudrecinto
 
@@ -336,6 +339,13 @@ def api_delete_cultivo(recinto_id: int):
     except Exception:
         return jsonify({"ok": False, "error": "Error interno en DELETE /api/mis-recinto/<id>/cultivo"}), 500
     
+def _jsonable(v):
+    if isinstance(v, (datetime, date)):
+        return v.isoformat()
+    if isinstance(v, Decimal):
+        return float(v)
+    return v
+
 @api_bp.get("/mis-recinto/<int:recinto_id>/cultivos-historico")
 @login_required
 def api_get_cultivos_historico(recinto_id: int):
@@ -346,7 +356,13 @@ def api_get_cultivos_historico(recinto_id: int):
         ORDER BY COALESCE(fecha_siembra, fecha_implantacion) DESC, id_cultivo DESC
     """)
     rows = db.session.execute(sql, {"rid": recinto_id}).mappings().all()
-    return jsonify([dict(r) for r in rows]) 
+
+    out = []
+    for r in rows:
+        d = dict(r)
+        out.append({k: _jsonable(v) for k, v in d.items()})
+
+    return jsonify(out)
 
 @api_bp.route('/solicitud-eliminar-recinto/<int:id_recinto>/borrar', methods=['POST'])
 @login_required
