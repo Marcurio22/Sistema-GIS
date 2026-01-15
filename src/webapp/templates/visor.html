@@ -222,8 +222,6 @@
     <div id="cultivos-container"></div>
   </div>
 
-
-  <div id="cultivos-container"></div>
 <div class="side-divider"></div>
 <div id="galeria-imagenes" class="galeria-container mt-4">
   <h2 class="side-section-title mb-3">
@@ -244,11 +242,29 @@
   </div>
 </div>
 
+  <!-- Overlay: Histórico de cultivos -->
+  <div id="cultivos-historico-panel" class="d-none" aria-hidden="true">
+    <div class="side-section-head mb-2">
+      <button id="btn-volver-historico" class="btn btn-link p-0 me-2" type="button">
+        <i class="bi bi-arrow-left fs-4" style="color:#198754"></i>
+      </button>
 
+      <h2 class="side-section-title">
+        <i class="fa-solid fa-wheat-awn me-2" style="color:#198754"></i>
+        <span class="side-section-label">Cultivos</span>
+      </h2>
 
+      <div></div>
+    </div>
+
+    <div class="side-divider"></div>
+
+    <div id="cultivos-historico-list" class="pb-3"></div>
+  </div>
 
   </div>
   <div id="side-alerts"></div>
+
 </aside>
 
 <!-- Modal confirmación -->
@@ -839,6 +855,17 @@ if (btnDelete) {
     return _productosFega;
   }
 
+  const _productosFegaByUso = new Map();
+
+  async function loadProductosFegaPorUso(usoSigpac) {
+    const key = String(usoSigpac || "").trim();
+    if (!key) return [];
+    if (_productosFegaByUso.has(key)) return _productosFegaByUso.get(key);
+    const list = await fetchJson(`/api/catalogos/productos-fega/${encodeURIComponent(key)}`);
+    _productosFegaByUso.set(key, list || []);
+    return list || [];
+  }
+
   function byCodigo(list) {
     const m = new Map();
     (list || []).forEach(it => m.set(String(it.codigo), it));
@@ -858,39 +885,6 @@ if (btnDelete) {
   function guessGrupoUso(usoCode, usosMap) {
     const u = usosMap.get(String(usoCode));
     return u?.grupo || null;
-  }
-
-  function productosFiltradosPorUso(grupo, productos) {
-    if (!grupo) return productos;
-
-    // Heurística simple: mejora UX (no bloquea nada).
-    // "Ver todos" permite saltarse este filtro.
-    const g = norm(grupo);
-    if (g.includes("past")) {
-      const kws = ["pasto", "pastiz", "raygrass", "festuca", "trebol", "forraj", "zulla", "dactilo", "poa"];
-      return productos.filter(p => {
-        const d = norm(p.descripcion);
-        const c = Number(p.codigo);
-        return (Number.isFinite(c) && c >= 60 && c <= 78) || kws.some(k => d.includes(k));
-      });
-    }
-    if (g.includes("perman")) {
-      return productos.filter(p => {
-        const c = Number(p.codigo);
-        if (!Number.isFinite(c)) return false;
-        // En FEGA, muchísimos permanentes / leñosos están >= 100
-        return c >= 100;
-      });
-    }
-    if (g.includes("tierras")) {
-      return productos.filter(p => {
-        const c = Number(p.codigo);
-        const d = norm(p.descripcion);
-        return (Number.isFinite(c) && c < 100) || d.includes("huerta") || d.includes("tomate") || d.includes("patata");
-      });
-    }
-    // No agrícolas / otros: por defecto muy restrictivo
-    return productos.filter(p => Number(p.codigo) === 0);
   }
 
   async function getCultivoRecinto(recintoId) {
@@ -942,6 +936,145 @@ if (btnDelete) {
       renderCultivoForm(container, { recintoId, cultivo: null, usos, productos });
     });
   }
+
+  function estadoLabel(v){
+    const s = String(v || "").toLowerCase().trim();
+    const map = {
+      planificado: "Planificado",
+      en_curso: "En curso",
+      implantado: "Plantado",
+      cosechado: "Cosechado",
+      abandonado: "Abandonado"
+    };
+    return map[s] || safeText(v, "N/A");
+  }
+
+  function openHistoricoPanel(){
+    const sp = document.getElementById("side-panel");
+    const panel = document.getElementById("cultivos-historico-panel");
+    if (!sp || !panel) return;
+    sp.classList.add("cultivos-historico-open");
+    panel.classList.remove("d-none");
+    panel.setAttribute("aria-hidden", "false");
+  }
+
+  function closeHistoricoPanel(){
+    const sp = document.getElementById("side-panel");
+    const panel = document.getElementById("cultivos-historico-panel");
+    if (!sp || !panel) return;
+    sp.classList.remove("cultivos-historico-open");
+    panel.classList.add("d-none");
+    panel.setAttribute("aria-hidden", "true");
+  }
+
+  // Importante: si cierro el split con la X, cierro también el overlay
+  if (sideCloseBtn) {
+    sideCloseBtn.addEventListener("click", () => closeHistoricoPanel());
+  }
+
+  document.getElementById("btn-volver-historico")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeHistoricoPanel();
+  });
+
+  document.getElementById("btn-historico-cultivos")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!currentSideRecintoId) return;
+
+    openHistoricoPanel();
+
+    const listEl = document.getElementById("cultivos-historico-list");
+    listEl.innerHTML = `<div class="text-muted">Cargando histórico...</div>`;
+
+    try{
+      const [usos, productos, hist] = await Promise.all([
+        loadUsosSigpac(),
+        loadProductosFega(),
+        fetchJson(`/api/mis-recinto/${currentSideRecintoId}/cultivos-historico`)
+      ]);
+
+      const usosMap = byCodigo(usos);
+      const prodMap = byCodigo(productos);
+
+      if (!hist || !hist.length){
+        listEl.innerHTML = `<div class="text-muted">No hay histórico todavía.</div>`;
+        return;
+      }
+
+      listEl.innerHTML = hist.map(c => {
+        const isCamp = String(c.tipo_registro || "").toUpperCase().includes("CAMP");
+        const inicio = isCamp ? c.fecha_siembra : c.fecha_implantacion;
+        const fin = c.fecha_cosecha_real || c.fecha_cosecha_estimada;
+
+        const u = usosMap.get(String(c.uso_sigpac));
+        const usoLbl = formatCodigoDesc(c.uso_sigpac, u?.descripcion || c.uso_sigpac);
+
+        let tipoLbl = "N/A";
+        const origen = String(c.origen_cultivo || "").toUpperCase();
+
+        if (origen === "F" && c.cod_producto != null){
+          const p = prodMap.get(String(c.cod_producto));
+          tipoLbl = formatCodigoDesc(c.cod_producto, p?.descripcion || c.tipo_cultivo);
+        } else {
+          tipoLbl = formatCodigoDesc(null, c.cultivo_custom || c.tipo_cultivo);
+        }
+
+        return `
+          <div class="historico-card">
+            <div class="historico-fechas">
+              ${safeText(formatDateOnly(inicio))} → ${safeText(formatDateOnly(fin))}
+            </div>
+
+            <div class="cultivo-grid">
+              <div class="cultivo-field">
+                <div class="k">Uso SIGPAC</div>
+                <div class="v">${safeText(usoLbl)}</div>
+              </div>
+              <div class="cultivo-field">
+                <div class="k">Tipo cultivo</div>
+                <div class="v">${safeText(tipoLbl)}</div>
+              </div>
+
+              <div class="cultivo-field">
+                <div class="k">Variedad</div>
+                <div class="v">${safeText(c.variedad, "N/A")}</div>
+              </div>
+              <div class="cultivo-field">
+                <div class="k">Explotación</div>
+                <div class="v">${safeText(sistemaLabel(c.sistema_explotacion))}</div>
+              </div>
+
+              <div class="cultivo-field">
+                <div class="k">${isCamp ? "Campaña" : "Tipo registro"}</div>
+                <div class="v">${isCamp ? safeText(c.campana, "N/A") : safeText(tipoRegistroLabel(c.tipo_registro))}</div>
+              </div>
+              <div class="cultivo-field">
+                <div class="k">Estado</div>
+                <div class="v">${estadoLabel(c.estado)}</div>
+              </div>
+
+              <div class="cultivo-field">
+                <div class="k">Fecha inicio</div>
+                <div class="v">${safeText(formatDateOnly(inicio))}</div>
+              </div>
+              <div class="cultivo-field">
+                <div class="k">Fecha fin</div>
+                <div class="v">${safeText(formatDateOnly(fin))}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+    }catch(err){
+      console.warn(err);
+      listEl.innerHTML = `<div class="text-danger">No se pudo cargar el histórico.</div>`;
+    }
+  });
+
 
   function formatDateOnly(v) {
     if (!v) return "N/A";
@@ -1181,11 +1314,6 @@ if (btnDelete) {
     }
   }
 
-  // Histórico de cultivos (pendiente de implementar)
-  document.getElementById("btn-historico-cultivos")?.addEventListener("click", () => {
-    NotificationSystem.show({type:"info", title:"Histórico", message:"(Pendiente de implementar)"});
-  });
-
   function openSs(ssEl) { ssEl.classList.add("open"); }
   function closeSs(ssEl) { ssEl.classList.remove("open"); }
 
@@ -1384,18 +1512,27 @@ if (btnDelete) {
     let modoVerTodos = false;
     let selectedUso = null;
     let selectedProd = null;
+    let productosUso = [];
 
     const ssUso = attachSearchSelect(ssUsoEl, usoItems, {
       getLabel: (it) => it.label,
       getValue: (it) => it.codigo,
-      onSelect: (it) => {
+      onSelect: async (it) => {
         selectedUso = it;
-        // habilita selector de producto
+
         ssProdEl.querySelector("input").disabled = false;
         ssProdEl.querySelector("#prod-help").style.display = "none";
         btnVerTodos.disabled = false;
+
         modoVerTodos = false;
         btnVerTodos.textContent = "Ver todos";
+
+        try {
+          productosUso = await loadProductosFegaPorUso(it.codigo);
+        } catch (_) {
+          productosUso = [];
+        }
+
         actualizarListaProductos();
       }
     });
@@ -1445,20 +1582,39 @@ if (btnDelete) {
     });
 
     function actualizarListaProductos() {
-      // Filtrado por uso (heurística). "Ver todos" lo desactiva.
-      const grupo = selectedUso?.grupo || guessGrupoUso(selectedUso?.codigo, usosMap);
-      const fega = productosAll.map(p => ({ codigo: p.codigo, descripcion: p.descripcion, origen: "F", label: formatCodigoDesc(p.codigo, p.descripcion) }));
-      const custom = _cultivosCustom.map(p => ({ codigo: null, descripcion: p.descripcion, origen: "C", label: formatCodigoDesc(null, p.descripcion) }));
-      const otro = [{ codigo: "__OTRO__", descripcion: "OTRO (escribir...)", origen: "C", label: "N/A-OTRO (escribir...)" }];
+      const baseList = (modoVerTodos || !productosUso.length) ? productosAll : productosUso;
 
-      let list = fega;
-      if (!modoVerTodos) {
-        const fegaFiltered = productosFiltradosPorUso(grupo, fega.map(x => ({codigo: x.codigo, descripcion: x.descripcion})));
-        const keep = new Set(fegaFiltered.map(p => String(p.codigo)));
-        list = fega.filter(p => keep.has(String(p.codigo)));
-      }
-      productosItems = [...list, ...custom, ...otro];
+      const fega = (baseList || []).map(p => ({
+        codigo: p.codigo,
+        descripcion: p.descripcion,
+        origen: "F",
+        label: formatCodigoDesc(p.codigo, p.descripcion),
+      }));
+
+      const custom = _cultivosCustom.map(p => ({
+        codigo: null,
+        descripcion: p.descripcion,
+        origen: "C",
+        label: formatCodigoDesc(null, p.descripcion),
+      }));
+
+      const otro = [{
+        codigo: "__OTRO__",
+        descripcion: "OTRO (escribir...)",
+        origen: "C",
+        label: "N/A-OTRO (escribir...)"
+      }];
+
+      productosItems = [...fega, ...custom, ...otro];
       ssProd.setItems(productosItems);
+
+      const help = container.querySelector("#prod-help");
+      if (!modoVerTodos && !productosUso.length) {
+        help.style.display = "";
+        help.textContent = "No hay productos asociados a este uso (según histórico). Pulsa “Ver todos”.";
+      } else {
+        help.style.display = "none";
+      }
     }
 
     btnVerTodos.addEventListener("click", () => {

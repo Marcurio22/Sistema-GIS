@@ -396,13 +396,13 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
 
 def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     """
-    Actualiza parcialmente SOLO el cultivo actual (el último) del recinto.
+    En vez de sobrescribir, crea una NUEVA fila (versión),
+    dejando la anterior como histórico.
     """
-    cultivo = get_cultivo_recinto(recinto_id)
-    if not cultivo:
+    prev = get_cultivo_recinto(recinto_id)
+    if not prev:
         raise ValueError("no_existe")
 
-    # Construcción dinámica del UPDATE
     allowed = {
         "uso_sigpac",
         "sistema_explotacion",
@@ -419,31 +419,64 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
         "fecha_cosecha_real",
         "cosecha_estimada_auto",
         "observaciones",
+        "tipo_cultivo",
     }
 
-    sets = []
-    params = {
-        "rid": recinto_id,
-        "cid": cultivo["id_cultivo"],  # solo el último
-    }
-
+    merged = {k: prev.get(k) for k in allowed}
     for k, v in (data or {}).items():
         if k in allowed:
-            sets.append(f"{k} = :{k}")
-            params[k] = v
+            merged[k] = v
 
-    if not sets:
-        return cultivo  # nada que actualizar
+    merged["id_recinto"] = recinto_id
+    merged["id_padre"] = prev["id_cultivo"]
 
-    sql = text(f"""
-        UPDATE public.cultivos
-        SET {", ".join(sets)}
-        WHERE id_recinto = :rid
-          AND id_cultivo = :cid
+    # normaliza fechas/campaña si hace falta
+    merged = normalize_cultivo_payload(merged, existing=prev)
+
+    params = {
+        "id_recinto": recinto_id,
+        "id_padre": merged.get("id_padre"),
+        "uso_sigpac": merged.get("uso_sigpac"),
+        "sistema_explotacion": merged.get("sistema_explotacion"),
+        "tipo_registro": merged.get("tipo_registro"),
+        "campana": merged.get("campana"),
+        "cod_producto": merged.get("cod_producto"),
+        "cultivo_custom": merged.get("cultivo_custom"),
+        "origen_cultivo": merged.get("origen_cultivo"),
+        "tipo_cultivo": merged.get("tipo_cultivo"),
+        "variedad": merged.get("variedad"),
+        "estado": merged.get("estado", "planificado"),
+        "fecha_siembra": merged.get("fecha_siembra"),
+        "fecha_implantacion": merged.get("fecha_implantacion"),
+        "fecha_cosecha_estimada": merged.get("fecha_cosecha_estimada"),
+        "fecha_cosecha_real": merged.get("fecha_cosecha_real"),
+        "cosecha_estimada_auto": merged.get("cosecha_estimada_auto", False),
+        "observaciones": merged.get("observaciones"),
+    }
+
+    sql = text("""
+        INSERT INTO public.cultivos (
+          id_recinto, id_padre,
+          uso_sigpac, sistema_explotacion, tipo_registro, campana,
+          cod_producto, cultivo_custom, origen_cultivo, tipo_cultivo,
+          variedad, estado,
+          fecha_siembra, fecha_implantacion,
+          fecha_cosecha_estimada, fecha_cosecha_real,
+          cosecha_estimada_auto, observaciones
+        )
+        VALUES (
+          :id_recinto, :id_padre,
+          :uso_sigpac, :sistema_explotacion, :tipo_registro, :campana,
+          :cod_producto, :cultivo_custom, :origen_cultivo, :tipo_cultivo,
+          :variedad, :estado,
+          :fecha_siembra, :fecha_implantacion,
+          :fecha_cosecha_estimada, :fecha_cosecha_real,
+          :cosecha_estimada_auto, :observaciones
+        )
         RETURNING id_cultivo
     """)
 
-    db.session.execute(sql, params)
+    db.session.execute(sql, params).scalar_one()
     db.session.commit()
     return get_cultivo_recinto(recinto_id)
 
