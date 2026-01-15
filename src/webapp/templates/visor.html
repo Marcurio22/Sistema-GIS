@@ -42,6 +42,13 @@
   </div>
 </div>
 <div id="notification-container"></div>
+<div id="lightbox" class="lightbox" style="display: none;">
+  <span class="lightbox-close">&times;</span>
+  <img class="lightbox-content" id="lightbox-img">
+  <div class="lightbox-caption" id="lightbox-caption"></div>
+  <button class="lightbox-prev" id="lightbox-prev">&#10094;</button>
+  <button class="lightbox-next" id="lightbox-next">&#10095;</button>
+</div>
 {% endblock %}
 
 {% block content %}
@@ -724,7 +731,9 @@
       coordsText.textContent = "-";
     }
 
-    // Cultivos del recinto
+    console.log('✅ Llamando a setRecintoId...');
+    window.galeria.setRecintoId(window.currentSideRecintoId);
+
     renderCultivosForRecinto(currentSideRecintoId);
   }
 

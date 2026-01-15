@@ -4,56 +4,154 @@ class GaleriaImagenes {
     this.imagenes = [];
     this.maxVisibles = 5;
     this.mostrandoTodas = false;
+    this.recintoId = null;
+    this.currentImageIndex = 0; // Para navegación en lightbox
     this.init();
   }
 
   init() {
-    this.cargarImagenes();
     this.initSubida();
+    this.initLightbox();
+    this.container.innerHTML = '<p class="text-muted">Selecciona un recinto para ver sus imágenes</p>';
+  }
+
+  initLightbox() {
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+    const lightboxCaption = document.getElementById('lightbox-caption');
+    const closeBtn = document.querySelector('.lightbox-close');
+    const prevBtn = document.getElementById('lightbox-prev');
+    const nextBtn = document.getElementById('lightbox-next');
+
+    // Cerrar con el botón X
+    if (closeBtn) {
+      closeBtn.onclick = () => this.closeLightbox();
+    }
+
+    // Cerrar al hacer clic fuera de la imagen
+    if (lightbox) {
+      lightbox.onclick = (e) => {
+        if (e.target === lightbox) {
+          this.closeLightbox();
+        }
+      };
+    }
+
+    // Cerrar con tecla ESC
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && lightbox.style.display === 'block') {
+        this.closeLightbox();
+      }
+      // Navegación con flechas
+      if (lightbox.style.display === 'block') {
+        if (e.key === 'ArrowLeft') this.showPrevImage();
+        if (e.key === 'ArrowRight') this.showNextImage();
+      }
+    });
+
+    // Botones de navegación
+    if (prevBtn) prevBtn.onclick = () => this.showPrevImage();
+    if (nextBtn) nextBtn.onclick = () => this.showNextImage();
+  }
+
+  openLightbox(index) {
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+    const lightboxCaption = document.getElementById('lightbox-caption');
+
+    this.currentImageIndex = index;
+    const imagen = this.imagenes[index];
+
+    lightbox.style.display = 'block';
+    lightboxImg.src = imagen.thumb;
+    lightboxCaption.innerHTML = `
+      <strong>${imagen.titulo}</strong>
+      ${imagen.descripcion ? '<br>' + imagen.descripcion : ''}
+    `;
+
+    // Deshabilitar scroll del body
+    document.body.style.overflow = 'hidden';
+  }
+
+  closeLightbox() {
+    const lightbox = document.getElementById('lightbox');
+    lightbox.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  showPrevImage() {
+    this.currentImageIndex = (this.currentImageIndex - 1 + this.imagenes.length) % this.imagenes.length;
+    this.openLightbox(this.currentImageIndex);
+  }
+
+  showNextImage() {
+    this.currentImageIndex = (this.currentImageIndex + 1) % this.imagenes.length;
+    this.openLightbox(this.currentImageIndex);
+  }
+
+  async setRecintoId(recintoId) {
+    this.recintoId = recintoId;
+    await this.cargarImagenes();
   }
 
   async cargarImagenes() {
+    if (!this.recintoId) {
+      this.container.innerHTML = '<p class="text-muted">Selecciona un recinto para ver sus imágenes</p>';
+      return;
+    }
+
     try {
       this.container.innerHTML = '<p>Cargando imágenes...</p>';
 
-      // IMÁGENES DE EJEMPLO
-      this.imagenes = [
-        { id: 1, thumb: 'https://picsum.photos/400/300?1', titulo: 'Imagen 1', descripcion: 'Descripción 1' },
-        { id: 2, thumb: 'https://picsum.photos/400/300?2', titulo: 'Imagen 2', descripcion: 'Descripción 2' },
-        { id: 3, thumb: 'https://picsum.photos/400/300?3', titulo: 'Imagen 3', descripcion: 'Descripción 3' },
-        { id: 4, thumb: 'https://picsum.photos/400/300?4', titulo: 'Imagen 4', descripcion: 'Descripción 4' },
-        { id: 5, thumb: 'https://picsum.photos/400/300?5', titulo: 'Imagen 5', descripcion: 'Descripción 5' },
-        { id: 6, thumb: 'https://picsum.photos/400/300?6', titulo: 'Imagen 6', descripcion: 'Descripción 6' },
-      ];
+      const response = await fetch(`/api/galeria/listar/${this.recintoId}`);
+      
+      if (!response.ok) {
+        throw new Error('Error al cargar imágenes');
+      }
 
+      this.imagenes = await response.json();
       this.renderizarGaleria();
+      
     } catch (error) {
       console.error(error);
-      this.container.innerHTML = '<p>Error cargando imágenes</p>';
+      this.container.innerHTML = '<p class="text-danger">Error cargando imágenes</p>';
     }
   }
 
   renderizarGaleria() {
     this.container.innerHTML = '';
-    const imagenesAMostrar = this.mostrandoTodas ? this.imagenes : this.imagenes.slice(0, this.maxVisibles);
+    
+    if (this.imagenes.length === 0) {
+      this.container.innerHTML = '<p class="text-muted">No hay imágenes en este recinto. Añade una usando el botón de arriba.</p>';
+      return;
+    }
 
-    imagenesAMostrar.forEach(imagen => {
+    const imagenesAMostrar = this.mostrandoTodas 
+      ? this.imagenes 
+      : this.imagenes.slice(0, this.maxVisibles);
+
+    imagenesAMostrar.forEach((imagen, index) => {
       const item = document.createElement('div');
       item.className = 'galeria-item';
-      item.style.cursor = 'default';
+      
+      // Añadir evento click para abrir lightbox
+      item.onclick = () => {
+        // Si estamos mostrando solo algunas, ajustar el índice
+        const realIndex = this.mostrandoTodas ? index : index;
+        this.openLightbox(realIndex);
+      };
 
       item.innerHTML = `
         <img src="${imagen.thumb}" alt="${imagen.titulo}" loading="lazy">
         <div class="galeria-overlay">
           <h4>${imagen.titulo}</h4>
-          <p>${imagen.descripcion}</p>
+          <p>${imagen.descripcion || ''}</p>
         </div>
       `;
 
       this.container.appendChild(item);
     });
 
-    // Tarjeta "Ver Todas"
     if (!this.mostrandoTodas && this.imagenes.length > this.maxVisibles) {
       const verMas = document.createElement('div');
       verMas.className = 'galeria-item galeria-ver-mas';
@@ -80,21 +178,53 @@ class GaleriaImagenes {
       const titulo = document.getElementById('imagen-titulo').value;
       const descripcion = document.getElementById('imagen-descripcion').value;
 
-      if (!fileInput.files.length) return alert("Selecciona una imagen");
+      if (!fileInput.files.length) {
+        NotificationSystem.show({
+          type: "warning",
+          title: "Falta imagen",
+          message: "Por favor, selecciona una imagen antes de continuar"
+        });
+        return;
+      }
 
-
-      const recintoId = window.currentSideRecintoId;
+      const recintoId = this.recintoId || window.currentSideRecintoId;
 
       if (!recintoId) {
-        alert("No hay un recinto seleccionado");
+        NotificationSystem.show({
+          type: "warning",
+          title: "Sin recinto",
+          message: "Abre un recinto antes de subir imágenes"
+        });
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      
+      if (!allowedTypes.includes(file.type)) {
+        NotificationSystem.show({
+          type: "error",
+          title: "Archivo no válido",
+          message: "Solo se permiten imágenes (JPG, PNG, GIF, WEBP)"
+        });
+        return;
+      }
+
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        NotificationSystem.show({
+          type: "error",
+          title: "Archivo muy grande",
+          message: "La imagen no puede superar los 5MB"
+        });
         return;
       }
 
       const formData = new FormData();
-      formData.append('imagen', fileInput.files[0]);
+      formData.append('imagen', file);
       formData.append('titulo', titulo);
       formData.append('descripcion', descripcion);
-      formData.append('recinto_id', recintoId); 
+      formData.append('recinto_id', recintoId);
 
       try {
         const res = await fetch('/api/galeria/subir', {
@@ -102,28 +232,41 @@ class GaleriaImagenes {
           body: formData
         });
 
-        if (!res.ok) throw new Error("Error al subir la imagen");
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || "Error al subir la imagen");
+        }
 
         const nuevaImagen = await res.json();
-        this.imagenes.push(nuevaImagen);
-        this.renderizarGaleria();
+        
+        await this.cargarImagenes();
 
-        // Cerrar modal Bootstrap
         const modalEl = document.getElementById('modalSubida');
         const modal = bootstrap.Modal.getInstance(modalEl);
-        modal.hide();
+        if (modal) modal.hide();
 
         form.reset();
+        
+        NotificationSystem.show({
+          type: "success",
+          title: "¡Imagen subida!",
+          message: `"${titulo}" se ha añadido correctamente a la galería`
+        });
+        
       } catch (error) {
         console.error(error);
-        alert("Error subiendo la imagen");
+        
+        NotificationSystem.show({
+          type: "error",
+          title: "Error al subir",
+          message: error.message || "No se pudo subir la imagen. Intenta de nuevo."
+        });
       }
     };
   }
 }
 
-// Inicializar galería
-let galeria;
+window.galeria = null;
 document.addEventListener('DOMContentLoaded', () => {
-  galeria = new GaleriaImagenes('galeria-grid');
+  window.galeria = new GaleriaImagenes('galeria-grid');
 });
