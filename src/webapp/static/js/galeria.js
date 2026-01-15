@@ -82,10 +82,19 @@ class GaleriaImagenes {
 
       if (!fileInput.files.length) return alert("Selecciona una imagen");
 
+
+      const recintoId = window.currentSideRecintoId;
+
+      if (!recintoId) {
+        alert("No hay un recinto seleccionado");
+        return;
+      }
+
       const formData = new FormData();
       formData.append('imagen', fileInput.files[0]);
       formData.append('titulo', titulo);
       formData.append('descripcion', descripcion);
+      formData.append('recinto_id', recintoId); 
 
       try {
         const res = await fetch('/api/galeria/subir', {

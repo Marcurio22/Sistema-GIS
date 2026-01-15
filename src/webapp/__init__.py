@@ -19,6 +19,7 @@ def create_app():
     login_manager.init_app(app)
     mail.init_app(app)
     
+    
     login_manager.login_view = 'auth.login'
     login_manager.login_message = None 
     login_manager.needs_refresh_message = None
@@ -32,6 +33,7 @@ def create_app():
     from .admin import admin_bp 
     from .dashboard import dashboard_bp
     from .api import api_bp
+    from .api.galeria import galeria_bp
 
 
     app.jinja_env.filters['tel_es'] = formato_tel_es
@@ -39,6 +41,7 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(galeria_bp)
     
 
     return app

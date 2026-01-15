@@ -210,6 +210,8 @@ logs/
 *.aux.xml
 *.ovr
 *.tif
+*.tiff
+
 
 # World files
 *.tfw
@@ -294,6 +296,7 @@ Desktop.ini
 
 # JetBrains (IDEA / PyCharm)
 #.idea/
+src/webapp/static/uploads/*
 
 # ===============================
 # End of file
