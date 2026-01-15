@@ -123,7 +123,7 @@ class GaleriaImagenes {
     this.container.innerHTML = '';
     
     if (this.imagenes.length === 0) {
-      this.container.innerHTML = '<p class="text-muted">No hay imágenes en este recinto. Añade una usando el botón de arriba.</p>';
+      this.container.innerHTML = '<p class="text-muted">No hay imágenes en este recinto. </p>';
       return;
     }
 
