@@ -11,6 +11,7 @@ class GaleriaImagenes {
 
   init() {
     this.initSubida();
+    this.initEdicion();
     this.initLightbox();
     this.container.innerHTML = '<p class="text-muted">Selecciona un recinto para ver sus imágenes</p>';
   }
@@ -118,7 +119,7 @@ class GaleriaImagenes {
     }
   }
 
-  renderizarGaleria() {
+   renderizarGaleria() {
     this.container.innerHTML = '';
     
     if (this.imagenes.length === 0) {
@@ -134,38 +135,266 @@ class GaleriaImagenes {
       const item = document.createElement('div');
       item.className = 'galeria-item';
       
-      // Añadir evento click para abrir lightbox
-      item.onclick = () => {
-        // Si estamos mostrando solo algunas, ajustar el índice
-        const realIndex = this.mostrandoTodas ? index : index;
-        this.openLightbox(realIndex);
+      item.innerHTML = `
+      <img src="${imagen.thumb}" alt="${imagen.titulo}" loading="lazy">
+      <div class="galeria-overlay">
+        <h4>${imagen.titulo}</h4>
+        <p>${imagen.descripcion || ''}</p>
+      </div>
+      <div class="galeria-actions">
+        <button class="galeria-action-btn edit" data-id="${imagen.id}" data-index="${index}" title="Editar">
+          <i class="bi bi-pencil-fill"></i>
+        </button>
+        <button class="galeria-action-btn delete" data-id="${imagen.id}" title="Eliminar">
+          <i class="bi bi-trash-fill"></i>
+        </button>
+      </div>
+    `;
+
+      const imgElement = item.querySelector('img');
+      const overlayElement = item.querySelector('.galeria-overlay');
+      
+      imgElement.onclick = () => this.openLightbox(index);
+      overlayElement.onclick = () => this.openLightbox(index);
+
+      const editBtn = item.querySelector('.edit');
+      editBtn.onclick = (e) => {
+        e.stopPropagation();
+        this.abrirModalEditar(imagen);
       };
 
-      item.innerHTML = `
-        <img src="${imagen.thumb}" alt="${imagen.titulo}" loading="lazy">
-        <div class="galeria-overlay">
-          <h4>${imagen.titulo}</h4>
-          <p>${imagen.descripcion || ''}</p>
-        </div>
-      `;
+      const deleteBtn = item.querySelector('.delete');
+      deleteBtn.onclick = (e) => {
+        e.stopPropagation();
+        this.confirmarEliminar(imagen);
+      };
 
       this.container.appendChild(item);
     });
 
-    if (!this.mostrandoTodas && this.imagenes.length > this.maxVisibles) {
-      const verMas = document.createElement('div');
-      verMas.className = 'galeria-item galeria-ver-mas';
-      verMas.innerHTML = `
-        <div class="ver-mas">
-          <span>+${this.imagenes.length - this.maxVisibles}</span>
-          <p>Ver todas</p>
-        </div>
-      `;
-      verMas.onclick = () => {
-        this.mostrandoTodas = true;
-        this.renderizarGaleria();
-      };
-      this.container.appendChild(verMas);
+    // Botón toggle
+    if (this.imagenes.length > this.maxVisibles) {
+      const toggleBtn = document.createElement('div');
+      toggleBtn.className = 'galeria-item galeria-ver-mas';
+      
+      if (this.mostrandoTodas) {
+        toggleBtn.innerHTML = `
+          <div class="ver-mas">
+            <span>▲</span>
+            <p>Mostrar menos</p>
+          </div>
+        `;
+        toggleBtn.onclick = () => {
+          this.contraerGaleria();
+        };
+      } else {
+        toggleBtn.innerHTML = `
+          <div class="ver-mas">
+            <span>+${this.imagenes.length - this.maxVisibles}</span>
+            <p>Ver todas</p>
+          </div>
+        `;
+        toggleBtn.onclick = () => {
+          this.expandirGaleria();
+        };
+      }
+      
+      this.container.appendChild(toggleBtn);
+    }
+  }
+
+  expandirGaleria() {
+    this.mostrandoTodas = true;
+    this.modoExpandido = true;
+    
+    // Ocultar el resto del contenido del panel
+    const sideHeader = document.querySelector('.side-header');
+    const sideDividers = document.querySelectorAll('.side-divider');
+    const sideRows = document.querySelectorAll('.side-row');
+    const sideToggle = document.querySelector('.side-toggle');
+    const cultivos = document.getElementById('cultivos-container');
+    const cultivosSection = document.querySelector('.side-section');
+    const galeriaContainer = document.getElementById('galeria-imagenes');
+    
+    // Guardar elementos ocultos para restaurar
+    this.elementosOcultos = [
+      sideHeader,
+      ...sideDividers,
+      ...sideRows,
+      sideToggle,
+      cultivos,
+      cultivosSection
+    ].filter(el => el && el !== null);
+    
+    // Ocultar elementos
+    this.elementosOcultos.forEach(el => {
+      el.style.display = 'none';
+    });
+    
+    // Añadir header de galería expandida
+    const galeriaHeader = document.createElement('div');
+    galeriaHeader.id = 'galeria-header-expandido';
+    galeriaHeader.className = 'galeria-header-expandido';
+    galeriaHeader.innerHTML = `
+      <h2>
+        <i class="fa-solid fa-image me-2" style="color:#198754"></i>
+        Galería completa
+        <span class="badge bg-success ms-2">${this.imagenes.length}</span>
+      </h2>
+      <button class="btn btn-sm btn-outline-secondary" id="btn-contraer-galeria">
+        <i class="bi bi-arrow-left mr-4"></i> Volver
+      </button>
+    `;
+    
+    // Insertar header antes del contenedor de galería
+    if (galeriaContainer && galeriaContainer.parentNode) {
+      galeriaContainer.parentNode.insertBefore(galeriaHeader, galeriaContainer);
+    }
+    
+    // Evento para contraer
+    document.getElementById('btn-contraer-galeria').onclick = () => {
+      this.contraerGaleria();
+    };
+    
+    // Re-renderizar con todas las imágenes
+    this.renderizarGaleria();
+    
+    // Scroll al inicio del panel
+    const sidePanel = document.getElementById('side-panel');
+    if (sidePanel) {
+      sidePanel.scrollTop = 0;
+    }
+  }
+
+  contraerGaleria() {
+    this.mostrandoTodas = false;
+    this.modoExpandido = false;
+    
+    // Eliminar header de galería expandida
+    const galeriaHeader = document.getElementById('galeria-header-expandido');
+    if (galeriaHeader) {
+      galeriaHeader.remove();
+    }
+    
+    // Restaurar elementos ocultos
+    if (this.elementosOcultos) {
+      this.elementosOcultos.forEach(el => {
+        el.style.display = '';
+      });
+      this.elementosOcultos = null;
+    }
+    
+    // Re-renderizar con imágenes limitadas
+    this.renderizarGaleria();
+    
+    // Scroll a la galería
+    const galeriaContainer = document.getElementById('galeria-imagenes');
+    if (galeriaContainer) {
+      galeriaContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  abrirModalEditar(imagen) {
+    document.getElementById('editar-id-imagen').value = imagen.id;
+    document.getElementById('editar-titulo').value = imagen.titulo;
+    document.getElementById('editar-descripcion').value = imagen.descripcion || '';
+    document.getElementById('editar-preview').src = imagen.thumb;
+
+    const modal = new bootstrap.Modal(document.getElementById('modalEditar'));
+    modal.show();
+  }
+
+   abrirModalEditar(imagen) {
+    document.getElementById('editar-id-imagen').value = imagen.id;
+    document.getElementById('editar-titulo').value = imagen.titulo;
+    document.getElementById('editar-descripcion').value = imagen.descripcion || '';
+    document.getElementById('editar-preview').src = imagen.thumb;
+
+    const modal = new bootstrap.Modal(document.getElementById('modalEditar'));
+    modal.show();
+  }
+
+  initEdicion() {
+    const form = document.getElementById('form-editar');
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+
+      const idImagen = document.getElementById('editar-id-imagen').value;
+      const titulo = document.getElementById('editar-titulo').value;
+      const descripcion = document.getElementById('editar-descripcion').value;
+
+      try {
+        const res = await fetch(`/api/galeria/editar/${idImagen}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ titulo, descripcion })
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || "Error al editar la imagen");
+        }
+
+        await this.cargarImagenes();
+
+        const modalEl = document.getElementById('modalEditar');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        NotificationSystem.show({
+          type: "success",
+          title: "¡Imagen actualizada!",
+          message: `Los cambios en "${titulo}" se han guardado correctamente`
+        });
+
+      } catch (error) {
+        console.error(error);
+        NotificationSystem.show({
+          type: "error",
+          title: "Error al editar",
+          message: error.message || "No se pudo editar la imagen"
+        });
+      }
+    };
+  }
+
+  async confirmarEliminar(imagen) {
+    // Usar el sistema de confirmación que ya tienes en visor.html
+    const ok = await AppConfirm.open({
+      title: "Eliminar imagen",
+      message: `¿Estás seguro de que deseas eliminar "${imagen.titulo}"? Esta acción no se puede deshacer.`,
+      okText: "Eliminar",
+      cancelText: "Cancelar",
+      okClass: "btn-danger"
+    });
+
+    if (!ok) return;
+
+    try {
+      const res = await fetch(`/api/galeria/eliminar/${imagen.id}`, {
+        method: 'DELETE'
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Error al eliminar la imagen");
+      }
+
+      await this.cargarImagenes();
+
+      NotificationSystem.show({
+        type: "success",
+        title: "Imagen eliminada",
+        message: `"${imagen.titulo}" ha sido eliminada correctamente`
+      });
+
+    } catch (error) {
+      console.error(error);
+      NotificationSystem.show({
+        type: "error",
+        title: "Error al eliminar",
+        message: error.message || "No se pudo eliminar la imagen"
+      });
     }
   }
 

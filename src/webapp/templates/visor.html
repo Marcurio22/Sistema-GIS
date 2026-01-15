@@ -323,6 +323,42 @@
     </div>
   </div>
 </div>
+<!-- Modal para editar imagen -->
+<div class="modal fade" id="modalEditar" tabindex="-1" aria-labelledby="modalEditarLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="form-editar">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalEditarLabel">Editar Imagen</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="editar-id-imagen">
+          
+           <div class="mb-3 text-center">
+            <img id="editar-preview" 
+                 src="" 
+                 alt="Preview" 
+                 style="max-width: 200px; max-height: 200px; border-radius: 8px; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          </div>
+          <div class="mb-3">
+            <label for="editar-titulo" class="form-label">Título</label>
+            <input type="text" class="form-control" id="editar-titulo" required>
+          </div>
+          
+          <div class="mb-3">
+            <label for="editar-descripcion" class="form-label">Descripción</label>
+            <textarea class="form-control" id="editar-descripcion" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
 <script>
   const NotificationSystem = {

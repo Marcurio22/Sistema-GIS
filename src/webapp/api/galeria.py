@@ -75,7 +75,7 @@ def subir_imagen():
         return jsonify({"error": "Error al guardar la imagen en la base de datos"}), 500
     
 
-    
+
 @galeria_bp.route('/listar/<int:recinto_id>', methods=['GET'])
 def listar_imagenes(recinto_id):
     try:
@@ -95,4 +95,71 @@ def listar_imagenes(recinto_id):
         
     except Exception as e:
         print(f"Error al listar imágenes: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    
+
+@galeria_bp.route('/editar/<int:id_imagen>', methods=['PATCH'])
+def editar_imagen(id_imagen):
+    try:
+        imagen = Galeria.query.get(id_imagen)
+        
+        if not imagen:
+            return jsonify({"error": "Imagen no encontrada"}), 404
+        
+        data = request.get_json()
+        
+        if 'titulo' in data:
+            imagen.nombre = data['titulo']
+        
+        if 'descripcion' in data:
+            imagen.descripcion = data['descripcion']
+        
+        db.session.commit()
+        
+        return jsonify({
+            "ok": True,
+            "id": imagen.id_imagen,
+            "titulo": imagen.nombre,
+            "descripcion": imagen.descripcion
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error al editar imagen: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+# NUEVO: Eliminar imagen
+@galeria_bp.route('/eliminar/<int:id_imagen>', methods=['DELETE'])
+def eliminar_imagen(id_imagen):
+    try:
+        imagen = Galeria.query.get(id_imagen)
+        
+        if not imagen:
+            return jsonify({"error": "Imagen no encontrada"}), 404
+        
+        # Eliminar archivo físico
+        if imagen.url:
+            # Convertir URL a ruta del sistema de archivos
+            # /static/uploads/images/foto.jpg -> ./webapp/static/uploads/images/foto.jpg
+            ruta_archivo = imagen.url.replace('/static/', './webapp/static/')
+            ruta_archivo = ruta_archivo.replace('/', os.sep)
+            
+            if os.path.exists(ruta_archivo):
+                try:
+                    os.remove(ruta_archivo)
+                    print(f"✅ Archivo eliminado: {ruta_archivo}")
+                except Exception as e:
+                    print(f"⚠️ No se pudo eliminar el archivo: {e}")
+            else:
+                print(f"⚠️ Archivo no encontrado: {ruta_archivo}")
+        
+        # Eliminar registro de la base de datos
+        db.session.delete(imagen)
+        db.session.commit()
+        
+        return jsonify({"ok": True, "mensaje": "Imagen eliminada correctamente"}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error al eliminar imagen: {str(e)}")
         return jsonify({"error": str(e)}), 500
