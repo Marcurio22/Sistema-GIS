@@ -510,7 +510,6 @@ def gestion_variedades():
 @admin_required
 def obtener_variedades_ajax():
     try:
-        # Parámetros de DataTables
         draw = request.form.get('draw', type=int)
         start = request.form.get('start', type=int, default=0)
         length = request.form.get('length', type=int, default=25)
@@ -521,8 +520,8 @@ def obtener_variedades_ajax():
         order_dir = request.form.get('order[0][dir]', default='asc')
         
         # Mapeo de columnas
-        columns = ['id_variedad', 'nombre', 'producto_fega_id']
-        order_column = columns[order_column_index] if order_column_index < len(columns) else 'producto_fega_id'
+        columns = ['id_variedad', 'nombre', 'producto_fega_descripcion']  # CAMBIADO
+        order_column = columns[order_column_index] if order_column_index < len(columns) else 'producto_fega_descripcion'
         
         # Query base con join
         query = db.session.query(Variedad).outerjoin(
@@ -544,18 +543,18 @@ def obtener_variedades_ajax():
         records_filtered = query.count()
         
         # Ordenamiento
-        if order_column == 'producto_fega_id':
-            # Ordenamiento numérico correcto para cultivo
+        if order_column == 'producto_fega_descripcion':
+            # Ordenamiento alfabético por descripción del producto
             if order_dir == 'asc':
-                query = query.order_by(Variedad.producto_fega_id.asc().nullslast())
+                query = query.order_by(ProductoFega.descripcion.asc().nullslast())
             else:
-                query = query.order_by(Variedad.producto_fega_id.desc().nullslast())
+                query = query.order_by(ProductoFega.descripcion.desc().nullslast())
         elif order_column == 'nombre':
             if order_dir == 'asc':
                 query = query.order_by(Variedad.nombre.asc())
             else:
                 query = query.order_by(Variedad.nombre.desc())
-        else:
+        else:  # id_variedad
             if order_dir == 'asc':
                 query = query.order_by(Variedad.id_variedad.asc())
             else:
@@ -586,8 +585,9 @@ def obtener_variedades_ajax():
         })
     
     except Exception as e:
-        # Log del error para debugging
         print(f"Error en AJAX: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'error': str(e)
         }), 500
