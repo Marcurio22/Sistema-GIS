@@ -232,6 +232,7 @@
   </div>
 
 <div class="side-divider"></div>
+<!-- GALERÍA-->
 <div id="galeria-imagenes" class="galeria-container mt-4">
   <h2 class="side-section-title mb-3">
     <i class="fa-solid fa-image me-2" style="color:#198754"></i>
@@ -241,7 +242,7 @@
   <!-- Botón Añadir Imagen -->
   <div class="mb-3">
     <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalSubida">
-      <i class="fa-solid fa-plus me-1"></i> Añadir Imagen
+     <i class="fa-solid fa-plus me-1"></i> Añadir Imagen
     </button>
   </div>
 
@@ -251,27 +252,28 @@
   </div>
 </div>
 
-  <!-- Overlay: Histórico de cultivos -->
+  <!-- OVERLAY HISTÓRICO CULTIVOS -->
   <div id="cultivos-historico-panel" class="d-none" aria-hidden="true">
-    <div class="side-section-head mb-2">
-      <button id="btn-volver-historico" class="btn btn-link p-0 me-2" type="button">
-        <i class="bi bi-arrow-left fs-4" style="color:#198754"></i>
+
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <button id="btn-volver-historico" class="btn btn-outline-secondary" type="button">
+        <i class="bi bi-arrow-left me-1"></i> Volver
       </button>
 
-      <h2 class="side-section-title">
-        <i class="fa-solid fa-wheat-awn me-2" style="color:#198754"></i>
-        <span class="side-section-label">Cultivos</span>
-      </h2>
+      <div class="d-flex align-items-center gap-2 fw-bold" style="font-size:1.6rem;">
+        <i class="fa-solid fa-wheat-awn" style="color:#198754"></i>
+        <span>Cultivos</span>
+      </div>
 
-      <div></div>
+      <button id="btn-cerrar-historico" class="btn btn-success" type="button" title="Cerrar">
+        <i class="bi bi-x-lg"></i>
+      </button>
     </div>
 
     <div class="side-divider"></div>
-
     <div id="cultivos-historico-list" class="pb-3"></div>
   </div>
 
-  </div>
   <div id="side-alerts"></div>
 
 </aside>
@@ -452,15 +454,41 @@
 
   // Función para establecer la variable CSS con la altura de la navbar
   function setNavbarHeightVar() {
-    const navbar = document.querySelector("nav");
-    if (!navbar) return;
-    const h = navbar.getBoundingClientRect().height;
-    document.documentElement.style.setProperty("--navbar-h", `${h}px`);
+    const candidates = [
+      'nav.navbar.fixed-top',
+      'nav.navbar.sticky-top',
+      '.navbar.fixed-top',
+      '.navbar.sticky-top',
+      'header.fixed-top',
+      'header.sticky-top',
+      'nav'
+    ];
+
+    let el = null;
+    for (const sel of candidates) {
+      const found = document.querySelector(sel);
+      if (!found) continue;
+
+      const cs = window.getComputedStyle(found);
+      const pos = cs.position;
+      if (pos === 'fixed' || pos === 'sticky') {
+        el = found;
+        break;
+      }
+    }
+
+    let h = 65;
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      h = Math.round(rect.bottom);
+    }
+
+    if (h < 40 || h > 120) h = 65;
+    document.documentElement.style.setProperty('--navbar-h', `${h}px`);
   }
 
   // calcular al cargar
   setNavbarHeightVar();
-
   // recalcular por si cambia (responsive)
   window.addEventListener("resize", setNavbarHeightVar);
 
@@ -602,6 +630,10 @@
 
     document.body.classList.toggle("split-mode", splitOpen);
 
+    // Aria-hidden en el panel lateral
+    const sp = document.getElementById("side-panel");
+    if (sp) sp.setAttribute("aria-hidden", splitOpen ? "false" : "true");
+
     setTimeout(() => {
       try { map.invalidateSize(); } catch (e) {}
     }, 280);
@@ -628,9 +660,10 @@
       clearHighlight();
 
       // 3) cerrar panel
+      closeHistoricoPanel();
       setSplitMode(false);
 
-      // (opcional) reset id actual
+      // reset id actual
       window.currentSideRecintoId = null;
     });
   }
@@ -855,14 +888,20 @@ if (btnDelete) {
 
   async function fetchJson(url, opts) {
     const resp = await fetch(url, opts);
+    const txt = await resp.text().catch(() => "");
+    let data = null;
+    try { data = txt ? JSON.parse(txt) : null; } catch (_) {}
+
     if (!resp.ok) {
-      const txt = await resp.text().catch(() => "");
       const err = new Error(`HTTP ${resp.status} en ${url}`);
       err.status = resp.status;
       err.body = txt;
+      err.data = data;
       throw err;
     }
-    return resp.json();
+
+    // Si no hay JSON, devuelve null
+    return data;
   }
 
   // Convierte fechas de inputs a ISO (YYYY-MM-DD).
@@ -1014,10 +1053,11 @@ if (btnDelete) {
     panel.setAttribute("aria-hidden", "true");
   }
 
-  // Importante: si cierro el split con la X, cierro también el overlay
-  if (sideCloseBtn) {
-    sideCloseBtn.addEventListener("click", () => closeHistoricoPanel());
-  }
+  document.getElementById("btn-cerrar-historico")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeHistoricoPanel();
+  });
 
   document.getElementById("btn-volver-historico")?.addEventListener("click", (e) => {
     e.preventDefault();
@@ -1040,6 +1080,14 @@ if (btnDelete) {
       if (!currentSideRecintoId) return;
 
       listEl.innerHTML = `<div class="text-muted">Cargando histórico...</div>`;
+
+      let currentCultivoId = null;
+      try {
+        const cur = await getCultivoRecinto(currentSideRecintoId);
+        currentCultivoId = cur?.id_cultivo ?? null;
+      } catch (e) {
+        if (!(e && e.status === 404)) throw e;
+      }
 
       try {
         const [usos, productos, hist] = await Promise.all([
@@ -1081,6 +1129,8 @@ if (btnDelete) {
             const inicio = isCamp ? c.fecha_siembra : c.fecha_implantacion;
             const fin = c.fecha_cosecha_real || c.fecha_cosecha_estimada;
 
+            const isCurrent = currentCultivoId && String(c.id_cultivo) === String(currentCultivoId);
+
             const u = usosMap.get(String(c.uso_sigpac));
             const usoLbl = formatCodigoDesc(c.uso_sigpac, u?.descripcion || c.uso_sigpac);
 
@@ -1093,6 +1143,10 @@ if (btnDelete) {
             } else {
               tipoLbl = formatCodigoDesc(null, c.cultivo_custom || c.tipo_cultivo);
             }
+
+            const obsHtml = (c.observaciones && String(c.observaciones).trim())
+              ? `<div style="white-space:pre-wrap;">${escapeHtml(c.observaciones)}</div>`
+              : `<span class="text-muted">(Sin observaciones)</span>`;
 
             return `
               <div class="historico-card">
@@ -1138,13 +1192,29 @@ if (btnDelete) {
                   </div>
                 </div>
 
+                <!-- Botones en una fila -->
                 <div class="d-flex gap-2 mt-2">
                   <button class="btn btn-success btn-sm btn-edit-hist" data-id="${c.id_cultivo}">
                     <i class="bi bi-pencil-fill me-1"></i> Editar Registro
                   </button>
-                  <button class="btn btn-danger btn-sm btn-del-hist" data-id="${c.id_cultivo}">
+                  <button class="btn btn-danger btn-sm btn-del-hist" data-id="${c.id_cultivo}" ${isCurrent ? "disabled" : ""}>
                     <i class="bi bi-trash-fill me-1"></i> Eliminar Registro
                   </button>
+                </div>
+
+                <!-- Aviso debajo (fuera del flex) -->
+                ${isCurrent ? `
+                  <div class="text-muted mt-2" style="font-size:12px">
+                    Este es el cultivo actual. Para eliminarlo, hazlo desde la página principal del cultivo.
+                  </div>
+                ` : ``}
+
+                <!-- Observaciones debajo (fuera del flex) -->
+                <div class="mt-3">
+                  <div class="fw-bold mb-1">Observaciones</div>
+                  <div class="border rounded-3 p-2" style="min-height:90px;">
+                    ${obsHtml}
+                  </div>
                 </div>
               </div>
             `;
@@ -1183,6 +1253,7 @@ if (btnDelete) {
                 productos,
                 mode: "historico_edit",
                 cultivoId: Number(id),
+                currentCultivoId, 
                 onDone: reloadHistorico,
                 onCancel: reloadHistorico
               });
@@ -1221,6 +1292,12 @@ if (btnDelete) {
     const mm = String(d.getMonth()+1).padStart(2,"0");
     const yy = d.getFullYear();
     return `${dd}/${mm}/${yy}`;
+  }
+
+  function escapeHtml(s) {
+    const div = document.createElement("div");
+    div.textContent = s ?? "";
+    return div.innerHTML;
   }
 
   function cultivoTipoLabel(c) {
@@ -1373,7 +1450,7 @@ if (btnDelete) {
       try {
         const val = obsEdit.value;
 
-        await fetchJson(`/api/mis-recinto/${recintoId}/cultivo`, {
+        await fetchJson(`/api/cultivos/${cultivo.id_cultivo}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ observaciones: val }),
@@ -1425,7 +1502,7 @@ if (btnDelete) {
   async function abrirConfirmacionEliminarCultivo(recintoId) {
     const ok = await AppConfirm.open({
       title: "Eliminar cultivo",
-      message: "¿Seguro que deseas eliminar el cultivo? Este proceso no es reversible.",
+      message: "¿Seguro que deseas eliminar el cultivo actual? Este proceso no es reversible y también se eliminará su entrada correspondiente en el histórico.",
       okText: "Eliminar",
       cancelText: "Cancelar",
       okClass: "btn-danger"
@@ -1526,7 +1603,7 @@ if (btnDelete) {
     };
   }
 
-  function renderCultivoForm(container, { recintoId, cultivo, usos, productos, mode="actual", cultivoId=null, onDone=null, onCancel=null }) {
+  function renderCultivoForm(container, { recintoId, cultivo, usos, productos, mode="actual", cultivoId=null, currentCultivoId=null, onDone=null, onCancel=null }) {
     const usosMap = byCodigo(usos);
     const productosAll = productos || [];
 
@@ -1640,98 +1717,94 @@ if (btnDelete) {
     `;
 
     // Autocompletado de variedad
-const variedadInput = container.querySelector("#variedad");
-const suggestionsList = container.querySelector("#variedad-suggestions");
-let timeoutVariedad = null;
+    const variedadInput = container.querySelector("#variedad");
+    const suggestionsList = container.querySelector("#variedad-suggestions");
+    let timeoutVariedad = null;
 
-variedadInput.addEventListener("input", async (e) => {
-  const query = e.target.value.trim();
-  
-  // Limpiar timeout anterior
-  if (timeoutVariedad) {
-    clearTimeout(timeoutVariedad);
-  }
-  
-  // Si está vacío, ocultar sugerencias
-  if (query.length < 1) {
-    suggestionsList.style.display = "none";
-    suggestionsList.innerHTML = "";
-    return;
-  }
-  
-  // Esperar 200ms después de que el usuario deje de escribir
-  timeoutVariedad = setTimeout(async () => {
-    try {
-      // Obtener el producto seleccionado (opcional, para filtrar)
-      const productoId = container.querySelector("#cod_producto_val")?.value || "";
+    variedadInput.addEventListener("input", async (e) => {
+      const query = e.target.value.trim();
       
-      // Construir URL con parámetros - CON /api
-      let url = `/api/variedades/buscar?q=${encodeURIComponent(query)}`;
-      if (productoId && productoId !== "") {
-        url += `&producto_id=${productoId}`;
+      // Limpiar timeout anterior
+      if (timeoutVariedad) {
+        clearTimeout(timeoutVariedad);
       }
       
-      const response = await fetch(url);
-      const variedades = await response.json();
+      // Si está vacío, ocultar sugerencias
+      if (query.length < 1) {
+        suggestionsList.style.display = "none";
+        suggestionsList.innerHTML = "";
+        return;
+      }
       
-      // Mostrar sugerencias SOLO si hay resultados
-      if (variedades.length > 0) {
-        suggestionsList.innerHTML = variedades.map(v => `
-          <button type="button" class="list-group-item list-group-item-action" data-nombre="${v.nombre}">
-            ${v.nombre}
-          </button>
-        `).join("");
-        suggestionsList.style.display = "block";
-      } else {
-        // Si no hay resultados, simplemente ocultar las sugerencias
-        // El usuario puede seguir escribiendo lo que quiera
+      // Esperar 200ms después de que el usuario deje de escribir
+      timeoutVariedad = setTimeout(async () => {
+        try {
+          // Obtener el producto seleccionado (opcional, para filtrar)
+          const productoId = container.querySelector("#cod_producto_val")?.value || "";
+          
+          // Construir URL con parámetros - CON /api
+          let url = `/api/variedades/buscar?q=${encodeURIComponent(query)}`;
+          if (productoId && productoId !== "") {
+            url += `&producto_id=${productoId}`;
+          }
+          
+          const response = await fetch(url);
+          const variedades = await response.json();
+          
+          // Mostrar sugerencias SOLO si hay resultados
+          if (variedades.length > 0) {
+            suggestionsList.innerHTML = variedades.map(v => `
+              <button type="button" class="list-group-item list-group-item-action" data-nombre="${v.nombre}">
+                ${v.nombre}
+              </button>
+            `).join("");
+            suggestionsList.style.display = "block";
+          } else {
+            // Si no hay resultados, simplemente ocultar las sugerencias
+            // El usuario puede seguir escribiendo lo que quiera
+            suggestionsList.style.display = "none";
+            suggestionsList.innerHTML = "";
+          }
+        } catch (error) {
+          console.error("Error buscando variedades:", error);
+          suggestionsList.style.display = "none";
+          suggestionsList.innerHTML = "";
+        }
+      }, 200); // Debounce de 200ms
+    });
+
+    // Click en una sugerencia
+    suggestionsList.addEventListener("click", (e) => {
+      const btn = e.target.closest("button");
+      if (btn) {
+        const nombre = btn.getAttribute("data-nombre");
+        variedadInput.value = nombre;
         suggestionsList.style.display = "none";
         suggestionsList.innerHTML = "";
       }
-    } catch (error) {
-      console.error("Error buscando variedades:", error);
-      suggestionsList.style.display = "none";
-      suggestionsList.innerHTML = "";
-    }
-  }, 200); // Debounce de 200ms
-});
+    });
 
-// Click en una sugerencia
-suggestionsList.addEventListener("click", (e) => {
-  const btn = e.target.closest("button");
-  if (btn) {
-    const nombre = btn.getAttribute("data-nombre");
-    variedadInput.value = nombre;
-    suggestionsList.style.display = "none";
-    suggestionsList.innerHTML = "";
-  }
-});
+    // Cerrar sugerencias al hacer click fuera
+    document.addEventListener("click", (e) => {
+      if (!variedadInput.contains(e.target) && !suggestionsList.contains(e.target)) {
+        suggestionsList.style.display = "none";
+      }
+    });
 
-// Cerrar sugerencias al hacer click fuera
-document.addEventListener("click", (e) => {
-  if (!variedadInput.contains(e.target) && !suggestionsList.contains(e.target)) {
-    suggestionsList.style.display = "none";
-  }
-});
+    // Cerrar sugerencias con Escape
+    variedadInput.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        suggestionsList.style.display = "none";
+      }
+    });
 
-// Cerrar sugerencias con Escape
-variedadInput.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    suggestionsList.style.display = "none";
-  }
-});
-
-// Permitir enviar con Enter incluso sin seleccionar de la lista
-variedadInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    suggestionsList.style.display = "none";
-    // El valor ya está en el input, no hace falta hacer nada más
-  }
-});
-
-
-
-
+    // Permitir enviar con Enter incluso sin seleccionar de la lista
+    variedadInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        suggestionsList.style.display = "none";
+        // El valor ya está en el input, no hace falta hacer nada más
+      }
+    });
 
     const ssUsoEl = container.querySelector("#ss-uso");
     const ssProdEl = container.querySelector("#ss-prod");
@@ -1929,12 +2002,13 @@ variedadInput.addEventListener("keydown", (e) => {
 
     container.querySelector("#btn-cancel-cultivo").addEventListener("click", () => {
       if (mode === "historico_add" || mode === "historico_edit") {
-        if (typeof onDone === "function") return onDone();  // vuelve al overlay histórico
-      }
-      if (cultivo) {
-        renderCultivoView(container, recintoId, cultivo, usos, productos);
+        if (mode === "historico_edit" && currentCultivoId && String(cultivoId) === String(currentCultivoId)) {
+          // Si acabo de editar el actual desde el histórico, repintar la vista principal YA
+          renderCultivosForRecinto(recintoId);
+        }
+        if (typeof onDone === "function") onDone();
       } else {
-        renderCultivoEmpty(container, recintoId, usos, productos);
+        renderCultivosForRecinto(recintoId);
       }
     });
 
@@ -1984,6 +2058,12 @@ variedadInput.addEventListener("keydown", (e) => {
 
       const fechaInicio = parseDateToISO(fechaInicioRaw);
       const fechaFin = parseDateToISO(fechaFinRaw);
+
+      if (fechaFin && fechaInicio && fechaFin < fechaInicio) {
+        msg.textContent = "La fecha fin no puede ser anterior a la de inicio.";
+        msg.className = "text-danger";
+        return;
+      }
 
       if (!fechaInicio) {
         msg.textContent = "Selecciona la fecha de inicio.";
@@ -2073,9 +2153,21 @@ variedadInput.addEventListener("keydown", (e) => {
           renderCultivosForRecinto(recintoId);
         }
       } catch (e) {
-        console.warn(e);
-        msg.textContent = "No se pudo guardar el cultivo.";
-        msg.className = "text-danger";
+          console.warn(e);
+
+          const backendMsg = e?.data?.error || e?.data?.message || "";
+
+          if (backendMsg.includes("fecha de inicio debe ser anterior")) {
+            msg.textContent = "El cultivo no puede ser más reciente que el actual.";
+          } else if (backendMsg.includes("La fecha fin no puede ser anterior")) {
+            msg.textContent = "La fecha fin no puede ser anterior a la de inicio.";
+          } else if (backendMsg) {
+            msg.textContent = backendMsg;
+          } else {
+            msg.textContent = "No se pudo guardar el cultivo.";
+          }
+
+          msg.className = "text-danger";
       }
     });
   }
@@ -2311,45 +2403,6 @@ variedadInput.addEventListener("keydown", (e) => {
     fillColor: "#00a86b",
     fillOpacity: 0.22,
   };
-
-  function setNavbarHeightVar() {
-    // buscamos una navbar "real" (sticky/fixed)
-    const candidates = [
-      'nav.navbar.fixed-top',
-      'nav.navbar.sticky-top',
-      '.navbar.fixed-top',
-      '.navbar.sticky-top',
-      'header.fixed-top',
-      'header.sticky-top',
-      'nav'
-    ];
-
-    let el = null;
-    for (const sel of candidates) {
-      const found = document.querySelector(sel);
-      if (!found) continue;
-
-      const cs = window.getComputedStyle(found);
-      const pos = cs.position;
-      // solo nos vale si realmente está fija o sticky
-      if (pos === 'fixed' || pos === 'sticky') {
-        el = found;
-        break;
-      }
-    }
-
-    let h = 65; // fallback
-    if (el) {
-      // bottom es mejor que height porque incluye padding/border y evita cosas raras
-      const rect = el.getBoundingClientRect();
-      h = Math.round(rect.bottom);
-    }
-
-    // clamp: si sale algo absurdo, volvemos al fallback
-    if (h < 40 || h > 120) h = 65;
-
-    document.documentElement.style.setProperty('--navbar-h', `${h}px`);
-  }
 
   async function abrirRecintoEnPanel(data) {
     if (!data || !data.id) return;

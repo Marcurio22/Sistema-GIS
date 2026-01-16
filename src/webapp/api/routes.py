@@ -447,7 +447,7 @@ def api_patch_cultivo_by_id(id_cultivo: int):
         return jsonify({"ok": False, "error": "Datos inválidos"}), 400
     except Exception:
         return jsonify({"ok": False, "error": "Error interno"}), 500
-
+    
 @api_bp.delete("/cultivos/<int:id_cultivo>")
 @login_required
 def api_delete_cultivo_by_id(id_cultivo: int):
@@ -456,14 +456,11 @@ def api_delete_cultivo_by_id(id_cultivo: int):
         if not ok:
             return jsonify({"ok": False, "error": "Cultivo no encontrado"}), 404
         return jsonify({"ok": True})
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
     except Exception:
         return jsonify({"ok": False, "error": "Error interno"}), 500
     
-
-
-
-
-
 @api_bp.route('/variedades/buscar', methods=['GET'])
 @login_required
 def buscar_variedades():

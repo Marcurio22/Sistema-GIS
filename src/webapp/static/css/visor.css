@@ -46,15 +46,21 @@
   }
 
 
-  #map {
+  #map{
     position: fixed;
     top: 65px;
     left: 0;
     right: 0;
     bottom: 0;
     z-index: 1;
+    transition: right .25s ease-out, top .25s ease-out;
   }
-  
+
+  body.split-mode #map{
+    top: var(--navbar-h);
+    right: var(--side-panel-w);
+  }
+
 
   /* ---------- Contenedores de botones ---------- */
   #basemap-panel-container,
@@ -542,17 +548,17 @@
   }
 
   /* En split, el mapa deja hueco a la derecha y además respeta la navbar real */
-  body.split-mode #map{
+  /* body.split-mode #map{
     top: var(--navbar-h);
     right: var(--side-panel-w);
     transition: right .25s ease-out, top .25s ease-out;
-  }
+  } */
 
   /* En normal, mantén tu top original (65px) */
-  #map{
+  /* #map{
     top: 65px;
     transition: right .25s ease-out, top .25s ease-out;
-  }
+  } */
 
   /* Flotantes: siguen “pegados al mapa” a la derecha */
   body.split-mode #basemap-panel-container,
@@ -579,18 +585,23 @@
   /* Panel derecho */
   #side-panel{
     position: fixed;
-    top: 65px;           /* igual que el mapa */
+    top: var(--navbar-h, 65px);
     right: 0;
     bottom: 0;
     width: var(--side-panel-w);
     background: #fff;
-    z-index: 950;        /* por encima del mapa */
+    z-index: 950;
     display: none;
-    overflow: auto;
+    overflow: hidden;
   }
 
   body.split-mode #side-panel{
     display: block;
+  }
+
+  #side-panel .side-content{
+    height: 100%;
+    overflow-y: auto;
   }
 
  
@@ -823,20 +834,63 @@
 
   /* Overlay histórico */
   #cultivos-historico-panel{
-    background: white;
     position: absolute;
     inset: 0;
+    background: #fff;
     overflow-y: auto;
     padding: 16px;
-    z-index: 5000;
+    z-index: 1000;
   }
 
+  /* Cuando el overlay está abierto, oculta TODO menos el propio panel */
   #side-panel.cultivos-historico-open .side-content > *:not(#cultivos-historico-panel){
-    display: none;
+    display: none !important;
   }
-  
+
+  /* Asegura que el overlay sí se vea */
+  #side-panel.cultivos-historico-open #cultivos-historico-panel{
+    display: block !important;
+  }
+
+  /* Oculta la X del sidebar normal mientras está el overlay */
   #side-panel.cultivos-historico-open #side-close{
-    display: none;
+    display: none !important;
+  }
+
+  #side-panel.cultivos-historico-open{
+    overflow: hidden;
+  }
+
+  #cultivos-historico-panel .overlay-topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 10px;
+    padding: 6px 0 12px;
+  }
+
+  #cultivos-historico-panel .overlay-title{
+    flex: 1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 2rem;
+  }
+
+  #cultivos-historico-panel .overlay-close{
+    width: 44px;
+    height: 40px;
+    border-radius: 8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 0;
+  }
+
+  #cultivos-historico-panel .overlay-close i{
+    font-size: 1.4rem;
   }
 
   .historico-card{

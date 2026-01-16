@@ -223,6 +223,7 @@ def get_cultivo_recinto(recinto_id: int) -> dict | None:
         c.cosecha_estimada_auto, c.observaciones
         FROM public.cultivos c
         WHERE c.id_recinto = :rid
+        AND c.id_padre IS NOT NULL
         AND COALESCE(c.estado,'') <> 'eliminado'
         ORDER BY COALESCE(c.fecha_siembra, c.fecha_implantacion) DESC, c.id_cultivo DESC
         LIMIT 1
@@ -316,7 +317,7 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     data = normalize_cultivo_payload(data)
 
     # ============================================
-    # NUEVA LÓGICA: Crear variedad si es nueva
+    # Crear variedad si es nueva
     # ============================================
     variedad_nombre = data.get("variedad", "").strip() if data.get("variedad") else None
     cod_producto = data.get("cod_producto")
@@ -406,8 +407,15 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     """)
 
     new_id = db.session.execute(sql, params).scalar_one()
-    db.session.commit()  # Esto hace commit tanto del cultivo como de la variedad
-    
+    # Si no venía con id_padre, lo marcamos como "cadena actual"
+    if params.get("id_padre") in (None, "", 0):
+        db.session.execute(text("""
+            UPDATE public.cultivos
+            SET id_padre = id_cultivo
+            WHERE id_cultivo = :cid
+        """), {"cid": new_id})
+
+    db.session.commit()
     return get_cultivo_recinto(recinto_id)
 
 def create_cultivo_historico_recinto(recinto_id: int, data: dict) -> dict:
@@ -596,7 +604,18 @@ def delete_cultivo_recinto(recinto_id: int) -> bool:
         WHERE id_recinto = :rid
           AND id_cultivo = :cid
     """)
+
     res = db.session.execute(sql, {"rid": recinto_id, "cid": cultivo["id_cultivo"]})
+    db.session.commit()
+
+    # Tras borrar el actual, convertir cualquier resto de "cadena actual" a histórico
+    db.session.execute(text("""
+        UPDATE public.cultivos
+        SET id_padre = NULL
+        WHERE id_recinto = :rid
+        AND id_padre IS NOT NULL
+    """), {"rid": recinto_id})
+    
     db.session.commit()
     return res.rowcount > 0
 
@@ -620,6 +639,27 @@ def get_cultivo_by_id(id_cultivo: int, user_id: int) -> dict | None:
     """)
     row = db.session.execute(sql, {"cid": id_cultivo, "uid": user_id}).mappings().first()
     return _row_to_jsonable(row)
+
+def delete_cultivo_by_id(id_cultivo: int, user_id: int) -> bool:
+    row = get_cultivo_by_id(id_cultivo, user_id)
+    if not row:
+        return False
+
+    # --- BLOQUEO: no permitir borrar el cultivo actual desde /cultivos/<id> ---
+    cur = get_cultivo_recinto(row["id_recinto"])
+    if cur and int(cur["id_cultivo"]) == int(id_cultivo):
+        raise ValueError("No puedes borrar el cultivo actual desde el histórico. Hazlo desde la página principal del cultivo.")
+
+    sql = text("""
+        DELETE FROM public.cultivos c
+        USING public.recintos r
+        WHERE c.id_cultivo = :cid
+          AND r.id_recinto = c.id_recinto
+          AND r.id_propietario = :uid
+    """)
+    res = db.session.execute(sql, {"cid": id_cultivo, "uid": user_id})
+    db.session.commit()
+    return res.rowcount > 0
 
 def patch_cultivo_by_id(id_cultivo: int, user_id: int, data: dict) -> dict:
     prev = get_cultivo_by_id(id_cultivo, user_id)
