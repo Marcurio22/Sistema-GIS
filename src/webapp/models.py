@@ -175,3 +175,20 @@ class Galeria(db.Model):
     descripcion = db.Column(db.Text, nullable=True)
     url = db.Column(db.String(500), nullable=False)
     fecha_subida = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class ProductoFega(db.Model):
+    __tablename__ = "productos_fega"
+    
+    codigo = db.Column(db.Integer, primary_key=True)
+    descripcion = db.Column(db.String(200), nullable=False)
+    
+    variedades = db.relationship("Variedad", back_populates="producto_fega")
+
+class Variedad(db.Model):
+    __tablename__ = "variedades"
+    id_variedad = db.Column(db.Integer, primary_key=True, index=True)
+    nombre = db.Column(db.String(200), unique=True, nullable=False)
+    producto_fega_id = db.Column(db.Integer, db.ForeignKey("productos_fega.codigo", ondelete="CASCADE"), nullable=True) 
+
+    producto_fega = db.relationship("ProductoFega", back_populates="variedades")

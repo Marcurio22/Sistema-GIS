@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Variedades - Admin{% endblock %}
+
+{% block content %}
+    <h1>Gestión de Variedades</h1>
+    <table id="tablaVariedades" class="table table-hover table-bordered align-middle">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Cultivo</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- DataTables cargará los datos vía AJAX -->
+        </tbody>
+    </table>
+{% block extra_js %}
+<script>
+    $(document).ready(function () {
+        $('#tablaVariedades').DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: {
+                url: '{{ url_for("admin.obtener_variedades_ajax") }}',
+                type: 'POST',
+                error: function(xhr, error, code) {
+                    console.log('Error AJAX:', xhr.responseText);
+                    alert('Error al cargar los datos: ' + code);
+                }
+            },
+            columns: [
+                { data: 'id_variedad' },
+                { data: 'nombre' },
+                { 
+                    data: 'cultivo',
+                    render: function(data, type, row) {
+                        if (type === 'display' || type === 'filter') {
+                            return row.producto_fega_id + ' - ' + row.producto_fega_descripcion;
+                        }
+                        // Para ordenamiento, usar solo el número
+                        return row.producto_fega_id;
+                    }
+                }
+            ],
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+            },
+            pageLength: 25,
+            order: [[2, 'asc']], 
+            responsive: true
+        });
+    });
+</script>
+{% endblock %}
+{% endblock %}

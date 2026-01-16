@@ -249,17 +249,17 @@
                                 data-order="{{ solicitud.fecha_solicitud.strftime('%Y-%m-%d %H:%M:%S') if solicitud.fecha_solicitud else '' }}">
                                 {{ solicitud.fecha_solicitud.strftime('%d/%m/%Y %H:%M') }}
                             </td>
-<td>
-  {% if solicitud.tipo_solicitud == 'aceptacion' %}
-  <span class="badge border border-success text-success">
-    <i class="bi bi-check-lg"></i> Aceptación
-  </span>
-  {% elif solicitud.tipo_solicitud == 'eliminacion' %}
-  <span class="badge border border-danger text-danger">
-    <i class="bi bi-x-lg"></i> Eliminación
-  </span>
-  {% endif %}
-</td>
+                                <td>
+                                {% if solicitud.tipo_solicitud == 'aceptacion' %}
+                                <span class="badge border border-success text-success">
+                                    <i class="bi bi-check-lg"></i> Aceptación
+                                </span>
+                                {% elif solicitud.tipo_solicitud == 'eliminacion' %}
+                                <span class="badge border border-danger text-danger">
+                                    <i class="bi bi-x-lg"></i> Eliminación
+                                </span>
+                                {% endif %}
+                                </td>
 
 
                             <td>

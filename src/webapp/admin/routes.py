@@ -3,12 +3,15 @@ from flask_login import login_required, current_user
 from functools import wraps
 from . import admin_bp
 from .. import db
-from ..models import User, Recinto, Solicitudrecinto, LogsSistema
+from ..models import ProductoFega, User, Recinto, Solicitudrecinto, LogsSistema, Variedad
 from datetime import datetime, timezone
 import logging
 from ..utils.utils import normalizar_telefono_es
 from ..utils.logging_handler import SQLAlchemyHandler
 from ..utils.email_service import enviar_notificacion_aceptacion, enviar_notificacion_rechazo, enviar_notificacion_eliminacion_aceptada
+from flask import request, jsonify, render_template
+from sqlalchemy import or_, cast, String
+
 logger = logging.getLogger('app.admin')
 logger.setLevel(logging.INFO)
 
@@ -491,3 +494,100 @@ def obtener_solicitudes_ajax():
     except Exception as e:
         print(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    
+
+@admin_bp.route('/gestion_variedades')
+@login_required
+@admin_required
+def gestion_variedades():
+
+    return render_template('admin/gestion_variedades.html' )
+
+
+
+@admin_bp.route('/variedades/ajax', methods=['POST'])
+@login_required
+@admin_required
+def obtener_variedades_ajax():
+    try:
+        # Parámetros de DataTables
+        draw = request.form.get('draw', type=int)
+        start = request.form.get('start', type=int, default=0)
+        length = request.form.get('length', type=int, default=25)
+        search_value = request.form.get('search[value]', '')
+        
+        # Ordenamiento
+        order_column_index = request.form.get('order[0][column]', type=int, default=2)
+        order_dir = request.form.get('order[0][dir]', default='asc')
+        
+        # Mapeo de columnas
+        columns = ['id_variedad', 'nombre', 'producto_fega_id']
+        order_column = columns[order_column_index] if order_column_index < len(columns) else 'producto_fega_id'
+        
+        # Query base con join
+        query = db.session.query(Variedad).outerjoin(
+            ProductoFega, 
+            Variedad.producto_fega_id == ProductoFega.codigo
+        )
+        
+        # Filtro de búsqueda
+        if search_value:
+            query = query.filter(
+                or_(
+                    Variedad.nombre.ilike(f'%{search_value}%'),
+                    ProductoFega.descripcion.ilike(f'%{search_value}%'),
+                    cast(Variedad.id_variedad, String).ilike(f'%{search_value}%')
+                )
+            )
+        
+        # Total de registros filtrados
+        records_filtered = query.count()
+        
+        # Ordenamiento
+        if order_column == 'producto_fega_id':
+            # Ordenamiento numérico correcto para cultivo
+            if order_dir == 'asc':
+                query = query.order_by(Variedad.producto_fega_id.asc().nullslast())
+            else:
+                query = query.order_by(Variedad.producto_fega_id.desc().nullslast())
+        elif order_column == 'nombre':
+            if order_dir == 'asc':
+                query = query.order_by(Variedad.nombre.asc())
+            else:
+                query = query.order_by(Variedad.nombre.desc())
+        else:
+            if order_dir == 'asc':
+                query = query.order_by(Variedad.id_variedad.asc())
+            else:
+                query = query.order_by(Variedad.id_variedad.desc())
+        
+        # Paginación
+        variedades = query.offset(start).limit(length).all()
+        
+        # Total de registros sin filtrar
+        records_total = Variedad.query.count()
+        
+        # Formatear datos
+        data = []
+        for variedad in variedades:
+            data.append({
+                'id_variedad': variedad.id_variedad,
+                'nombre': variedad.nombre,
+                'producto_fega_id': variedad.producto_fega_id if variedad.producto_fega_id else 0,
+                'producto_fega_descripcion': variedad.producto_fega.descripcion if variedad.producto_fega else 'Sin cultivo',
+                'cultivo': f"{variedad.producto_fega_id} - {variedad.producto_fega.descripcion}" if variedad.producto_fega else 'Sin cultivo'
+            })
+        
+        return jsonify({
+            'draw': draw,
+            'recordsTotal': records_total,
+            'recordsFiltered': records_filtered,
+            'data': data
+        })
+    
+    except Exception as e:
+        # Log del error para debugging
+        print(f"Error en AJAX: {str(e)}")
+        return jsonify({
+            'error': str(e)
+        }), 500
