@@ -214,30 +214,19 @@ def get_cultivo_recinto(recinto_id: int) -> dict | None:
     # Devuelve el cultivo del recinto si existe.
     sql = text("""
         SELECT
-          c.id_cultivo,
-          c.id_recinto,
-          c.tipo_cultivo,
-          c.variedad,
-          c.fecha_siembra,
-          c.fecha_implantacion,
-          c.fecha_cosecha_estimada,
-          c.fecha_cosecha_real,
-          c.estado,
-          c.uso_sigpac,
-          c.sistema_explotacion,
-          c.tipo_registro,
-          c.campana,
-          c.id_padre,
-          c.cod_producto,
-          c.cultivo_custom,
-          c.origen_cultivo,
-          c.cosecha_estimada_auto,
-          c.observaciones
+        c.id_cultivo, c.id_recinto, c.tipo_cultivo, c.variedad,
+        c.fecha_siembra, c.fecha_implantacion,
+        c.fecha_cosecha_estimada, c.fecha_cosecha_real,
+        c.estado, c.uso_sigpac, c.sistema_explotacion, c.tipo_registro, c.campana,
+        c.id_padre, c.cod_producto, c.cultivo_custom, c.origen_cultivo,
+        c.cosecha_estimada_auto, c.observaciones
         FROM public.cultivos c
         WHERE c.id_recinto = :rid
-        ORDER BY c.id_cultivo DESC
+        AND COALESCE(c.estado,'') <> 'eliminado'
+        ORDER BY COALESCE(c.fecha_siembra, c.fecha_implantacion) DESC, c.id_cultivo DESC
         LIMIT 1
     """)
+
     row = db.session.execute(sql, {"rid": recinto_id}).mappings().first()
     if not row:
         return None
@@ -393,6 +382,62 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     db.session.commit()
     return get_cultivo_recinto(recinto_id)
 
+def create_cultivo_historico_recinto(recinto_id: int, data: dict) -> dict:
+    # Normaliza fechas/campaña
+    data = normalize_cultivo_payload(data)
+
+    # Fecha inicio nueva
+    new_inicio = data.get("fecha_siembra") or data.get("fecha_implantacion")
+    if not new_inicio:
+        raise ValueError("Selecciona fecha de inicio")
+
+    # Fecha inicio actual (si existe)
+    cur = get_cultivo_recinto(recinto_id)
+    if cur:
+        cur_inicio = cur.get("fecha_siembra") or cur.get("fecha_implantacion")
+        # si intentan meter algo igual o más reciente => impedir para no cambiar el actual
+        if cur_inicio and str(new_inicio) >= str(cur_inicio):
+            raise ValueError("Para añadir al histórico, la fecha de inicio debe ser anterior al cultivo actual.")
+
+    params = {
+        "id_recinto": recinto_id,
+        "uso_sigpac": data.get("uso_sigpac"),
+        "sistema_explotacion": data.get("sistema_explotacion"),
+        "tipo_registro": data.get("tipo_registro"),
+        "campana": data.get("campana"),
+        "id_padre": None,  # histórico “suelto”
+        "cod_producto": data.get("cod_producto"),
+        "cultivo_custom": data.get("cultivo_custom"),
+        "origen_cultivo": data.get("origen_cultivo"),
+        "variedad": data.get("variedad"),
+        "estado": data.get("estado", "planificado"),
+        "fecha_siembra": data.get("fecha_siembra"),
+        "fecha_implantacion": data.get("fecha_implantacion"),
+        "fecha_cosecha_estimada": data.get("fecha_cosecha_estimada"),
+        "fecha_cosecha_real": data.get("fecha_cosecha_real"),
+        "cosecha_estimada_auto": data.get("cosecha_estimada_auto", False),
+        "observaciones": data.get("observaciones"),
+    }
+
+    sql = text("""
+        INSERT INTO public.cultivos (
+          id_recinto, uso_sigpac, sistema_explotacion, tipo_registro, campana,
+          id_padre, cod_producto, cultivo_custom, origen_cultivo, variedad, estado,
+          fecha_siembra, fecha_implantacion, fecha_cosecha_estimada, fecha_cosecha_real,
+          cosecha_estimada_auto, observaciones
+        )
+        VALUES (
+          :id_recinto, :uso_sigpac, :sistema_explotacion, :tipo_registro, :campana,
+          :id_padre, :cod_producto, :cultivo_custom, :origen_cultivo, :variedad, :estado,
+          :fecha_siembra, :fecha_implantacion, :fecha_cosecha_estimada, :fecha_cosecha_real,
+          :cosecha_estimada_auto, :observaciones
+        )
+        RETURNING id_cultivo
+    """)
+    db.session.execute(sql, params).scalar_one()
+    db.session.commit()
+    return {"ok": True}
+
 
 def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     """
@@ -497,4 +542,87 @@ def delete_cultivo_recinto(recinto_id: int) -> bool:
     res = db.session.execute(sql, {"rid": recinto_id, "cid": cultivo["id_cultivo"]})
     db.session.commit()
     return res.rowcount > 0
+
+def _row_to_jsonable(row) -> dict:
+    d = dict(row) if row else None
+    if not d:
+        return None
+    for k, v in d.items():
+        if hasattr(v, "isoformat"):
+            d[k] = v.isoformat()
+    return d
+
+def get_cultivo_by_id(id_cultivo: int, user_id: int) -> dict | None:
+    sql = text("""
+        SELECT c.*
+        FROM public.cultivos c
+        JOIN public.recintos r ON r.id_recinto = c.id_recinto
+        WHERE c.id_cultivo = :cid
+          AND r.id_propietario = :uid
+        LIMIT 1
+    """)
+    row = db.session.execute(sql, {"cid": id_cultivo, "uid": user_id}).mappings().first()
+    return _row_to_jsonable(row)
+
+def patch_cultivo_by_id(id_cultivo: int, user_id: int, data: dict) -> dict:
+    prev = get_cultivo_by_id(id_cultivo, user_id)
+    if not prev:
+        raise ValueError("no_existe")
+
+    allowed = {
+        "uso_sigpac",
+        "sistema_explotacion",
+        "tipo_registro",
+        "campana",
+        "cod_producto",
+        "cultivo_custom",
+        "origen_cultivo",
+        "variedad",
+        "estado",
+        "fecha_siembra",
+        "fecha_implantacion",
+        "fecha_cosecha_estimada",
+        "fecha_cosecha_real",
+        "cosecha_estimada_auto",
+        "observaciones",
+        "tipo_cultivo",
+    }
+
+    merged = {k: prev.get(k) for k in allowed}
+    for k, v in (data or {}).items():
+        if k in allowed:
+            merged[k] = v
+
+    # normaliza fechas/campaña si hace falta (usa tu función existente)
+    merged = normalize_cultivo_payload(merged, existing=prev)
+
+    params = {"cid": id_cultivo}
+    sets = []
+    for k in allowed:
+        if k in merged:
+            sets.append(f"{k} = :{k}")
+            params[k] = merged.get(k)
+
+    sql = text(f"""
+        UPDATE public.cultivos
+        SET {", ".join(sets)}
+        WHERE id_cultivo = :cid
+    """)
+    db.session.execute(sql, params)
+    db.session.commit()
+
+    return get_cultivo_by_id(id_cultivo, user_id)
+
+def delete_cultivo_by_id(id_cultivo: int, user_id: int) -> bool:
+    sql = text("""
+        DELETE FROM public.cultivos c
+        USING public.recintos r
+        WHERE c.id_cultivo = :cid
+          AND r.id_recinto = c.id_recinto
+          AND r.id_propietario = :uid
+    """)
+    res = db.session.execute(sql, {"cid": id_cultivo, "uid": user_id})
+    db.session.commit()
+    return res.rowcount > 0
+
 

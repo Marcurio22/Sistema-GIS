@@ -1034,94 +1034,184 @@ if (btnDelete) {
     openHistoricoPanel();
 
     const listEl = document.getElementById("cultivos-historico-list");
-    listEl.innerHTML = `<div class="text-muted">Cargando histórico...</div>`;
 
-    try{
-      const [usos, productos, hist] = await Promise.all([
-        loadUsosSigpac(),
-        loadProductosFega(),
-        fetchJson(`/api/mis-recinto/${currentSideRecintoId}/cultivos-historico`)
-      ]);
+    // Repinta histórico entero
+    const reloadHistorico = async () => {
+      if (!currentSideRecintoId) return;
 
-      const usosMap = byCodigo(usos);
-      const prodMap = byCodigo(productos);
+      listEl.innerHTML = `<div class="text-muted">Cargando histórico...</div>`;
 
-      if (!hist || !hist.length){
-        listEl.innerHTML = `<div class="text-muted">No hay histórico todavía.</div>`;
-        return;
-      }
+      try {
+        const [usos, productos, hist] = await Promise.all([
+          loadUsosSigpac(),
+          loadProductosFega(),
+          fetchJson(`/api/mis-recinto/${currentSideRecintoId}/cultivos-historico`)
+        ]);
 
-      listEl.innerHTML = hist.map(c => {
-        const isCamp = String(c.tipo_registro || "").toUpperCase().includes("CAMP");
-        const inicio = isCamp ? c.fecha_siembra : c.fecha_implantacion;
-        const fin = c.fecha_cosecha_real || c.fecha_cosecha_estimada;
+        const usosMap = byCodigo(usos);
+        const prodMap = byCodigo(productos);
 
-        const u = usosMap.get(String(c.uso_sigpac));
-        const usoLbl = formatCodigoDesc(c.uso_sigpac, u?.descripcion || c.uso_sigpac);
+        const arr = Array.isArray(hist) ? hist : [];
+        const count = arr.length;
 
-        let tipoLbl = "N/A";
-        const origen = String(c.origen_cultivo || "").toUpperCase();
+        listEl.innerHTML = `
+          <div class="historico-summary">
+            <div class="left">
+              <i class="bi bi-journal-check text-success"></i>
+              <span>Registro completo</span>
+              <span class="badge bg-success">${count}</span>
+            </div>
+            <button id="btn-add-historico" class="btn btn-success btn-sm">
+              + Añadir al Histórico
+            </button>
+          </div>
 
-        if (origen === "F" && c.cod_producto != null){
-          const p = prodMap.get(String(c.cod_producto));
-          tipoLbl = formatCodigoDesc(c.cod_producto, p?.descripcion || c.tipo_cultivo);
+          <div class="side-divider"></div>
+
+          <div id="historico-cards"></div>
+        `;
+
+        const cardsEl = listEl.querySelector("#historico-cards");
+
+        if (!arr.length) {
+          cardsEl.innerHTML = `<div class="text-muted">No hay histórico todavía.</div>`;
         } else {
-          tipoLbl = formatCodigoDesc(null, c.cultivo_custom || c.tipo_cultivo);
+          cardsEl.innerHTML = arr.map(c => {
+            const isCamp = String(c.tipo_registro || "").toUpperCase().includes("CAMP");
+            const inicio = isCamp ? c.fecha_siembra : c.fecha_implantacion;
+            const fin = c.fecha_cosecha_real || c.fecha_cosecha_estimada;
+
+            const u = usosMap.get(String(c.uso_sigpac));
+            const usoLbl = formatCodigoDesc(c.uso_sigpac, u?.descripcion || c.uso_sigpac);
+
+            let tipoLbl = "N/A";
+            const origen = String(c.origen_cultivo || "").toUpperCase();
+
+            if (origen === "F" && c.cod_producto != null) {
+              const p = prodMap.get(String(c.cod_producto));
+              tipoLbl = formatCodigoDesc(c.cod_producto, p?.descripcion || c.tipo_cultivo);
+            } else {
+              tipoLbl = formatCodigoDesc(null, c.cultivo_custom || c.tipo_cultivo);
+            }
+
+            return `
+              <div class="historico-card">
+                <div class="historico-fechas">
+                  ${safeText(formatDateOnly(inicio))} → ${safeText(formatDateOnly(fin))}
+                </div>
+
+                <div class="cultivo-grid">
+                  <div class="cultivo-field">
+                    <div class="k">Uso SIGPAC</div>
+                    <div class="v">${safeText(usoLbl)}</div>
+                  </div>
+                  <div class="cultivo-field">
+                    <div class="k">Tipo cultivo</div>
+                    <div class="v">${safeText(tipoLbl)}</div>
+                  </div>
+
+                  <div class="cultivo-field">
+                    <div class="k">Variedad</div>
+                    <div class="v">${safeText(c.variedad, "N/A")}</div>
+                  </div>
+                  <div class="cultivo-field">
+                    <div class="k">Explotación</div>
+                    <div class="v">${safeText(sistemaLabel(c.sistema_explotacion))}</div>
+                  </div>
+
+                  <div class="cultivo-field">
+                    <div class="k">${isCamp ? "Campaña" : "Tipo registro"}</div>
+                    <div class="v">${isCamp ? safeText(c.campana, "N/A") : safeText(tipoRegistroLabel(c.tipo_registro))}</div>
+                  </div>
+                  <div class="cultivo-field">
+                    <div class="k">Estado</div>
+                    <div class="v">${estadoLabel(c.estado)}</div>
+                  </div>
+
+                  <div class="cultivo-field">
+                    <div class="k">Fecha inicio</div>
+                    <div class="v">${safeText(formatDateOnly(inicio))}</div>
+                  </div>
+                  <div class="cultivo-field">
+                    <div class="k">Fecha fin</div>
+                    <div class="v">${safeText(formatDateOnly(fin))}</div>
+                  </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-2">
+                  <button class="btn btn-success btn-sm btn-edit-hist" data-id="${c.id_cultivo}">
+                    <i class="bi bi-pencil-fill me-1"></i> Editar Registro
+                  </button>
+                  <button class="btn btn-danger btn-sm btn-del-hist" data-id="${c.id_cultivo}">
+                    <i class="bi bi-trash-fill me-1"></i> Eliminar Registro
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join("");
+
+          // Eliminar registro
+          cardsEl.querySelectorAll(".btn-del-hist").forEach(btn => {
+            btn.addEventListener("click", async (ev) => {
+              const id = ev.currentTarget.dataset.id;
+
+              const ok = await AppConfirm.open({
+                title: "Eliminar cultivo",
+                message: "¿Seguro que deseas eliminar el cultivo? Este proceso no es reversible.",
+                okText: "Eliminar",
+                cancelText: "Cancelar",
+                okClass: "btn-danger"
+              });
+              if (!ok) return;
+
+              await fetchJson(`/api/cultivos/${id}`, { method: "DELETE" });
+              await reloadHistorico();
+            });
+          });
+
+          // Editar registro
+          cardsEl.querySelectorAll(".btn-edit-hist").forEach(btn => {
+            btn.addEventListener("click", (ev) => {
+              const id = ev.currentTarget.dataset.id;
+              const item = arr.find(x => String(x.id_cultivo) === String(id));
+              if (!item) return;
+
+              renderCultivoForm(listEl, {
+                recintoId: currentSideRecintoId,
+                cultivo: item,
+                usos,
+                productos,
+                mode: "historico_edit",
+                cultivoId: Number(id),
+                onDone: reloadHistorico,
+                onCancel: reloadHistorico
+              });
+            });
+          });
         }
 
-        return `
-          <div class="historico-card">
-            <div class="historico-fechas">
-              ${safeText(formatDateOnly(inicio))} → ${safeText(formatDateOnly(fin))}
-            </div>
+        // Añadir al histórico
+        listEl.querySelector("#btn-add-historico")?.addEventListener("click", () => {
+          renderCultivoForm(listEl, {
+            recintoId: currentSideRecintoId,
+            cultivo: null,
+            usos,
+            productos,
+            mode: "historico_add",
+            onDone: reloadHistorico,
+            onCancel: reloadHistorico
+          });
+        });
 
-            <div class="cultivo-grid">
-              <div class="cultivo-field">
-                <div class="k">Uso SIGPAC</div>
-                <div class="v">${safeText(usoLbl)}</div>
-              </div>
-              <div class="cultivo-field">
-                <div class="k">Tipo cultivo</div>
-                <div class="v">${safeText(tipoLbl)}</div>
-              </div>
+      } catch (err) {
+        console.warn(err);
+        listEl.innerHTML = `<div class="text-danger">No se pudo cargar el histórico.</div>`;
+      }
+    };
 
-              <div class="cultivo-field">
-                <div class="k">Variedad</div>
-                <div class="v">${safeText(c.variedad, "N/A")}</div>
-              </div>
-              <div class="cultivo-field">
-                <div class="k">Explotación</div>
-                <div class="v">${safeText(sistemaLabel(c.sistema_explotacion))}</div>
-              </div>
-
-              <div class="cultivo-field">
-                <div class="k">${isCamp ? "Campaña" : "Tipo registro"}</div>
-                <div class="v">${isCamp ? safeText(c.campana, "N/A") : safeText(tipoRegistroLabel(c.tipo_registro))}</div>
-              </div>
-              <div class="cultivo-field">
-                <div class="k">Estado</div>
-                <div class="v">${estadoLabel(c.estado)}</div>
-              </div>
-
-              <div class="cultivo-field">
-                <div class="k">Fecha inicio</div>
-                <div class="v">${safeText(formatDateOnly(inicio))}</div>
-              </div>
-              <div class="cultivo-field">
-                <div class="k">Fecha fin</div>
-                <div class="v">${safeText(formatDateOnly(fin))}</div>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join("");
-
-    }catch(err){
-      console.warn(err);
-      listEl.innerHTML = `<div class="text-danger">No se pudo cargar el histórico.</div>`;
-    }
+    // Primer pintado al abrir
+    await reloadHistorico();
   });
-
 
   function formatDateOnly(v) {
     if (!v) return "N/A";
@@ -1195,7 +1285,7 @@ if (btnDelete) {
         </div>
         <div class="cultivo-field">
           <div class="k">Estado</div>
-          <div class="v">${safeText(cultivo.estado, "N/A")}</div>
+          <div class="v">${estadoLabel(cultivo.estado)}</div>
         </div>
 
         <div class="cultivo-field">
@@ -1436,7 +1526,7 @@ if (btnDelete) {
     };
   }
 
-  function renderCultivoForm(container, { recintoId, cultivo, usos, productos }) {
+  function renderCultivoForm(container, { recintoId, cultivo, usos, productos, mode="actual", cultivoId=null, onDone=null, onCancel=null }) {
     const usosMap = byCodigo(usos);
     const productosAll = productos || [];
 
@@ -1740,6 +1830,9 @@ if (btnDelete) {
     }
 
     container.querySelector("#btn-cancel-cultivo").addEventListener("click", () => {
+      if (mode === "historico_add" || mode === "historico_edit") {
+        if (typeof onDone === "function") return onDone();  // vuelve al overlay histórico
+      }
       if (cultivo) {
         renderCultivoView(container, recintoId, cultivo, usos, productos);
       } else {
@@ -1759,7 +1852,7 @@ if (btnDelete) {
       }
 
       const cod = container.querySelector("#cod_producto_val").value;
-      const custom = container.querySelector("#cultivo_custom").value.trim();
+      const custom = (container.querySelector("#cultivo_custom")?.value || "").trim();
 
       let origen = "F";
       let cod_producto = null;
@@ -1779,17 +1872,18 @@ if (btnDelete) {
         return;
       }
 
-      const variedad = container.querySelector("#variedad").value.trim() || null;
-      const estado = container.querySelector("#estado").value || "en_curso";
+      const variedad = (container.querySelector("#variedad")?.value || "").trim() || null;
+      const estado = container.querySelector("#estado")?.value || "en_curso";
       const sistema = container.querySelector("input[name='sistema_explotacion']:checked")?.value || "S";
 
-      const tipo_registro = container.querySelector("#tipo_registro").value;
+      const tipo_registro = container.querySelector("#tipo_registro")?.value || "CAMPANA";
       const campana = (tipo_registro === "CAMPANA")
-        ? (Number(container.querySelector("#campana").value) || null)
+        ? (Number(container.querySelector("#campana")?.value) || null)
         : null;
 
-      const fechaInicioRaw = container.querySelector("#fecha_inicio").value || null;
-      const fechaFinRaw = container.querySelector("#fecha_fin").value || null;
+      const fechaInicioRaw = container.querySelector("#fecha_inicio")?.value || null;
+      const fechaFinRaw = container.querySelector("#fecha_fin")?.value || null;
+
       const fechaInicio = parseDateToISO(fechaInicioRaw);
       const fechaFin = parseDateToISO(fechaFinRaw);
 
@@ -1802,15 +1896,16 @@ if (btnDelete) {
       // Si no hay fecha fin: estimación simple
       let fechaCosechaEst = fechaFin;
       let cosechaAuto = false;
+
       if (!fechaFin) {
         cosechaAuto = true;
         const d = new Date(fechaInicio);
         const deltaDays = (tipo_registro === "CAMPANA") ? 120 : 365;
         d.setDate(d.getDate() + deltaDays);
-        fechaCosechaEst = d.toISOString().slice(0,10);
+        fechaCosechaEst = d.toISOString().slice(0, 10);
       }
 
-      const observaciones = container.querySelector("#observaciones").value || null;
+      const observaciones = container.querySelector("#observaciones")?.value || null;
 
       const payload = {
         id_recinto: recintoId,
@@ -1835,23 +1930,50 @@ if (btnDelete) {
       }
       payload.fecha_cosecha_estimada = fechaCosechaEst;
 
-      try {
-        if (cultivo) {
-          await fetchJson(`/api/mis-recinto/${recintoId}/cultivo`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-        } else {
-          await fetchJson(`/api/mis-recinto/${recintoId}/cultivo`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-        }
+      // -------------------------
+      // ENDPOINT SEGÚN MODO
+      // -------------------------
+      let url, method;
 
-        NotificationSystem.show({type:"success", title:"Cultivo guardado", message:"El cultivo ha sido guardado correctamente"});
-        renderCultivosForRecinto(recintoId);
+      if (mode === "historico_add") {
+        url = `/api/mis-recinto/${recintoId}/cultivo-historico`;
+        method = "POST";
+      } else if (mode === "historico_edit") {
+        if (!cultivoId) {
+          msg.textContent = "Error: falta id_cultivo para editar el histórico.";
+          msg.className = "text-danger";
+          return;
+        }
+        url = `/api/cultivos/${cultivoId}`;
+        method = "PATCH";
+      } else {
+        // modo actual
+        url = `/api/mis-recinto/${recintoId}/cultivo`;
+        method = cultivo ? "PATCH" : "POST";
+      }
+
+      try {
+        await fetchJson(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        NotificationSystem.show({
+          type: "success",
+          title: "Cultivo guardado",
+          message: "El cultivo ha sido guardado correctamente",
+        });
+
+        // -------------------------
+        // POST-ACCIÓN SEGÚN MODO
+        // -------------------------
+        if (mode === "historico_add" || mode === "historico_edit") {
+          // volver al overlay y refrescar histórico
+          if (typeof onDone === "function") onDone();
+        } else {
+          renderCultivosForRecinto(recintoId);
+        }
       } catch (e) {
         console.warn(e);
         msg.textContent = "No se pudo guardar el cultivo.";

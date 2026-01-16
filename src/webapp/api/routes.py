@@ -28,6 +28,9 @@ from .services import (
     create_cultivo_recinto,
     patch_cultivo_recinto,
     delete_cultivo_recinto,
+    create_cultivo_historico_recinto,
+    patch_cultivo_by_id, 
+    delete_cultivo_by_id
 )
 
 
@@ -211,6 +214,51 @@ def editar_nombre_recinto(recinto_id):
 
     return jsonify({"ok": True, "nombre": nombre})
 
+@api_bp.route('/solicitud-eliminar-recinto/<int:id_recinto>/borrar', methods=['POST'])
+@login_required
+def solicitar_eliminar_recinto(id_recinto):
+    try:
+        # Verificar que el recinto existe
+        recinto = Recinto.query.get(id_recinto)
+        print("a", recinto)
+        if not recinto:
+            return jsonify({"error": "Recinto no encontrado"}), 404
+        
+        # Verificar que el usuario es el propietario del recinto
+        if recinto.id_propietario != current_user.id_usuario:
+            return jsonify({"error": "No tienes permiso para solicitar eliminar este recinto"}), 403
+        
+        # Verificar si ya existe una solicitud pendiente para este recinto
+        solicitud_existente = Solicitudrecinto.query.filter_by(
+            id_recinto=id_recinto,
+            tipo_solicitud="eliminacion",
+            estado="pendiente"
+        ).first()
+        
+        if solicitud_existente:
+            return jsonify({"error": "Ya existe una solicitud de eliminación pendiente para este recinto"}), 400
+        
+        # Crear la nueva solicitud
+        nueva_solicitud = Solicitudrecinto(
+            id_usuario=current_user.id_usuario,
+            id_recinto=id_recinto,
+            tipo_solicitud="eliminacion",
+            estado="pendiente"
+        )
+        
+        db.session.add(nueva_solicitud)
+        db.session.commit()
+        
+        return jsonify({
+            "mensaje": "Solicitud de eliminación creada exitosamente",
+            "id_solicitud": nueva_solicitud.id_solicitud
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error al crear solicitud: {str(e)}")
+        return jsonify({"error": "Error interno del servidor"}), 500
+
 # ---------------------------
 # Catálogos para el frontend
 # ---------------------------
@@ -364,48 +412,51 @@ def api_get_cultivos_historico(recinto_id: int):
 
     return jsonify(out)
 
-@api_bp.route('/solicitud-eliminar-recinto/<int:id_recinto>/borrar', methods=['POST'])
+@api_bp.post("/mis-recinto/<int:recinto_id>/cultivo-historico")
 @login_required
-def solicitar_eliminar_recinto(id_recinto):
+def api_create_cultivo_historico(recinto_id: int):
+    data = request.get_json(silent=True) or {}
+
+    recinto = Recinto.query.filter_by(
+        id_recinto=recinto_id,
+        id_propietario=current_user.id_usuario
+    ).first()
+    if not recinto:
+        return jsonify({"ok": False, "error": "Recinto no encontrado"}), 404
+
     try:
-        # Verificar que el recinto existe
-        recinto = Recinto.query.get(id_recinto)
-        print("a", recinto)
-        if not recinto:
-            return jsonify({"error": "Recinto no encontrado"}), 404
-        
-        # Verificar que el usuario es el propietario del recinto
-        if recinto.id_propietario != current_user.id_usuario:
-            return jsonify({"error": "No tienes permiso para solicitar eliminar este recinto"}), 403
-        
-        # Verificar si ya existe una solicitud pendiente para este recinto
-        solicitud_existente = Solicitudrecinto.query.filter_by(
-            id_recinto=id_recinto,
-            tipo_solicitud="eliminacion",
-            estado="pendiente"
-        ).first()
-        
-        if solicitud_existente:
-            return jsonify({"error": "Ya existe una solicitud de eliminación pendiente para este recinto"}), 400
-        
-        # Crear la nueva solicitud
-        nueva_solicitud = Solicitudrecinto(
-            id_usuario=current_user.id_usuario,
-            id_recinto=id_recinto,
-            tipo_solicitud="eliminacion",
-            estado="pendiente"
-        )
-        
-        db.session.add(nueva_solicitud)
-        db.session.commit()
-        
-        return jsonify({
-            "mensaje": "Solicitud de eliminación creada exitosamente",
-            "id_solicitud": nueva_solicitud.id_solicitud
-        }), 201
-        
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error al crear solicitud: {str(e)}")
-        return jsonify({"error": "Error interno del servidor"}), 500
+        cultivo = create_cultivo_historico_recinto(recinto_id, data)
+        return jsonify({"ok": True, "cultivo": cultivo}), 201
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception:
+        return jsonify({"ok": False, "error": "Error interno"}), 500
+    
+@api_bp.patch("/cultivos/<int:id_cultivo>")
+@login_required
+def api_patch_cultivo_by_id(id_cultivo: int):
+    data = request.get_json(silent=True) or {}
+    try:
+        cultivo = patch_cultivo_by_id(id_cultivo, current_user.id_usuario, data)
+        if not cultivo:
+            return jsonify({"ok": False, "error": "Cultivo no encontrado"}), 404
+        return jsonify({"ok": True, "cultivo": cultivo})
+    except ValueError as e:
+        if str(e) == "no_existe":
+            return jsonify({"ok": False, "error": "Cultivo no encontrado"}), 404
+        return jsonify({"ok": False, "error": "Datos inválidos"}), 400
+    except Exception:
+        return jsonify({"ok": False, "error": "Error interno"}), 500
+
+@api_bp.delete("/cultivos/<int:id_cultivo>")
+@login_required
+def api_delete_cultivo_by_id(id_cultivo: int):
+    try:
+        ok = delete_cultivo_by_id(id_cultivo, current_user.id_usuario)
+        if not ok:
+            return jsonify({"ok": False, "error": "Cultivo no encontrado"}), 404
+        return jsonify({"ok": True})
+    except Exception:
+        return jsonify({"ok": False, "error": "Error interno"}), 500
+
 
