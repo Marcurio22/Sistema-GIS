@@ -593,36 +593,38 @@
     display: block;
   }
 
-  /* Botón X */
-  #side-close{
-    position: absolute;
-    top: 10px;
-    right: 12px;
+ 
+  #side-close {
+  position: absolute;
+  top: 30px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(25, 135, 84, 0.3);
+  border-radius: 8px;
+  background: #198754;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  font-size: 22px;
+  cursor: pointer;
+  z-index: 11;
+  transition: all 0.3s ease;
+}
 
-    width: 40px;
-    height: 40px;
+#side-close i {
+  pointer-events: none;
+}
 
-    border: 1px solid rgba(0,0,0,.2);
-    border-radius: 8px;
-    background: #fff;
-    color: #111;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    padding: 0;
-    line-height: 1;
-    font-size: 26px;
-
-    cursor: pointer;
-    z-index: 2000;
-  }
-
-  #side-close:hover{
-    background: #f8f9fa;
-    border-color: #dc3545;
-  }
+#side-close:hover {
+  background: #dc3545;
+  border-color: rgba(220, 53, 69, 0.5);
+  color: #fff;
+  transform: scale(1.05);
+}
 
   /* Contenido */
   .side-content{
@@ -769,12 +771,11 @@
     z-index: 5000;
   }
 
-  /* Cuando el overlay está abierto: ocultar TODO menos el overlay */
   #side-panel.cultivos-historico-open .side-content > *:not(#cultivos-historico-panel){
-    display: none;
-  }
+      display: none;
+    }
 
-  /* Ocultamos la X para que se use “volver” */
+  
   #side-panel.cultivos-historico-open #side-close{
     display: none;
   }
@@ -931,3 +932,5 @@
     gap: 10px;
     padding: 12px 20px 18px;
   }
+
+  
