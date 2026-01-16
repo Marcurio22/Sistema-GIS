@@ -37,10 +37,9 @@
                     data: 'cultivo',
                     render: function(data, type, row) {
                         if (type === 'display' || type === 'filter') {
-                            return row.producto_fega_id + ' - ' + row.producto_fega_descripcion;
+                            return row.producto_fega_descripcion;
                         }
-                        // Para ordenamiento, usar solo el número
-                        return row.producto_fega_id;
+                        return row.producto_fega_descripcion;
                     }
                 }
             ],
@@ -48,7 +47,7 @@
                 url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
             },
             pageLength: 25,
-            order: [[2, 'asc']], 
+            order: [[0, 'asc']], 
             responsive: true
         });
     });
