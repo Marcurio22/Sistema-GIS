@@ -1575,10 +1575,14 @@ if (btnDelete) {
             <input id="cultivo_custom" class="form-control" type="text" placeholder="Escribe el cultivo (p.ej. ALTRAMUZ)">
           </div>
 
-          <div class="mb-3">
-            <label class="form-label fw-bold">Variedad (opcional)</label>
-            <input id="variedad" class="form-control" type="text" placeholder="Ej: Picual, Arbequina, Kennebec...">
-          </div>
+          <div class="mb-3 position-relative">
+          <label class="form-label fw-bold">Variedad (opcional)</label>
+          <input id="variedad" class="form-control" type="text" 
+                placeholder="Empieza a escribir: Picual, Arbequina..." 
+                autocomplete="off">
+          <div id="variedad-suggestions" class="list-group position-absolute w-100" style="z-index:1000; max-height:200px; overflow-y:auto; display:none;"></div>
+          <div class="form-text">Selecciona una variedad de la lista o escribe una nueva.</div>
+        </div>
 
           <div class="mb-3">
             <label class="form-label fw-bold">Estado</label>
@@ -1634,6 +1638,100 @@ if (btnDelete) {
         </div>
       </div>
     `;
+
+    // Autocompletado de variedad
+const variedadInput = container.querySelector("#variedad");
+const suggestionsList = container.querySelector("#variedad-suggestions");
+let timeoutVariedad = null;
+
+variedadInput.addEventListener("input", async (e) => {
+  const query = e.target.value.trim();
+  
+  // Limpiar timeout anterior
+  if (timeoutVariedad) {
+    clearTimeout(timeoutVariedad);
+  }
+  
+  // Si está vacío, ocultar sugerencias
+  if (query.length < 1) {
+    suggestionsList.style.display = "none";
+    suggestionsList.innerHTML = "";
+    return;
+  }
+  
+  // Esperar 200ms después de que el usuario deje de escribir
+  timeoutVariedad = setTimeout(async () => {
+    try {
+      // Obtener el producto seleccionado (opcional, para filtrar)
+      const productoId = container.querySelector("#cod_producto_val")?.value || "";
+      
+      // Construir URL con parámetros - CON /api
+      let url = `/api/variedades/buscar?q=${encodeURIComponent(query)}`;
+      if (productoId && productoId !== "") {
+        url += `&producto_id=${productoId}`;
+      }
+      
+      const response = await fetch(url);
+      const variedades = await response.json();
+      
+      // Mostrar sugerencias SOLO si hay resultados
+      if (variedades.length > 0) {
+        suggestionsList.innerHTML = variedades.map(v => `
+          <button type="button" class="list-group-item list-group-item-action" data-nombre="${v.nombre}">
+            ${v.nombre}
+          </button>
+        `).join("");
+        suggestionsList.style.display = "block";
+      } else {
+        // Si no hay resultados, simplemente ocultar las sugerencias
+        // El usuario puede seguir escribiendo lo que quiera
+        suggestionsList.style.display = "none";
+        suggestionsList.innerHTML = "";
+      }
+    } catch (error) {
+      console.error("Error buscando variedades:", error);
+      suggestionsList.style.display = "none";
+      suggestionsList.innerHTML = "";
+    }
+  }, 200); // Debounce de 200ms
+});
+
+// Click en una sugerencia
+suggestionsList.addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (btn) {
+    const nombre = btn.getAttribute("data-nombre");
+    variedadInput.value = nombre;
+    suggestionsList.style.display = "none";
+    suggestionsList.innerHTML = "";
+  }
+});
+
+// Cerrar sugerencias al hacer click fuera
+document.addEventListener("click", (e) => {
+  if (!variedadInput.contains(e.target) && !suggestionsList.contains(e.target)) {
+    suggestionsList.style.display = "none";
+  }
+});
+
+// Cerrar sugerencias con Escape
+variedadInput.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    suggestionsList.style.display = "none";
+  }
+});
+
+// Permitir enviar con Enter incluso sin seleccionar de la lista
+variedadInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    suggestionsList.style.display = "none";
+    // El valor ya está en el input, no hace falta hacer nada más
+  }
+});
+
+
+
+
 
     const ssUsoEl = container.querySelector("#ss-uso");
     const ssProdEl = container.querySelector("#ss-prod");

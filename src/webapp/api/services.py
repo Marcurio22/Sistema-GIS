@@ -6,6 +6,7 @@ from .. import db
 import requests
 import json
 from webapp.dashboard.utils_dashboard import municipios_finder
+from ..models import Variedad
 
 
 def recintos_geojson(bbox_str: str | None) -> dict:
@@ -307,12 +308,38 @@ def normalize_cultivo_payload(data: dict, existing: dict | None = None) -> dict:
 def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     """
     Crea el único cultivo del recinto. Si ya existe, error.
+    También crea la variedad si es nueva.
     """
     existing = get_cultivo_recinto(recinto_id)
 
     # Normaliza antes de insertar
     data = normalize_cultivo_payload(data)
 
+    # ============================================
+    # NUEVA LÓGICA: Crear variedad si es nueva
+    # ============================================
+    variedad_nombre = data.get("variedad", "").strip() if data.get("variedad") else None
+    cod_producto = data.get("cod_producto")
+    
+    if variedad_nombre:
+        # Buscar si la variedad ya existe (case insensitive)
+        variedad_existente = Variedad.query.filter(
+            db.func.lower(Variedad.nombre) == variedad_nombre.lower()
+        ).first()
+        
+        if not variedad_existente:
+            # No existe, crear nueva variedad
+            nueva_variedad = Variedad(
+                nombre=variedad_nombre,
+                producto_fega_id=cod_producto if cod_producto else None
+            )
+            db.session.add(nueva_variedad)
+            db.session.flush()  # Flush para que esté disponible pero sin commit aún
+            
+            print(f"✓ Nueva variedad creada: {variedad_nombre} (ID: {nueva_variedad.id_variedad})")
+        else:
+            print(f"✓ Variedad existente encontrada: {variedad_existente.nombre}")
+    
     params = {
         "id_recinto": recinto_id,
         "uso_sigpac": data.get("uso_sigpac"),
@@ -323,7 +350,7 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
         "cod_producto": data.get("cod_producto"),
         "cultivo_custom": data.get("cultivo_custom"),
         "origen_cultivo": data.get("origen_cultivo"),
-        "variedad": data.get("variedad"),
+        "variedad": variedad_nombre,  # Usar el nombre normalizado
         "estado": data.get("estado", "planificado"),
         "fecha_siembra": data.get("fecha_siembra"),
         "fecha_implantacion": data.get("fecha_implantacion"),
@@ -379,7 +406,8 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     """)
 
     new_id = db.session.execute(sql, params).scalar_one()
-    db.session.commit()
+    db.session.commit()  # Esto hace commit tanto del cultivo como de la variedad
+    
     return get_cultivo_recinto(recinto_id)
 
 def create_cultivo_historico_recinto(recinto_id: int, data: dict) -> dict:
@@ -443,6 +471,7 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     """
     En vez de sobrescribir, crea una NUEVA fila (versión),
     dejando la anterior como histórico.
+    También crea la variedad si es nueva.
     """
     prev = get_cultivo_recinto(recinto_id)
     if not prev:
@@ -478,6 +507,35 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     # normaliza fechas/campaña si hace falta
     merged = normalize_cultivo_payload(merged, existing=prev)
 
+    # ============================================
+    # NUEVA LÓGICA: Crear variedad si es nueva
+    # ============================================
+    variedad_nombre = merged.get("variedad", "").strip() if merged.get("variedad") else None
+    cod_producto = merged.get("cod_producto")
+    
+    if variedad_nombre:
+        try:
+            # Buscar si la variedad ya existe (case insensitive)
+            variedad_existente = Variedad.query.filter(
+                db.func.lower(Variedad.nombre) == variedad_nombre.lower()
+            ).first()
+            
+            if not variedad_existente:
+                # No existe, crear nueva variedad
+                nueva_variedad = Variedad(
+                    nombre=variedad_nombre,
+                    producto_fega_id=cod_producto if cod_producto else None
+                )
+                db.session.add(nueva_variedad)
+                db.session.flush()
+                
+                print(f"✓ Nueva variedad creada al editar: {variedad_nombre} (ID: {nueva_variedad.id_variedad})")
+            else:
+                print(f"✓ Variedad existente encontrada: {variedad_existente.nombre}")
+        except Exception as e:
+            print(f"⚠️ Error al crear/buscar variedad: {str(e)}")
+    # ============================================
+
     params = {
         "id_recinto": recinto_id,
         "id_padre": merged.get("id_padre"),
@@ -489,7 +547,7 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
         "cultivo_custom": merged.get("cultivo_custom"),
         "origen_cultivo": merged.get("origen_cultivo"),
         "tipo_cultivo": merged.get("tipo_cultivo"),
-        "variedad": merged.get("variedad"),
+        "variedad": variedad_nombre,
         "estado": merged.get("estado", "planificado"),
         "fecha_siembra": merged.get("fecha_siembra"),
         "fecha_implantacion": merged.get("fecha_implantacion"),
@@ -522,9 +580,8 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     """)
 
     db.session.execute(sql, params).scalar_one()
-    db.session.commit()
+    db.session.commit()  # Commit tanto del cultivo como de la variedad
     return get_cultivo_recinto(recinto_id)
-
 
 def delete_cultivo_recinto(recinto_id: int) -> bool:
     """
@@ -593,8 +650,33 @@ def patch_cultivo_by_id(id_cultivo: int, user_id: int, data: dict) -> dict:
         if k in allowed:
             merged[k] = v
 
-    # normaliza fechas/campaña si hace falta (usa tu función existente)
+    # normaliza fechas/campaña si hace falta
     merged = normalize_cultivo_payload(merged, existing=prev)
+
+    variedad_nombre = merged.get("variedad", "").strip() if merged.get("variedad") else None
+    cod_producto = merged.get("cod_producto")
+    
+    if variedad_nombre:
+        try:
+            # Buscar si la variedad ya existe (case insensitive)
+            variedad_existente = Variedad.query.filter(
+                db.func.lower(Variedad.nombre) == variedad_nombre.lower()
+            ).first()
+            
+            if not variedad_existente:
+                nueva_variedad = Variedad(
+                    nombre=variedad_nombre,
+                    producto_fega_id=cod_producto if cod_producto else None
+                )
+                db.session.add(nueva_variedad)
+                db.session.flush()
+                
+                print(f"✓ Nueva variedad creada al editar (by_id): {variedad_nombre} (ID: {nueva_variedad.id_variedad})")
+            else:
+                print(f"✓ Variedad existente encontrada: {variedad_existente.nombre}")
+        except Exception as e:
+            print(f"⚠️ Error al crear/buscar variedad: {str(e)}")
+    # ============================================
 
     params = {"cid": id_cultivo}
     sets = []
@@ -609,7 +691,7 @@ def patch_cultivo_by_id(id_cultivo: int, user_id: int, data: dict) -> dict:
         WHERE id_cultivo = :cid
     """)
     db.session.execute(sql, params)
-    db.session.commit()
+    db.session.commit()  
 
     return get_cultivo_by_id(id_cultivo, user_id)
 

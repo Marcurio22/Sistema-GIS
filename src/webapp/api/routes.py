@@ -15,7 +15,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from .. import db
-from ..models import Recinto, Solicitudrecinto
+from ..models import Recinto, Solicitudrecinto, Variedad
 
 from . import api_bp
 from .services import (
@@ -458,5 +458,42 @@ def api_delete_cultivo_by_id(id_cultivo: int):
         return jsonify({"ok": True})
     except Exception:
         return jsonify({"ok": False, "error": "Error interno"}), 500
+    
+
+
+
+
+
+@api_bp.route('/variedades/buscar', methods=['GET'])
+@login_required
+def buscar_variedades():
+    try:
+        query = request.args.get('q', '').strip()
+        producto_id = request.args.get('producto_id', type=int)  # Opcional: filtrar por cultivo
+        
+        if not query or len(query) < 1:  # Busca desde el primer carácter
+            return jsonify([])
+        
+        # Query base
+        variedades_query = Variedad.query
+        
+        # Filtrar por producto si se proporciona
+        if producto_id:
+            variedades_query = variedades_query.filter(
+                Variedad.producto_fega_id == producto_id
+            )
+        
+        # Buscar variedades que contengan el texto (no solo al inicio)
+        variedades = variedades_query.filter(
+            Variedad.nombre.ilike(f'%{query}%')
+        ).order_by(Variedad.nombre).limit(50).all()
+        
+        resultados = [{'nombre': v.nombre} for v in variedades]
+        
+        return jsonify(resultados)
+    
+    except Exception as e:
+        print(f"Error buscando variedades: {str(e)}")
+        return jsonify([]), 500
 
 
