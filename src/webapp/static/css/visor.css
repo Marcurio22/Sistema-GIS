@@ -626,9 +626,9 @@
   transition: all 0.3s ease;
 }
 
-#side-close i {
+/* #side-close i {
   pointer-events: none;
-}
+} */
 
 #side-close:hover {
   background: #dc3545;

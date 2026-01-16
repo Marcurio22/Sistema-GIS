@@ -1035,6 +1035,8 @@ if (btnDelete) {
     return map[s] || safeText(v, "N/A");
   }
 
+  let needsRefreshActualCultivo = false;
+
   function openHistoricoPanel(){
     const sp = document.getElementById("side-panel");
     const panel = document.getElementById("cultivos-historico-panel");
@@ -1051,12 +1053,18 @@ if (btnDelete) {
     sp.classList.remove("cultivos-historico-open");
     panel.classList.add("d-none");
     panel.setAttribute("aria-hidden", "true");
+
+    // si se tocó el cultivo actual desde el histórico, repinta el actual al volver
+    if (needsRefreshActualCultivo && currentSideRecintoId) {
+      needsRefreshActualCultivo = false;
+      renderCultivosForRecinto(currentSideRecintoId);
+    }
   }
 
   document.getElementById("btn-cerrar-historico")?.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    closeHistoricoPanel();
+    sideCloseBtn?.click();
   });
 
   document.getElementById("btn-volver-historico")?.addEventListener("click", (e) => {
@@ -2142,6 +2150,12 @@ if (btnDelete) {
           title: "Cultivo guardado",
           message: "El cultivo ha sido guardado correctamente",
         });
+        
+        if (mode === "historico_edit" && currentCultivoId && String(cultivoId) === String(currentCultivoId)) {
+          needsRefreshActualCultivo = true;
+          // Repinta ya el actual en background aunque esté oculto
+          renderCultivosForRecinto(recintoId);
+        }
 
         // -------------------------
         // POST-ACCIÓN SEGÚN MODO
