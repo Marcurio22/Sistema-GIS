@@ -131,6 +131,9 @@ class GaleriaImagenes {
       ? this.imagenes 
       : this.imagenes.slice(0, this.maxVisibles);
 
+    const countEl = document.getElementById('galeria-count');
+    if (countEl) countEl.textContent = String(this.imagenes.length || 0);
+
     imagenesAMostrar.forEach((imagen, index) => {
       const item = document.createElement('div');
       item.className = 'galeria-item';
@@ -204,109 +207,34 @@ class GaleriaImagenes {
   }
 
   expandirGaleria() {
-  this.mostrandoTodas = true;
-  this.modoExpandido = true;
-  
-  // Ocultar el resto del contenido del panel
-  const sideHeader = document.querySelector('.side-header');
-  const sideDividers = document.querySelectorAll('.side-divider');
-  const sideRows = document.querySelectorAll('.side-row');
-  const sideToggle = document.querySelector('.side-toggle');
-  const cultivos = document.getElementById('cultivos-container');
-  const cultivosSection = document.querySelector('.side-section');
-  const galeriaContainer = document.getElementById('galeria-imagenes');
-  
-  // Ocultar también el título "Galería" y el botón "Añadir Imagen" original
-  const galeriaTitulo = galeriaContainer?.querySelector('.side-section-title');
-  const galeriaBotonAnadir = galeriaContainer?.querySelector('button[data-bs-target="#modalSubida"]');
-  
-  // Guardar elementos ocultos para restaurar
-  this.elementosOcultos = [
-    sideHeader,
-    ...sideDividers,
-    ...sideRows,
-    sideToggle,
-    cultivos,
-    cultivosSection,
-    galeriaTitulo,
-    galeriaBotonAnadir
-  ].filter(el => el && el !== null);
-  
-  // Ocultar elementos
-  this.elementosOcultos.forEach(el => {
-    el.style.display = 'none';
-  });
-  
-  // Añadir header de galería expandida
-  const galeriaHeader = document.createElement('div');
-  galeriaHeader.id = 'galeria-header-expandido';
-  galeriaHeader.className = 'galeria-header-expandido';
-  galeriaHeader.innerHTML = `
-    <div class="galeria-header-top">
-      <button class="btn btn-sm btn-outline-secondary" id="btn-contraer-galeria">
-        <i class="bi bi-arrow-left me-1"></i> Volver
-      </button>
-      <h2 class="galeria-titulo-principal">
-        <i class="fa-solid fa-image me-2" style="color:#198754;"></i>
-        Galería
-      </h2>
-    </div>
-    <div class="galeria-header-divider"></div>
-    <div class="galeria-header-bottom">
-      <h3 class="galeria-subtitulo">
-        Galería completa
-        <span class="badge bg-success ms-2">${this.imagenes.length}</span>
-      </h3>
-      <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalSubida">
-        <i class="fa-solid fa-plus me-1"></i> Añadir Imagen
-      </button>
-    </div>
-  `;
-  
-  // Insertar header antes del contenedor de galería
-  if (galeriaContainer && galeriaContainer.parentNode) {
-    galeriaContainer.parentNode.insertBefore(galeriaHeader, galeriaContainer);
-  }
-  
-  // Evento para contraer
-  document.getElementById('btn-contraer-galeria').onclick = () => {
-    this.contraerGaleria();
-  };
-  
-  // Re-renderizar con todas las imágenes
-  this.renderizarGaleria();
-  
-  // Scroll al inicio del panel
-  const sidePanel = document.getElementById('side-panel');
-  if (sidePanel) {
-    sidePanel.scrollTop = 0;
-  }
-}
-  contraerGaleria() {
-    this.mostrandoTodas = false;
-    this.modoExpandido = false;
-    
-    // Eliminar header de galería expandida
-    const galeriaHeader = document.getElementById('galeria-header-expandido');
-    if (galeriaHeader) {
-      galeriaHeader.remove();
+    // Abrir overlay (lo maneja visor.html)
+    if (typeof window.openGaleriaPanel === "function") {
+      window.openGaleriaPanel();
     }
-    
-    // Restaurar elementos ocultos
-    if (this.elementosOcultos) {
-      this.elementosOcultos.forEach(el => {
-        el.style.display = '';
-      });
-      this.elementosOcultos = null;
-    }
-    
-    // Re-renderizar con imágenes limitadas
+
+    // En overlay mostramos todas
+    this.mostrandoTodas = true;
     this.renderizarGaleria();
-    
-    // Scroll a la galería
-    const galeriaContainer = document.getElementById('galeria-imagenes');
+
+    // Scroll arriba del overlay
+    const overlay = document.getElementById("galeria-panel");
+    if (overlay) overlay.scrollTop = 0;
+  }
+
+  contraerGaleria() {
+    // Volver al modo normal (panel general)
+    this.mostrandoTodas = false;
+    this.renderizarGaleria();
+
+    // Cerrar overlay y devolver el DOM a su sitio
+    if (typeof window.closeGaleriaPanel === "function") {
+      window.closeGaleriaPanel();
+    }
+
+    // Scroll a la sección galería en el panel general
+    const galeriaContainer = document.getElementById("galeria-imagenes");
     if (galeriaContainer) {
-      galeriaContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      galeriaContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }
 

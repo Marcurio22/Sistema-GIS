@@ -161,43 +161,43 @@
 
 <!-- Panel derecho (split) -->
 <aside id="side-panel" aria-hidden="true">
-  <button id="side-close" type="button" title="Cerrar">
-  <i class="bi bi-x"></i>
-  </button>
 
   <div class="side-content">
-    <div class="side-header">
-      <h1 id="side-title">Nombre Parcela</h1>
+    <div class="side-sticky-top">
+      <div class="side-header">
+        <h1 id="side-title">Nombre Parcela</h1>
 
-      <div class="side-actions">
-        <button id="btn-edit-name" type="button" class="icon-btn edit" title="Editar nombre">
-          <i class="bi bi-pencil-fill"></i>
-        </button>
-        <button id="btn-delete-recinto" type="button" class="icon-btn delete" title="Eliminar recinto">
-          <i class="bi bi-trash-fill"></i>
-        </button>
-
-        
+        <div class="side-actions">
+          <button id="btn-edit-name" type="button" class="icon-btn edit" title="Editar nombre">
+            <i class="bi bi-pencil-fill"></i>
+          </button>
+          <button id="btn-delete-recinto" type="button" class="icon-btn delete" title="Eliminar recinto">
+            <i class="bi bi-trash-fill"></i>
+          </button>       
+          <button id="side-close" type="button" class="btn-side-close" title="Cerrar">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
       </div>
+
+      <div class="side-divider"></div>
     </div>
 
-    <div class="side-divider"></div>
+    <div class="side-row">
+      <i class="bi bi-globe2 side-ico"></i>
 
-  <div class="side-row">
-    <i class="bi bi-globe2 side-ico"></i>
+      <div class="side-line" style="display:flex;align-items:center;width:100%;">
+        <span class="side-row-title">Superficie:</span>
+        <span id="side-area" class="side-row-value ms-2">-</span>
 
-  <div class="side-line" style="display:flex;align-items:center;width:100%;">
-    <span class="side-row-title">Superficie:</span>
-    <span id="side-area" class="side-row-value ms-2">-</span>
+        <!-- Icono localización decorativo a la derecha -->
+        <i class="bi bi-geo-alt-fill ms-auto text-success" style="font-size:1.6rem" aria-hidden="true">
+        </i>
 
-  <!-- Icono localización decorativo a la derecha -->
-    <i class="bi bi-geo-alt-fill ms-auto text-success" style="font-size:1.6rem" aria-hidden="true">
-    </i>
-
-    <!-- Coordenadas -->
-    <span id="side-coords" class="side-row-value ms-2"></span>
-  </div>
-</div>
+        <!-- Coordenadas -->
+        <span id="side-coords" class="side-row-value ms-2"></span>
+      </div>
+    </div>
 
     <div class="side-row">
       <i class="bi bi-person-fill side-ico"></i>
@@ -213,68 +213,99 @@
     </label>
     <div class="side-divider"></div>
 
-  <div class="side-section">
-    <div class="side-section-head">
-      <div></div>
-
-      <h2 class="side-section-title mb-4">
-        <i class="fa-solid fa-wheat-awn me-2" style="color:#198754"></i>
-        <span class="side-section-label">Cultivos</span>
-      </h2>
-
-      <button id="btn-historico-cultivos" type="button"
-              class="btn btn-success btn-historico">
-        Histórico de cultivos
-      </button>
-    </div>
-
-    <div id="cultivos-container"></div>
-  </div>
-
-<div class="side-divider"></div>
-<!-- GALERÍA-->
-<div id="galeria-imagenes" class="galeria-container mt-4">
-  <h2 class="side-section-title mb-3">
-    <i class="fa-solid fa-image me-2" style="color:#198754"></i>
-    Galería
-  </h2>
-
-  <!-- Botón Añadir Imagen -->
-  <div class="mb-3">
-    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalSubida">
-     <i class="fa-solid fa-plus me-1"></i> Añadir Imagen
-    </button>
-  </div>
-
-  <!-- Grid de imágenes -->
-  <div class="galeria-grid" id="galeria-grid">
-    <!-- Se llenará dinámicamente -->
-  </div>
-</div>
-
-  <!-- OVERLAY HISTÓRICO CULTIVOS -->
-  <div id="cultivos-historico-panel" class="d-none" aria-hidden="true">
-
-    <div class="d-flex align-items-center justify-content-between mb-2">
-      <button id="btn-volver-historico" class="btn btn-outline-secondary" type="button">
-        <i class="bi bi-arrow-left me-1"></i> Volver
-      </button>
-
-      <div class="d-flex align-items-center gap-2 fw-bold" style="font-size:1.6rem;">
-        <i class="fa-solid fa-wheat-awn" style="color:#198754"></i>
-        <span>Cultivos</span>
+    <div class="side-section">
+      <div class="side-section-head">
+        <div></div>
+    
+        <h2 class="side-section-title mb-4">
+          <i class="fa-solid fa-wheat-awn me-2" style="color:#198754"></i>
+          <span class="side-section-label">Cultivos</span>
+        </h2>
+    
+        <button id="btn-historico-cultivos" type="button" class="btn btn-success btn-historico">
+          Histórico de cultivos
+        </button>
       </div>
-
-      <button id="btn-cerrar-historico" class="btn btn-success" type="button" title="Cerrar">
-        <i class="bi bi-x-lg"></i>
-      </button>
+    
+      <div id="cultivos-container"></div>
     </div>
 
     <div class="side-divider"></div>
-    <div id="cultivos-historico-list" class="pb-3"></div>
+    <!-- GALERÍA-->
+    <div id="galeria-imagenes" class="galeria-container mt-4">
+      <h2 class="side-section-title mb-3">
+        <i class="fa-solid fa-image me-2" style="color:#198754"></i>
+        Galería
+      </h2>
+
+      <!-- Botón Añadir Imagen -->
+      <div class="mb-3">
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalSubida">
+          <i class="fa-solid fa-plus me-1"></i> Añadir Imagen
+        </button>
+      </div>
+
+      <!-- Grid de imágenes -->
+      <div class="galeria-grid" id="galeria-grid">
+        <!-- Se llenará dinámicamente -->
+      </div>
+
+    </div>
+
+    <!-- OVERLAY HISTÓRICO CULTIVOS -->
+    <div id="cultivos-historico-panel" class="side-overlay d-none" aria-hidden="true">
+
+      <div class="overlay-topbar">
+        <button id="btn-volver-historico" class="btn btn-outline-secondary" type="button">
+          <i class="bi bi-arrow-left me-1"></i> Volver
+        </button>
+
+        <div class="overlay-title">
+          <i class="fa-solid fa-wheat-awn" style="color:#198754"></i>
+          <span>Cultivos</span>
+        </div>
+
+        <button id="btn-cerrar-historico" class="btn-side-close" type="button" title="Cerrar">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <div class="side-divider"></div>
+      <div id="cultivos-historico-list" class="pb-3"></div>
+    </div>
+
+    <!-- OVERLAY GALERÍA COMPLETA -->
+    <div id="galeria-panel" class="side-overlay d-none" aria-hidden="true">
+      <div class="overlay-topbar">
+        <button id="btn-volver-galeria" class="btn btn-outline-secondary" type="button">
+          <i class="bi bi-arrow-left me-1"></i> Volver
+        </button>
+
+        <div class="overlay-title">
+          <i class="fa-solid fa-image" style="color:#198754"></i>
+          <span>Galería</span>
+        </div>
+
+        <button id="btn-cerrar-galeria" class="btn-side-close" type="button" title="Cerrar">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <div class="side-divider"></div>
+      <div class="overlay-subbar">
+        <div class="overlay-subtitle">
+          Galería completa
+          <span id="galeria-count" class="badge bg-success ms-2">0</span>
+        </div>
+      </div>
+
+      <div id="galeria-panel-body"></div>
+    </div>
+
+    <div id="side-alerts"></div>
   </div>
 
-  <div id="side-alerts"></div>
+
 
 </aside>
 
@@ -1061,6 +1092,65 @@ if (btnDelete) {
     }
   }
 
+  window.openGaleriaPanel = function openGaleriaPanel(){
+    const sp = document.getElementById("side-panel");
+    const overlay = document.getElementById("galeria-panel");
+    const body = document.getElementById("galeria-panel-body");
+    const gal = document.getElementById("galeria-imagenes");
+    const historico = document.getElementById("cultivos-historico-panel");
+    if (!sp || !overlay || !body || !gal || !historico) return;
+
+    // Cierra histórico si estuviera abierto
+    closeHistoricoPanel?.();
+
+    // Mover galería dentro del overlay (evita duplicados / pisadas)
+    body.appendChild(gal);
+
+    // Activar estado
+    sp.classList.add("galeria-open");
+    overlay.classList.remove("d-none");
+    overlay.setAttribute("aria-hidden", "false");
+  };
+
+  window.closeGaleriaPanel = function closeGaleriaPanel(){
+    const sp = document.getElementById("side-panel");
+    const overlay = document.getElementById("galeria-panel");
+    const gal = document.getElementById("galeria-imagenes");
+    const historico = document.getElementById("cultivos-historico-panel");
+    if (!sp || !overlay || !gal || !historico) return;
+
+    // Devolver galería a su sitio (antes del histórico)
+    historico.parentNode.insertBefore(gal, historico);
+
+    // Desactivar estado
+    sp.classList.remove("galeria-open");
+    overlay.classList.add("d-none");
+    overlay.setAttribute("aria-hidden", "true");
+  };
+
+  // Botones del overlay (una sola vez)
+  document.getElementById("btn-volver-galeria")?.addEventListener("click", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    window.galeria?.contraerGaleria(); // ya cierra overlay desde dentro
+  });
+
+  document.getElementById("btn-cerrar-galeria")?.addEventListener("click", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    document.getElementById("side-close")?.click();
+  });
+
+  // Botones del overlay
+  document.getElementById("btn-volver-galeria")?.addEventListener("click", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    closeGaleriaPanel();
+  });
+
+  document.getElementById("btn-cerrar-galeria")?.addEventListener("click", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    document.getElementById("side-close")?.click(); // cierra el split completo
+  });
+
+
   document.getElementById("btn-cerrar-historico")?.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1111,19 +1201,19 @@ if (btnDelete) {
         const count = arr.length;
 
         listEl.innerHTML = `
-          <div class="historico-summary">
-            <div class="left">
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
               <i class="bi bi-journal-check text-success"></i>
               <span>Registro completo</span>
               <span class="badge bg-success">${count}</span>
             </div>
-            <button id="btn-add-historico" class="btn btn-success btn-sm">
+
+            <button id="btn-add-historico" class="btn btn-success btn-sm ms-auto">
               + Añadir al Histórico
             </button>
           </div>
 
           <div class="side-divider"></div>
-
           <div id="historico-cards"></div>
         `;
 

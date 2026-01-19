@@ -602,63 +602,39 @@
   #side-panel .side-content{
     height: 100%;
     overflow-y: auto;
+    padding: 0 22px 26px;
+    position: relative;
   }
 
- 
-  #side-close {
-  position: absolute;
-  top: 30px;
-  right: 12px;
-  width: 40px;
-  height: 40px;
-  border: 1px solid rgba(25, 135, 84, 0.3);
-  border-radius: 8px;
-  background: #198754;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  line-height: 1;
-  font-size: 22px;
-  cursor: pointer;
-  z-index: 11;
-  transition: all 0.3s ease;
-}
-
-/* #side-close i {
-  pointer-events: none;
-} */
-
-#side-close:hover {
-  background: #dc3545;
-  border-color: rgba(220, 53, 69, 0.5);
-  color: #fff;
-  transform: scale(1.05);
-}
-
-  /* Contenido */
-  .side-content{
-    padding: 22px 22px 26px;
+  /* Contenedor que mantiene el título y la barra gruesa arriba */
+  .side-sticky-top {
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 1000;
+    padding-top: 10px;
   }
-
-  .side-header{
+  
+  .side-header {
     position: relative;
     display: flex;
     align-items: center;
-    justify-content: flex-end; /* acciones a la derecha */
+    justify-content: flex-end;
     min-height: 52px;
-    padding-right: 44px; /* aire para que no choque con la X */
+    padding: 0 10px;
   }
 
-  #side-title{
+  /* Recuperamos el tamaño de fuente original y visibilidad */
+  #side-title {
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
     margin: 0;
-    text-align: center;
-    max-width: calc(100% - 160px);
+    font-size: 2rem;
+    font-weight: 700;
+    color: #212529;
     white-space: nowrap;
+    max-width: calc(100% - 180px);
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -669,10 +645,45 @@
     padding: 4px 8px;
   }
 
+  #side-title{ pointer-events: none; z-index: 1; }
+  #side-title[contenteditable="true"]{ pointer-events: auto; }
+
   .side-actions{
     display:flex;
     align-items:center;
     gap: 10px;
+    position: relative; 
+    z-index: 2;
+  }
+
+  /* ===== CLOSE UNICO PARA TODO ===== */
+  .btn-side-close{
+    width: 44px;
+    height: 40px;
+    border-radius: 10px;
+    background: #198754;
+    color: #fff;
+    border: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform .2s ease, background .2s ease;
+  }
+
+  .btn-side-close:hover{
+    background: #dc3545;
+    transform: scale(1.05);
+  }
+
+  .btn-side-close:focus-visible{
+    outline: 3px solid rgba(13,110,253,.35);
+    outline-offset: 2px;
+  }
+
+  .btn-side-close i{ 
+    font-size: 1.2rem; 
+    line-height: 1; 
   }
 
   .icon-btn{
@@ -772,7 +783,7 @@
     font-size: 0.85rem;
   }
 
-    .cultivo-grid{
+  .cultivo-grid{
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 26px 56px;
@@ -833,90 +844,90 @@
   }
 
   /* Overlay histórico */
-  #cultivos-historico-panel{
+
+  /* =========================
+   OVERLAYS (Histórico + Galería)
+   ========================= */
+
+  /* base overlay (reutilizable) */
+  #side-panel .side-overlay{
     position: absolute;
     inset: 0;
     background: #fff;
     overflow-y: auto;
     padding: 16px;
-    z-index: 1000;
+    z-index: 1100;
+    display: none; /* por defecto oculto */
   }
 
-  /* Cuando el overlay está abierto, oculta TODO menos el propio panel */
-  #side-panel.cultivos-historico-open .side-content > *:not(#cultivos-historico-panel){
-    display: none !important;
-  }
-
-  /* Asegura que el overlay sí se vea */
-  #side-panel.cultivos-historico-open #cultivos-historico-panel{
-    display: block !important;
-  }
-
-  /* Oculta la X del sidebar normal mientras está el overlay */
-  #side-panel.cultivos-historico-open #side-close{
-    display: none !important;
-  }
-
-  #side-panel.cultivos-historico-open{
-    overflow: hidden;
-  }
-
-  #cultivos-historico-panel .overlay-topbar{
+  /* topbar común */
+  #side-panel .overlay-topbar{
     display:flex;
     align-items:center;
     justify-content:space-between;
     gap: 10px;
     padding: 6px 0 12px;
   }
-
-  #cultivos-historico-panel .overlay-title{
+  #side-panel .overlay-title{
     flex: 1;
     display:flex;
     align-items:center;
     justify-content:center;
     gap: 10px;
-    font-weight: 800;
+    font-weight: 700;
     font-size: 2rem;
   }
 
-  #cultivos-historico-panel .overlay-close{
-    width: 44px;
-    height: 40px;
-    border-radius: 8px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding: 0;
+  /* evita scroll doble cuando hay overlay */
+  #side-panel.cultivos-historico-open .side-content,
+  #side-panel.galeria-open .side-content{
+    overflow: hidden;
   }
 
-  #cultivos-historico-panel .overlay-close i{
-    font-size: 1.4rem;
+  /* ===== HISTÓRICO OPEN ===== */
+  #side-panel.cultivos-historico-open .side-content > *:not(#cultivos-historico-panel){
+    display: none !important;
+  }
+  #side-panel.cultivos-historico-open #cultivos-historico-panel{
+    display: block !important; /* gana a d-none */
+  }
+  #side-panel.cultivos-historico-open #side-close{
+    display: none !important;
   }
 
-  .historico-card{
-    border-bottom: 1px solid rgba(0,0,0,.12);
-    padding: 14px 0 18px;
+  /* ===== GALERÍA OPEN ===== */
+  #side-panel.galeria-open .side-content > *:not(#galeria-panel){
+    display: none !important;
   }
-  .historico-fechas{
-    font-weight: 800;
-    font-size: 18px;
-    margin-bottom: 10px;
+  #side-panel.galeria-open #galeria-panel{
+    display: block !important; /* gana a d-none */
+  }
+  #side-panel.galeria-open #side-close{
+    display: none !important;
   }
 
-  .historico-summary{
+  /* cuando galería está dentro del overlay, quita el título duplicado */
+  #side-panel.galeria-open #galeria-imagenes{
+    margin-top: 0 !important;
+  }
+  #side-panel.galeria-open #galeria-imagenes > h2{
+    display: none !important;
+  }
+
+  /* Sub-barra del overlay (Galería completa + contador + botón) */
+  .overlay-subbar{
     display:flex;
     align-items:center;
     justify-content:space-between;
-    padding: 6px 0 10px;
+    gap: 12px;
+    margin: 10px 0 16px;
   }
-  .historico-summary .left{
+
+  .overlay-subtitle{
     display:flex;
     align-items:center;
-    gap: 10px;
-    font-weight: 700;
-  }
-  .historico-summary .left i{
-    font-size: 1.2rem;
+    gap: 8px;
+    font-weight: 600;
   }
 
   /* SearchSelect (combo con búsqueda) */
@@ -1001,4 +1012,3 @@
     padding: 12px 20px 18px;
   }
 
-  
