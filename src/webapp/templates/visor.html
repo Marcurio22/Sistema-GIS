@@ -2214,6 +2214,25 @@ if (btnDelete) {
         return;
       }
 
+      // --- Validación campaña vs fecha (error custom) ---
+      if (tipo_registro === "CAMPANA") {
+        if (!campana) {
+          msg.textContent = "Selecciona un año de campaña.";
+          msg.className = "text-danger";
+          return;
+        }
+
+        // fechaInicio viene ISO: YYYY-MM-DD
+        const yFecha = Number(String(fechaInicio).slice(0, 4));
+        if (Number.isFinite(yFecha) && Math.abs(yFecha - campana) >= 2) {
+          msg.textContent =
+            `Año inválido: la fecha de siembra (${yFecha}) no cuadra con la campaña (${campana}). ` +
+            `Debe ser el mismo año o como mucho ±1 año.`;
+          msg.className = "text-danger";
+          return;
+        }
+      }
+
       // Si no hay fecha fin: estimación simple
       let fechaCosechaEst = fechaFin;
       let cosechaAuto = false;
