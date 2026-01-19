@@ -937,9 +937,15 @@
   #cultivos-historico-panel .historico-table-wrap{
     border: 1px solid rgba(0,0,0,.10);
     border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
     background: #fff;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+
+    padding: 0 16px;
+    box-sizing: border-box;
   }
 
   #cultivos-historico-panel table.historico-table{
@@ -955,10 +961,12 @@
     position: sticky;
     top: 0;
     z-index: 2;
+    padding: 12px 10px;
   }
 
   #cultivos-historico-panel table.historico-table tbody td{
     vertical-align: middle;
+    padding: 12px 10px;
   }
 
   #cultivos-historico-panel .hist-fechas{
