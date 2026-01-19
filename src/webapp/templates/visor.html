@@ -602,6 +602,74 @@
   // DOM Content Loaded
   // -----------------------------------------
   document.addEventListener("DOMContentLoaded", function () {
+    function guardarEstadoMapa() {
+  const estado = {
+    zoom: map.getZoom(),
+    center: map.getCenter(),
+    sidePanelAbierto: splitOpen,
+    recintoActual: currentSideRecintoId,
+    timestamp: Date.now()
+  };
+  
+  try {
+    sessionStorage.setItem('mapaEstado', JSON.stringify(estado));
+  } catch (e) {
+    console.warn('No se pudo guardar el estado del mapa:', e);
+  }
+}
+
+// Función para restaurar el estado del mapa y panel
+async function restaurarEstadoMapa() {
+  try {
+    const estadoStr = sessionStorage.getItem('mapaEstado');
+    if (!estadoStr) return false;
+    
+    const estado = JSON.parse(estadoStr);
+    
+    // Verificar que no sea muy antiguo (opcional, 30 minutos)
+    const tiempoMaximo = 30 * 60 * 1000; // 30 minutos
+    if (Date.now() - estado.timestamp > tiempoMaximo) {
+      sessionStorage.removeItem('mapaEstado');
+      return false;
+    }
+    
+    // Restaurar vista del mapa
+    if (estado.center && estado.zoom) {
+      map.setView([estado.center.lat, estado.center.lng], estado.zoom);
+    }
+    
+    // Restaurar side panel si estaba abierto
+    if (estado.sidePanelAbierto && estado.recintoActual) {
+      // Esperar un poco a que el mapa se estabilice
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      try {
+        // Intentar cargar los datos del recinto
+        const response = await fetch(`/api/mis-recinto/${estado.recintoActual}`);
+        if (!response.ok) throw new Error('Recinto no encontrado');
+        
+        const data = await response.json();
+        
+        // Abrir el panel con los datos
+        abrirRecintoEnPanel(data);
+        
+        console.log('Estado del mapa restaurado correctamente');
+        return true;
+      } catch (err) {
+        console.warn('No se pudo restaurar el recinto:', err);
+        sessionStorage.removeItem('mapaEstado');
+        return false;
+      }
+    }
+    
+    return true;
+  } catch (e) {
+    console.warn('Error al restaurar estado del mapa:', e);
+    sessionStorage.removeItem('mapaEstado');
+    return false;
+  }
+}
+
 
   const CURRENT_USER_ID = {{ current_user.id_usuario if current_user.is_authenticated else 'null' }};
   NotificationSystem.init();
@@ -653,22 +721,28 @@
   let splitOpen = false;
 
   function setSplitMode(on) {
-    splitOpen = !!on;
+  splitOpen = !!on;
 
-    if (splitOpen) {
-      setNavbarHeightVar(); // calcula SOLO al abrir split
-    }
-
-    document.body.classList.toggle("split-mode", splitOpen);
-
-    // Aria-hidden en el panel lateral
-    const sp = document.getElementById("side-panel");
-    if (sp) sp.setAttribute("aria-hidden", splitOpen ? "false" : "true");
-
-    setTimeout(() => {
-      try { map.invalidateSize(); } catch (e) {}
-    }, 280);
+  if (splitOpen) {
+    setNavbarHeightVar();
   }
+
+  document.body.classList.toggle("split-mode", splitOpen);
+
+  const sp = document.getElementById("side-panel");
+  if (sp) sp.setAttribute("aria-hidden", splitOpen ? "false" : "true");
+
+  setTimeout(() => {
+    try { map.invalidateSize(); } catch (e) {}
+  }, 280);
+  
+  // NUEVO: Guardar estado cuando se abre/cierra el panel
+  if (splitOpen && currentSideRecintoId) {
+    guardarEstadoMapa();
+  } else {
+    sessionStorage.removeItem('mapaEstado');
+  }
+}
 
   window.addEventListener('resize', () => {
     if (splitOpen) {
@@ -2572,21 +2646,24 @@ if (btnDelete) {
     fillOpacity: 0.22,
   };
 
-  async function abrirRecintoEnPanel(data) {
-    if (!data || !data.id) return;
+ async function abrirRecintoEnPanel(data) {
+  if (!data || !data.id) return;
 
-    // abrir split
-    setSplitMode(true);
+  // abrir split
+  setSplitMode(true);
 
-    // setear id global
-    currentSideRecintoId = data.id;
+  // setear id global
+  currentSideRecintoId = data.id;
 
-    // pintar panel
-    renderSidePanelFromProps(data);
+  // pintar panel
+  renderSidePanelFromProps(data);
 
-    // centrar y resaltar
-    centrarEnRecinto(data);
-  }
+  // centrar y resaltar
+  centrarEnRecinto(data);
+  
+  // NUEVO: Guardar estado después de abrir
+  setTimeout(() => guardarEstadoMapa(), 300);
+}
 
   async function abrirRecintoDesdeVer(dataFlask) {
     if (!dataFlask || !dataFlask.id) return;
@@ -2667,41 +2744,48 @@ if (btnDelete) {
   // Por defecto activos
   let misRecintosActivos = true;
 
-  function cargarMisRecintosSiProcede() {
-    const z = map.getZoom();
+ function cargarMisRecintosSiProcede() {
+  const z = map.getZoom();
 
-    if (z < ZOOM_RECINTOS || !misRecintosActivos) {
-      misRecintosLayer.clearLayers();
-      return;
-    }
-
-    const b = map.getBounds();
-    const bbox = [
-      b.getWest().toFixed(6),
-      b.getSouth().toFixed(6),
-      b.getEast().toFixed(6),
-      b.getNorth().toFixed(6),
-    ].join(",");
-
-    fetch(`/api/mis-recintos?bbox=${bbox}`)
-      .then((r) => {
-        if (!r.ok) throw new Error("Respuesta no OK de /api/mis-recintos");
-        return r.json();
-      })
-      .then((fc) => {
-        misRecintosLayer.clearLayers();
-
-        MIS_IDS.clear();
-        if (fc && fc.features && fc.features.length) {
-          fc.features.forEach(f => {
-            const p = f.properties || {};
-            if (p.id_recinto != null) MIS_IDS.add(String(p.id_recinto));
-          });
-          misRecintosLayer.addData(fc);
-        }
-      })
-      .catch((err) => console.error("Error al cargar mis recintos:", err));
+  // Siempre limpiar primero
+  if (z < ZOOM_RECINTOS || !misRecintosActivos) {
+    misRecintosLayer.clearLayers();
+    return;
   }
+
+  const b = map.getBounds();
+  const bbox = [
+    b.getWest().toFixed(6),
+    b.getSouth().toFixed(6),
+    b.getEast().toFixed(6),
+    b.getNorth().toFixed(6),
+  ].join(",");
+
+  fetch(`/api/mis-recintos?bbox=${bbox}`)
+    .then((r) => {
+      if (!r.ok) throw new Error("Respuesta no OK de /api/mis-recintos");
+      return r.json();
+    })
+    .then((fc) => {
+      // Verificar de nuevo el zoom antes de añadir
+      if (map.getZoom() < ZOOM_RECINTOS) {
+        misRecintosLayer.clearLayers();
+        return;
+      }
+      
+      misRecintosLayer.clearLayers();
+
+      MIS_IDS.clear();
+      if (fc && fc.features && fc.features.length) {
+        fc.features.forEach(f => {
+          const p = f.properties || {};
+          if (p.id_recinto != null) MIS_IDS.add(String(p.id_recinto));
+        });
+        misRecintosLayer.addData(fc);
+      }
+    })
+    .catch((err) => console.error("Error al cargar mis recintos:", err));
+}
 
   // *** Recintos activos por defecto ***
   let recintosActivos = true;
@@ -2783,43 +2867,51 @@ if (btnDelete) {
   // -----------------------------------------
   // 5) Cargar recintos
   // -----------------------------------------
-  function cargarRecintosSiProcede() {
-    const z = map.getZoom();
+ function cargarRecintosSiProcede() {
+  const z = map.getZoom();
 
-    if (z < ZOOM_RECINTOS || !recintosActivos) {
-      recintosLayer.clearLayers();
-      return;
-    }
-
-    const b = map.getBounds();
-    const bbox = [
-      b.getWest().toFixed(6),
-      b.getSouth().toFixed(6),
-      b.getEast().toFixed(6),
-      b.getNorth().toFixed(6),
-    ].join(",");
-
-    console.log("Solicitando recintos para bbox:", bbox);
-
-    fetch(`/api/recintos?bbox=${bbox}`)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Respuesta no OK de /api/recintos");
-        }
-        return response.json();
-      })
-      .then((fc) => {
-        console.log("Recintos recibidos:", fc && fc.features ? fc.features.length : 0);
-        recintosLayer.clearLayers();
-        if (!fc || !fc.features || fc.features.length === 0) {
-          return;
-        }
-        recintosLayer.addData(fc);
-      })
-      .catch((err) => {
-        console.error("Error al cargar recintos:", err);
-      });
+  // Siempre limpiar primero
+  if (z < ZOOM_RECINTOS || !recintosActivos) {
+    recintosLayer.clearLayers();
+    return;
   }
+
+  const b = map.getBounds();
+  const bbox = [
+    b.getWest().toFixed(6),
+    b.getSouth().toFixed(6),
+    b.getEast().toFixed(6),
+    b.getNorth().toFixed(6),
+  ].join(",");
+
+  console.log("Solicitando recintos para bbox:", bbox);
+
+  fetch(`/api/recintos?bbox=${bbox}`)
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Respuesta no OK de /api/recintos");
+      }
+      return response.json();
+    })
+    .then((fc) => {
+      console.log("Recintos recibidos:", fc && fc.features ? fc.features.length : 0);
+      
+      // Verificar de nuevo el zoom antes de añadir (por si cambió mientras esperábamos)
+      if (map.getZoom() < ZOOM_RECINTOS) {
+        recintosLayer.clearLayers();
+        return;
+      }
+      
+      recintosLayer.clearLayers();
+      if (!fc || !fc.features || fc.features.length === 0) {
+        return;
+      }
+      recintosLayer.addData(fc);
+    })
+    .catch((err) => {
+      console.error("Error al cargar recintos:", err);
+    });
+}
 
   // -----------------------------------------
   // 6) Actualizar mapa según zoom
@@ -2865,6 +2957,9 @@ if (btnDelete) {
     actualizarMapaSegunZoom();
     cargarRecintosSiProcede();
     cargarMisRecintosSiProcede();
+    if (splitOpen && currentSideRecintoId) {
+    guardarEstadoMapa();
+  }
   });
 
   map.on("moveend", () => {
@@ -3361,6 +3456,20 @@ if (btnDelete) {
     console.log('Todos los dibujos eliminados');
   });
  
+
+
+  actualizarMapaSegunZoom();
+    cargarRecintosSiProcede();
+    cargarMisRecintosSiProcede();
+
+    // Intentar restaurar el estado guardado
+    map.whenReady(async function () {
+      if (!recintoData) {
+        await restaurarEstadoMapa();
+      }
+    });
+
+
   });
 </script>
 
