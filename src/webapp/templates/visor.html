@@ -2515,10 +2515,16 @@ if (btnDelete) {
     ndvi: baseNdvi
   };
 
-  let activeHighLayerKey = "satellite";
+ const urlParams = new URLSearchParams(window.location.search);
+  const capaInicial = urlParams.get('capa') || 'satellite';
+
+  let activeHighLayerKey = capaInicial;
   function getActiveHighLayer() {
     return highZoomLayers[activeHighLayerKey];
   }
+
+
+  
 
   // -----------------------------------------
   // 4) Capa de recintos
