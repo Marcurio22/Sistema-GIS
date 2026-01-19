@@ -699,11 +699,11 @@
   .icon-btn.delete{ color: #dc3545; }
 
   .side-divider{
-    height: 2px;
-    background: #111;
-    opacity: .25;
+    height: 0;
+    border-top: 2px solid rgba(17,17,17,.25);
     margin: 14px 0 18px;
     width: 100%;
+    opacity: 1;
   }
 
   .side-row{
@@ -827,12 +827,12 @@
   }
 
   /* Divider suave para separar secciones */
-  .side-soft-divider{
+  /* .side-soft-divider{
     height: 1px;
     background: rgba(0,0,0,.12);
     margin: 14px 0;
     width: 100%;
-  }
+  } */
 
   .cultivo-actions{
     display:flex;
@@ -929,6 +929,69 @@
     gap: 8px;
     font-weight: 600;
   }
+
+  /* =========================
+   HISTÓRICO CULTIVOS (TABLA)
+   ========================= */
+
+  #cultivos-historico-panel .historico-table-wrap{
+    border: 1px solid rgba(0,0,0,.10);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    background: #fff;
+  }
+
+  #cultivos-historico-panel table.historico-table{
+    margin: 0;
+  }
+
+  #cultivos-historico-panel table.historico-table thead th{
+    background: #f8f9fa;
+    font-weight: 800;
+    font-size: 0.92rem;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(0,0,0,.10);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  #cultivos-historico-panel table.historico-table tbody td{
+    vertical-align: middle;
+  }
+
+  #cultivos-historico-panel .hist-fechas{
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  #cultivos-historico-panel .hist-actions .btn{
+    border-radius: 999px;
+  }
+
+  #cultivos-historico-panel .hist-obs-preview{
+    display: inline-block;
+    max-width: 260px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: .85;
+  }
+
+  #cultivos-historico-panel .hist-obs-row td{
+    background: rgba(25, 135, 84, 0.06);
+    border-top: 0;
+  }
+
+  #cultivos-historico-panel .hist-obs-detail{
+    padding: 12px 8px;
+  }
+
+  #cultivos-historico-panel .hist-obs-box{
+    background: #fff;
+  }
+
 
   /* SearchSelect (combo con búsqueda) */
   .ss{

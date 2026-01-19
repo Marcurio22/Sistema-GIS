@@ -1222,142 +1222,187 @@ if (btnDelete) {
         if (!arr.length) {
           cardsEl.innerHTML = `<div class="text-muted">No hay histórico todavía.</div>`;
         } else {
-          cardsEl.innerHTML = arr.map(c => {
-            const isCamp = String(c.tipo_registro || "").toUpperCase().includes("CAMP");
-            const inicio = isCamp ? c.fecha_siembra : c.fecha_implantacion;
-            const fin = c.fecha_cosecha_real || c.fecha_cosecha_estimada;
+            const COLS = 9;
 
-            const isCurrent = currentCultivoId && String(c.id_cultivo) === String(currentCultivoId);
+            cardsEl.innerHTML = `
+              <div class="table-responsive historico-table-wrap">
+                <table class="table table-sm table-hover align-middle historico-table mb-0">
+                  <thead>
+                    <tr>
+                      <th style="min-width:140px;">Fechas</th>
+                      <th style="min-width:180px;">Uso SIGPAC</th>
+                      <th style="min-width:180px;">Tipo cultivo</th>
+                      <th style="min-width:140px;">Variedad</th>
+                      <th style="min-width:120px;">Explotación</th>
+                      <th style="min-width:160px;">Campaña / Registro</th>
+                      <th style="min-width:120px;">Estado</th>
+                      <th style="min-width:220px;">Observaciones</th>
+                      <th style="min-width:170px;" class="text-end">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${arr.map((c) => {
+                      const isCamp = String(c.tipo_registro || "").toUpperCase().includes("CAMP");
+                      const inicio = isCamp ? c.fecha_siembra : c.fecha_implantacion;
+                      const fin = c.fecha_cosecha_real || c.fecha_cosecha_estimada;
 
-            const u = usosMap.get(String(c.uso_sigpac));
-            const usoLbl = formatCodigoDesc(c.uso_sigpac, u?.descripcion || c.uso_sigpac);
+                      const isCurrent = currentCultivoId && String(c.id_cultivo) === String(currentCultivoId);
 
-            let tipoLbl = "N/A";
-            const origen = String(c.origen_cultivo || "").toUpperCase();
+                      const u = usosMap.get(String(c.uso_sigpac));
+                      const usoLbl = formatCodigoDesc(c.uso_sigpac, u?.descripcion || c.uso_sigpac);
 
-            if (origen === "F" && c.cod_producto != null) {
-              const p = prodMap.get(String(c.cod_producto));
-              tipoLbl = formatCodigoDesc(c.cod_producto, p?.descripcion || c.tipo_cultivo);
-            } else {
-              tipoLbl = formatCodigoDesc(null, c.cultivo_custom || c.tipo_cultivo);
-            }
+                      let tipoLbl = "N/A";
+                      const origen = String(c.origen_cultivo || "").toUpperCase();
+                      if (origen === "F" && c.cod_producto != null) {
+                        const p = prodMap.get(String(c.cod_producto));
+                        tipoLbl = formatCodigoDesc(c.cod_producto, p?.descripcion || c.tipo_cultivo);
+                      } else {
+                        tipoLbl = formatCodigoDesc(null, c.cultivo_custom || c.tipo_cultivo);
+                      }
 
-            const obsHtml = (c.observaciones && String(c.observaciones).trim())
-              ? `<div style="white-space:pre-wrap;">${escapeHtml(c.observaciones)}</div>`
-              : `<span class="text-muted">(Sin observaciones)</span>`;
+                      const campOrReg = isCamp
+                        ? safeText(c.campana, "N/A")
+                        : safeText(tipoRegistroLabel(c.tipo_registro));
 
-            return `
-              <div class="historico-card">
-                <div class="historico-fechas">
-                  ${safeText(formatDateOnly(inicio))} → ${safeText(formatDateOnly(fin))}
-                </div>
+                      const obsText = (c.observaciones && String(c.observaciones).trim()) ? String(c.observaciones) : "";
+                      const hasObs = !!obsText.trim();
 
-                <div class="cultivo-grid">
-                  <div class="cultivo-field">
-                    <div class="k">Uso SIGPAC</div>
-                    <div class="v">${safeText(usoLbl)}</div>
-                  </div>
-                  <div class="cultivo-field">
-                    <div class="k">Tipo cultivo</div>
-                    <div class="v">${safeText(tipoLbl)}</div>
-                  </div>
+                      // Preview corto (sin saltos) + botón Ver/Ocultar
+                      const obsOneLine = hasObs ? obsText.replace(/\s+/g, " ").trim() : "";
+                      const obsPreview = hasObs
+                        ? escapeHtml(obsOneLine.slice(0, 70) + (obsOneLine.length > 70 ? "…" : ""))
+                        : "";
 
-                  <div class="cultivo-field">
-                    <div class="k">Variedad</div>
-                    <div class="v">${safeText(c.variedad, "N/A")}</div>
-                  </div>
-                  <div class="cultivo-field">
-                    <div class="k">Explotación</div>
-                    <div class="v">${safeText(sistemaLabel(c.sistema_explotacion))}</div>
-                  </div>
+                      const showToggle = hasObs || isCurrent; // aunque no haya obs, el actual tiene aviso útil
+                      const targetId = `hist-obs-${c.id_cultivo}`;
 
-                  <div class="cultivo-field">
-                    <div class="k">${isCamp ? "Campaña" : "Tipo registro"}</div>
-                    <div class="v">${isCamp ? safeText(c.campana, "N/A") : safeText(tipoRegistroLabel(c.tipo_registro))}</div>
-                  </div>
-                  <div class="cultivo-field">
-                    <div class="k">Estado</div>
-                    <div class="v">${estadoLabel(c.estado)}</div>
-                  </div>
+                      const obsCellHtml = hasObs
+                        ? `<span class="hist-obs-preview">${obsPreview}</span>`
+                        : `<span class="text-muted">(Sin observaciones)</span>`;
 
-                  <div class="cultivo-field">
-                    <div class="k">Fecha inicio</div>
-                    <div class="v">${safeText(formatDateOnly(inicio))}</div>
-                  </div>
-                  <div class="cultivo-field">
-                    <div class="k">Fecha fin</div>
-                    <div class="v">${safeText(formatDateOnly(fin))}</div>
-                  </div>
-                </div>
+                      const toggleBtn = showToggle
+                        ? `<button type="button"
+                                  class="btn btn-outline-success btn-sm btn-toggle-obs"
+                                  data-target="${targetId}"
+                                  aria-expanded="false">
+                              Ver
+                          </button>`
+                        : ``;
 
-                <!-- Botones en una fila -->
-                <div class="d-flex gap-2 mt-2">
-                  <button class="btn btn-success btn-sm btn-edit-hist" data-id="${c.id_cultivo}">
-                    <i class="bi bi-pencil-fill me-1"></i> Editar Registro
-                  </button>
-                  <button class="btn btn-danger btn-sm btn-del-hist" data-id="${c.id_cultivo}" ${isCurrent ? "disabled" : ""}>
-                    <i class="bi bi-trash-fill me-1"></i> Eliminar Registro
-                  </button>
-                </div>
+                      const obsFullHtml = hasObs
+                        ? `<div class="border rounded-3 p-2 hist-obs-box" style="white-space:pre-wrap;">${escapeHtml(obsText)}</div>`
+                        : `<div class="text-muted">(Sin observaciones)</div>`;
 
-                <!-- Aviso debajo (fuera del flex) -->
-                ${isCurrent ? `
-                  <div class="text-muted mt-2" style="font-size:12px">
-                    Este es el cultivo actual. Para eliminarlo, hazlo desde la página principal del cultivo.
-                  </div>
-                ` : ``}
+                      return `
+                        <tr>
+                          <td class="hist-fechas">
+                            ${safeText(formatDateOnly(inicio))} → ${safeText(formatDateOnly(fin))}
+                            ${isCurrent ? `<span class="badge bg-success ms-2">Actual</span>` : ``}
+                          </td>
 
-                <!-- Observaciones debajo (fuera del flex) -->
-                <div class="mt-3">
-                  <div class="fw-bold mb-1">Observaciones</div>
-                  <div class="border rounded-3 p-2" style="min-height:90px;">
-                    ${obsHtml}
-                  </div>
-                </div>
+                          <td>${safeText(usoLbl)}</td>
+                          <td>${safeText(tipoLbl)}</td>
+                          <td>${safeText(c.variedad, "N/A")}</td>
+                          <td>${safeText(sistemaLabel(c.sistema_explotacion))}</td>
+                          <td>${campOrReg}</td>
+                          <td>${estadoLabel(c.estado)}</td>
+
+                          <td>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                              ${obsCellHtml}
+                              ${toggleBtn}
+                            </div>
+                          </td>
+
+                          <td class="text-end">
+                            <div class="d-flex gap-2 justify-content-end flex-wrap hist-actions">
+                              <button class="btn btn-success btn-sm btn-edit-hist" data-id="${c.id_cultivo}">
+                                <i class="bi bi-pencil-fill me-1"></i> Editar
+                              </button>
+                              <button class="btn btn-danger btn-sm btn-del-hist" data-id="${c.id_cultivo}" ${isCurrent ? "disabled" : ""}>
+                                <i class="bi bi-trash-fill me-1"></i> Eliminar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        <tr id="${targetId}" class="hist-obs-row d-none">
+                          <td colspan="${COLS}">
+                            <div class="hist-obs-detail">
+                              <div class="fw-bold mb-2">Observaciones</div>
+                              ${obsFullHtml}
+
+                              ${isCurrent ? `
+                                <div class="text-muted mt-2" style="font-size:12px">
+                                  Este es el cultivo actual. Para eliminarlo, hazlo desde la página principal del cultivo.
+                                </div>
+                              ` : ``}
+                            </div>
+                          </td>
+                        </tr>
+                      `;
+                    }).join("")}
+                  </tbody>
+                </table>
               </div>
             `;
-          }).join("");
 
-          // Eliminar registro
-          cardsEl.querySelectorAll(".btn-del-hist").forEach(btn => {
-            btn.addEventListener("click", async (ev) => {
-              const id = ev.currentTarget.dataset.id;
+            // Toggle Observaciones (Ver/Ocultar)
+            cardsEl.querySelectorAll(".btn-toggle-obs").forEach(btn => {
+              btn.addEventListener("click", (ev) => {
+                const b = ev.currentTarget;
+                const targetId = b.dataset.target;
+                const row = cardsEl.querySelector(`#${CSS.escape(targetId)}`);
+                if (!row) return;
 
-              const ok = await AppConfirm.open({
-                title: "Eliminar cultivo",
-                message: "¿Seguro que deseas eliminar el cultivo? Este proceso no es reversible.",
-                okText: "Eliminar",
-                cancelText: "Cancelar",
-                okClass: "btn-danger"
-              });
-              if (!ok) return;
+                const isHidden = row.classList.contains("d-none");
+                row.classList.toggle("d-none", !isHidden);
 
-              await fetchJson(`/api/cultivos/${id}`, { method: "DELETE" });
-              await reloadHistorico();
-            });
-          });
-
-          // Editar registro
-          cardsEl.querySelectorAll(".btn-edit-hist").forEach(btn => {
-            btn.addEventListener("click", (ev) => {
-              const id = ev.currentTarget.dataset.id;
-              const item = arr.find(x => String(x.id_cultivo) === String(id));
-              if (!item) return;
-
-              renderCultivoForm(listEl, {
-                recintoId: currentSideRecintoId,
-                cultivo: item,
-                usos,
-                productos,
-                mode: "historico_edit",
-                cultivoId: Number(id),
-                currentCultivoId, 
-                onDone: reloadHistorico,
-                onCancel: reloadHistorico
+                b.textContent = isHidden ? "Ocultar" : "Ver";
+                b.setAttribute("aria-expanded", isHidden ? "true" : "false");
               });
             });
-          });
-        }
+
+            // Eliminar registro (igual que antes)
+            cardsEl.querySelectorAll(".btn-del-hist").forEach(btn => {
+              btn.addEventListener("click", async (ev) => {
+                const id = ev.currentTarget.dataset.id;
+
+                const ok = await AppConfirm.open({
+                  title: "Eliminar cultivo",
+                  message: "¿Seguro que deseas eliminar el cultivo? Este proceso no es reversible.",
+                  okText: "Eliminar",
+                  cancelText: "Cancelar",
+                  okClass: "btn-danger"
+                });
+                if (!ok) return;
+
+                await fetchJson(`/api/cultivos/${id}`, { method: "DELETE" });
+                await reloadHistorico();
+              });
+            });
+
+            // Editar registro (igual que antes)
+            cardsEl.querySelectorAll(".btn-edit-hist").forEach(btn => {
+              btn.addEventListener("click", (ev) => {
+                const id = ev.currentTarget.dataset.id;
+                const item = arr.find(x => String(x.id_cultivo) === String(id));
+                if (!item) return;
+
+                renderCultivoForm(listEl, {
+                  recintoId: currentSideRecintoId,
+                  cultivo: item,
+                  usos,
+                  productos,
+                  mode: "historico_edit",
+                  cultivoId: Number(id),
+                  currentCultivoId,
+                  onDone: reloadHistorico,
+                  onCancel: reloadHistorico
+                });
+              });
+            });
+          }
 
         // Añadir al histórico
         listEl.querySelector("#btn-add-historico")?.addEventListener("click", () => {
