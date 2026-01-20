@@ -213,7 +213,7 @@
     </label>
     <div class="side-divider"></div>
 
-    <div class="side-section">
+   <div class="side-section">
       <div class="side-section-head">
         <div></div>
     
@@ -231,6 +231,27 @@
     </div>
 
     <div class="side-divider"></div>
+
+    <!-- SECCIÓN NDVI -->
+    <div class="side-section">
+      <div class="side-section-head">
+        <div></div>
+    
+        <h2 class="side-section-title mb-4">
+          <i class="fa-solid fa-leaf me-2" style="color:#198754"></i>
+          <span class="side-section-label">NDVI</span>
+        </h2>
+    
+        <button id="btn-historico-ndvi" type="button" class="btn btn-success btn-historico">
+          Histórico de NDVI
+        </button>
+      </div>
+    
+      <div id="ndvi-container"></div>
+    </div>
+
+    <div class="side-divider"></div>
+    
     <!-- GALERÍA-->
     <div id="galeria-imagenes" class="galeria-container mt-4">
       <h2 class="side-section-title mb-3">
@@ -272,6 +293,28 @@
 
       <div class="side-divider"></div>
       <div id="cultivos-historico-list" class="pb-3"></div>
+    </div>
+
+    <!-- OVERLAY HISTÓRICO NDVI -->
+    <div id="ndvi-historico-panel" class="side-overlay d-none" aria-hidden="true">
+
+      <div class="overlay-topbar">
+        <button id="btn-volver-historico-ndvi" class="btn btn-outline-secondary" type="button">
+          <i class="bi bi-arrow-left me-1"></i> Volver
+        </button>
+
+        <div class="overlay-title">
+          <i class="fa-solid fa-leaf" style="color:#198754"></i>
+          <span>NDVI</span>
+        </div>
+
+        <button id="btn-cerrar-historico-ndvi" class="btn-side-close" type="button" title="Cerrar">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <div class="side-divider"></div>
+      <div id="ndvi-historico-list" class="pb-3"></div>
     </div>
 
     <!-- OVERLAY GALERÍA COMPLETA -->
