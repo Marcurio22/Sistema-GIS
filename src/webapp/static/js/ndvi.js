@@ -43,26 +43,45 @@ class NDVI {
       // Tomar el índice más reciente
       const ultimoIndice = indices[0];
       
+      // Obtener ruta de la imagen desde la BD
+      let rutaImagen = ultimoIndice.ruta_ndvi;
+      
+      // Limpiar la ruta: quitar prefijo 'webapp/' si existe
+      if (rutaImagen) {
+        rutaImagen = rutaImagen.replace(/^webapp\//, '');
+        
+        // Asegurar que la ruta empiece con /
+        if (!rutaImagen.startsWith('/')) {
+          rutaImagen = '/' + rutaImagen;
+        }
+      }
+      
+      // Si no hay ruta, usar fallback
+      if (!rutaImagen) {
+        rutaImagen = `/static/thumbnails/${ultimoIndice.fecha_ndvi ? ultimoIndice.fecha_ndvi.replace(/-/g, '').substring(0, 8) : 'unknown'}_${this.recintoId}.png`;
+      }
+      
       this.container.innerHTML = `
         <div class="ndvi-card">
-          <img src="/static/ndvi_simple/${this.recintoId}.png" 
-               alt="NDVI" 
+          <img src="${rutaImagen}" 
+               alt="NDVI Recinto ${this.recintoId}" 
                class="ndvi-imagen"
-               onerror="this.parentElement.innerHTML='<p class=text-muted>No hay imagen NDVI</p>'">
+               onerror="this.parentElement.innerHTML='<p class=text-muted>No hay imagen NDVI disponible</p>'">
           
           <div class="ndvi-stats">
             <div class="stat-item">
               <span class="stat-label">Media</span>
-              <span class="stat-value">${ultimoIndice.valor_medio.toFixed(3)}</span>
+              <span class="stat-value">${ultimoIndice.valor_medio.toFixed(4)}</span>
             </div>
             <div class="stat-item">
               <span class="stat-label">Mín</span>
-              <span class="stat-value">${ultimoIndice.valor_min.toFixed(3)}</span>
+              <span class="stat-value">${ultimoIndice.valor_min.toFixed(4)}</span>
             </div>
             <div class="stat-item">
               <span class="stat-label">Máx</span>
-              <span class="stat-value">${ultimoIndice.valor_max.toFixed(3)}</span>
+              <span class="stat-value">${ultimoIndice.valor_max.toFixed(4)}</span>
             </div>
+            
           </div>
         </div>
       `;
