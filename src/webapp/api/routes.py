@@ -30,7 +30,11 @@ from .services import (
     delete_cultivo_recinto,
     create_cultivo_historico_recinto,
     patch_cultivo_by_id, 
-    delete_cultivo_by_id
+    delete_cultivo_by_id,
+    list_operaciones_recinto,
+    create_operacion_recinto,
+    patch_operacion_by_id,
+    delete_operacion_by_id
 )
 
 
@@ -493,4 +497,93 @@ def buscar_variedades():
         print(f"Error buscando variedades: {str(e)}")
         return jsonify([]), 500
 
+# ---------------------------
+# Operaciones por recinto
+# ---------------------------
+
+@api_bp.get("/mis-recinto/<int:recinto_id>/operaciones")
+@login_required
+def api_get_operaciones(recinto_id: int):
+    try:
+        # all=1 => devuelve todo
+        all_flag = request.args.get("all", "").strip().lower() in ("1", "true", "t", "yes", "si", "sí")
+        limit = request.args.get("limit", type=int)
+
+        if all_flag:
+            limit = None
+        elif limit is None:
+            limit = 50
+
+        ops = list_operaciones_recinto(recinto_id, current_user.id_usuario, limit=limit)
+        return jsonify(ops)
+
+    except ValueError as e:
+        msg = str(e)
+        if msg == "recinto_no_encontrado_o_sin_permiso":
+            return jsonify({"error": "Recinto no encontrado"}), 404
+        return jsonify({"error": msg}), 400
+
+    except Exception:
+        return jsonify({"error": "Error interno en GET /api/mis-recinto/<id>/operaciones"}), 500
+
+
+@api_bp.post("/mis-recinto/<int:recinto_id>/operaciones")
+@login_required
+def api_create_operacion(recinto_id: int):
+    data = request.get_json(silent=True) or {}
+    try:
+        op = create_operacion_recinto(recinto_id, current_user.id_usuario, data)
+        return jsonify({"ok": True, "operacion": op}), 201
+
+    except ValueError as e:
+        msg = str(e)
+        if msg == "recinto_no_encontrado_o_sin_permiso":
+            return jsonify({"ok": False, "error": "Recinto no encontrado"}), 404
+        if msg.startswith("tipo_no_valido:"):
+            return jsonify({"ok": False, "error": "Tipo de operación no válido"}), 400
+        if msg == "tipo_requerido":
+            return jsonify({"ok": False, "error": "Campo 'tipo' requerido"}), 400
+        if msg == "fecha_requerida":
+            return jsonify({"ok": False, "error": "Campo 'fecha' requerido"}), 400
+        return jsonify({"ok": False, "error": msg}), 400
+
+    except Exception:
+        return jsonify({"ok": False, "error": "Error interno en POST /api/mis-recinto/<id>/operaciones"}), 500
+
+
+@api_bp.patch("/operaciones/<int:id_operacion>")
+@login_required
+def api_patch_operacion(id_operacion: int):
+    data = request.get_json(silent=True) or {}
+    try:
+        op = patch_operacion_by_id(id_operacion, current_user.id_usuario, data)
+        return jsonify({"ok": True, "operacion": op})
+
+    except ValueError as e:
+        msg = str(e)
+        if msg == "operacion_no_encontrada_o_sin_permiso":
+            return jsonify({"ok": False, "error": "Operación no encontrada"}), 404
+        if msg.startswith("tipo_no_valido:"):
+            return jsonify({"ok": False, "error": "Tipo de operación no válido"}), 400
+        if msg == "tipo_requerido":
+            return jsonify({"ok": False, "error": "Campo 'tipo' requerido"}), 400
+        if msg == "fecha_requerida":
+            return jsonify({"ok": False, "error": "Campo 'fecha' requerido"}), 400
+        return jsonify({"ok": False, "error": msg}), 400
+
+    except Exception:
+        return jsonify({"ok": False, "error": "Error interno en PATCH /api/operaciones/<id>"}), 500
+
+
+@api_bp.delete("/operaciones/<int:id_operacion>")
+@login_required
+def api_delete_operacion(id_operacion: int):
+    try:
+        ok = delete_operacion_by_id(id_operacion, current_user.id_usuario)
+        if not ok:
+            return jsonify({"ok": False, "error": "Operación no encontrada"}), 404
+        return jsonify({"ok": True})
+
+    except Exception:
+        return jsonify({"ok": False, "error": "Error interno en DELETE /api/operaciones/<id>"}), 500
 

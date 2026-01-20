@@ -5,6 +5,7 @@ from sqlalchemy import text
 from .. import db
 import requests
 import json
+from datetime import date, datetime
 from webapp.dashboard.utils_dashboard import municipios_finder
 from ..models import Variedad
 
@@ -735,16 +736,241 @@ def patch_cultivo_by_id(id_cultivo: int, user_id: int, data: dict) -> dict:
 
     return get_cultivo_by_id(id_cultivo, user_id)
 
-def delete_cultivo_by_id(id_cultivo: int, user_id: int) -> bool:
+# def delete_cultivo_by_id(id_cultivo: int, user_id: int) -> bool:
+#     sql = text("""
+#         DELETE FROM public.cultivos c
+#         USING public.recintos r
+#         WHERE c.id_cultivo = :cid
+#           AND r.id_recinto = c.id_recinto
+#           AND r.id_propietario = :uid
+#     """)
+#     res = db.session.execute(sql, {"cid": id_cultivo, "uid": user_id})
+#     db.session.commit()
+#     return res.rowcount > 0
+
+# ---------------------------
+# Operaciones
+# ---------------------------
+def _parse_date_iso(v) -> date | None:
+    if not v:
+        return None
+    if isinstance(v, date) and not isinstance(v, datetime):
+        return v
+    s = str(v).strip()
+    # admite "YYYY-MM-DD" y también "YYYY-MM-DDTHH:MM..."
+    return date.fromisoformat(s[:10])
+
+
+def _get_tipo_operacion_id(codigo: str) -> int:
+    cod = (codigo or "").upper().strip()
+    if not cod:
+        raise ValueError("tipo_requerido")
+
+    tid = db.session.execute(
+        text("SELECT id_tipo_operacion FROM public.tipos_operacion WHERE codigo = :c"),
+        {"c": cod},
+    ).scalar()
+
+    if not tid:
+        raise ValueError(f"tipo_no_valido:{cod}")
+
+    return int(tid)
+
+
+def _assert_recinto_owner(recinto_id: int, user_id: int) -> None:
+    ok = db.session.execute(
+        text("SELECT 1 FROM public.recintos WHERE id_recinto = :rid AND id_propietario = :uid"),
+        {"rid": recinto_id, "uid": user_id},
+    ).scalar()
+    if not ok:
+        raise ValueError("recinto_no_encontrado_o_sin_permiso")
+
+
+def list_operaciones_recinto(recinto_id: int, user_id: int, limit: int | None = None) -> list[dict]:
+    _assert_recinto_owner(recinto_id, user_id)
+
+    if limit is not None and limit <= 0:
+        limit = None
+
     sql = text("""
-        DELETE FROM public.cultivos c
-        USING public.recintos r
-        WHERE c.id_cultivo = :cid
-          AND r.id_recinto = c.id_recinto
-          AND r.id_propietario = :uid
+        SELECT
+            o.id_operacion,
+            o.id_recinto,
+            t.codigo AS tipo,
+            o.fecha,
+            o.descripcion,
+            o.detalle,
+            COALESCE(o.meta, '{}'::jsonb) AS meta,
+            o.created_at,
+            o.updated_at
+        FROM public.operaciones o
+        JOIN public.tipos_operacion t ON t.id_tipo_operacion = o.id_tipo_operacion
+        WHERE o.id_recinto = :rid
+        ORDER BY o.fecha DESC, o.id_operacion DESC
+        """ + ("" if limit is None else " LIMIT :lim")
+    )
+
+    params = {"rid": recinto_id}
+    if limit is not None:
+        params["lim"] = limit
+
+    rows = db.session.execute(sql, params).mappings().all()
+
+    out = []
+    for r in rows:
+        d = dict(r)
+        # convertir fechas/datetimes a ISO como haces en cultivos
+        for k, v in list(d.items()):
+            if isinstance(v, (datetime, date)):
+                d[k] = v.isoformat()
+        out.append(d)
+
+    return out
+
+
+def create_operacion_recinto(recinto_id: int, user_id: int, payload: dict) -> dict:
+    _assert_recinto_owner(recinto_id, user_id)
+
+    tipo = (payload.get("tipo") or "").upper().strip()
+    fecha = _parse_date_iso(payload.get("fecha"))
+    if not tipo:
+        raise ValueError("tipo_requerido")
+    if not fecha:
+        raise ValueError("fecha_requerida")
+
+    id_tipo = _get_tipo_operacion_id(tipo)
+
+    descripcion = payload.get("descripcion", None)
+    detalle = payload.get("detalle") or {}
+    meta = {
+        "schema_version": payload.get("schema_version", 1),
+        # guardamos snapshot completo para histórico y para no depender del catálogo en el futuro
+        "payload_snapshot": {
+            "tipo": tipo,
+            "fecha": str(fecha),
+            "descripcion": descripcion,
+            "detalle": detalle,
+        },
+    }
+
+    sql = text("""
+        INSERT INTO public.operaciones (
+            id_recinto, id_tipo_operacion, fecha, descripcion, detalle, meta
+        )
+        VALUES (
+            :rid, :tid, :fecha, :desc, CAST(:detalle AS jsonb), CAST(:meta AS jsonb)
+        )
+        RETURNING id_operacion
     """)
-    res = db.session.execute(sql, {"cid": id_cultivo, "uid": user_id})
+
+    new_id = db.session.execute(sql, {
+        "rid": recinto_id,
+        "tid": id_tipo,
+        "fecha": fecha,
+        "desc": descripcion,
+        "detalle": json.dumps(detalle),
+        "meta": json.dumps(meta),
+    }).scalar_one()
+
+    db.session.commit()
+
+    # devolver registro creado (para depurar / futuro)
+    row = db.session.execute(text("""
+        SELECT
+            o.id_operacion, o.id_recinto, t.codigo AS tipo, o.fecha, o.descripcion, o.detalle, o.meta, o.created_at, o.updated_at
+        FROM public.operaciones o
+        JOIN public.tipos_operacion t ON t.id_tipo_operacion = o.id_tipo_operacion
+        WHERE o.id_operacion = :oid
+        LIMIT 1
+    """), {"oid": new_id}).mappings().first()
+
+    d = dict(row)
+    for k, v in list(d.items()):
+        if isinstance(v, (datetime, date)):
+            d[k] = v.isoformat()
+    return d
+
+
+def patch_operacion_by_id(id_operacion: int, user_id: int, payload: dict) -> dict:
+    # comprobar propiedad via join operaciones -> recintos
+    ok = db.session.execute(text("""
+        SELECT o.id_recinto
+        FROM public.operaciones o
+        JOIN public.recintos r ON r.id_recinto = o.id_recinto
+        WHERE o.id_operacion = :oid
+          AND r.id_propietario = :uid
+        LIMIT 1
+    """), {"oid": id_operacion, "uid": user_id}).scalar()
+
+    if not ok:
+        raise ValueError("operacion_no_encontrada_o_sin_permiso")
+
+    tipo = (payload.get("tipo") or "").upper().strip()
+    fecha = _parse_date_iso(payload.get("fecha"))
+    if not tipo:
+        raise ValueError("tipo_requerido")
+    if not fecha:
+        raise ValueError("fecha_requerida")
+
+    id_tipo = _get_tipo_operacion_id(tipo)
+    descripcion = payload.get("descripcion", None)
+    detalle = payload.get("detalle") or {}
+
+    meta = {
+        "schema_version": payload.get("schema_version", 1),
+        "payload_snapshot": {
+            "tipo": tipo,
+            "fecha": str(fecha),
+            "descripcion": descripcion,
+            "detalle": detalle,
+        },
+    }
+
+    db.session.execute(text("""
+        UPDATE public.operaciones
+        SET
+            id_tipo_operacion = :tid,
+            fecha = :fecha,
+            descripcion = :desc,
+            detalle = CAST(:detalle AS jsonb),
+            meta = CAST(:meta AS jsonb),
+            updated_at = now()
+        WHERE id_operacion = :oid
+    """), {
+        "tid": id_tipo,
+        "fecha": fecha,
+        "desc": descripcion,
+        "detalle": json.dumps(detalle),
+        "meta": json.dumps(meta),
+        "oid": id_operacion,
+    })
+
+    db.session.commit()
+
+    row = db.session.execute(text("""
+        SELECT
+            o.id_operacion, o.id_recinto, t.codigo AS tipo, o.fecha, o.descripcion, o.detalle, o.meta, o.created_at, o.updated_at
+        FROM public.operaciones o
+        JOIN public.tipos_operacion t ON t.id_tipo_operacion = o.id_tipo_operacion
+        WHERE o.id_operacion = :oid
+        LIMIT 1
+    """), {"oid": id_operacion}).mappings().first()
+
+    d = dict(row)
+    for k, v in list(d.items()):
+        if isinstance(v, (datetime, date)):
+            d[k] = v.isoformat()
+    return d
+
+
+def delete_operacion_by_id(id_operacion: int, user_id: int) -> bool:
+    res = db.session.execute(text("""
+        DELETE FROM public.operaciones o
+        USING public.recintos r
+        WHERE o.id_operacion = :oid
+          AND r.id_recinto = o.id_recinto
+          AND r.id_propietario = :uid
+    """), {"oid": id_operacion, "uid": user_id})
+
     db.session.commit()
     return res.rowcount > 0
-
-
