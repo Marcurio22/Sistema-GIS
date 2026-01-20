@@ -264,7 +264,7 @@
           <span class="side-section-label">Operaciones</span>
         </h2>
 
-        <button id="btn-historico-operaciones" class="btn btn-outline-success btn-sm">
+        <button id="btn-historico-operaciones" class="btn btn-outline-success btn-sm ms-auto">
           <i class="bi bi-clock-history me-1"></i> Ver histórico
         </button>
       </div>
@@ -2642,6 +2642,7 @@ if (btnDelete) {
     if (t === "RIEGO") return "Riego";
     if (t === "FERTILIZACION") return "Fertilización";
     if (t === "FITOSANITARIO") return "Fitosanitario";
+    if (t === "OTRAS") return "Otras";
     return safeText(tipo, "Operación");
   }
 
@@ -2650,35 +2651,45 @@ if (btnDelete) {
     if (t === "RIEGO") return "bg-info";
     if (t === "FERTILIZACION") return "bg-success";
     if (t === "FITOSANITARIO") return "bg-warning text-dark";
+    if (t === "OTRAS") return "bg-secondary";
     return "bg-secondary";
   }
 
   function opResumen(op){
-    // op.detalle puede venir ya como objeto o string JSON según cómo lo devuelvas
     let d = op?.detalle;
-    if (typeof d === "string") {
-      try { d = JSON.parse(d); } catch (_) {}
-    }
+    if (typeof d === "string") { try { d = JSON.parse(d); } catch(_){} }
+    d = d || {};
     const tipo = String(op?.tipo || "").toUpperCase();
 
     if (tipo === "RIEGO") {
       const v = d?.volumen_m3 ?? d?.volumen ?? null;
       const sis = d?.sistema_riego?.label || d?.sistema_riego?.codigo || "";
+      const proc = d?.procedencia_agua?.label || d?.procedencia_agua?.codigo || "";
+      const obs = d?.observaciones || "";
       const txtV = (v != null && v !== "") ? `${Number(v).toFixed(0)} m³` : "—";
-      return `${txtV}${sis ? " · " + sis : ""}`;
+      return `${txtV}${sis ? " · " + sis : ""}${proc ? " · " + proc : ""}${obs ? " — " + obs : ""}`;
     }
 
     if (tipo === "FERTILIZACION") {
-      const modo = d?.tipo_fertilizacion?.label || d?.modo || "";
       const prod = d?.producto?.label || d?.producto?.codigo || "";
       const cant = d?.cantidad;
       const uni = d?.unidad || "";
+      const tipoF = d?.tipo_fertilizacion?.label || d?.tipo_fertilizacion?.codigo || "";
+      const obs = d?.observaciones || "";
       const txtC = (cant != null && cant !== "") ? `${cant} ${uni}` : "—";
-      return `${txtC}${prod ? " · " + prod : ""}${modo ? " · " + modo : ""}`;
+      return `${txtC}${prod ? " · " + prod : ""}${tipoF ? " · " + tipoF : ""}${obs ? " — " + obs : ""}`;
+    }
+
+    if (tipo === "OTRAS") {
+      const cat = d?.catalogo || "";
+      const lab = d?.label || d?.codigo || "";
+      const obs = d?.observaciones || "";
+      return `${cat}${lab ? " · " + lab : ""}${obs ? " — " + obs : ""}`.trim() || "—";
     }
 
     return safeText(op?.descripcion, "—");
   }
+
 
   function renderOperacionesInline(container, recintoId, ops){
     const hasOps = ops.length > 0;
@@ -2688,6 +2699,7 @@ if (btnDelete) {
         <button id="btn-add-op-inline" class="btn btn-success btn-sm">
           <i class="bi bi-plus-lg me-1"></i> Añadir operación
         </button>
+
       </div>
 
       <div id="op-inline-body"></div>
@@ -2821,30 +2833,78 @@ if (btnDelete) {
         <table class="table table-sm table-hover align-middle historico-table mb-0">
           <thead>
             <tr>
-              <th style="min-width:120px;">Fecha</th>
-              <th style="min-width:140px;">Tipo</th>
-              <th style="min-width:360px;">Resumen</th>
+              <th style="min-width:110px;">Día</th>
+              <th style="min-width:120px;">Tipo</th>
+              <th style="min-width:220px;">Descripción</th>
+
+              <th style="min-width:120px;">Riego m³</th>
+              <th style="min-width:180px;">Sistema</th>
+              <th style="min-width:180px;">Procedencia</th>
+
+              <th style="min-width:140px;">Cantidad</th>
+              <th style="min-width:220px;">Producto</th>
+              <th style="min-width:160px;">Fert. tipo</th>
+              <th style="min-width:160px;">Método</th>
+              <th style="min-width:160px;">Material</th>
+
+              <th style="min-width:220px;">Otras (Catálogo / Opción)</th>
+              <th style="min-width:220px;">Observaciones</th>
+
               <th style="min-width:220px;" class="text-end">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            ${ops.map(op => `
-              <tr>
-                <td class="hist-fechas">${escapeHtml(formatDateOnly(op.fecha))}</td>
-                <td><span class="badge ${opBadgeClass(op.tipo)}">${escapeHtml(opTipoLabel(op.tipo))}</span></td>
-                <td>${escapeHtml(opResumen(op))}</td>
-                <td class="text-end">
-                  <div class="d-flex gap-2 justify-content-end flex-wrap">
-                    <button class="btn btn-success btn-sm btn-edit-op" data-id="${op.id_operacion}">
-                      <i class="bi bi-pencil-fill me-1"></i> Editar
-                    </button>
-                    <button class="btn btn-danger btn-sm btn-del-op" data-id="${op.id_operacion}">
-                      <i class="bi bi-trash-fill me-1"></i> Eliminar
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            `).join("")}
+            ${ops.map(op => {
+              let d = op?.detalle;
+              if (typeof d === "string") { try { d = JSON.parse(d); } catch(_){} }
+              d = d || {};
+              const t = String(op?.tipo||"").toUpperCase();
+
+              const riego_m3 = t==="RIEGO" ? (d.volumen_m3 ?? "") : "";
+              const riego_sis = t==="RIEGO" ? (d?.sistema_riego?.label || d?.sistema_riego?.codigo || "") : "";
+              const riego_proc = t==="RIEGO" ? (d?.procedencia_agua?.label || d?.procedencia_agua?.codigo || "") : "";
+
+              const fert_cant = t==="FERTILIZACION" ? `${d?.cantidad ?? ""} ${d?.unidad ?? ""}`.trim() : "";
+              const fert_prod = t==="FERTILIZACION" ? (d?.producto?.label || d?.producto?.codigo || "") : "";
+              const fert_tipo = t==="FERTILIZACION" ? (d?.tipo_fertilizacion?.label || d?.tipo_fertilizacion?.codigo || "") : "";
+              const fert_met = t==="FERTILIZACION" ? (d?.metodo_aplicacion?.label || d?.metodo_aplicacion?.codigo || "") : "";
+              const fert_mat = t==="FERTILIZACION" ? (d?.material?.label || d?.material?.codigo || "") : "";
+
+              const otras = t==="OTRAS" ? `${d?.catalogo || ""}${d?.label ? " / " + d.label : ""}`.trim() : "";
+              const obs = d?.observaciones || d?.obs || op?.descripcion || "";
+
+              return `
+                <tr>
+                  <td>${escapeHtml(formatDateOnly(op.fecha))}</td>
+                  <td><span class="badge ${opBadgeClass(op.tipo)}">${escapeHtml(opTipoLabel(op.tipo))}</span></td>
+                  <td>${escapeHtml(op?.descripcion || "—")}</td>
+
+                  <td>${escapeHtml(riego_m3 === "" ? "—" : String(riego_m3))}</td>
+                  <td>${escapeHtml(riego_sis || "—")}</td>
+                  <td>${escapeHtml(riego_proc || "—")}</td>
+
+                  <td>${escapeHtml(fert_cant || "—")}</td>
+                  <td>${escapeHtml(fert_prod || "—")}</td>
+                  <td>${escapeHtml(fert_tipo || "—")}</td>
+                  <td>${escapeHtml(fert_met || "—")}</td>
+                  <td>${escapeHtml(fert_mat || "—")}</td>
+
+                  <td>${escapeHtml(otras || "—")}</td>
+                  <td>${escapeHtml(obs || "—")}</td>
+
+                  <td class="="text-end">
+                    <div class="d-flex gap-2 justify-content-end flex-wrap">
+                      <button class="btn btn-success btn-sm btn-edit-op" data-id="${op.id_operacion}">
+                        <i class="bi bi-pencil-fill me-1"></i> Editar
+                      </button>
+                      <button class="btn btn-danger btn-sm btn-del-op" data-id="${op.id_operacion}">
+                        <i class="bi bi-trash-fill me-1"></i> Eliminar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join("")}
           </tbody>
         </table>
       </div>
@@ -3317,6 +3377,71 @@ if (btnDelete) {
 
       // defaults
       slot.querySelector("#fer-uni").value = uni;
+
+      // OTRAS
+      if (t === "OTRAS") {
+        // defaults
+        const cat = det?.catalogo || "";
+        const codigo = det?.codigo || "";
+        const parent = det?.parent || "";
+
+        slot.innerHTML = `
+          <div class="row g-2">
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-bold">Catálogo *</label>
+              <select id="otras-cat" class="form-select">
+                <option value="">Selecciona...</option>
+                <option value="ACTIVIDAD_AGRARIA">Actividad agraria</option>
+                <option value="ACTIVIDAD_CUBIERTA">Actividad sobre la cubierta</option>
+                <option value="APROVECHAMIENTO">Aprovechamiento</option>
+                <option value="TIPO_COBERTURA_SUELO">Tipo cobertura del suelo</option>
+                <option value="DESTINO_CULTIVO">Destino del cultivo</option>
+                <option value="MVR_TIPO">Material vegetal (tipo)</option>
+                <option value="MVR_DETALLE">Material vegetal (detalle)</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-bold">Opción *</label>
+              <select id="otras-item" class="form-select" disabled>
+                <option value="">Selecciona catálogo primero...</option>
+              </select>
+              <div class="form-text">Catálogo SIEX: el que elijas arriba</div>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-bold">Observaciones</label>
+              <input id="otras-obs" class="form-control" type="text" placeholder="(Opcional)" value="${escapeHtml(det?.observaciones || "")}">
+            </div>
+          </div>
+        `;
+
+        const catSel = slot.querySelector("#otras-cat");
+        const itemSel = slot.querySelector("#otras-item");
+
+        // set catálogo
+        catSel.value = cat;
+
+        function loadItems() {
+          const c = (catSel.value || "").trim();
+          if (!c) {
+            itemSel.disabled = true;
+            itemSel.innerHTML = `<option value="">Selecciona catálogo primero...</option>`;
+            return;
+          }
+          itemSel.disabled = false;
+          fillSelectFromCatalog(itemSel, c, { selected: codigo, placeholder: "Selecciona..." });
+        }
+
+        catSel.addEventListener("change", () => {
+          itemSel.value = "";
+          loadItems();
+        });
+
+        loadItems();
+        return;
+      }
+
     }
 
     renderDetalle(tipoSel.value);
@@ -3451,6 +3576,23 @@ if (btnDelete) {
         };
 
         payload.detalle.tratamiento_estiercol = pickOpt(estSel);
+      }
+
+      if (tipo === "OTRAS") {
+        const cat = slot.querySelector("#otras-cat")?.value || "";
+        const cod = slot.querySelector("#otras-item")?.value || "";
+        const label = (slot.querySelector("#otras-item")?.selectedOptions?.[0]?.textContent || "").trim();
+        const obs = (slot.querySelector("#otras-obs")?.value || "").trim() || null;
+
+        if (!cat) { msg.textContent="Selecciona catálogo."; msg.className="text-danger"; return; }
+        if (!cod) { msg.textContent="Selecciona una opción."; msg.className="text-danger"; return; }
+
+        payload.detalle = {
+          catalogo: cat,
+          codigo: cod,
+          label: label || cod,
+          observaciones: obs
+        };
       }
 
       // ENDPOINTS
