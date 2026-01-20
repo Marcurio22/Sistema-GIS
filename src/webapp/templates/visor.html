@@ -264,8 +264,8 @@
           <span class="side-section-label">Operaciones</span>
         </h2>
 
-        <button id="btn-historico-operaciones" type="button" class="btn btn-success btn-historico">
-          Histórico
+        <button id="btn-historico-operaciones" class="btn btn-outline-success btn-sm">
+          <i class="bi bi-clock-history me-1"></i> Ver histórico
         </button>
       </div>
 
@@ -2688,9 +2688,6 @@ if (btnDelete) {
         <button id="btn-add-op-inline" class="btn btn-success btn-sm">
           <i class="bi bi-plus-lg me-1"></i> Añadir operación
         </button>
-        <button id="btn-ver-op-hist-inline" class="btn btn-outline-success btn-sm">
-          <i class="bi bi-clock-history me-1"></i> Ver histórico
-        </button>
       </div>
 
       <div id="op-inline-body"></div>
@@ -2708,18 +2705,32 @@ if (btnDelete) {
       body.innerHTML = `
         <div class="op-mini-list">
           ${ops.map(op => `
-            <div class="op-mini-item">
-              <div class="d-flex align-items-center gap-2">
-                <span class="badge ${opBadgeClass(op.tipo)} op-badge">${escapeHtml(opTipoLabel(op.tipo))}</span>
-                <span class="text-muted op-date">${escapeHtml(formatDateOnly(op.fecha))}</span>
+            <div class="op-mini-item d-flex justify-content-between align-items-start gap-2">
+              <div>
+                <div class="d-flex align-items-center gap-2">
+                  <span class="badge ${opBadgeClass(op.tipo)} op-badge">${escapeHtml(opTipoLabel(op.tipo))}</span>
+                  <span class="text-muted op-date">${escapeHtml(formatDateOnly(op.fecha))}</span>
+                </div>
+                <div class="op-resumen">${escapeHtml(opResumen(op))}</div>
               </div>
-              <div class="op-resumen">${escapeHtml(opResumen(op))}</div>
+
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-success btn-sm btn-edit-op-inline" data-id="${op.id_operacion}">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-outline-danger btn-sm btn-del-op-inline" data-id="${op.id_operacion}">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
             </div>
           `).join("")}
         </div>
       `;
     }
 
+    const formSlot = container.querySelector("#op-inline-form-slot");
+
+    // Añadir nueva operación
     container.querySelector("#btn-add-op-inline")?.addEventListener("click", () => {
       renderOperacionForm(body, {
         recintoId,
@@ -2730,10 +2741,48 @@ if (btnDelete) {
       });
     });
 
-    container.querySelector("#btn-ver-op-hist-inline")?.addEventListener("click", async () => {
-      openOperacionesPanel();
-      await renderOperacionesHistorico(recintoId);
+    // Editar operación
+    container.querySelectorAll(".btn-edit-op-inline").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.id;
+        const op = ops.find(x => String(x.id_operacion) === String(id));
+        if (!op) return;
+
+        renderOperacionForm(formSlot, {
+          recintoId,
+          op,
+          mode: "actual_edit",
+          onDone: async () => { await renderOperacionesForRecinto(recintoId); },
+          onCancel: async () => { await renderOperacionesForRecinto(recintoId); },
+        });
+      });
     });
+
+    // Eliminar operación
+    container.querySelectorAll(".btn-del-op-inline").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.id;
+
+        const ok = await AppConfirm.open({
+          title: "Eliminar operación",
+          message: "¿Seguro que deseas eliminar la operación? Este proceso no es reversible.",
+          okText: "Eliminar",
+          cancelText: "Cancelar",
+          okClass: "btn-danger"
+        });
+        if (!ok) return;
+
+        await fetchJson(`/api/operaciones/${id}`, { method: "DELETE" });
+        NotificationSystem.show({ type: "success", title: "Operación eliminada", message: "" });
+        await renderOperacionesForRecinto(recintoId);
+      });
+    });
+
+
+    // container.querySelector("#btn-ver-op-hist-inline")?.addEventListener("click", async () => {
+    //   openOperacionesPanel();
+    //   await renderOperacionesHistorico(recintoId);
+    // });
   }
 
   // ---------- Render HISTÓRICO (overlay) ----------
@@ -2877,27 +2926,65 @@ if (btnDelete) {
     return arr;
   }
 
-  async function fillSelectFromCatalog(selectEl, catalogo, { parent=null, selected=null, placeholder="Selecciona..." } = {}) {
+  function fillSelectFromCatalog(selectEl, catalogo, { selected = "", placeholder = "Selecciona..." , parent = null, q = null, limit = 500 } = {}) {
     if (!selectEl) return;
-    selectEl.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>`;
 
-    try {
-      const rows = await fetchCatalogoOps(catalogo, { parent, limit: 500 });
-      selectEl.innerHTML = [
-        `<option value="">${escapeHtml(placeholder)}</option>`,
-        ...rows.map(r => `<option value="${escapeHtml(r.codigo)}">${escapeHtml(r.nombre || r.codigo)}</option>`)
-      ].join("");
+    const sel = String(selected ?? "").trim();
 
-      if (selected != null && selected !== "") {
-        selectEl.value = String(selected);
-      } else if (rows.length) {
-        selectEl.value = String(rows[0].codigo);
-      }
-    } catch (e) {
-      console.warn("No se pudo cargar catálogo", catalogo, e);
-      selectEl.innerHTML = `<option value="">(No disponible)</option>`;
-    }
+    // placeholder
+    selectEl.innerHTML = "";
+    const opt0 = document.createElement("option");
+    opt0.value = "";
+    opt0.textContent = placeholder;
+    selectEl.appendChild(opt0);
+
+    // construir query
+    const params = new URLSearchParams();
+    if (parent) params.set("parent", parent);
+    if (q) params.set("q", q);
+    if (limit) params.set("limit", String(limit));
+
+    const url = `/api/catalogos/operaciones/${encodeURIComponent(String(catalogo).toUpperCase())}` + (params.toString() ? `?${params}` : "");
+
+    fetchJson(url)
+      .then(list => {
+        const arr = Array.isArray(list) ? list : [];
+
+        for (const r of arr) {
+          const code = String(r.codigo ?? "").trim();
+          const label = String(r.nombre ?? "").trim() || code;
+          if (!code) continue;
+
+          const opt = document.createElement("option");
+          opt.value = code;
+          opt.textContent = label;
+          selectEl.appendChild(opt);
+        }
+
+        if (sel) selectEl.value = sel;
+
+        if (sel && selectEl.value !== sel) {
+          const opt = document.createElement("option");
+          opt.value = sel;
+          opt.textContent = sel;
+          opt.selected = true;
+          selectEl.appendChild(opt);
+          selectEl.value = sel;
+        }
+      })
+      .catch(err => {
+        console.warn("No se pudo cargar catálogo", catalogo, err);
+        if (sel) {
+          const opt = document.createElement("option");
+          opt.value = sel;
+          opt.textContent = sel;
+          opt.selected = true;
+          selectEl.appendChild(opt);
+          selectEl.value = sel;
+        }
+      });
   }
+
 
   // typeahead muy ligero
   function attachTypeaheadCatalog(inputEl, listEl, hiddenCodeEl, catalogo, { minChars=2, limit=20 } = {}) {
@@ -2989,11 +3076,12 @@ if (btnDelete) {
               <select id="op-tipo" class="form-select">
                 <option value="RIEGO">Riego</option>
                 <option value="FERTILIZACION">Fertilización</option>
+                <option value="OTRAS">Otras Operaciones</option>
               </select>
             </div>
 
             <div class="col-12 col-md-4">
-              <label class="form-label fw-bold">Fecha *</label>
+              <label id="op-fecha-label" class="form-label fw-bold">Fecha *</label>
               <input id="op-fecha" class="form-control" type="date">
             </div>
 
@@ -3030,11 +3118,12 @@ if (btnDelete) {
       const t = String(tipo || "").toUpperCase();
 
       if (t === "RIEGO") {
+        container.querySelector("#op-fecha-label").textContent = (t === "RIEGO") ? "Día *" : "Fecha *";
         const fi = det?.fecha_inicio ? String(det.fecha_inicio).slice(0,16) : "";
         const ff = det?.fecha_fin ? String(det.fecha_fin).slice(0,16) : "";
         const vol = det?.volumen_m3 ?? "";
-        const sis = det?.sistema_riego?.codigo || "GOTEO";
-        const proc = det?.procedencia_agua?.codigo || "COMUNIDAD";
+        const sis = det?.sistema_riego?.codigo || "";
+        const proc = det?.procedencia_agua?.codigo || "";
         const metodo = det?.medicion?.metodo || "MANUAL";
         const li = det?.medicion?.lectura_inicial_m3 ?? "";
         const lf = det?.medicion?.lectura_final_m3 ?? "";
@@ -3094,10 +3183,23 @@ if (btnDelete) {
           </div>
         `;
 
-        // cargar catálogos y setear valores
         fillSelectFromCatalog(slot.querySelector("#riego-sis"), "RIEGO_SISTEMA", { selected: sis, placeholder: "Sistema..." });
         fillSelectFromCatalog(slot.querySelector("#riego-proc"), "RIEGO_PROCEDENCIA", { selected: proc, placeholder: "Procedencia..." });
         slot.querySelector("#riego-metodo").value = metodo;
+
+        const fechaMain = container.querySelector("#op-fecha");
+        const fiEl = slot.querySelector("#riego-fi");
+
+        fiEl?.addEventListener("change", () => {
+          if (fiEl.value) fechaMain.value = fiEl.value.slice(0, 10);
+        });
+
+        fechaMain?.addEventListener("change", () => {
+          if (!fiEl.value && fechaMain.value) {
+            fiEl.value = `${fechaMain.value}T00:00`;
+          }
+        });
+
         return;
       }
 
@@ -3159,6 +3261,38 @@ if (btnDelete) {
             <textarea id="fer-obs" class="form-control" rows="2" placeholder="(Opcional)">${escapeHtml(obs)}</textarea>
           </div>
 
+          <div class="accordion mt-2" id="fert-adv-acc">
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="fert-adv-h">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fert-adv-c">
+                  Avanzado (opcional)
+                </button>
+              </h2>
+              <div id="fert-adv-c" class="accordion-collapse collapse" data-bs-parent="#fert-adv-acc">
+                <div class="accordion-body">
+                  <div class="row g-2">
+                    <div class="col-12 col-md-4">
+                      <label class="form-label fw-bold">Macronutriente</label>
+                      <select id="fer-macro" class="form-select"></select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                      <label class="form-label fw-bold">Micronutriente</label>
+                      <select id="fer-micro" class="form-select"></select>
+                    </div>
+                    <div class="col-12 col-md-4">
+                      <label class="form-label fw-bold">Metales pesados</label>
+                      <select id="fer-metales" class="form-select"></select>
+                    </div>
+                    <div class="col-12 col-md-6">
+                      <label class="form-label fw-bold">Tratamiento estiércoles</label>
+                      <select id="fer-estiercol" class="form-select"></select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       `;
 
@@ -3166,6 +3300,11 @@ if (btnDelete) {
       fillSelectFromCatalog(slot.querySelector("#fer-tipo"), "FERT_TIPO", { selected: tipoF, placeholder: "Tipo..." });
       fillSelectFromCatalog(slot.querySelector("#fer-metodo"), "FERT_METODO", { selected: met, placeholder: "Método..." });
       fillSelectFromCatalog(slot.querySelector("#fer-material"), "FERT_MATERIAL", { selected: mat, placeholder: "Material..." });
+      fillSelectFromCatalog(slot.querySelector("#fer-macro"), "FERT_MACRO", { selected: det?.composicion_opcional?.macro?.codigo || "", placeholder: "(Opcional)" });
+      fillSelectFromCatalog(slot.querySelector("#fer-micro"), "FERT_MICRO", { selected: det?.composicion_opcional?.micro?.codigo || "", placeholder: "(Opcional)" });
+      fillSelectFromCatalog(slot.querySelector("#fer-metales"), "FERT_METALES", { selected: det?.composicion_opcional?.metales?.codigo || "", placeholder: "(Opcional)" });
+      fillSelectFromCatalog(slot.querySelector("#fer-estiercol"), "FERT_TRAT_ESTIERCOL", { selected: det?.tratamiento_estiercol?.codigo || "", placeholder: "(Opcional)" });
+
 
       // typeahead producto
       attachTypeaheadCatalog(
@@ -3215,12 +3354,19 @@ if (btnDelete) {
         const vol = Number(slot.querySelector("#riego-vol")?.value);
         if (!Number.isFinite(vol) || vol < 0) {
           msg.textContent = "Volumen (m³) inválido.";
-          msg.className="text-danger";
+          msg.className = "text-danger";
           return;
         }
 
         const sisSel = slot.querySelector("#riego-sis");
         const procSel = slot.querySelector("#riego-proc");
+
+        const sisCode = (sisSel?.value || "").trim();
+        const procCode = (procSel?.value || "").trim();
+
+        if (!sisCode) { msg.textContent = "Selecciona el sistema de riego."; msg.className="text-danger"; return; }
+        if (!procCode) { msg.textContent = "Selecciona la procedencia del agua."; msg.className="text-danger"; return; }
+
         const metodo = slot.querySelector("#riego-metodo")?.value || "MANUAL";
 
         const fi = slot.querySelector("#riego-fi")?.value || null;
@@ -3257,6 +3403,10 @@ if (btnDelete) {
         const tipoSel = slot.querySelector("#fer-tipo");
         const metSel = slot.querySelector("#fer-metodo");
         const matSel = slot.querySelector("#fer-material");
+        const macroSel = slot.querySelector("#fer-macro");
+        const microSel = slot.querySelector("#fer-micro");
+        const metalSel = slot.querySelector("#fer-metales");
+        const estSel = slot.querySelector("#fer-estiercol");
 
         const tipoCode = tipoSel?.value || "";
         const tipoLabel = (tipoSel?.selectedOptions?.[0]?.textContent || "").trim() || tipoCode;
@@ -3277,6 +3427,13 @@ if (btnDelete) {
         if (!prodLabel) { msg.textContent="Indica el producto."; msg.className="text-danger"; return; }
         if (!Number.isFinite(cant) || cant <= 0) { msg.textContent="Cantidad inválida."; msg.className="text-danger"; return; }
 
+        function pickOpt(sel){
+          const code = (sel?.value || "").trim();
+          if (!code) return null;
+          const label = (sel?.selectedOptions?.[0]?.textContent || "").trim() || code;
+          return { codigo: code, label, fuente: "SIEX" };
+        }
+
         payload.detalle = {
           tipo_fertilizacion: { codigo: tipoCode, label: tipoLabel, fuente: "SIEX" },
           metodo_aplicacion: metCode ? { codigo: metCode, label: metLabel, fuente: "SIEX" } : null,
@@ -3286,6 +3443,14 @@ if (btnDelete) {
           unidad: uni,
           observaciones: (slot.querySelector("#fer-obs")?.value || "").trim() || null
         };
+
+        payload.detalle.composicion_opcional = {
+          macro: pickOpt(macroSel),
+          micro: pickOpt(microSel),
+          metales: pickOpt(metalSel),
+        };
+
+        payload.detalle.tratamiento_estiercol = pickOpt(estSel);
       }
 
       // ENDPOINTS
