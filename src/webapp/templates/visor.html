@@ -2669,7 +2669,7 @@ if (btnDelete) {
     }
 
     if (tipo === "FERTILIZACION") {
-      const modo = d?.modo || "";
+      const modo = d?.tipo_fertilizacion?.label || d?.modo || "";
       const prod = d?.producto?.label || d?.producto?.codigo || "";
       const cant = d?.cantidad;
       const uni = d?.unidad || "";
@@ -2854,6 +2854,114 @@ if (btnDelete) {
     });
   }
 
+  // --------------------------
+  // Catálogos SIEX (helpers)
+  // --------------------------
+  const _catCache = new Map();
+
+  async function fetchCatalogoOps(catalogo, { parent=null, q=null, limit=200 } = {}) {
+    const key = JSON.stringify({ catalogo, parent, q, limit });
+    if (_catCache.has(key)) return _catCache.get(key);
+
+    const params = new URLSearchParams();
+    if (parent) params.set("parent", parent);
+    if (q) params.set("q", q);
+    if (limit) params.set("limit", String(limit));
+
+    const url = `/api/catalogos/operaciones/${encodeURIComponent(String(catalogo).toUpperCase())}` +
+                (params.toString() ? `?${params.toString()}` : "");
+
+    const data = await fetchJson(url);
+    const arr = Array.isArray(data) ? data : [];
+    _catCache.set(key, arr);
+    return arr;
+  }
+
+  async function fillSelectFromCatalog(selectEl, catalogo, { parent=null, selected=null, placeholder="Selecciona..." } = {}) {
+    if (!selectEl) return;
+    selectEl.innerHTML = `<option value="">${escapeHtml(placeholder)}</option>`;
+
+    try {
+      const rows = await fetchCatalogoOps(catalogo, { parent, limit: 500 });
+      selectEl.innerHTML = [
+        `<option value="">${escapeHtml(placeholder)}</option>`,
+        ...rows.map(r => `<option value="${escapeHtml(r.codigo)}">${escapeHtml(r.nombre || r.codigo)}</option>`)
+      ].join("");
+
+      if (selected != null && selected !== "") {
+        selectEl.value = String(selected);
+      } else if (rows.length) {
+        selectEl.value = String(rows[0].codigo);
+      }
+    } catch (e) {
+      console.warn("No se pudo cargar catálogo", catalogo, e);
+      selectEl.innerHTML = `<option value="">(No disponible)</option>`;
+    }
+  }
+
+  // typeahead muy ligero
+  function attachTypeaheadCatalog(inputEl, listEl, hiddenCodeEl, catalogo, { minChars=2, limit=20 } = {}) {
+    if (!inputEl || !listEl) return;
+
+    let lastQ = "";
+    let timer = null;
+
+    inputEl.addEventListener("input", () => {
+      const q = (inputEl.value || "").trim();
+      if (q.length < minChars) {
+        listEl.innerHTML = "";
+        listEl.classList.add("d-none");
+        if (hiddenCodeEl) hiddenCodeEl.value = "";
+        return;
+      }
+
+      lastQ = q;
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        try {
+          const rows = await fetchCatalogoOps(catalogo, { q, limit });
+          // si el usuario ya cambió el texto, no renderiza resultados viejos
+          if (lastQ !== q) return;
+
+          if (!rows.length) {
+            listEl.innerHTML = "";
+            listEl.classList.add("d-none");
+            if (hiddenCodeEl) hiddenCodeEl.value = "";
+            return;
+          }
+
+          listEl.innerHTML = rows.map(r => `
+            <button type="button" class="list-group-item list-group-item-action"
+                    data-code="${escapeHtml(r.codigo)}"
+                    data-label="${escapeHtml(r.nombre || r.codigo)}">
+              <div class="fw-semibold">${escapeHtml(r.nombre || r.codigo)}</div>
+              ${r.descripcion ? `<div class="small text-muted">${escapeHtml(r.descripcion)}</div>` : ``}
+            </button>
+          `).join("");
+
+          listEl.classList.remove("d-none");
+
+          listEl.querySelectorAll("button").forEach(btn => {
+            btn.addEventListener("click", () => {
+              inputEl.value = btn.dataset.label || "";
+              if (hiddenCodeEl) hiddenCodeEl.value = btn.dataset.code || "";
+              listEl.innerHTML = "";
+              listEl.classList.add("d-none");
+            });
+          });
+
+        } catch (e) {
+          console.warn("typeahead error", e);
+        }
+      }, 200);
+    });
+
+    // cerrar al perder foco (con delay para permitir click)
+    inputEl.addEventListener("blur", () => setTimeout(() => {
+      listEl.classList.add("d-none");
+    }, 150));
+  }
+
   // ---------- FORM (inline y overlay) ----------
   function renderOperacionForm(container, {recintoId, op=null, mode="actual", onDone=null, onCancel=null}){
     if (!container) return;
@@ -2950,22 +3058,14 @@ if (btnDelete) {
 
             <div class="col-12 col-md-4">
               <label class="form-label fw-bold">Sistema riego *</label>
-              <select id="riego-sis" class="form-select">
-                <option value="GOTEO">Goteo</option>
-                <option value="ASPERSION">Aspersión</option>
-                <option value="GRAVEDAD">Gravedad</option>
-              </select>
-              <div class="form-text">Luego lo conectamos a catálogo oficial.</div>
+              <select id="riego-sis" class="form-select"></select>
+              <div class="form-text">Catálogo SIEX: RIEGO_SISTEMA</div>
             </div>
 
             <div class="col-12 col-md-4">
               <label class="form-label fw-bold">Procedencia *</label>
-              <select id="riego-proc" class="form-select">
-                <option value="COMUNIDAD">Comunidad</option>
-                <option value="POZO">Pozo</option>
-                <option value="CANAL">Canal</option>
-                <option value="REUTILIZADA">Reutilizada</option>
-              </select>
+              <select id="riego-proc" class="form-select"></select>
+              <div class="form-text">Catálogo SIEX: RIEGO_PROCEDENCIA</div>
             </div>
 
             <div class="col-12 col-md-4">
@@ -2994,46 +3094,59 @@ if (btnDelete) {
           </div>
         `;
 
-        slot.querySelector("#riego-sis").value = sis;
-        slot.querySelector("#riego-proc").value = proc;
+        // cargar catálogos y setear valores
+        fillSelectFromCatalog(slot.querySelector("#riego-sis"), "RIEGO_SISTEMA", { selected: sis, placeholder: "Sistema..." });
+        fillSelectFromCatalog(slot.querySelector("#riego-proc"), "RIEGO_PROCEDENCIA", { selected: proc, placeholder: "Procedencia..." });
         slot.querySelector("#riego-metodo").value = metodo;
         return;
       }
 
       // FERTILIZACION
-      const modo = det?.modo || "MINERAL";
+      const tipoF = det?.tipo_fertilizacion?.codigo || "";
+      const prodCode = det?.producto?.codigo || "";
       const prodLabel = det?.producto?.label || "";
       const cant = det?.cantidad ?? "";
       const uni = det?.unidad || "kg";
-      const tipoAp = det?.tipo_aplicacion?.codigo || "COBERTERA";
-      const n = det?.nutrientes?.n_kg ?? "";
-      const p = det?.nutrientes?.p2o5_kg ?? "";
-      const k = det?.nutrientes?.k2o_kg ?? "";
+      const met = det?.metodo_aplicacion?.codigo || "";
+      const mat = det?.material?.codigo || "";
       const obs = det?.observaciones || "";
 
       slot.innerHTML = `
         <div class="row g-2">
+
           <div class="col-12 col-md-4">
-            <label class="form-label fw-bold">Modo *</label>
-            <select id="fer-modo" class="form-select">
-              <option value="MINERAL">Mineral</option>
-              <option value="FERTIRRIGACION">Fertirrigación</option>
-              <option value="ORGANICA">Orgánica</option>
-            </select>
+            <label class="form-label fw-bold">Tipo fertilización *</label>
+            <select id="fer-tipo" class="form-select"></select>
+            <div class="form-text">Catálogo SIEX: FERT_TIPO</div>
           </div>
 
-          <div class="col-12 col-md-5">
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-bold">Método aplicación</label>
+            <select id="fer-metodo" class="form-select"></select>
+            <div class="form-text">Catálogo SIEX: FERT_METODO</div>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-bold">Material</label>
+            <select id="fer-material" class="form-select"></select>
+            <div class="form-text">Catálogo SIEX: FERT_MATERIAL</div>
+          </div>
+
+          <div class="col-12 col-md-6 position-relative">
             <label class="form-label fw-bold">Producto *</label>
-            <input id="fer-prod" class="form-control" type="text" placeholder="(De momento texto, luego catálogo)" value="${escapeHtml(prodLabel)}">
+            <input id="fer-prod" class="form-control" type="text" placeholder="Escribe para buscar..." value="${escapeHtml(prodLabel)}">
+            <input id="fer-prod-code" type="hidden" value="${escapeHtml(prodCode)}">
+            <div id="fer-prod-list" class="list-group position-absolute w-100 d-none" style="z-index:1050; max-height:220px; overflow:auto;"></div>
+            <div class="form-text">Catálogo SIEX: FERT_PRODUCTO (búsqueda)</div>
           </div>
 
-          <div class="col-6 col-md-2">
+          <div class="col-6 col-md-3">
             <label class="form-label fw-bold">Cantidad *</label>
             <input id="fer-cant" class="form-control" type="number" step="0.01" min="0" value="${escapeHtml(cant)}">
           </div>
 
-          <div class="col-6 col-md-1">
-            <label class="form-label fw-bold">Ud.</label>
+          <div class="col-6 col-md-3">
+            <label class="form-label fw-bold">Unidad</label>
             <select id="fer-uni" class="form-select">
               <option value="kg">kg</option>
               <option value="t">t</option>
@@ -3041,41 +3154,30 @@ if (btnDelete) {
             </select>
           </div>
 
-          <div class="col-12 col-md-4">
-            <label class="form-label fw-bold">Tipo aplicación</label>
-            <select id="fer-tipoap" class="form-select">
-              <option value="FONDO">Fondo</option>
-              <option value="COBERTERA">Cobertera</option>
-              <option value="CATASTRO">Cataestro</option>
-            </select>
-            <div class="form-text">Luego lo conectamos a catálogo.</div>
-          </div>
-
-          <div class="col-12 col-md-8">
-            <label class="form-label fw-bold">Nutrientes (kg) (opcional)</label>
-            <div class="row g-2">
-              <div class="col-4">
-                <input id="fer-n" class="form-control" type="number" step="0.01" min="0" placeholder="N" value="${escapeHtml(n)}">
-              </div>
-              <div class="col-4">
-                <input id="fer-p" class="form-control" type="number" step="0.01" min="0" placeholder="P2O5" value="${escapeHtml(p)}">
-              </div>
-              <div class="col-4">
-                <input id="fer-k" class="form-control" type="number" step="0.01" min="0" placeholder="K2O" value="${escapeHtml(k)}">
-              </div>
-            </div>
-          </div>
-
           <div class="col-12">
             <label class="form-label fw-bold">Observaciones</label>
             <textarea id="fer-obs" class="form-control" rows="2" placeholder="(Opcional)">${escapeHtml(obs)}</textarea>
           </div>
+
         </div>
       `;
 
-      slot.querySelector("#fer-modo").value = modo;
+      // cargar selects
+      fillSelectFromCatalog(slot.querySelector("#fer-tipo"), "FERT_TIPO", { selected: tipoF, placeholder: "Tipo..." });
+      fillSelectFromCatalog(slot.querySelector("#fer-metodo"), "FERT_METODO", { selected: met, placeholder: "Método..." });
+      fillSelectFromCatalog(slot.querySelector("#fer-material"), "FERT_MATERIAL", { selected: mat, placeholder: "Material..." });
+
+      // typeahead producto
+      attachTypeaheadCatalog(
+        slot.querySelector("#fer-prod"),
+        slot.querySelector("#fer-prod-list"),
+        slot.querySelector("#fer-prod-code"),
+        "FERT_PRODUCTO",
+        { minChars: 2, limit: 20 }
+      );
+
+      // defaults
       slot.querySelector("#fer-uni").value = uni;
-      slot.querySelector("#fer-tipoap").value = tipoAp;
     }
 
     renderDetalle(tipoSel.value);
@@ -3100,7 +3202,7 @@ if (btnDelete) {
       if (!tipo) { msg.textContent = "Selecciona el tipo."; msg.className="text-danger"; return; }
       if (!fecha) { msg.textContent = "Selecciona la fecha."; msg.className="text-danger"; return; }
 
-      // Construir payload robusto (el que definimos)
+      // Construir payload
       const payload = {
         schema_version: 1,
         tipo,
@@ -3117,8 +3219,8 @@ if (btnDelete) {
           return;
         }
 
-        const sisCode = slot.querySelector("#riego-sis")?.value || "GOTEO";
-        const procCode = slot.querySelector("#riego-proc")?.value || "COMUNIDAD";
+        const sisSel = slot.querySelector("#riego-sis");
+        const procSel = slot.querySelector("#riego-proc");
         const metodo = slot.querySelector("#riego-metodo")?.value || "MANUAL";
 
         const fi = slot.querySelector("#riego-fi")?.value || null;
@@ -3131,8 +3233,17 @@ if (btnDelete) {
           fecha_inicio: fi ? fi : null,
           fecha_fin: ff ? ff : null,
           volumen_m3: vol,
-          sistema_riego: { codigo: sisCode, label: opTipoLabel(sisCode), fuente: "FEGA_SIEX" },
-          procedencia_agua: { codigo: procCode, label: procCode, fuente: "INTERNO" },
+
+          sistema_riego: {
+            codigo: sisCode,
+            label: (sisSel?.selectedOptions?.[0]?.textContent || "").trim() || sisCode,
+            fuente: "SIEX"
+          },
+          procedencia_agua: {
+            codigo: procCode,
+            label: (procSel?.selectedOptions?.[0]?.textContent || "").trim() || procCode,
+            fuente: "SIEX"
+          },
           medicion: {
             metodo,
             lectura_inicial_m3: (li !== "" && li != null) ? Number(li) : null,
@@ -3143,30 +3254,36 @@ if (btnDelete) {
       }
 
       if (tipo === "FERTILIZACION") {
-        const modo = slot.querySelector("#fer-modo")?.value || "MINERAL";
-        const prod = (slot.querySelector("#fer-prod")?.value || "").trim();
+        const tipoSel = slot.querySelector("#fer-tipo");
+        const metSel = slot.querySelector("#fer-metodo");
+        const matSel = slot.querySelector("#fer-material");
+
+        const tipoCode = tipoSel?.value || "";
+        const tipoLabel = (tipoSel?.selectedOptions?.[0]?.textContent || "").trim() || tipoCode;
+
+        const metCode = metSel?.value || "";
+        const metLabel = (metSel?.selectedOptions?.[0]?.textContent || "").trim() || metCode;
+
+        const matCode = matSel?.value || "";
+        const matLabel = (matSel?.selectedOptions?.[0]?.textContent || "").trim() || matCode;
+
+        const prodLabel = (slot.querySelector("#fer-prod")?.value || "").trim();
+        const prodCode = (slot.querySelector("#fer-prod-code")?.value || "").trim() || null;
+
         const cant = Number(slot.querySelector("#fer-cant")?.value);
         const uni = slot.querySelector("#fer-uni")?.value || "kg";
-        const tipoAp = slot.querySelector("#fer-tipoap")?.value || "COBERTERA";
 
-        if (!prod) { msg.textContent="Indica el producto."; msg.className="text-danger"; return; }
+        if (!tipoCode) { msg.textContent="Selecciona el tipo de fertilización."; msg.className="text-danger"; return; }
+        if (!prodLabel) { msg.textContent="Indica el producto."; msg.className="text-danger"; return; }
         if (!Number.isFinite(cant) || cant <= 0) { msg.textContent="Cantidad inválida."; msg.className="text-danger"; return; }
 
-        const n = slot.querySelector("#fer-n")?.value;
-        const p = slot.querySelector("#fer-p")?.value;
-        const k = slot.querySelector("#fer-k")?.value;
-
         payload.detalle = {
-          modo,
-          producto: { codigo: null, label: prod, fuente: "INTERNO" },
+          tipo_fertilizacion: { codigo: tipoCode, label: tipoLabel, fuente: "SIEX" },
+          metodo_aplicacion: metCode ? { codigo: metCode, label: metLabel, fuente: "SIEX" } : null,
+          material: matCode ? { codigo: matCode, label: matLabel, fuente: "SIEX" } : null,
+          producto: { codigo: prodCode, label: prodLabel, fuente: "SIEX" },
           cantidad: cant,
           unidad: uni,
-          tipo_aplicacion: { codigo: tipoAp, label: tipoAp, fuente: "FEGA_SIEX" },
-          nutrientes: {
-            n_kg: (n !== "" && n != null) ? Number(n) : null,
-            p2o5_kg: (p !== "" && p != null) ? Number(p) : null,
-            k2o_kg: (k !== "" && k != null) ? Number(k) : null
-          },
           observaciones: (slot.querySelector("#fer-obs")?.value || "").trim() || null
         };
       }

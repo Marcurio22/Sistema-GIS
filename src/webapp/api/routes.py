@@ -24,6 +24,8 @@ from .services import (
     mis_recinto_detalle,
     catalogo_usos_sigpac,
     catalogo_productos_fega,
+    catalogo_operaciones_list,
+    catalogo_operaciones_item,
     get_cultivo_recinto,
     create_cultivo_recinto,
     patch_cultivo_recinto,
@@ -298,6 +300,35 @@ def api_catalogo_productos_fega_filtrado(uso_sigpac):
     """)
     rows = db.session.execute(sql, {"uso": uso_sigpac}).mappings().all()
     return jsonify([{"codigo": int(r["codigo"]), "descripcion": r["descripcion"]} for r in rows])
+
+# ---------------------------
+# Catálogos Operaciones (SIEX)
+# ---------------------------
+
+@api_bp.get("/catalogos/operaciones/<string:catalogo>")
+@login_required
+def api_catalogo_operaciones(catalogo):
+    parent = request.args.get("parent")
+    q = request.args.get("q")
+    limit = request.args.get("limit", type=int) or 200
+
+    try:
+        return jsonify(catalogo_operaciones_list(catalogo, parent, q, limit))
+    except Exception:
+        return jsonify({"error": "Error interno en /api/catalogos/operaciones"}), 500
+
+
+@api_bp.get("/catalogos/operaciones/<string:catalogo>/<string:codigo>")
+@login_required
+def api_catalogo_operaciones_item(catalogo, codigo):
+    parent = request.args.get("parent")
+    try:
+        row = catalogo_operaciones_item(catalogo, codigo, parent)
+        if not row:
+            return jsonify({"error": "No encontrado"}), 404
+        return jsonify(row)
+    except Exception:
+        return jsonify({"error": "Error interno en /api/catalogos/operaciones/<catalogo>/<codigo>"}), 500
 
 
 # ---------------------------

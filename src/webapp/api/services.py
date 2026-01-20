@@ -207,6 +207,70 @@ def catalogo_productos_fega() -> list[dict]:
     rows = db.session.execute(sql).mappings().all()
     return [{"codigo": int(r["codigo"]), "descripcion": r["descripcion"]} for r in rows]
 
+# ---------------------------
+# Catálogos Operaciones (SIEX)
+# ---------------------------
+
+def catalogo_operaciones_list(
+    catalogo: str,
+    parent: str | None = None,
+    q: str | None = None,
+    limit: int = 200
+) -> list[dict]:
+    """
+    Lista elementos del catálogo (para selects y typeahead).
+    - catalogo: nombre del catálogo (ej: RIEGO_SISTEMA, FERT_PRODUCTO)
+    - parent: filtra por codigo_padre (jerárquicos)
+    - q: búsqueda parcial por nombre (typeahead)
+    - limit: límite de resultados
+    """
+    sql = text("""
+        SELECT catalogo, codigo, codigo_padre, nombre, descripcion
+        FROM public.catalogos_operaciones
+        WHERE catalogo = :cat
+          AND (fecha_baja IS NULL OR fecha_baja > CURRENT_DATE)
+          AND (:parent IS NULL OR codigo_padre = :parent)
+          AND (:q IS NULL OR nombre ILIKE :qpat)
+        ORDER BY
+          CASE WHEN codigo ~ '^[0-9]+$' THEN codigo::int ELSE 999999 END,
+          nombre
+        LIMIT :lim
+    """)
+
+    rows = db.session.execute(sql, {
+        "cat": (catalogo or "").upper().strip(),
+        "parent": parent,
+        "q": q,
+        "qpat": f"%{q}%" if q else None,
+        "lim": int(limit) if limit else 200
+    }).mappings().all()
+
+    return [dict(r) for r in rows]
+
+
+def catalogo_operaciones_item(
+    catalogo: str,
+    codigo: str,
+    parent: str | None = None
+) -> dict | None:
+    """
+    Devuelve un elemento del catálogo con extra (para autocompletar datos).
+    """
+    sql = text("""
+        SELECT catalogo, codigo, codigo_padre, nombre, descripcion, extra
+        FROM public.catalogos_operaciones
+        WHERE catalogo = :cat
+          AND codigo = :cod
+          AND (:parent IS NULL OR codigo_padre = :parent)
+        LIMIT 1
+    """)
+    row = db.session.execute(sql, {
+        "cat": (catalogo or "").upper().strip(),
+        "cod": str(codigo).strip(),
+        "parent": parent
+    }).mappings().first()
+
+    return dict(row) if row else None
 
 # ---------------------------
 # Cultivos
