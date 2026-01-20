@@ -1083,3 +1083,87 @@
     padding: 12px 20px 18px;
   }
 
+/* =========================
+   OPERACIONES
+   ========================= */
+
+  .op-card .side-soft-divider{
+    height: 1px;
+    background: rgba(0,0,0,.10);
+    margin: 12px 0;
+  }
+
+  .op-mini-list{
+    border: 1px solid rgba(0,0,0,.10);
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+  }
+
+  .op-mini-item{
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(0,0,0,.08);
+  }
+
+  .op-mini-item:last-child{
+    border-bottom: 0;
+  }
+
+  .op-badge{
+    font-size: .75rem;
+    padding: .35rem .55rem;
+    border-radius: 999px;
+  }
+
+  .op-date{
+    font-size: .85rem;
+  }
+
+  .op-resumen{
+    margin-top: 6px;
+    font-size: .95rem;
+    opacity: .9;
+  }
+
+  /* Overlay OPEN (Operaciones) */
+  #side-panel.operaciones-open .side-content > *:not(#operaciones-historico-panel){
+    display: none !important;
+  }
+  #side-panel.operaciones-open #operaciones-historico-panel{
+    display: block !important;
+  }
+  #side-panel.operaciones-open #side-close{
+    display: none !important;
+  }
+
+  /* Tabla histórico Operaciones */
+  #operaciones-historico-panel .historico-table-wrap{
+    border: 1px solid rgba(0,0,0,.10);
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 16px;
+    box-sizing: border-box;
+  }
+
+  #operaciones-historico-panel table.historico-table thead th{
+    background: #f8f9fa;
+    font-weight: 800;
+    font-size: 0.92rem;
+    white-space: nowrap;
+    border-bottom: 1px solid rgba(0,0,0,.10);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 12px 10px;
+  }
+
+  #operaciones-historico-panel table.historico-table tbody td{
+    vertical-align: middle;
+    padding: 12px 10px;
+  }
+
+

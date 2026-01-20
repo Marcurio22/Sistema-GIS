@@ -251,6 +251,47 @@
     </div>
 
     <div class="side-divider"></div>
+
+    <!-- OPERACIONES -->
+    <div class="side-section" id="operaciones-section">
+      <div class="side-section-head">
+        <div></div>
+
+        <h2 class="side-section-title mb-4">
+          <i class="fa-solid fa-chart-line me-2" style="color:#198754"></i>
+          <span class="side-section-label">Operaciones</span>
+        </h2>
+
+        <button id="btn-historico-operaciones" type="button" class="btn btn-success btn-historico">
+          Histórico
+        </button>
+      </div>
+
+      <div id="operaciones-container"></div>
+    </div>
+
+    <div class="side-divider"></div>
+
+    <!-- OVERLAY HISTÓRICO OPERACIONES -->
+    <div id="operaciones-historico-panel" class="side-overlay d-none" aria-hidden="true">
+      <div class="overlay-topbar">
+        <button id="btn-volver-operaciones-historico" class="btn btn-outline-secondary" type="button">
+          <i class="bi bi-arrow-left me-1"></i> Volver
+        </button>
+
+        <div class="overlay-title">
+          <i class="fa-solid fa-chart-line" style="color:#198754"></i>
+          <span>Operaciones</span>
+        </div>
+
+        <button id="btn-cerrar-operaciones-historico" class="btn-side-close" type="button" title="Cerrar">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <div class="side-divider"></div>
+      <div id="operaciones-historico-list" class="pb-3"></div>
+    </div>
     
     <!-- GALERÍA-->
     <div id="galeria-imagenes" class="galeria-container mt-4">
@@ -809,6 +850,8 @@ async function restaurarEstadoMapa() {
 
       // 3) cerrar panel
       closeHistoricoPanel();
+      closeOperacionesPanel();
+      // closeGaleriaPanel?.();   //REVISAR
       setSplitMode(false);
 
       // reset id actual
@@ -954,6 +997,7 @@ async function restaurarEstadoMapa() {
     window.galeria.setRecintoId(window.currentSideRecintoId);
 
     renderCultivosForRecinto(currentSideRecintoId);
+    renderOperacionesForRecinto(currentSideRecintoId);
   }
 
 
@@ -2517,6 +2561,639 @@ if (btnDelete) {
         }
       });
     }
+
+  // ==========================================================
+  // OPERACIONES (UI + API)
+  // Endpoints esperados (a implementar backend):
+  //   GET    /api/mis-recinto/<id_recinto>/operaciones?limit=5
+  //   GET    /api/mis-recinto/<id_recinto>/operaciones?all=1
+  //   POST   /api/mis-recinto/<id_recinto>/operaciones
+  //   PATCH  /api/operaciones/<id_operacion>
+  //   DELETE /api/operaciones/<id_operacion>
+  // ==========================================================
+
+  function openOperacionesPanel(){
+    const sp = document.getElementById("side-panel");
+    const panel = document.getElementById("operaciones-historico-panel");
+    if (!sp || !panel) return;
+
+    // Cierra otros overlays por si acaso
+    closeHistoricoPanel?.();
+    closeGaleriaPanel?.();
+
+    sp.classList.add("operaciones-open");
+    panel.classList.remove("d-none");
+    panel.setAttribute("aria-hidden", "false");
+  }
+
+  function closeOperacionesPanel(){
+    const sp = document.getElementById("side-panel");
+    const panel = document.getElementById("operaciones-historico-panel");
+    if (!sp || !panel) return;
+
+    sp.classList.remove("operaciones-open");
+    panel.classList.add("d-none");
+    panel.setAttribute("aria-hidden", "true");
+  }
+
+  document.getElementById("btn-volver-operaciones-historico")?.addEventListener("click", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    closeOperacionesPanel();
+  });
+
+  document.getElementById("btn-cerrar-operaciones-historico")?.addEventListener("click", (e) => {
+    e.preventDefault(); e.stopPropagation();
+    document.getElementById("side-close")?.click();
+  });
+
+  document.getElementById("btn-historico-operaciones")?.addEventListener("click", async (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!currentSideRecintoId) return;
+
+    openOperacionesPanel();
+    await renderOperacionesHistorico(currentSideRecintoId);
+  });
+
+  // ---------- Render INLINE (panel principal) ----------
+  async function renderOperacionesForRecinto(recintoId){
+    const container = document.getElementById("operaciones-container");
+    if (!container) return;
+
+    container.innerHTML = `<div class="text-muted">Cargando operaciones...</div>`;
+
+    try {
+      const ops = await fetchJson(`/api/mis-recinto/${recintoId}/operaciones?limit=5`);
+      renderOperacionesInline(container, recintoId, Array.isArray(ops) ? ops : []);
+    } catch (e) {
+      console.warn(e);
+      container.innerHTML = `
+        <div class="text-danger">No se pudieron cargar las operaciones.</div>
+        <div class="text-muted" style="font-size:12px">Revisa /api/mis-recinto/${recintoId}/operaciones</div>
+      `;
+    }
+  }
+
+  function opTipoLabel(tipo){
+    const t = String(tipo || "").toUpperCase();
+    if (t === "RIEGO") return "Riego";
+    if (t === "FERTILIZACION") return "Fertilización";
+    if (t === "FITOSANITARIO") return "Fitosanitario";
+    return safeText(tipo, "Operación");
+  }
+
+  function opBadgeClass(tipo){
+    const t = String(tipo || "").toUpperCase();
+    if (t === "RIEGO") return "bg-info";
+    if (t === "FERTILIZACION") return "bg-success";
+    if (t === "FITOSANITARIO") return "bg-warning text-dark";
+    return "bg-secondary";
+  }
+
+  function opResumen(op){
+    // op.detalle puede venir ya como objeto o string JSON según cómo lo devuelvas
+    let d = op?.detalle;
+    if (typeof d === "string") {
+      try { d = JSON.parse(d); } catch (_) {}
+    }
+    const tipo = String(op?.tipo || "").toUpperCase();
+
+    if (tipo === "RIEGO") {
+      const v = d?.volumen_m3 ?? d?.volumen ?? null;
+      const sis = d?.sistema_riego?.label || d?.sistema_riego?.codigo || "";
+      const txtV = (v != null && v !== "") ? `${Number(v).toFixed(0)} m³` : "—";
+      return `${txtV}${sis ? " · " + sis : ""}`;
+    }
+
+    if (tipo === "FERTILIZACION") {
+      const modo = d?.modo || "";
+      const prod = d?.producto?.label || d?.producto?.codigo || "";
+      const cant = d?.cantidad;
+      const uni = d?.unidad || "";
+      const txtC = (cant != null && cant !== "") ? `${cant} ${uni}` : "—";
+      return `${txtC}${prod ? " · " + prod : ""}${modo ? " · " + modo : ""}`;
+    }
+
+    return safeText(op?.descripcion, "—");
+  }
+
+  function renderOperacionesInline(container, recintoId, ops){
+    const hasOps = ops.length > 0;
+
+    container.innerHTML = `
+      <div class="d-flex gap-2 flex-wrap mb-2">
+        <button id="btn-add-op-inline" class="btn btn-success btn-sm">
+          <i class="bi bi-plus-lg me-1"></i> Añadir operación
+        </button>
+        <button id="btn-ver-op-hist-inline" class="btn btn-outline-success btn-sm">
+          <i class="bi bi-clock-history me-1"></i> Ver histórico
+        </button>
+      </div>
+
+      <div id="op-inline-body"></div>
+    `;
+
+    const body = container.querySelector("#op-inline-body");
+
+    if (!hasOps) {
+      body.innerHTML = `
+        <div class="text-muted" style="font-size:12px">
+          No hay operaciones registradas en este recinto.
+        </div>
+      `;
+    } else {
+      body.innerHTML = `
+        <div class="op-mini-list">
+          ${ops.map(op => `
+            <div class="op-mini-item">
+              <div class="d-flex align-items-center gap-2">
+                <span class="badge ${opBadgeClass(op.tipo)} op-badge">${escapeHtml(opTipoLabel(op.tipo))}</span>
+                <span class="text-muted op-date">${escapeHtml(formatDateOnly(op.fecha))}</span>
+              </div>
+              <div class="op-resumen">${escapeHtml(opResumen(op))}</div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
+
+    container.querySelector("#btn-add-op-inline")?.addEventListener("click", () => {
+      renderOperacionForm(body, {
+        recintoId,
+        op: null,
+        mode: "actual",
+        onDone: async () => { await renderOperacionesForRecinto(recintoId); },
+        onCancel: async () => { await renderOperacionesForRecinto(recintoId); },
+      });
+    });
+
+    container.querySelector("#btn-ver-op-hist-inline")?.addEventListener("click", async () => {
+      openOperacionesPanel();
+      await renderOperacionesHistorico(recintoId);
+    });
+  }
+
+  // ---------- Render HISTÓRICO (overlay) ----------
+  async function renderOperacionesHistorico(recintoId){
+    const listEl = document.getElementById("operaciones-historico-list");
+    if (!listEl) return;
+
+    listEl.innerHTML = `<div class="text-muted">Cargando histórico...</div>`;
+
+    let ops = [];
+    try {
+      const data = await fetchJson(`/api/mis-recinto/${recintoId}/operaciones?all=1`);
+      ops = Array.isArray(data) ? data : [];
+    } catch (e) {
+      console.warn(e);
+      listEl.innerHTML = `<div class="text-danger">No se pudo cargar el histórico de operaciones.</div>`;
+      return;
+    }
+
+    listEl.innerHTML = `
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-journal-check text-success"></i>
+          <span>Registro completo</span>
+          <span class="badge bg-success">${ops.length}</span>
+        </div>
+
+        <button id="btn-add-op-historico" class="btn btn-success btn-sm ms-auto">
+          + Añadir al Histórico
+        </button>
+      </div>
+
+      <div class="side-divider"></div>
+
+      <div class="table-responsive historico-table-wrap">
+        <table class="table table-sm table-hover align-middle historico-table mb-0">
+          <thead>
+            <tr>
+              <th style="min-width:120px;">Fecha</th>
+              <th style="min-width:140px;">Tipo</th>
+              <th style="min-width:360px;">Resumen</th>
+              <th style="min-width:220px;" class="text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${ops.map(op => `
+              <tr>
+                <td class="hist-fechas">${escapeHtml(formatDateOnly(op.fecha))}</td>
+                <td><span class="badge ${opBadgeClass(op.tipo)}">${escapeHtml(opTipoLabel(op.tipo))}</span></td>
+                <td>${escapeHtml(opResumen(op))}</td>
+                <td class="text-end">
+                  <div class="d-flex gap-2 justify-content-end flex-wrap">
+                    <button class="btn btn-success btn-sm btn-edit-op" data-id="${op.id_operacion}">
+                      <i class="bi bi-pencil-fill me-1"></i> Editar
+                    </button>
+                    <button class="btn btn-danger btn-sm btn-del-op" data-id="${op.id_operacion}">
+                      <i class="bi bi-trash-fill me-1"></i> Eliminar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+
+      <div id="op-hist-form-slot" class="mt-3"></div>
+    `;
+
+    // Añadir histórico
+    listEl.querySelector("#btn-add-op-historico")?.addEventListener("click", () => {
+      const slot = listEl.querySelector("#op-hist-form-slot");
+      renderOperacionForm(slot, {
+        recintoId,
+        op: null,
+        mode: "historico_add",
+        onDone: async () => { await renderOperacionesHistorico(recintoId); },
+        onCancel: async () => { await renderOperacionesHistorico(recintoId); },
+      });
+    });
+
+    // Editar
+    listEl.querySelectorAll(".btn-edit-op").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.id;
+        const op = ops.find(x => String(x.id_operacion) === String(id));
+        if (!op) return;
+
+        const slot = listEl.querySelector("#op-hist-form-slot");
+        renderOperacionForm(slot, {
+          recintoId,
+          op,
+          mode: "historico_edit",
+          onDone: async () => { await renderOperacionesHistorico(recintoId); },
+          onCancel: async () => { await renderOperacionesHistorico(recintoId); },
+        });
+      });
+    });
+
+    // Eliminar
+    listEl.querySelectorAll(".btn-del-op").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.id;
+
+        const ok = await AppConfirm.open({
+          title: "Eliminar operación",
+          message: "¿Seguro que deseas eliminar la operación? Este proceso no es reversible.",
+          okText: "Eliminar",
+          cancelText: "Cancelar",
+          okClass: "btn-danger"
+        });
+        if (!ok) return;
+
+        await fetchJson(`/api/operaciones/${id}`, { method: "DELETE" });
+        NotificationSystem.show({ type: "success", title: "Operación eliminada", message: "" });
+        await renderOperacionesHistorico(recintoId);
+      });
+    });
+  }
+
+  // ---------- FORM (inline y overlay) ----------
+  function renderOperacionForm(container, {recintoId, op=null, mode="actual", onDone=null, onCancel=null}){
+    if (!container) return;
+
+    // normaliza detalle
+    let det = op?.detalle;
+    if (typeof det === "string") {
+      try { det = JSON.parse(det); } catch (_) {}
+    }
+    det = det || {};
+
+    const tipoDefault = (op?.tipo || "RIEGO").toUpperCase();
+
+    container.innerHTML = `
+      <div class="card op-card" style="border-radius:16px">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="fw-bold">${op ? "Editar operación" : "Añadir operación"}</div>
+            <button id="btn-cancel-op" type="button" class="btn btn-sm btn-outline-secondary">Cancelar</button>
+          </div>
+
+          <div class="row g-2">
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-bold">Tipo *</label>
+              <select id="op-tipo" class="form-select">
+                <option value="RIEGO">Riego</option>
+                <option value="FERTILIZACION">Fertilización</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-bold">Fecha *</label>
+              <input id="op-fecha" class="form-control" type="date">
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-bold">Descripción</label>
+              <input id="op-desc" class="form-control" type="text" placeholder="(Opcional)">
+            </div>
+          </div>
+
+          <div class="side-soft-divider" style="margin:14px 0;"></div>
+
+          <div id="op-detalle-slot"></div>
+
+          <div class="mt-3">
+            <button id="btn-save-op" type="button" class="btn btn-success w-100">Guardar</button>
+            <div id="op-form-msg" class="text-muted" style="font-size:12px; margin-top:8px"></div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const tipoSel = container.querySelector("#op-tipo");
+    const fechaInp = container.querySelector("#op-fecha");
+    const descInp = container.querySelector("#op-desc");
+    const slot = container.querySelector("#op-detalle-slot");
+    const msg = container.querySelector("#op-form-msg");
+
+    // defaults
+    tipoSel.value = tipoDefault;
+    fechaInp.value = op?.fecha ? String(op.fecha).slice(0,10) : (new Date().toISOString().slice(0,10));
+    descInp.value = op?.descripcion || "";
+
+    function renderDetalle(tipo){
+      const t = String(tipo || "").toUpperCase();
+
+      if (t === "RIEGO") {
+        const fi = det?.fecha_inicio ? String(det.fecha_inicio).slice(0,16) : "";
+        const ff = det?.fecha_fin ? String(det.fecha_fin).slice(0,16) : "";
+        const vol = det?.volumen_m3 ?? "";
+        const sis = det?.sistema_riego?.codigo || "GOTEO";
+        const proc = det?.procedencia_agua?.codigo || "COMUNIDAD";
+        const metodo = det?.medicion?.metodo || "MANUAL";
+        const li = det?.medicion?.lectura_inicial_m3 ?? "";
+        const lf = det?.medicion?.lectura_final_m3 ?? "";
+        const obs = det?.observaciones || "";
+
+        slot.innerHTML = `
+          <div class="row g-2">
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-bold">Inicio</label>
+              <input id="riego-fi" class="form-control" type="datetime-local" value="${escapeHtml(fi)}">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-bold">Fin</label>
+              <input id="riego-ff" class="form-control" type="datetime-local" value="${escapeHtml(ff)}">
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-bold">Volumen (m³) *</label>
+              <input id="riego-vol" class="form-control" type="number" step="0.01" min="0" value="${escapeHtml(vol)}">
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-bold">Sistema riego *</label>
+              <select id="riego-sis" class="form-select">
+                <option value="GOTEO">Goteo</option>
+                <option value="ASPERSION">Aspersión</option>
+                <option value="GRAVEDAD">Gravedad</option>
+              </select>
+              <div class="form-text">Luego lo conectamos a catálogo oficial.</div>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-bold">Procedencia *</label>
+              <select id="riego-proc" class="form-select">
+                <option value="COMUNIDAD">Comunidad</option>
+                <option value="POZO">Pozo</option>
+                <option value="CANAL">Canal</option>
+                <option value="REUTILIZADA">Reutilizada</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-bold">Medición</label>
+              <select id="riego-metodo" class="form-select">
+                <option value="MANUAL">Manual</option>
+                <option value="CONTADOR">Contador</option>
+                <option value="TELEMETRIA">Telemetría</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-bold">Lectura inicial (m³)</label>
+              <input id="riego-li" class="form-control" type="number" step="0.01" min="0" value="${escapeHtml(li)}">
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-bold">Lectura final (m³)</label>
+              <input id="riego-lf" class="form-control" type="number" step="0.01" min="0" value="${escapeHtml(lf)}">
+            </div>
+
+            <div class="col-12">
+              <label class="form-label fw-bold">Observaciones</label>
+              <textarea id="riego-obs" class="form-control" rows="2" placeholder="(Opcional)">${escapeHtml(obs)}</textarea>
+            </div>
+          </div>
+        `;
+
+        slot.querySelector("#riego-sis").value = sis;
+        slot.querySelector("#riego-proc").value = proc;
+        slot.querySelector("#riego-metodo").value = metodo;
+        return;
+      }
+
+      // FERTILIZACION
+      const modo = det?.modo || "MINERAL";
+      const prodLabel = det?.producto?.label || "";
+      const cant = det?.cantidad ?? "";
+      const uni = det?.unidad || "kg";
+      const tipoAp = det?.tipo_aplicacion?.codigo || "COBERTERA";
+      const n = det?.nutrientes?.n_kg ?? "";
+      const p = det?.nutrientes?.p2o5_kg ?? "";
+      const k = det?.nutrientes?.k2o_kg ?? "";
+      const obs = det?.observaciones || "";
+
+      slot.innerHTML = `
+        <div class="row g-2">
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-bold">Modo *</label>
+            <select id="fer-modo" class="form-select">
+              <option value="MINERAL">Mineral</option>
+              <option value="FERTIRRIGACION">Fertirrigación</option>
+              <option value="ORGANICA">Orgánica</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-5">
+            <label class="form-label fw-bold">Producto *</label>
+            <input id="fer-prod" class="form-control" type="text" placeholder="(De momento texto, luego catálogo)" value="${escapeHtml(prodLabel)}">
+          </div>
+
+          <div class="col-6 col-md-2">
+            <label class="form-label fw-bold">Cantidad *</label>
+            <input id="fer-cant" class="form-control" type="number" step="0.01" min="0" value="${escapeHtml(cant)}">
+          </div>
+
+          <div class="col-6 col-md-1">
+            <label class="form-label fw-bold">Ud.</label>
+            <select id="fer-uni" class="form-select">
+              <option value="kg">kg</option>
+              <option value="t">t</option>
+              <option value="l">l</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-bold">Tipo aplicación</label>
+            <select id="fer-tipoap" class="form-select">
+              <option value="FONDO">Fondo</option>
+              <option value="COBERTERA">Cobertera</option>
+              <option value="CATASTRO">Cataestro</option>
+            </select>
+            <div class="form-text">Luego lo conectamos a catálogo.</div>
+          </div>
+
+          <div class="col-12 col-md-8">
+            <label class="form-label fw-bold">Nutrientes (kg) (opcional)</label>
+            <div class="row g-2">
+              <div class="col-4">
+                <input id="fer-n" class="form-control" type="number" step="0.01" min="0" placeholder="N" value="${escapeHtml(n)}">
+              </div>
+              <div class="col-4">
+                <input id="fer-p" class="form-control" type="number" step="0.01" min="0" placeholder="P2O5" value="${escapeHtml(p)}">
+              </div>
+              <div class="col-4">
+                <input id="fer-k" class="form-control" type="number" step="0.01" min="0" placeholder="K2O" value="${escapeHtml(k)}">
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label fw-bold">Observaciones</label>
+            <textarea id="fer-obs" class="form-control" rows="2" placeholder="(Opcional)">${escapeHtml(obs)}</textarea>
+          </div>
+        </div>
+      `;
+
+      slot.querySelector("#fer-modo").value = modo;
+      slot.querySelector("#fer-uni").value = uni;
+      slot.querySelector("#fer-tipoap").value = tipoAp;
+    }
+
+    renderDetalle(tipoSel.value);
+
+    tipoSel.addEventListener("change", () => {
+      det = {}; // cambia tipo => limpia detalle
+      renderDetalle(tipoSel.value);
+    });
+
+    container.querySelector("#btn-cancel-op")?.addEventListener("click", () => {
+      onCancel?.();
+    });
+
+    container.querySelector("#btn-save-op")?.addEventListener("click", async () => {
+      msg.textContent = "";
+      msg.className = "text-muted";
+
+      const tipo = String(tipoSel.value || "").toUpperCase();
+      const fecha = parseDateToISO(fechaInp.value);
+      const descripcion = (descInp.value || "").trim() || null;
+
+      if (!tipo) { msg.textContent = "Selecciona el tipo."; msg.className="text-danger"; return; }
+      if (!fecha) { msg.textContent = "Selecciona la fecha."; msg.className="text-danger"; return; }
+
+      // Construir payload robusto (el que definimos)
+      const payload = {
+        schema_version: 1,
+        tipo,
+        fecha,
+        descripcion,
+        detalle: {}
+      };
+
+      if (tipo === "RIEGO") {
+        const vol = Number(slot.querySelector("#riego-vol")?.value);
+        if (!Number.isFinite(vol) || vol < 0) {
+          msg.textContent = "Volumen (m³) inválido.";
+          msg.className="text-danger";
+          return;
+        }
+
+        const sisCode = slot.querySelector("#riego-sis")?.value || "GOTEO";
+        const procCode = slot.querySelector("#riego-proc")?.value || "COMUNIDAD";
+        const metodo = slot.querySelector("#riego-metodo")?.value || "MANUAL";
+
+        const fi = slot.querySelector("#riego-fi")?.value || null;
+        const ff = slot.querySelector("#riego-ff")?.value || null;
+
+        const li = slot.querySelector("#riego-li")?.value;
+        const lf = slot.querySelector("#riego-lf")?.value;
+
+        payload.detalle = {
+          fecha_inicio: fi ? fi : null,
+          fecha_fin: ff ? ff : null,
+          volumen_m3: vol,
+          sistema_riego: { codigo: sisCode, label: opTipoLabel(sisCode), fuente: "FEGA_SIEX" },
+          procedencia_agua: { codigo: procCode, label: procCode, fuente: "INTERNO" },
+          medicion: {
+            metodo,
+            lectura_inicial_m3: (li !== "" && li != null) ? Number(li) : null,
+            lectura_final_m3: (lf !== "" && lf != null) ? Number(lf) : null
+          },
+          observaciones: (slot.querySelector("#riego-obs")?.value || "").trim() || null
+        };
+      }
+
+      if (tipo === "FERTILIZACION") {
+        const modo = slot.querySelector("#fer-modo")?.value || "MINERAL";
+        const prod = (slot.querySelector("#fer-prod")?.value || "").trim();
+        const cant = Number(slot.querySelector("#fer-cant")?.value);
+        const uni = slot.querySelector("#fer-uni")?.value || "kg";
+        const tipoAp = slot.querySelector("#fer-tipoap")?.value || "COBERTERA";
+
+        if (!prod) { msg.textContent="Indica el producto."; msg.className="text-danger"; return; }
+        if (!Number.isFinite(cant) || cant <= 0) { msg.textContent="Cantidad inválida."; msg.className="text-danger"; return; }
+
+        const n = slot.querySelector("#fer-n")?.value;
+        const p = slot.querySelector("#fer-p")?.value;
+        const k = slot.querySelector("#fer-k")?.value;
+
+        payload.detalle = {
+          modo,
+          producto: { codigo: null, label: prod, fuente: "INTERNO" },
+          cantidad: cant,
+          unidad: uni,
+          tipo_aplicacion: { codigo: tipoAp, label: tipoAp, fuente: "FEGA_SIEX" },
+          nutrientes: {
+            n_kg: (n !== "" && n != null) ? Number(n) : null,
+            p2o5_kg: (p !== "" && p != null) ? Number(p) : null,
+            k2o_kg: (k !== "" && k != null) ? Number(k) : null
+          },
+          observaciones: (slot.querySelector("#fer-obs")?.value || "").trim() || null
+        };
+      }
+
+      // ENDPOINTS
+      try {
+        if (op && op.id_operacion) {
+          await fetchJson(`/api/operaciones/${op.id_operacion}`, {
+            method: "PATCH",
+            headers: { "Content-Type":"application/json" },
+            body: JSON.stringify(payload)
+          });
+        } else {
+          await fetchJson(`/api/mis-recinto/${recintoId}/operaciones`, {
+            method: "POST",
+            headers: { "Content-Type":"application/json" },
+            body: JSON.stringify(payload)
+          });
+        }
+
+        NotificationSystem.show({ type:"success", title:"Operación guardada", message:"" });
+        onDone?.();
+
+      } catch (e) {
+        console.warn(e);
+        const backendMsg = e?.data?.error || e?.data?.message || "";
+        msg.textContent = backendMsg || "No se pudo guardar la operación.";
+        msg.className = "text-danger";
+      }
+    });
+  }
 
 
   // -----------------------------------------
