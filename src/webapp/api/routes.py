@@ -15,7 +15,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from .. import db
-from ..models import Recinto, Solicitudrecinto, Variedad
+from ..models import IndicesRaster, Recinto, Solicitudrecinto, Variedad
 
 from . import api_bp
 from .services import (
@@ -586,4 +586,51 @@ def api_delete_operacion(id_operacion: int):
 
     except Exception:
         return jsonify({"ok": False, "error": "Error interno en DELETE /api/operaciones/<id>"}), 500
+    
 
+
+@api_bp.route('/indices-raster', methods=['GET'])
+def get_indices_raster():
+    """
+    Obtiene los índices raster filtrados por id_recinto y tipo_indice
+    Query params: id_recinto (requerido), tipo_indice (opcional, default='NDVI')
+    """
+    try:
+        id_recinto = request.args.get('id_recinto', type=int)
+        tipo_indice = request.args.get('tipo_indice', default='NDVI', type=str)
+        
+        if not id_recinto:
+            return jsonify({'error': 'id_recinto es requerido'}), 400
+        
+        # Query a la base de datos usando la relación
+        indices = IndicesRaster.query.filter_by(
+            id_recinto=id_recinto,
+            tipo_indice=tipo_indice
+        ).order_by(IndicesRaster.fecha_calculo.desc()).all()
+        
+        # Convertir a lista de diccionarios
+        results = [indice.to_dict() for indice in indices]
+        
+        return jsonify(results), 200
+        
+    except Exception as e:
+        print(f"Error en get_indices_raster: {str(e)}")
+        return jsonify({'error': 'Error al obtener los índices'}), 500
+
+
+@api_bp.route('/indices-raster/<int:id_indice>', methods=['GET'])
+def get_indice_by_id(id_indice):
+    """
+    Obtiene un índice raster específico por su ID
+    """
+    try:
+        indice = IndicesRaster.query.get(id_indice)
+        
+        if not indice:
+            return jsonify({'error': 'Índice no encontrado'}), 404
+        
+        return jsonify(indice.to_dict()), 200
+        
+    except Exception as e:
+        print(f"Error en get_indice_by_id: {str(e)}")
+        return jsonify({'error': 'Error al obtener el índice'}), 500

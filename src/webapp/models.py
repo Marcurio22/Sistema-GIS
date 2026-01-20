@@ -110,6 +110,10 @@ class Recinto(db.Model):
         cascade="all, delete-orphan"
     )
 
+
+
+    indices_raster = db.relationship('IndicesRaster', back_populates='recinto', lazy='dynamic')
+
     def __repr__(self):
         return f"<Recinto SIGPAC {self.provincia}-{self.municipio}-{self.poligono}-{self.parcela}>"
 
@@ -192,3 +196,44 @@ class Variedad(db.Model):
     producto_fega_id = db.Column(db.Integer, db.ForeignKey("productos_fega.codigo", ondelete="CASCADE"), nullable=True) 
 
     producto_fega = db.relationship("ProductoFega", back_populates="variedades")
+
+
+
+class IndicesRaster(db.Model):
+    __tablename__ = 'indices_raster'
+    
+    id_indice = db.Column(db.Integer, primary_key=True)
+    id_imagen = db.Column(db.Integer, nullable=True)
+    tipo_indice = db.Column(db.String(50), nullable=False)
+    fecha_calculo = db.Column(db.DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    epsg = db.Column(db.Integer, nullable=True)
+    resolucion_m = db.Column(db.Numeric(10, 2), nullable=True)
+    valor_medio = db.Column(db.Numeric(10, 4), nullable=True)
+    valor_min = db.Column(db.Numeric(10, 4), nullable=True)
+    valor_max = db.Column(db.Numeric(10, 4), nullable=True)
+    desviacion_std = db.Column(db.Numeric(10, 4), nullable=True)
+    ruta_raster = db.Column(db.Text, nullable=True)
+    
+    id_recinto = db.Column(db.Integer, db.ForeignKey('recintos.id_recinto'), nullable=False)
+    
+    recinto = db.relationship('Recinto', back_populates='indices_raster')
+    
+    def __repr__(self):
+        return f'<IndicesRaster {self.id_indice} - {self.tipo_indice}>'
+    
+    def to_dict(self):
+        """Convierte el objeto a diccionario para JSON"""
+        return {
+            'id_indice': self.id_indice,
+            'id_imagen': self.id_imagen,
+            'tipo_indice': self.tipo_indice,
+            'fecha_calculo': self.fecha_calculo.isoformat() if self.fecha_calculo else None,
+            'epsg': self.epsg,
+            'resolucion_m': float(self.resolucion_m) if self.resolucion_m else None,
+            'valor_medio': float(self.valor_medio) if self.valor_medio else None,
+            'valor_min': float(self.valor_min) if self.valor_min else None,
+            'valor_max': float(self.valor_max) if self.valor_max else None,
+            'desviacion_std': float(self.desviacion_std) if self.desviacion_std else None,
+            'ruta_raster': self.ruta_raster,
+            'id_recinto': self.id_recinto
+        }

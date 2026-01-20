@@ -59,6 +59,7 @@
   integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/visor.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/galeria.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ndvi.css') }}">
 <script src="{{ url_for('static', filename='js/galeria.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ndvi.js') }}"></script>
 
@@ -994,8 +995,10 @@ async function restaurarEstadoMapa() {
       coordsText.textContent = "-";
     }
 
-    console.log('✅ Llamando a setRecintoId...');
+
     window.galeria.setRecintoId(window.currentSideRecintoId);
+    window.ndviManager.setRecintoId(window.currentSideRecintoId);
+    
 
     renderCultivosForRecinto(currentSideRecintoId);
     renderOperacionesForRecinto(currentSideRecintoId);
