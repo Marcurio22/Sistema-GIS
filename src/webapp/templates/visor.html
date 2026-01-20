@@ -2908,11 +2908,46 @@ if (btnDelete) {
         return;
       }
       
+      // NUEVO: Guardar información del popup abierto antes de limpiar
+      let popupAbiertoId = null;
+      let popupEstiloSeleccionado = false;
+      
+      recintosLayer.eachLayer((layer) => {
+        if (layer.isPopupOpen && layer.isPopupOpen()) {
+          const props = layer.feature?.properties || {};
+          popupAbiertoId = props.id_recinto;
+          // Verificar si tiene el estilo de seleccionado
+          popupEstiloSeleccionado = (selectedRecintoLayer === layer);
+          console.log("Popup abierto detectado para recinto:", popupAbiertoId);
+        }
+      });
+      
       recintosLayer.clearLayers();
       if (!fc || !fc.features || fc.features.length === 0) {
         return;
       }
       recintosLayer.addData(fc);
+      
+      // NUEVO: Reabrir el popup si estaba abierto
+      if (popupAbiertoId) {
+        recintosLayer.eachLayer((layer) => {
+          const props = layer.feature?.properties || {};
+          if (String(props.id_recinto) === String(popupAbiertoId)) {
+            console.log("Reabriendo popup para recinto:", popupAbiertoId);
+            
+            // Restaurar el estilo de selección si lo tenía
+            if (popupEstiloSeleccionado) {
+              selectedRecintoLayer = layer;
+              layer.setStyle(RECINTO_STYLE_SELECTED);
+            }
+            
+            // Reabrir el popup con un pequeño delay
+            setTimeout(() => {
+              layer.openPopup();
+            }, 50);
+          }
+        });
+      }
     })
     .catch((err) => {
       console.error("Error al cargar recintos:", err);
