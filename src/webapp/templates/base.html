@@ -184,7 +184,18 @@
     <script src="{{ url_for('static', filename='js/splash.js') }}"></script>
     {% endif %}
 
-    <!-- 5. Scripts personalizados -->
+    <!-- 5. Animación de salida al cerrar sesión -->
+    <div id="logout-overlay" class="logout-hidden">
+        <div class="exit-content">
+            <div class="wave-container">
+                <i class="bi bi-droplet-half exit-icon"></i>
+            </div>
+            <h2 class="exit-text">Guardando cambios...</h2>
+            <p class="exit-subtext">Gracias por cuidar el agua. ¡Hasta pronto!</p>
+        </div>
+    </div>
+
+    <!-- 6. Scripts personalizados -->
     {% block extra_js %}{% endblock %}
 </body>
 

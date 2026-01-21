@@ -86,3 +86,53 @@
     opacity: 0 !important;
     visibility: hidden !important;
 }
+
+/* --- ANIMACIÓN DE SALIDA (LOGOUT) --- */
+#logout-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #198754; /* Verde principal */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10001; /* Por encima del splash incluso */
+    transform: translateY(100%); /* Empieza abajo, fuera de vista */
+    transition: transform 0.6s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* Clase que activaremos con JS */
+#logout-overlay.show {
+    transform: translateY(0);
+}
+
+.exit-content {
+    text-align: center;
+    color: white;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.exit-icon {
+    font-size: 4rem;
+    animation: pulse-water 2s infinite;
+}
+
+.exit-text {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-top: 20px;
+    text-transform: uppercase;
+}
+
+.exit-subtext {
+    font-size: 1.2rem;
+    opacity: 0.9;
+}
+
+@keyframes pulse-water {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+}
