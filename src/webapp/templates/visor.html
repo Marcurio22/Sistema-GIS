@@ -482,6 +482,24 @@
   </div>
 </div>
 
+<!-- Modal Avanzado Cultivo -->
+<div class="modal fade" id="modalAvanzadoCultivo" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Avanzado (cultivo)</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body" id="modalAvanzadoCultivoBody">
+        <!-- contenido dinámico -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
   const NotificationSystem = {
     container: null,
@@ -1329,6 +1347,78 @@ if (btnDelete) {
     closeHistoricoPanel();
   });
 
+  function hasAvanzado(a){
+    if (!a || typeof a !== "object") return false;
+
+    // soporta string JSON
+    if (typeof a === "string") { try { a = JSON.parse(a); } catch(_) { return false; } }
+    if (!a || typeof a !== "object") return false;
+
+    const flat = [];
+
+    for (const v of Object.values(a)) {
+      if (!v) continue;
+      if (typeof v === "object") {
+        // material_vegetal o {codigo,label}
+        if (v.codigo || v.label) flat.push(v);
+        else {
+          for (const vv of Object.values(v)) {
+            if (vv && (vv.codigo || vv.label)) flat.push(vv);
+          }
+        }
+      } else if (String(v).trim() !== "") {
+        flat.push(v);
+      }
+    }
+    return flat.length > 0;
+  }
+
+  function openAvanzadoModal(av){
+    const body = document.getElementById("modalAvanzadoCultivoBody");
+    if (!body) return;
+
+    if (typeof av === "string") { try { av = JSON.parse(av); } catch(_) { av = null; } }
+
+    if (!hasAvanzado(av)) {
+      body.innerHTML = `<div class="text-muted">No hay datos avanzados.</div>`;
+    } else {
+      const rows = [];
+
+      function addRow(label, obj){
+        if (!obj || typeof obj !== "object") return;
+        const v = obj.label || obj.codigo;
+        if (!v) return;
+        rows.push(`<tr><th style="width:45%">${escapeHtml(label)}</th><td>${escapeHtml(v)}</td></tr>`);
+      }
+
+      addRow("Aprovechamiento", av.aprovechamiento);
+      addRow("Tipo cobertura del suelo", av.tipo_cobertura_suelo);
+      addRow("Destino del cultivo", av.destino_cultivo);
+
+      // material vegetal
+      if (av.material_vegetal) {
+        addRow("Material vegetal - tipo", av.material_vegetal.tipo);
+        addRow("Material vegetal - detalle", av.material_vegetal.detalle);
+      }
+
+      addRow("Tipo de labor", av.tipo_labor);
+      addRow("Procedencia material vegetal", av.procedencia_material_vegetal);
+      addRow("SENP", av.senp);
+
+      body.innerHTML = `
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <tbody>${rows.join("")}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    const el = document.getElementById("modalAvanzadoCultivo");
+    const modal = bootstrap.Modal.getOrCreateInstance(el);
+    modal.show();
+  }
+
   document.getElementById("btn-historico-cultivos")?.addEventListener("click", async (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1393,7 +1483,7 @@ if (btnDelete) {
         if (!arr.length) {
           cardsEl.innerHTML = `<div class="text-muted">No hay histórico todavía.</div>`;
         } else {
-            const COLS = 9;
+            const COLS = 11;
 
             cardsEl.innerHTML = `
               <div class="table-responsive historico-table-wrap">
@@ -1405,6 +1495,8 @@ if (btnDelete) {
                       <th style="min-width:180px;">Tipo cultivo</th>
                       <th style="min-width:140px;">Variedad</th>
                       <th style="min-width:120px;">Explotación</th>
+                      <th style="min-width:170px;">Sistema cultivo</th>
+                      <th style="min-width:150px;">Avanzado</th>
                       <th style="min-width:160px;">Campaña / Registro</th>
                       <th style="min-width:120px;">Estado</th>
                       <th style="min-width:220px;">Observaciones</th>
@@ -1437,6 +1529,14 @@ if (btnDelete) {
 
                       const obsText = (c.observaciones && String(c.observaciones).trim()) ? String(c.observaciones) : "";
                       const hasObs = !!obsText.trim();
+
+                      const sisCult = c.sistema_cultivo;
+                      const sisCultLbl =
+                        (sisCult && typeof sisCult === "object")
+                          ? (sisCult.label || sisCult.codigo || "—")
+                          : (sisCult || "—");
+
+                      const advYes = hasAvanzado(c.avanzado);
 
                       // Preview corto (sin saltos) + botón Ver/Ocultar
                       const obsOneLine = hasObs ? obsText.replace(/\s+/g, " ").trim() : "";
@@ -1475,6 +1575,18 @@ if (btnDelete) {
                           <td>${safeText(tipoLbl)}</td>
                           <td>${safeText(c.variedad, "N/A")}</td>
                           <td>${safeText(sistemaLabel(c.sistema_explotacion))}</td>
+                          <td>${escapeHtml(sisCultLbl)}</td>
+                          <td>
+                            ${advYes
+                              ? `<span class="badge bg-success me-2">Sí</span>
+                                <button type="button"
+                                        class="btn btn-outline-success btn-sm btn-ver-avanzado"
+                                        data-id="${c.id_cultivo}">
+                                  Ver
+                                </button>`
+                              : `<span class="badge bg-secondary">No</span>`
+                            }
+                          </td>
                           <td>${campOrReg}</td>
                           <td>${estadoLabel(c.estado)}</td>
 
@@ -1573,6 +1685,15 @@ if (btnDelete) {
                 });
               });
             });
+
+            // Ver modal Avanzado
+            cardsEl.querySelectorAll(".btn-ver-avanzado").forEach(btn => {
+              btn.addEventListener("click", () => {
+                const id = btn.dataset.id;
+                const item = arr.find(x => String(x.id_cultivo) === String(id));
+                openAvanzadoModal(item?.avanzado || null);
+              });
+            });
           }
 
         // Añadir al histórico
@@ -1601,6 +1722,9 @@ if (btnDelete) {
             "explotacion",
             "campana_o_registro",
             "estado",
+            "sistema_cultivo",
+            "avanzado_si_no",
+            "avanzado_json",
             "observaciones"
           ];
 
@@ -1633,6 +1757,9 @@ if (btnDelete) {
               sistemaLabel(c.sistema_explotacion),
               campOrReg ?? "",
               estadoLabel(c.estado),
+              sisCultLbl,
+              (hasAvanzado(c.avanzado) ? "Sí" : "No"),
+              (c.avanzado ? JSON.stringify(c.avanzado) : ""),
               c.observaciones ?? ""
             ];
           });
@@ -1757,6 +1884,17 @@ if (btnDelete) {
         <div class="cultivo-field">
           <div class="k">Explotación</div>
           <div class="v">${safeText(sistemaLabel(cultivo.sistema_explotacion))}</div>
+        </div>
+
+        <div class="cultivo-field">
+          <div class="k">Sistema de cultivo</div>
+          <div class="v">${
+            escapeHtml(
+              (cultivo?.sistema_cultivo && typeof cultivo.sistema_cultivo === "object")
+                ? (cultivo.sistema_cultivo.label || cultivo.sistema_cultivo.codigo || "—")
+                : (cultivo?.sistema_cultivo || "—")
+            )
+          }</div>
         </div>
 
         <div class="cultivo-field">
@@ -2055,6 +2193,12 @@ if (btnDelete) {
             <input id="cultivo_custom" class="form-control" type="text" placeholder="Escribe el cultivo (p.ej. ALTRAMUZ)">
           </div>
 
+          <div class="mb-3">
+            <label class="form-label fw-bold">Sistema de cultivo *</label>
+            <select id="cultivo-sistema" class="form-select" required></select>
+            <div class="form-text">Catálogo SIEX: SISTEMA_CULTIVO</div>
+          </div>
+
           <div class="mb-3 position-relative">
           <label class="form-label fw-bold">Variedad (opcional)</label>
           <input id="variedad" class="form-control" type="text" 
@@ -2111,6 +2255,73 @@ if (btnDelete) {
           <div class="mb-3">
             <label class="form-label fw-bold">Observaciones (opcional)</label>
             <textarea id="observaciones" class="form-control" rows="3" placeholder="Escribe notas..."></textarea>
+          </div>
+
+          <div class="accordion mt-2" id="cultivo-adv-acc">
+            <div class="accordion-item">
+              <h2 class="accordion-header" id="cultivo-adv-h">
+                <button class="accordion-button collapsed" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#cultivo-adv-c">
+                  Avanzado (opcional)
+                </button>
+              </h2>
+
+              <div id="cultivo-adv-c" class="accordion-collapse collapse" data-bs-parent="#cultivo-adv-acc">
+                <div class="accordion-body">
+                  <div class="row g-2">
+
+                    <div class="col-12 col-md-4">
+                      <label class="form-label fw-bold">Aprovechamiento</label>
+                      <select id="adv-aprovechamiento" class="form-select"></select>
+                      <div class="form-text">Catálogo SIEX: APROVECHAMIENTO</div>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                      <label class="form-label fw-bold">Tipo cobertura del suelo</label>
+                      <select id="adv-tipo-cobertura" class="form-select"></select>
+                      <div class="form-text">Catálogo SIEX: TIPO_COBERTURA_SUELO</div>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                      <label class="form-label fw-bold">Destino del cultivo</label>
+                      <select id="adv-destino" class="form-select"></select>
+                      <div class="form-text">Catálogo SIEX: DESTINO_CULTIVO</div>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                      <label class="form-label fw-bold">Material vegetal (tipo)</label>
+                      <select id="adv-mvr-tipo" class="form-select"></select>
+                      <div class="form-text">Catálogo SIEX: MVR_TIPO</div>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                      <label class="form-label fw-bold">Material vegetal (detalle)</label>
+                      <select id="adv-mvr-detalle" class="form-select" disabled></select>
+                      <div class="form-text">Catálogo SIEX: MVR_DETALLE (depende de tipo)</div>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                      <label class="form-label fw-bold">Tipo de labor</label>
+                      <select id="adv-tipo-labor" class="form-select"></select>
+                      <div class="form-text">Catálogo SIEX: TIPO_LABOR</div>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                      <label class="form-label fw-bold">Procedencia material vegetal</label>
+                      <select id="adv-proc-mv" class="form-select"></select>
+                      <div class="form-text">Catálogo SIEX: PROCEDENCIA_MATERIAL_VEGETAL</div>
+                    </div>
+
+                    <div class="col-12 col-md-4">
+                      <label class="form-label fw-bold">SENP</label>
+                      <select id="adv-senp" class="form-select"></select>
+                      <div class="form-text">Catálogo SIEX: SENP</div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <button id="btn-save-cultivo" type="button" class="btn btn-success w-100">Guardar</button>
@@ -2205,13 +2416,25 @@ if (btnDelete) {
     variedadInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         suggestionsList.style.display = "none";
-        // El valor ya está en el input, no hace falta hacer nada más
       }
     });
 
     const ssUsoEl = container.querySelector("#ss-uso");
     const ssProdEl = container.querySelector("#ss-prod");
     const btnVerTodos = container.querySelector("#btn-ver-todos");
+
+    // --- SISTEMA_CULTIVO (obligatorio) ---
+    const sisCultSel = container.querySelector("#cultivo-sistema");
+
+    const sisCultSelected =
+      (cultivo?.sistema_cultivo && typeof cultivo.sistema_cultivo === "object")
+        ? (cultivo.sistema_cultivo.codigo || "")
+        : (cultivo?.sistema_cultivo || "");
+
+    fillSelectFromCatalog(sisCultSel, "SISTEMA_CULTIVO", {
+      selected: sisCultSelected,
+      placeholder: "Selecciona..."
+    });
 
     const usoItems = usos.map(u => ({
       codigo: u.codigo,
@@ -2348,6 +2571,73 @@ if (btnDelete) {
     tipoRegSel.addEventListener("change", syncTipoRegistroUi);
     syncTipoRegistroUi();
 
+    // -------- Avanzado (opcional) --------
+    function pickObjFromSelect(sel) {
+      const code = (sel?.value || "").trim();
+      if (!code) return null;
+      const label = (sel?.selectedOptions?.[0]?.textContent || "").trim() || code;
+      return { codigo: code, label, fuente: "SIEX" };
+    }
+
+    // Lee avanzado existente
+    let adv = cultivo?.avanzado ?? null;
+    if (typeof adv === "string") { try { adv = JSON.parse(adv); } catch(_) { adv = null; } }
+    adv = (adv && typeof adv === "object") ? adv : null;
+
+    const advAprove = container.querySelector("#adv-aprovechamiento");
+    const advCob = container.querySelector("#adv-tipo-cobertura");
+    const advDest = container.querySelector("#adv-destino");
+    const advMvrTipo = container.querySelector("#adv-mvr-tipo");
+    const advMvrDet = container.querySelector("#adv-mvr-detalle");
+    const advTipoLabor = container.querySelector("#adv-tipo-labor");
+    const advProcMv = container.querySelector("#adv-proc-mv");
+    const advSenp = container.querySelector("#adv-senp");
+
+    // selected codes
+    const advAproveSel = adv?.aprovechamiento?.codigo || "";
+    const advCobSel = adv?.tipo_cobertura_suelo?.codigo || "";
+    const advDestSel = adv?.destino_cultivo?.codigo || "";
+
+    const advMvrTipoSel = adv?.material_vegetal?.tipo?.codigo || "";
+    const advMvrDetSel = adv?.material_vegetal?.detalle?.codigo || "";
+
+    const advTipoLaborSel = adv?.tipo_labor?.codigo || "";
+    const advProcMvSel = adv?.procedencia_material_vegetal?.codigo || "";
+    const advSenpSel = adv?.senp?.codigo || "";
+
+    // cargar selects simples
+    fillSelectFromCatalog(advAprove, "APROVECHAMIENTO", { selected: advAproveSel, placeholder: "(Opcional)" });
+    fillSelectFromCatalog(advCob, "TIPO_COBERTURA_SUELO", { selected: advCobSel, placeholder: "(Opcional)" });
+    fillSelectFromCatalog(advDest, "DESTINO_CULTIVO", { selected: advDestSel, placeholder: "(Opcional)" });
+
+    fillSelectFromCatalog(advMvrTipo, "MVR_TIPO", { selected: advMvrTipoSel, placeholder: "(Opcional)" });
+    fillSelectFromCatalog(advTipoLabor, "TIPO_LABOR", { selected: advTipoLaborSel, placeholder: "(Opcional)" });
+    fillSelectFromCatalog(advProcMv, "PROCEDENCIA_MATERIAL_VEGETAL", { selected: advProcMvSel, placeholder: "(Opcional)" });
+    fillSelectFromCatalog(advSenp, "SENP", { selected: advSenpSel, placeholder: "(Opcional)" });
+
+    function reloadMvrDetalle({ selected = "" } = {}) {
+      const tipo = (advMvrTipo?.value || "").trim();
+      if (!tipo) {
+        advMvrDet.disabled = true;
+        advMvrDet.innerHTML = `<option value="">(Selecciona tipo primero)</option>`;
+        return;
+      }
+      advMvrDet.disabled = false;
+      fillSelectFromCatalog(advMvrDet, "MVR_DETALLE", {
+        selected,
+        placeholder: "(Opcional)",
+        parent: tipo
+      });
+    }
+
+    // inicial detalle (si ya venía algo)
+    setTimeout(() => reloadMvrDetalle({ selected: advMvrDetSel }), 0);
+
+    advMvrTipo.addEventListener("change", () => {
+      // al cambiar tipo, resetea detalle y recarga por parent
+      reloadMvrDetalle({ selected: "" });
+    });
+
     // Si venimos de editar
     if (cultivo) {
       // Uso sigpac
@@ -2447,6 +2737,14 @@ if (btnDelete) {
         return;
       }
 
+      // --- Validación SISTEMA_CULTIVO ---
+      const sisCultCode = (sisCultSel?.value || "").trim();
+      if (!sisCultCode) {
+        msg.textContent = "Selecciona el sistema de cultivo.";
+        msg.className = "text-danger";
+        return;
+      }
+
       const variedad = (container.querySelector("#variedad")?.value || "").trim() || null;
       const estado = container.querySelector("#estado")?.value || "en_curso";
       const sistema = container.querySelector("input[name='sistema_explotacion']:checked")?.value || "S";
@@ -2510,6 +2808,11 @@ if (btnDelete) {
       const payload = {
         id_recinto: recintoId,
         uso_sigpac: uso,
+        sistema_cultivo: {
+          codigo: sisCultCode,
+          label: (sisCultSel?.selectedOptions?.[0]?.textContent || "").trim() || sisCultCode,
+          fuente: "SIEX"
+        },
         sistema_explotacion: sistema,
         tipo_registro: tipo_registro,
         campana: campana,
@@ -2529,6 +2832,55 @@ if (btnDelete) {
         payload.fecha_implantacion = fechaInicio;
       }
       payload.fecha_cosecha_estimada = fechaCosechaEst;
+
+      // Construir Avanzado (opcional)
+      const aAprove = pickObjFromSelect(advAprove);
+      const aCob = pickObjFromSelect(advCob);
+      const aDest = pickObjFromSelect(advDest);
+
+      const mvTipoObj = pickObjFromSelect(advMvrTipo);
+      const mvDetObjBase = pickObjFromSelect(advMvrDet);
+      const mvDetObj = mvDetObjBase
+        ? { ...mvDetObjBase, parent: (advMvrTipo?.value || "").trim() || null }
+        : null;
+
+      const materialVegetal =
+        (mvTipoObj || mvDetObj)
+          ? { tipo: mvTipoObj, detalle: mvDetObj }
+          : null;
+
+      const aTipoLabor = pickObjFromSelect(advTipoLabor);
+      const aProcMv = pickObjFromSelect(advProcMv);
+      const aSenp = pickObjFromSelect(advSenp);
+
+      const avanzadoRaw = {
+        aprovechamiento: aAprove,
+        tipo_cobertura_suelo: aCob,
+        destino_cultivo: aDest,
+        material_vegetal: materialVegetal,
+        tipo_labor: aTipoLabor,
+        procedencia_material_vegetal: aProcMv,
+        senp: aSenp
+      };
+
+      // normaliza a null si está vacío
+      function normalizeAvanzado(av) {
+        if (!av || typeof av !== "object") return null;
+
+        // aplanado simple
+        const vals = [
+          av.aprovechamiento, av.tipo_cobertura_suelo, av.destino_cultivo,
+          av.tipo_labor, av.procedencia_material_vegetal, av.senp
+        ];
+
+        const mv = av.material_vegetal;
+        if (mv && (mv.tipo || mv.detalle)) vals.push(mv.tipo, mv.detalle);
+
+        const hasAny = vals.some(v => v && (v.codigo || v.label));
+        return hasAny ? av : null;
+      }
+
+      payload.avanzado = normalizeAvanzado(avanzadoRaw);
 
       // -------------------------
       // ENDPOINT SEGÚN MODO
@@ -3622,11 +3974,6 @@ if (btnDelete) {
                 <option value="">Selecciona...</option>
                 <option value="ACTIVIDAD_AGRARIA">Actividad agraria</option>
                 <option value="ACTIVIDAD_CUBIERTA">Actividad sobre la cubierta</option>
-                <option value="APROVECHAMIENTO">Aprovechamiento</option>
-                <option value="TIPO_COBERTURA_SUELO">Tipo cobertura del suelo</option>
-                <option value="DESTINO_CULTIVO">Destino del cultivo</option>
-                <option value="MVR_TIPO">Material vegetal (tipo)</option>
-                <option value="MVR_DETALLE">Material vegetal (detalle)</option>
               </select>
             </div>
 
