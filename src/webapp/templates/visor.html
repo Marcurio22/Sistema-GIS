@@ -2718,7 +2718,7 @@ if (btnDelete) {
       body.innerHTML = `
         <div class="op-mini-list">
           ${ops.map(op => `
-            <div class="op-mini-item d-flex justify-content-between align-items-start gap-2">
+            <div class="op-mini-item d-flex justify-content-between align-items-start">
               <div>
                 <div class="d-flex align-items-center gap-2">
                   <span class="badge ${opBadgeClass(op.tipo)} op-badge">${escapeHtml(opTipoLabel(op.tipo))}</span>
@@ -2738,30 +2738,20 @@ if (btnDelete) {
             </div>
           `).join("")}
         </div>
+
+        <div id="op-inline-form-slot" class="mt-2"></div>
       `;
     }
 
-    const formSlot = container.querySelector("#op-inline-form-slot");
-
-    // Añadir nueva operación
-    container.querySelector("#btn-add-op-inline")?.addEventListener("click", () => {
-      renderOperacionForm(body, {
-        recintoId,
-        op: null,
-        mode: "actual",
-        onDone: async () => { await renderOperacionesForRecinto(recintoId); },
-        onCancel: async () => { await renderOperacionesForRecinto(recintoId); },
-      });
-    });
-
-    // Editar operación
-    container.querySelectorAll(".btn-edit-op-inline").forEach(btn => {
+    // EDITAR (INLINE)
+    body.querySelectorAll(".btn-edit-op-inline").forEach(btn => {
       btn.addEventListener("click", () => {
         const id = btn.dataset.id;
         const op = ops.find(x => String(x.id_operacion) === String(id));
         if (!op) return;
 
-        renderOperacionForm(formSlot, {
+        const slotForm = body.querySelector("#op-inline-form-slot");
+        renderOperacionForm(slotForm, {
           recintoId,
           op,
           mode: "actual_edit",
@@ -2771,14 +2761,14 @@ if (btnDelete) {
       });
     });
 
-    // Eliminar operación
-    container.querySelectorAll(".btn-del-op-inline").forEach(btn => {
+    // ELIMINAR (INLINE)
+    body.querySelectorAll(".btn-del-op-inline").forEach(btn => {
       btn.addEventListener("click", async () => {
         const id = btn.dataset.id;
 
         const ok = await AppConfirm.open({
           title: "Eliminar operación",
-          message: "¿Seguro que deseas eliminar la operación? Este proceso no es reversible.",
+          message: "¿Seguro que deseas eliminar la operación? También se eliminará del histórico. Este proceso no es reversible.",
           okText: "Eliminar",
           cancelText: "Cancelar",
           okClass: "btn-danger"
@@ -2786,16 +2776,21 @@ if (btnDelete) {
         if (!ok) return;
 
         await fetchJson(`/api/operaciones/${id}`, { method: "DELETE" });
-        NotificationSystem.show({ type: "success", title: "Operación eliminada", message: "" });
+        NotificationSystem.show({ type:"success", title:"Operación eliminada", message:"" });
         await renderOperacionesForRecinto(recintoId);
       });
     });
-
-
-    // container.querySelector("#btn-ver-op-hist-inline")?.addEventListener("click", async () => {
-    //   openOperacionesPanel();
-    //   await renderOperacionesHistorico(recintoId);
-    // });
+        // AÑADIR (INLINE)
+        const btnAdd = container.querySelector("#btn-add-op-inline");
+        btnAdd.addEventListener("click", () => {
+          const slotForm = body.querySelector("#op-inline-form-slot");
+          renderOperacionForm(slotForm, {
+            recintoId,
+            mode: "actual_add",
+            onDone: async () => { await renderOperacionesForRecinto(recintoId); },
+            onCancel: async () => { await renderOperacionesForRecinto(recintoId); },
+          });
+        });
   }
 
   // ---------- Render HISTÓRICO (overlay) ----------
