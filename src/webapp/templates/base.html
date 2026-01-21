@@ -16,6 +16,10 @@
     <link rel="shortcut icon" href="/static/web_icon/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/static/web_icon/apple-touch-icon.png" />
     <link rel="manifest" href="/static/web_icon/site.webmanifest" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
     <!-- Animación de entrada -->
     {% if request.endpoint == 'dashboard.dashboard' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/splash.css') }}">
