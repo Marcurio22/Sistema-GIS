@@ -10,6 +10,12 @@ from __future__ import annotations
 from flask import jsonify, request
 from flask_login import login_required, current_user
 from sqlalchemy import text
+import matplotlib
+matplotlib.use('Agg') # Vital para que no intente abrir ventanas en el servidor
+import matplotlib.pyplot as plt
+import io
+import base64
+
 
 from datetime import date, datetime
 from decimal import Decimal
@@ -665,3 +671,41 @@ def get_indice_by_id(id_indice):
     except Exception as e:
         print(f"Error en get_indice_by_id: {str(e)}")
         return jsonify({'error': 'Error al obtener el índice'}), 500
+    
+
+
+@api_bp.route('/grafica-ndvi/<int:recinto_id>', methods=['GET'])
+def grafica_ndvi(recinto_id):
+    try:
+        indices = IndicesRaster.query.filter_by(
+            id_recinto=recinto_id,
+            tipo_indice='NDVI'
+        ).order_by(IndicesRaster.fecha_calculo.asc()).all()
+
+        if not indices:
+            return jsonify({"error": "No hay datos NDVI disponibles"}), 404
+        
+        # Preparar datos
+        fechas = []
+        valores = []
+        
+        for indice in indices:
+            if indice.fecha_ndvi:
+                # Formato más legible: "08 dic. 2025"
+                fecha_obj = indice.fecha_ndvi
+                meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 
+                        'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+                fecha_formateada = f"{fecha_obj.day:02d} {meses[fecha_obj.month-1]}. {fecha_obj.year}"
+                fechas.append(fecha_formateada)
+                valores.append(round(indice.valor_medio, 2))
+
+        return jsonify({
+            "fechas": fechas,
+            "valores": valores
+        }), 200
+        
+    except Exception as e:
+        print(f"Error en grafica_ndvi: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500

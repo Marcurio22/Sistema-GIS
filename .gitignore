@@ -297,7 +297,8 @@ Desktop.ini
 # JetBrains (IDEA / PyCharm)
 #.idea/
 src/webapp/static/uploads/*
-src/static/ndvi_simple/*
+src/webapp/static/ndvi_simple/*
+src/webapp/static/thumbnails/*
 
 # ===============================
 # End of file

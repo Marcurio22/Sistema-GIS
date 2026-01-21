@@ -213,6 +213,8 @@ class IndicesRaster(db.Model):
     valor_max = db.Column(db.Numeric(10, 4), nullable=True)
     desviacion_std = db.Column(db.Numeric(10, 4), nullable=True)
     ruta_raster = db.Column(db.Text, nullable=True)
+    fecha_ndvi = db.Column(db.DateTime(timezone=True), nullable=True)
+    ruta_ndvi = db.Column(db.Text, nullable=True)
     
     id_recinto = db.Column(db.Integer, db.ForeignKey('recintos.id_recinto'), nullable=False)
     
@@ -235,5 +237,7 @@ class IndicesRaster(db.Model):
             'valor_max': float(self.valor_max) if self.valor_max else None,
             'desviacion_std': float(self.desviacion_std) if self.desviacion_std else None,
             'ruta_raster': self.ruta_raster,
-            'id_recinto': self.id_recinto
+            'id_recinto': self.id_recinto,
+            'fecha_ndvi': self.fecha_ndvi.isoformat() if self.fecha_ndvi else None,
+            'ruta_ndvi': self.ruta_ndvi,
         }

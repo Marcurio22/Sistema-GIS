@@ -1,3 +1,4 @@
+/* ===== TARJETA NDVI PRINCIPAL ===== */
 .ndvi-card {
   border: 1px solid #e0e0e0;
   border-radius: 8px;
@@ -42,4 +43,114 @@
   font-weight: 600;
   color: #198754;
   font-size: 0.95rem;
+}
+
+/* ===== PANEL HISTÓRICO NDVI ===== */
+#side-panel.ndvi-historico-open .side-content > *:not(#ndvi-historico-panel) {
+  display: none !important;
+}
+
+#side-panel.ndvi-historico-open #ndvi-historico-panel {
+  display: block !important;
+}
+
+#side-panel.ndvi-historico-open #side-close {
+  display: none !important;
+}
+
+/* ===== CARRUSEL DE IMÁGENES NDVI ===== */
+.ndvi-carousel {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.carousel-btn {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.carousel-btn:hover:not(:disabled) {
+  background: #198754;
+  color: #fff;
+  border-color: #198754;
+}
+
+.carousel-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.carousel-images {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  overflow: hidden;
+  align-items: flex-start;
+}
+
+.carousel-item {
+  width: 110px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.carousel-img {
+  width: 110px;
+  height: 110px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 2px solid #dee2e6;
+  transition: border-color 0.2s;
+  display: block;
+}
+
+.carousel-img:hover {
+  border-color: #198754;
+  cursor: pointer;
+}
+
+.carousel-item-info {
+  text-align: center;
+  font-size: 0.7rem;
+  padding: 2px 0;
+  line-height: 1.3;
+}
+
+.carousel-item-info .fw-bold {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #212529;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.carousel-item-info .text-muted {
+  font-size: 0.65rem;
+  color: #6c757d;
+}
+
+
+#ndvi-chart {
+  min-height: 300px;
+  padding: 15px;
+  background: white;
+  border-radius: 8px;
+}
+
+#ndvi-chart-canvas {
+  max-height: 300px;
 }
