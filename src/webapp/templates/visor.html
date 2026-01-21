@@ -2750,6 +2750,31 @@ if (btnDelete) {
     return "bg-secondary";
   }
 
+  
+  function normalizeProcedenciaAgua(v){
+    if (Array.isArray(v)) return v.filter(Boolean);
+    if (v && typeof v === "object") return [v];
+    return [];
+  }
+
+  function procedenciaAguaToText(v){
+    const arr = normalizeProcedenciaAgua(v);
+    if (!arr.length) return "";
+    return arr
+      .map(x => (x?.label || x?.codigo || "").trim())
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  function procedenciaAguaToCodes(v){
+    const arr = normalizeProcedenciaAgua(v);
+    if (!arr.length) return "";
+    return arr
+      .map(x => (x?.codigo || "").trim())
+      .filter(Boolean)
+      .join(",");
+  }
+
   function opResumen(op){
     let d = op?.detalle;
     if (typeof d === "string") { try { d = JSON.parse(d); } catch(_){} }
@@ -2784,7 +2809,6 @@ if (btnDelete) {
 
     return safeText(op?.descripcion, "—");
   }
-
 
   function renderOperacionesInline(container, recintoId, ops){
     const hasOps = ops.length > 0;
