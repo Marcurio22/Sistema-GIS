@@ -1601,8 +1601,7 @@ if (btnDelete) {
             "explotacion",
             "campana_o_registro",
             "estado",
-            "observaciones",
-            "origen_cultivo"
+            "observaciones"
           ];
 
           const rows = arr.map((c) => {
@@ -1613,7 +1612,6 @@ if (btnDelete) {
             const u = usosMap.get(String(c.uso_sigpac));
             const usoDesc = u?.descripcion || "";
 
-            const origen = String(c.origen_cultivo || "").toUpperCase();
             let tipoCod = "";
             let tipoDesc = "";
 
@@ -1640,8 +1638,7 @@ if (btnDelete) {
               sistemaLabel(c.sistema_explotacion),
               campOrReg ?? "",
               estadoLabel(c.estado),
-              c.observaciones ?? "",
-              c.origen_cultivo ?? ""
+              c.observaciones ?? ""
             ];
           });
 
@@ -3692,6 +3689,12 @@ if (btnDelete) {
         const sisCode = (sisSel?.value || "").trim();
         const procCode = (procSel?.value || "").trim();
 
+        const procedencias = Array.from(procSel?.selectedOptions || []).map(opt => ({
+          codigo: opt.value,
+          label: (opt.textContent || "").trim() || opt.value,
+          fuente: "SIEX"
+        }));
+
         if (!sisCode) { msg.textContent = "Selecciona el sistema de riego."; msg.className="text-danger"; return; }
         if (!procCode) { msg.textContent = "Selecciona la procedencia del agua."; msg.className="text-danger"; return; }
 
@@ -3713,11 +3716,7 @@ if (btnDelete) {
             label: (sisSel?.selectedOptions?.[0]?.textContent || "").trim() || sisCode,
             fuente: "SIEX"
           },
-          procedencia_agua: {
-            codigo: procCode,
-            label: (procSel?.selectedOptions?.[0]?.textContent || "").trim() || procCode,
-            fuente: "SIEX"
-          },
+          procedencia_agua: procedencias.length ? procedencias : null,
           medicion: {
             metodo,
             lectura_inicial_m3: (li !== "" && li != null) ? Number(li) : null,
