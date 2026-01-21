@@ -2766,15 +2766,6 @@ if (btnDelete) {
       .join(", ");
   }
 
-  function procedenciaAguaToCodes(v){
-    const arr = normalizeProcedenciaAgua(v);
-    if (!arr.length) return "";
-    return arr
-      .map(x => (x?.codigo || "").trim())
-      .filter(Boolean)
-      .join(",");
-  }
-
   function opResumen(op){
     let d = op?.detalle;
     if (typeof d === "string") { try { d = JSON.parse(d); } catch(_){} }
@@ -2784,7 +2775,7 @@ if (btnDelete) {
     if (tipo === "RIEGO") {
       const v = d?.volumen_m3 ?? d?.volumen ?? null;
       const sis = d?.sistema_riego?.label || d?.sistema_riego?.codigo || "";
-      const proc = d?.procedencia_agua?.label || d?.procedencia_agua?.codigo || "";
+      const proc = procedenciaAguaToText(d?.procedencia_agua);
       const obs = d?.observaciones || "";
       const txtV = (v != null && v !== "") ? `${Number(v).toFixed(0)} m³` : "—";
       return `${txtV}${sis ? " · " + sis : ""}${proc ? " · " + proc : ""}${obs ? " — " + obs : ""}`;
@@ -2981,7 +2972,7 @@ if (btnDelete) {
 
               const riego_m3 = t==="RIEGO" ? (d.volumen_m3 ?? "") : "";
               const riego_sis = t==="RIEGO" ? (d?.sistema_riego?.label || d?.sistema_riego?.codigo || "") : "";
-              const riego_proc = t==="RIEGO" ? (d?.procedencia_agua?.label || d?.procedencia_agua?.codigo || "") : "";
+              const riego_proc = t==="RIEGO" ? procedenciaAguaToText(d?.procedencia_agua) : "";
 
               const fert_cant = t==="FERTILIZACION" ? `${d?.cantidad ?? ""} ${d?.unidad ?? ""}`.trim() : "";
               const fert_prod = t==="FERTILIZACION" ? (d?.producto?.label || d?.producto?.codigo || "") : "";
@@ -3121,7 +3112,7 @@ if (btnDelete) {
         // RIEGO
         const r_vol = t === "RIEGO" ? (d.volumen_m3 ?? d.volumen ?? "") : "";
         const r_sis = t === "RIEGO" ? (d?.sistema_riego?.label || d?.sistema_riego?.codigo || "") : "";
-        const r_proc = t === "RIEGO" ? (d?.procedencia_agua?.label || d?.procedencia_agua?.codigo || "") : "";
+        const r_proc = t === "RIEGO" ? procedenciaAguaToText(d?.procedencia_agua) : "";
         const r_fi = t === "RIEGO" ? (d?.fecha_inicio || "") : "";
         const r_ff = t === "RIEGO" ? (d?.fecha_fin || "") : "";
         const r_met = t === "RIEGO" ? (d?.medicion?.metodo || "") : "";
@@ -3402,7 +3393,8 @@ if (btnDelete) {
         const ff = det?.fecha_fin ? String(det.fecha_fin).slice(0,16) : "";
         const vol = det?.volumen_m3 ?? "";
         const sis = det?.sistema_riego?.codigo || "";
-        const proc = det?.procedencia_agua?.codigo || "";
+        const procArr = normalizeProcedenciaAgua(det?.procedencia_agua);
+        const procCodes = procArr.map(x => x.codigo).filter(Boolean);
         const metodo = det?.medicion?.metodo || "MANUAL";
         const li = det?.medicion?.lectura_inicial_m3 ?? "";
         const lf = det?.medicion?.lectura_final_m3 ?? "";
@@ -3432,7 +3424,7 @@ if (btnDelete) {
 
             <div class="col-12 col-md-4">
               <label class="form-label fw-bold">Procedencia *</label>
-              <select id="riego-proc" class="form-select"></select>
+              <div id="riego-proc-box" class="border rounded-3 p-2" style="max-height:180px; overflow:auto;"></div>
               <div class="form-text">Catálogo SIEX: RIEGO_PROCEDENCIA</div>
             </div>
 
@@ -3463,7 +3455,25 @@ if (btnDelete) {
         `;
 
         fillSelectFromCatalog(slot.querySelector("#riego-sis"), "RIEGO_SISTEMA", { selected: sis, placeholder: "Sistema..." });
-        fillSelectFromCatalog(slot.querySelector("#riego-proc"), "RIEGO_PROCEDENCIA", { selected: proc, placeholder: "Procedencia..." });
+        (async () => {
+          const box = slot.querySelector("#riego-proc-box");
+          const list = await fetchCatalogoOps("RIEGO_PROCEDENCIA", { limit: 500 });
+
+          const selectedCodes = new Set(procCodes);
+
+          box.innerHTML = list.map(r => {
+            const code = String(r.codigo ?? "").trim();
+            const label = String(r.nombre ?? "").trim() || code;
+            const checked = selectedCodes.has(code) ? "checked" : "";
+            return `
+              <label class="d-flex align-items-center gap-2 mb-1" style="font-size:13px">
+                <input class="form-check-input riego-proc-chk" type="checkbox" value="${escapeHtml(code)}" ${checked}>
+                <span>${escapeHtml(label)}</span>
+              </label>
+            `;
+          }).join("");
+        })();
+
         slot.querySelector("#riego-metodo").value = metodo;
 
         const fechaMain = container.querySelector("#op-fecha");
@@ -3703,19 +3713,20 @@ if (btnDelete) {
         }
 
         const sisSel = slot.querySelector("#riego-sis");
-        const procSel = slot.querySelector("#riego-proc");
 
         const sisCode = (sisSel?.value || "").trim();
-        const procCode = (procSel?.value || "").trim();
 
-        const procedencias = Array.from(procSel?.selectedOptions || []).map(opt => ({
-          codigo: opt.value,
-          label: (opt.textContent || "").trim() || opt.value,
+        const box = slot.querySelector("#riego-proc-box");
+        const checked = Array.from(box?.querySelectorAll(".riego-proc-chk:checked") || []);
+
+        const procedencias = checked.map(chk => ({
+          codigo: chk.value,
+          label: (chk.parentElement?.querySelector("span")?.textContent || "").trim() || chk.value,
           fuente: "SIEX"
         }));
 
         if (!sisCode) { msg.textContent = "Selecciona el sistema de riego."; msg.className="text-danger"; return; }
-        if (!procCode) { msg.textContent = "Selecciona la procedencia del agua."; msg.className="text-danger"; return; }
+        if (!procedencias.length) { msg.textContent = "Selecciona la procedencia del agua."; msg.className="text-danger"; return; }
 
         const metodo = slot.querySelector("#riego-metodo")?.value || "MANUAL";
 
@@ -3735,7 +3746,7 @@ if (btnDelete) {
             label: (sisSel?.selectedOptions?.[0]?.textContent || "").trim() || sisCode,
             fuente: "SIEX"
           },
-          procedencia_agua: procedencias.length ? procedencias : null,
+          procedencia_agua: procedencias,
           medicion: {
             metodo,
             lectura_inicial_m3: (li !== "" && li != null) ? Number(li) : null,

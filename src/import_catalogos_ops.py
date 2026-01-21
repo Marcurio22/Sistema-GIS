@@ -39,6 +39,16 @@ FILES = {
     "FERT_DETALLE_MATERIAL": "Detalle material fertilizante.xlsx",
 }
 
+FILES.update({
+    # --- Cultivos (avanzado) / labores / material vegetal
+    "TIPO_LABOR": "Tipo de labor.xlsx",
+    "MVR_PROCEDENCIA": "Procedencia del material vegetal.xlsx",
+    "SENP": "Superficies y elementos no productivos (SENP).xlsx",
+
+    # --- Cultivos (NORMAL obligatorio)
+    "SISTEMA_CULTIVO": "Sistema de cultivo.xlsx",
+})
+
 def _json_sanitize(obj):
     """
     Convierte NaN/NaT de pandas a None (null en JSON), recursivo.
@@ -239,6 +249,67 @@ def main():
             fb,
             r.to_dict()
         )
+    
+        # ==========================================================
+        # A.2) Catálogos para CULTIVOS (normal + avanzado)
+        # ==========================================================
+
+        # Sistema de cultivo (NORMAL, obligatorio en formulario)
+        df = read_xlsx("SISTEMA_CULTIVO")
+        for _, r in df.iterrows():
+            add_row(
+                rows, seen,
+                "SISTEMA_CULTIVO",
+                r.get("Código SIEX", ""),
+                "",
+                r.get("Sistema de cultivo", ""),
+                None,
+                norm_date(r.get("Fecha de baja")),
+                r.to_dict()
+            )
+
+        # Tipo de labor (AVANZADO)
+        df = read_xlsx("TIPO_LABOR")
+        for _, r in df.iterrows():
+            add_row(
+                rows, seen,
+                "TIPO_LABOR",
+                r.get("Código SIEX", ""),
+                "",
+                r.get("Descripción", ""),
+                None,
+                norm_date(r.get("Fecha de baja")),
+                r.to_dict()
+            )
+
+        # Procedencia del material vegetal (AVANZADO)
+        df = read_xlsx("MVR_PROCEDENCIA")
+        for _, r in df.iterrows():
+            add_row(
+                rows, seen,
+                "MVR_PROCEDENCIA",
+                r.get("Código SIEX", ""),
+                "",
+                r.get("Procedencia del material vegetal", ""),
+                None,
+                norm_date(r.get("Fecha de baja")),
+                r.to_dict()
+            )
+
+        # SENP - Superficies y elementos no productivos (AVANZADO)
+        df = read_xlsx("SENP")
+        for _, r in df.iterrows():
+            add_row(
+                rows, seen,
+                "SENP",
+                r.get("Código SIEX", ""),
+                "",
+                r.get("Tipo", ""),
+                (None if pd.isna(r.get("Observaciones")) else str(r.get("Observaciones")).strip()),
+                norm_date(r.get("Fecha de baja")),
+                r.to_dict()
+            )
+
 
     # ==========================================================
     # B) RIEGO (Sistemas + procedencia)
