@@ -1374,9 +1374,14 @@ if (btnDelete) {
               <span class="badge bg-success">${count}</span>
             </div>
 
-            <button id="btn-add-historico" class="btn btn-success btn-sm ms-auto">
-              + Añadir al Histórico
-            </button>
+            <div class="d-flex gap-2 ms-auto">
+              <button id="btn-download-cultivos-csv" class="btn btn-outline-success btn-sm">
+                <i class="bi bi-download me-1"></i> CSV
+              </button>
+              <button id="btn-add-historico" class="btn btn-success btn-sm">
+                + Añadir al Histórico
+              </button>
+            </div>
           </div>
 
           <div class="side-divider"></div>
@@ -1583,6 +1588,69 @@ if (btnDelete) {
           });
         });
 
+        listEl.querySelector("#btn-download-cultivos-csv")?.addEventListener("click", () => {
+          const headers = [
+            "id_cultivo",
+            "fecha_inicio",
+            "fecha_fin",
+            "uso_sigpac_codigo",
+            "uso_sigpac_desc",
+            "tipo_cultivo_codigo",
+            "tipo_cultivo_desc",
+            "variedad",
+            "explotacion",
+            "campana_o_registro",
+            "estado",
+            "observaciones",
+            "origen_cultivo"
+          ];
+
+          const rows = arr.map((c) => {
+            const isCamp = String(c.tipo_registro || "").toUpperCase().includes("CAMP");
+            const inicio = isCamp ? c.fecha_siembra : c.fecha_implantacion;
+            const fin = c.fecha_cosecha_real || c.fecha_cosecha_estimada;
+
+            const u = usosMap.get(String(c.uso_sigpac));
+            const usoDesc = u?.descripcion || "";
+
+            const origen = String(c.origen_cultivo || "").toUpperCase();
+            let tipoCod = "";
+            let tipoDesc = "";
+
+            if (origen === "F" && c.cod_producto != null) {
+              const p = prodMap.get(String(c.cod_producto));
+              tipoCod = String(c.cod_producto);
+              tipoDesc = p?.descripcion || (c.tipo_cultivo || "");
+            } else {
+              tipoCod = "";
+              tipoDesc = c.cultivo_custom || c.tipo_cultivo || "";
+            }
+
+            const campOrReg = isCamp ? (c.campana ?? "") : tipoRegistroLabel(c.tipo_registro);
+
+            return [
+              c.id_cultivo ?? "",
+              formatDateOnly(inicio),
+              formatDateOnly(fin),
+              c.uso_sigpac ?? "",
+              usoDesc,
+              tipoCod,
+              tipoDesc,
+              c.variedad ?? "",
+              sistemaLabel(c.sistema_explotacion),
+              campOrReg ?? "",
+              estadoLabel(c.estado),
+              c.observaciones ?? "",
+              c.origen_cultivo ?? ""
+            ];
+          });
+
+          const csv = rowsToCsv(headers, rows, ";");
+          const file = `cultivos_historico_recinto_${currentSideRecintoId || "NA"}.csv`;
+          downloadCsv(file, csv);
+        });
+
+
       } catch (err) {
         console.warn(err);
         listEl.innerHTML = `<div class="text-danger">No se pudo cargar el histórico.</div>`;
@@ -1608,6 +1676,40 @@ if (btnDelete) {
     div.textContent = s ?? "";
     return div.innerHTML;
   }
+
+  function csvEscape(value, delimiter = ";") {
+    if (value === null || value === undefined) return "";
+    let s = String(value);
+
+    // normaliza saltos de línea
+    s = s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+    // si contiene comillas, delimitador o salto de línea => entrecomillar
+    const mustQuote = s.includes('"') || s.includes("\n") || s.includes(delimiter);
+    if (s.includes('"')) s = s.replace(/"/g, '""');
+    return mustQuote ? `"${s}"` : s;
+  }
+
+  function rowsToCsv(headers, rows, delimiter = ";") {
+    const head = headers.map(h => csvEscape(h, delimiter)).join(delimiter);
+    const body = rows.map(r => r.map(v => csvEscape(v, delimiter)).join(delimiter)).join("\n");
+    return head + "\n" + body;
+  }
+
+  function downloadCsv(filename, csvText) {
+    const blob = new Blob(["\ufeff", csvText], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
 
   function cultivoTipoLabel(c) {
     const code = (c.cod_producto == null) ? "N/A" : String(c.cod_producto);
@@ -2818,9 +2920,14 @@ if (btnDelete) {
           <span class="badge bg-success">${ops.length}</span>
         </div>
 
-        <button id="btn-add-op-historico" class="btn btn-success btn-sm ms-auto">
-          + Añadir al Histórico
-        </button>
+        <div class="d-flex gap-2 ms-auto">
+          <button id="btn-download-ops-csv" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-download me-1"></i> CSV
+          </button>
+          <button id="btn-add-op-historico" class="btn btn-success btn-sm">
+            + Añadir al Histórico
+          </button>
+        </div>
       </div>
 
       <div class="side-divider"></div>
@@ -2957,6 +3064,106 @@ if (btnDelete) {
         await renderOperacionesHistorico(recintoId);
       });
     });
+
+    listEl.querySelector("#btn-download-ops-csv")?.addEventListener("click", () => {
+      const headers = [
+        "id_operacion",
+        "fecha",
+        "tipo",
+        "descripcion",
+
+        "riego_volumen_m3",
+        "riego_sistema",
+        "riego_procedencia",
+        "riego_inicio",
+        "riego_fin",
+        "riego_metodo_medicion",
+        "riego_lectura_inicial_m3",
+        "riego_lectura_final_m3",
+
+        "fert_tipo",
+        "fert_metodo",
+        "fert_material",
+        "fert_producto_codigo",
+        "fert_producto_label",
+        "fert_cantidad",
+        "fert_unidad",
+
+        "otras_catalogo",
+        "otras_codigo",
+        "otras_label",
+
+        "observaciones"
+      ];
+
+      const rows = (ops || []).map(op => {
+        let d = op?.detalle;
+        if (typeof d === "string") { try { d = JSON.parse(d); } catch(_){} }
+        d = d || {};
+        const t = String(op?.tipo || "").toUpperCase();
+
+        // RIEGO
+        const r_vol = t === "RIEGO" ? (d.volumen_m3 ?? d.volumen ?? "") : "";
+        const r_sis = t === "RIEGO" ? (d?.sistema_riego?.label || d?.sistema_riego?.codigo || "") : "";
+        const r_proc = t === "RIEGO" ? (d?.procedencia_agua?.label || d?.procedencia_agua?.codigo || "") : "";
+        const r_fi = t === "RIEGO" ? (d?.fecha_inicio || "") : "";
+        const r_ff = t === "RIEGO" ? (d?.fecha_fin || "") : "";
+        const r_met = t === "RIEGO" ? (d?.medicion?.metodo || "") : "";
+        const r_li = t === "RIEGO" ? (d?.medicion?.lectura_inicial_m3 ?? "") : "";
+        const r_lf = t === "RIEGO" ? (d?.medicion?.lectura_final_m3 ?? "") : "";
+
+        // FERTILIZACION
+        const f_tipo = t === "FERTILIZACION" ? (d?.tipo_fertilizacion?.label || d?.tipo_fertilizacion?.codigo || "") : "";
+        const f_met = t === "FERTILIZACION" ? (d?.metodo_aplicacion?.label || d?.metodo_aplicacion?.codigo || "") : "";
+        const f_mat = t === "FERTILIZACION" ? (d?.material?.label || d?.material?.codigo || "") : "";
+        const f_prod_c = t === "FERTILIZACION" ? (d?.producto?.codigo || "") : "";
+        const f_prod_l = t === "FERTILIZACION" ? (d?.producto?.label || "") : "";
+        const f_cant = t === "FERTILIZACION" ? (d?.cantidad ?? "") : "";
+        const f_uni = t === "FERTILIZACION" ? (d?.unidad || "") : "";
+
+        // OTRAS
+        const o_cat = t === "OTRAS" ? (d?.catalogo || "") : "";
+        const o_cod = t === "OTRAS" ? (d?.codigo || "") : "";
+        const o_lab = t === "OTRAS" ? (d?.label || "") : "";
+
+        const obs = d?.observaciones || d?.obs || op?.descripcion || "";
+
+        return [
+          op?.id_operacion ?? "",
+          formatDateOnly(op?.fecha),
+          op?.tipo ?? "",
+          op?.descripcion ?? "",
+
+          r_vol,
+          r_sis,
+          r_proc,
+          r_fi,
+          r_ff,
+          r_met,
+          r_li,
+          r_lf,
+
+          f_tipo,
+          f_met,
+          f_mat,
+          f_prod_c,
+          f_prod_l,
+          f_cant,
+          f_uni,
+
+          o_cat,
+          o_cod,
+          o_lab,
+
+          obs ?? ""
+        ];
+      });
+
+      const csv = rowsToCsv(headers, rows, ";");
+      const file = `operaciones_historico_recinto_${recintoId || currentSideRecintoId || "NA"}.csv`;
+      downloadCsv(file, csv);
+    });
+
   }
 
   // --------------------------
