@@ -607,19 +607,20 @@ def create_cultivo_historico_recinto(recinto_id: int, data: dict) -> dict:
 
     sql = text("""
         INSERT INTO public.cultivos (
-          id_recinto, uso_sigpac, sistema_explotacion, tipo_registro, campana,
-          id_padre, cod_producto, cultivo_custom, origen_cultivo, variedad, estado,
-          fecha_siembra, fecha_implantacion, fecha_cosecha_estimada, fecha_cosecha_real,
-          cosecha_estimada_auto, observaciones
+        id_recinto, uso_sigpac, sistema_explotacion, tipo_registro, campana,
+        id_padre, cod_producto, cultivo_custom, origen_cultivo, variedad, estado,
+        fecha_siembra, fecha_implantacion, fecha_cosecha_estimada, fecha_cosecha_real,
+        cosecha_estimada_auto, sistema_cultivo_codigo, avanzado, observaciones
         )
         VALUES (
-          :id_recinto, :uso_sigpac, :sistema_explotacion, :tipo_registro, :campana,
-          :id_padre, :cod_producto, :cultivo_custom, :origen_cultivo, :variedad, :estado,
-          :fecha_siembra, :fecha_implantacion, :fecha_cosecha_estimada, :fecha_cosecha_real,
-          :cosecha_estimada_auto, :observaciones
+        :id_recinto, :uso_sigpac, :sistema_explotacion, :tipo_registro, :campana,
+        :id_padre, :cod_producto, :cultivo_custom, :origen_cultivo, :variedad, :estado,
+        :fecha_siembra, :fecha_implantacion, :fecha_cosecha_estimada, :fecha_cosecha_real,
+        :cosecha_estimada_auto, :sistema_cultivo_codigo, CAST(:avanzado AS jsonb), :observaciones
         )
         RETURNING id_cultivo
     """)
+
     db.session.execute(sql, params).scalar_one()
     db.session.commit()
     return {"ok": True}
