@@ -1166,4 +1166,8 @@
     padding: 12px 10px;
   }
 
+  button:disabled{
+    cursor: not-allowed !important;
+    opacity: .7;
+  }
 
