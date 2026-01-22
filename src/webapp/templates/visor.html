@@ -4379,8 +4379,56 @@ if (btnDelete) {
     fillOpacity: 0.22,
   };
 
- async function abrirRecintoEnPanel(data) {
+function actualizarHistoricoCultivos() {
+  const sp = document.getElementById("side-panel");
+  const panel = document.getElementById("cultivos-historico-panel");
+  
+  if (sp && panel && sp.classList.contains("cultivos-historico-open")) {
+    // El panel está abierto, recargar los datos
+    if (currentSideRecintoId) {
+      const btnHistorico = document.getElementById("btn-historico-cultivos");
+      if (btnHistorico) {
+        btnHistorico.click(); // Simular click para recargar
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+// Función para actualizar el histórico de operaciones
+function actualizarHistoricoOperaciones() {
+  const sp = document.getElementById("side-panel");
+  const panel = document.getElementById("operaciones-historico-panel");
+  
+  if (sp && panel && sp.classList.contains("operaciones-open")) {
+    // El panel está abierto, recargar los datos
+    if (currentSideRecintoId) {
+      renderOperacionesHistorico(currentSideRecintoId);
+    }
+    return true;
+  }
+  return false;
+}
+
+function actualizarNdviPanel() {
+  if (window.ndviManager && window.ndviManager.panelDetalleAbierto) {
+    // El panel está abierto, se actualizará automáticamente cuando
+    // se llame a setRecintoId en renderSidePanelFromProps
+    return true; // Indica que el panel estaba abierto
+  }
+  return false;
+}
+
+
+async function abrirRecintoEnPanel(data) {
   if (!data || !data.id) return;
+
+  // Detectar qué paneles están abiertos ANTES de cambiar los datos
+  const ndviAbierto = actualizarNdviPanel();
+  const cultivosAbierto = document.getElementById("side-panel")?.classList.contains("cultivos-historico-open");
+  const operacionesAbierto = document.getElementById("side-panel")?.classList.contains("operaciones-open");
+  const galeriaAbierta = document.getElementById("side-panel")?.classList.contains("galeria-open");
 
   // abrir split
   setSplitMode(true);
@@ -4388,13 +4436,27 @@ if (btnDelete) {
   // setear id global
   currentSideRecintoId = data.id;
 
-  // pintar panel
+  // pintar panel (esto actualizará automáticamente el contenido base y NDVI)
   renderSidePanelFromProps(data);
+
+  // Actualizar los paneles que estaban abiertos
+  setTimeout(() => {
+    if (cultivosAbierto) {
+      actualizarHistoricoCultivos();
+    }
+    if (operacionesAbierto) {
+      actualizarHistoricoOperaciones();
+    }
+    if (galeriaAbierta) {
+      actualizarGaleria();
+    }
+    // El NDVI se actualiza automáticamente en renderSidePanelFromProps
+  }, 100);
 
   // centrar y resaltar
   centrarEnRecinto(data);
   
-  // NUEVO: Guardar estado después de abrir
+  // Guardar estado después de abrir
   setTimeout(() => guardarEstadoMapa(), 300);
 }
 

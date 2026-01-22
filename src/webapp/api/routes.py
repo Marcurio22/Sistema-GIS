@@ -643,10 +643,23 @@ def get_indices_raster():
         indices = IndicesRaster.query.filter_by(
             id_recinto=id_recinto,
             tipo_indice=tipo_indice
-        ).order_by(IndicesRaster.fecha_calculo.desc()).all()
+        ).order_by(IndicesRaster.fecha_ndvi.asc()).all()
         
-        # Convertir a lista de diccionarios
-        results = [indice.to_dict() for indice in indices]
+        # Meses abreviados
+        meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 
+                'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+        
+        # Convertir a lista de diccionarios y añadir fecha formateada
+        results = []
+        for indice in indices:
+            data = indice.to_dict()
+            # Añadir fecha formateada
+            if indice.fecha_ndvi:
+                fecha_obj = indice.fecha_ndvi
+                data['fecha_ndvi_formateada'] = f"{fecha_obj.day:02d} {meses[fecha_obj.month-1]}. {fecha_obj.year}"
+            else:
+                data['fecha_ndvi_formateada'] = None
+            results.append(data)
         
         return jsonify(results), 200
         
@@ -680,7 +693,7 @@ def grafica_ndvi(recinto_id):
         indices = IndicesRaster.query.filter_by(
             id_recinto=recinto_id,
             tipo_indice='NDVI'
-        ).order_by(IndicesRaster.fecha_calculo.asc()).all()
+        ).order_by(IndicesRaster.fecha_ndvi.asc()).all()
 
         if not indices:
             return jsonify({"error": "No hay datos NDVI disponibles"}), 404
@@ -691,7 +704,6 @@ def grafica_ndvi(recinto_id):
         
         for indice in indices:
             if indice.fecha_ndvi:
-                # Formato más legible: "08 dic. 2025"
                 fecha_obj = indice.fecha_ndvi
                 meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 
                         'jul', 'ago', 'sep', 'oct', 'nov', 'dic']

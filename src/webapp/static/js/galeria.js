@@ -119,8 +119,12 @@ class GaleriaImagenes {
     }
   }
 
-   renderizarGaleria() {
+renderizarGaleria() {
     this.container.innerHTML = '';
+    
+    // ← MOVER ESTA ACTUALIZACIÓN ANTES DEL CHECK DE IMÁGENES VACÍAS
+    const countEl = document.getElementById('galeria-count');
+    if (countEl) countEl.textContent = String(this.imagenes.length || 0);
     
     if (this.imagenes.length === 0) {
       this.container.innerHTML = '<p class="text-muted">No hay imágenes en este recinto. </p>';
@@ -130,9 +134,6 @@ class GaleriaImagenes {
     const imagenesAMostrar = this.mostrandoTodas 
       ? this.imagenes 
       : this.imagenes.slice(0, this.maxVisibles);
-
-    const countEl = document.getElementById('galeria-count');
-    if (countEl) countEl.textContent = String(this.imagenes.length || 0);
 
     imagenesAMostrar.forEach((imagen, index) => {
       const item = document.createElement('div');
@@ -205,7 +206,6 @@ class GaleriaImagenes {
       this.container.appendChild(toggleBtn);
     }
   }
-
   expandirGaleria() {
     // Abrir overlay (lo maneja visor.html)
     if (typeof window.openGaleriaPanel === "function") {
