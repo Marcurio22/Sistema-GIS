@@ -273,6 +273,78 @@ def catalogo_operaciones_item(
     return dict(row) if row else None
 
 # ---------------------------
+# Helpers sistema_cultivo
+# ---------------------------
+def _extract_sistema_cultivo_codigo(data: dict) -> str | None:
+    """
+    Acepta:
+      - data["sistema_cultivo"] = {codigo, label, fuente}
+      - data["sistema_cultivo_codigo"] = "X"
+    Devuelve el codigo (str) o None.
+    """
+    if not data:
+        return None
+
+    sc = data.get("sistema_cultivo")
+    if isinstance(sc, dict):
+        cod = sc.get("codigo")
+        cod = (str(cod).strip() if cod is not None else None)
+        return cod or None
+
+    cod = data.get("sistema_cultivo_codigo")
+    cod = (str(cod).strip() if cod is not None else None)
+    return cod or None
+
+
+def _normalize_avanzado(av) -> dict | None:
+    """
+    Normaliza avanzado para guardar:
+      - si viene vacío -> None
+      - si viene dict con todo null -> None
+    """
+    if not av or not isinstance(av, dict):
+        return None
+
+    # recoge "hojas" que suelen ser {codigo,label,...} o null
+    def is_filled(x):
+        if not x:
+            return False
+        if isinstance(x, dict):
+            # si tiene codigo o label con algo
+            cod = str(x.get("codigo") or "").strip()
+            lab = str(x.get("label") or "").strip()
+            return bool(cod or lab)
+        return bool(str(x).strip())
+
+    vals = []
+    for k, v in av.items():
+        if k == "material_vegetal" and isinstance(v, dict):
+            vals.append(v.get("tipo"))
+            vals.append(v.get("detalle"))
+        else:
+            vals.append(v)
+
+    return av if any(is_filled(v) for v in vals) else None
+
+
+def _sistema_cultivo_obj(codigo: str | None) -> dict | None:
+    """
+    Construye el objeto {codigo,label,fuente:"SIEX"} a partir del catálogo SISTEMA_CULTIVO.
+    Si no hay codigo -> None
+    """
+    if not codigo:
+        return None
+    item = catalogo_operaciones_item("SISTEMA_CULTIVO", codigo)
+    label = None
+    if item:
+        label = (item.get("nombre") or item.get("descripcion") or "").strip() or None
+    return {
+        "codigo": str(codigo).strip(),
+        "label": label or str(codigo).strip(),
+        "fuente": "SIEX",
+    }
+
+# ---------------------------
 # Cultivos
 # ---------------------------
 
@@ -285,7 +357,8 @@ def get_cultivo_recinto(recinto_id: int) -> dict | None:
         c.fecha_cosecha_estimada, c.fecha_cosecha_real,
         c.estado, c.uso_sigpac, c.sistema_explotacion, c.tipo_registro, c.campana,
         c.id_padre, c.cod_producto, c.cultivo_custom, c.origen_cultivo,
-        c.cosecha_estimada_auto, c.observaciones
+        c.cosecha_estimada_auto, c.observaciones,
+        c.sistema_cultivo_codigo, c.avanzado
         FROM public.cultivos c
         WHERE c.id_recinto = :rid
         AND c.id_padre IS NOT NULL
@@ -321,6 +394,9 @@ def get_cultivo_recinto(recinto_id: int) -> dict | None:
         "origen_cultivo": row["origen_cultivo"],
         "cosecha_estimada_auto": bool(row["cosecha_estimada_auto"]) if row["cosecha_estimada_auto"] is not None else False,
         "observaciones": row["observaciones"],
+        "sistema_cultivo_codigo": row["sistema_cultivo_codigo"],
+        "sistema_cultivo": _sistema_cultivo_obj(row["sistema_cultivo_codigo"]),
+        "avanzado": row["avanzado"],
     }
 
 def normalize_cultivo_payload(data: dict, existing: dict | None = None) -> dict:
@@ -424,6 +500,8 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
         "fecha_cosecha_real": data.get("fecha_cosecha_real"),
         "cosecha_estimada_auto": data.get("cosecha_estimada_auto", False),
         "observaciones": data.get("observaciones"),
+        "sistema_cultivo_codigo": _extract_sistema_cultivo_codigo(data),
+        "avanzado": json.dumps(_normalize_avanzado(data.get("avanzado"))),
     }
 
     if existing:
@@ -431,45 +509,50 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
 
     sql = text("""
         INSERT INTO public.cultivos (
-          id_recinto,
-          uso_sigpac,
-          sistema_explotacion,
-          tipo_registro,
-          campana,
-          id_padre,
-          cod_producto,
-          cultivo_custom,
-          origen_cultivo,
-          variedad,
-          estado,
-          fecha_siembra,
-          fecha_implantacion,
-          fecha_cosecha_estimada,
-          fecha_cosecha_real,
-          cosecha_estimada_auto,
-          observaciones
+        id_recinto,
+        uso_sigpac,
+        sistema_explotacion,
+        tipo_registro,
+        campana,
+        id_padre,
+        cod_producto,
+        cultivo_custom,
+        origen_cultivo,
+        variedad,
+        estado,
+        fecha_siembra,
+        fecha_implantacion,
+        fecha_cosecha_estimada,
+        fecha_cosecha_real,
+        cosecha_estimada_auto,
+        observaciones,
+        sistema_cultivo_codigo,
+        avanzado
         )
         VALUES (
-          :id_recinto,
-          :uso_sigpac,
-          :sistema_explotacion,
-          :tipo_registro,
-          :campana,
-          :id_padre,
-          :cod_producto,
-          :cultivo_custom,
-          :origen_cultivo,
-          :variedad,
-          :estado,
-          :fecha_siembra,
-          :fecha_implantacion,
-          :fecha_cosecha_estimada,
-          :fecha_cosecha_real,
-          :cosecha_estimada_auto,
-          :observaciones
+        :id_recinto,
+        :uso_sigpac,
+        :sistema_explotacion,
+        :tipo_registro,
+        :campana,
+        :id_padre,
+        :cod_producto,
+        :cultivo_custom,
+        :origen_cultivo,
+        :variedad,
+        :estado,
+        :fecha_siembra,
+        :fecha_implantacion,
+        :fecha_cosecha_estimada,
+        :fecha_cosecha_real,
+        :cosecha_estimada_auto,
+        :observaciones,
+        :sistema_cultivo_codigo,
+        CAST(:avanzado AS jsonb)
         )
         RETURNING id_cultivo
     """)
+
 
     new_id = db.session.execute(sql, params).scalar_one()
     # Si no venía con id_padre, lo marcamos como "cadena actual"
@@ -518,6 +601,8 @@ def create_cultivo_historico_recinto(recinto_id: int, data: dict) -> dict:
         "fecha_cosecha_real": data.get("fecha_cosecha_real"),
         "cosecha_estimada_auto": data.get("cosecha_estimada_auto", False),
         "observaciones": data.get("observaciones"),
+        "sistema_cultivo_codigo": _extract_sistema_cultivo_codigo(data),
+        "avanzado": json.dumps(_normalize_avanzado(data.get("avanzado"))),
     }
 
     sql = text("""
@@ -567,6 +652,8 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
         "cosecha_estimada_auto",
         "observaciones",
         "tipo_cultivo",
+        "sistema_cultivo_codigo",
+        "avanzado",
     }
 
     merged = {k: prev.get(k) for k in allowed}
@@ -579,6 +666,9 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
 
     # normaliza fechas/campaña si hace falta
     merged = normalize_cultivo_payload(merged, existing=prev)
+
+    merged["sistema_cultivo_codigo"] = _extract_sistema_cultivo_codigo(merged)
+    merged["avanzado"] = _normalize_avanzado(merged.get("avanzado"))
 
     # ============================================
     # NUEVA LÓGICA: Crear variedad si es nueva
@@ -628,6 +718,8 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
         "fecha_cosecha_real": merged.get("fecha_cosecha_real"),
         "cosecha_estimada_auto": merged.get("cosecha_estimada_auto", False),
         "observaciones": merged.get("observaciones"),
+        "sistema_cultivo_codigo": merged.get("sistema_cultivo_codigo"),
+        "avanzado": json.dumps(merged.get("avanzado")),
     }
 
     sql = text("""
@@ -638,7 +730,8 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
           variedad, estado,
           fecha_siembra, fecha_implantacion,
           fecha_cosecha_estimada, fecha_cosecha_real,
-          cosecha_estimada_auto, observaciones
+          cosecha_estimada_auto, observaciones,
+          sistema_cultivo_codigo, avanzado
         )
         VALUES (
           :id_recinto, :id_padre,
@@ -647,7 +740,8 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
           :variedad, :estado,
           :fecha_siembra, :fecha_implantacion,
           :fecha_cosecha_estimada, :fecha_cosecha_real,
-          :cosecha_estimada_auto, :observaciones
+          :cosecha_estimada_auto, :observaciones,
+          :sistema_cultivo_codigo, CAST(:avanzado AS jsonb)
         )
         RETURNING id_cultivo
     """)
@@ -748,6 +842,8 @@ def patch_cultivo_by_id(id_cultivo: int, user_id: int, data: dict) -> dict:
         "cosecha_estimada_auto",
         "observaciones",
         "tipo_cultivo",
+        "sistema_cultivo_codigo",
+        "avanzado",
     }
 
     merged = {k: prev.get(k) for k in allowed}
@@ -757,6 +853,9 @@ def patch_cultivo_by_id(id_cultivo: int, user_id: int, data: dict) -> dict:
 
     # normaliza fechas/campaña si hace falta
     merged = normalize_cultivo_payload(merged, existing=prev)
+
+    merged["sistema_cultivo_codigo"] = _extract_sistema_cultivo_codigo(merged)
+    merged["avanzado"] = _normalize_avanzado(merged.get("avanzado"))
 
     variedad_nombre = merged.get("variedad", "").strip() if merged.get("variedad") else None
     cod_producto = merged.get("cod_producto")
@@ -787,8 +886,12 @@ def patch_cultivo_by_id(id_cultivo: int, user_id: int, data: dict) -> dict:
     sets = []
     for k in allowed:
         if k in merged:
-            sets.append(f"{k} = :{k}")
-            params[k] = merged.get(k)
+            if k == "avanzado":
+                sets.append(f"{k} = CAST(:{k} AS jsonb)")
+                params[k] = json.dumps(merged.get(k))
+            else:
+                sets.append(f"{k} = :{k}")
+                params[k] = merged.get(k)
 
     sql = text(f"""
         UPDATE public.cultivos
@@ -799,18 +902,6 @@ def patch_cultivo_by_id(id_cultivo: int, user_id: int, data: dict) -> dict:
     db.session.commit()  
 
     return get_cultivo_by_id(id_cultivo, user_id)
-
-# def delete_cultivo_by_id(id_cultivo: int, user_id: int) -> bool:
-#     sql = text("""
-#         DELETE FROM public.cultivos c
-#         USING public.recintos r
-#         WHERE c.id_cultivo = :cid
-#           AND r.id_recinto = c.id_recinto
-#           AND r.id_propietario = :uid
-#     """)
-#     res = db.session.execute(sql, {"cid": id_cultivo, "uid": user_id})
-#     db.session.commit()
-#     return res.rowcount > 0
 
 # ---------------------------
 # Operaciones
