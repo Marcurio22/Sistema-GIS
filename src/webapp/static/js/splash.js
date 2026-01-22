@@ -16,28 +16,3 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
-
-// --- Lógica de Cierre de Sesión ---
-document.addEventListener('DOMContentLoaded', () => {
-    // Buscamos el enlace de logout (usando el selector de clase que tienes en base.html)
-    const logoutBtn = document.querySelector('a[href*="logout"]');
-    const logoutOverlay = document.getElementById('logout-overlay');
-
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', function(e) {
-            // 1. Evitar que el navegador cierre sesión inmediatamente
-            e.preventDefault();
-            const logoutUrl = this.href;
-
-            // 2. Mostrar la animación (la marea sube)
-            logoutOverlay.classList.add('show');
-
-            // 3. Esperar 2 segundos y redirigir
-            setTimeout(() => {
-                // Limpiamos el sessionStorage para que al volver a entrar vea el splash de nuevo
-                sessionStorage.removeItem('splashShown');
-                window.location.href = logoutUrl;
-            }, 2000);
-        });
-    }
-});
