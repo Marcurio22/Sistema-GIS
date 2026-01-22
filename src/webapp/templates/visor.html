@@ -5426,7 +5426,43 @@ async function abrirRecintoEnPanel(data) {
   });
 
   // Al hacer clic en aceptar
-  aceptarBtn.addEventListener('click', () => {
+ // Al hacer clic en aceptar
+  aceptarBtn.addEventListener('click', async () => {
+    // Obtener todos los dibujos actuales
+    const dibujos = [];
+    
+    drawnItems.eachLayer((layer) => {
+      const geoJSON = layer.toGeoJSON();
+      const tipo = layer instanceof L.Rectangle ? 'rectangulo' : 'poligono';
+      
+      dibujos.push({
+        geojson: geoJSON,
+        tipo: tipo
+      });
+    });
+
+    // Si hay dibujos, enviarlos al backend
+    if (dibujos.length > 0) {
+      try {
+        const response = await fetch('/api/guardar-dibujos', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ dibujos: dibujos })
+        });
+
+        const data = await response.json();
+        
+       
+      } catch (error) {
+        console.error('Error en la petición:', error);
+      }
+    }
+
+
+
+    // Continúa con el código original
     dibujarBtn.classList.add('hidden');
     poligonoBtn.classList.add('hidden');
     aceptarBtn.classList.add('hidden');
@@ -5434,11 +5470,9 @@ async function abrirRecintoEnPanel(data) {
     limpiarBtn.classList.add('hidden');
     editarBtn.classList.remove('hidden');
 
-    // Desactivar modo edición y reactivar interacción
     modoEdicion = false;
     toggleInteraccionRecintos(true);
 
-    // Desactiva ambos modos de dibujo si están activos
     if (rectangleDrawer) {
       rectangleDrawer.disable();
       rectangleDrawer = null;
@@ -5450,6 +5484,7 @@ async function abrirRecintoEnPanel(data) {
 
     console.log('Cambios guardados');
   });
+
 
   // Al hacer clic en cancelar
   cancelarBtn.addEventListener('click', () => {
@@ -5487,7 +5522,6 @@ async function abrirRecintoEnPanel(data) {
   limpiarBtn.addEventListener('click', () => {
     // Eliminar todos los dibujos
     drawnItems.clearLayers();
-    console.log('Todos los dibujos eliminados');
   });
  
 
