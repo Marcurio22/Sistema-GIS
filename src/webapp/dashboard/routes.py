@@ -1,8 +1,10 @@
+from  pathlib import Path
 from sqlalchemy import text
 from webapp import db
 from flask import render_template, current_app
 from flask_login import login_required, current_user
 from . import dashboard_bp
+import json
 import logging
 from .utils_dashboard import leaflet_bounds_from_tif, obtener_datos_aemet, MunicipiosCodigosFinder
 from ..models import Recinto
@@ -135,8 +137,11 @@ def visor():
     weather = obtener_datos_aemet(codigo_municipio)
 
     # --- Sentinel-2 RGB (mosaico reciente) ---
-    s2_path = os.path.join(current_app.root_path, "static", "sentinel2", "s2_rgb_latest.png")
-    sentinel2_version = int(os.path.getmtime(s2_path)) if os.path.exists(s2_path) else 0
+    meta_path = Path(current_app.root_path) / "static" / "sentinel2" / "s2_rgb_latest.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+
+    s2_bounds = meta["bounds_leaflet"]
+    s2_version = meta["updated_utc"]  # para bust cache
     
     # --- NDVI (mosaico reciente) ---
     ndvi_path = os.path.join(current_app.root_path, "static", "ndvi", "ndvi_latest.png")
@@ -148,7 +153,8 @@ def visor():
                          ndvi_bounds=ndvi_bounds,
                          weather=weather,
                          recinto_data=recinto_data,
-                         sentinel2_version=sentinel2_version,
+                         s2_bounds=s2_bounds,
+                         s2_version=s2_version,
                          ndvi_version=ndvi_version)
 
 
