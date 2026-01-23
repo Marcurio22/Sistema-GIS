@@ -810,6 +810,8 @@ async function restaurarEstadoMapa() {
     [roiBbox[3], roiBbox[2]]
   );
 
+  const S2_BOUNDS = L.latLngBounds({{ s2_bounds | tojson | safe }});
+
   const NDVI_BOUNDS = L.latLngBounds({{ ndvi_bounds | tojson | safe }});
 
   const ZOOM_RECINTOS = 15;
@@ -1485,7 +1487,7 @@ if (btnDelete) {
               <button id="btn-download-cultivos-csv"
                 class="btn btn-outline-success btn-sm"
                 ${Number(count) > 0 ? "" : "disabled"}
-                title="${count ? "" : "No hay datos para exportar"}">
+                title="${count ? "" : "No hay datos para exportar"}" type="button">
                 <i class="bi bi-download me-1"></i> CSV
               </button>
               <button id="btn-add-historico" class="btn btn-success btn-sm">
@@ -1906,6 +1908,12 @@ if (btnDelete) {
     // sistema_cultivo puede venir como objeto o string
     out.sistema_cultivo = normalizeCatalogObj(out.sistema_cultivo);
 
+    // Fallback: en histórico puede venir solo sistema_cultivo_codigo (texto) desde BBDD
+    if (!out.sistema_cultivo && out.sistema_cultivo_codigo) {
+      const cod = String(out.sistema_cultivo_codigo).trim();
+      if (cod) out.sistema_cultivo = { codigo: cod, label: cod, fuente: "SIEX" };
+    }
+
     // avanzado puede venir como objeto o string JSON
     out.avanzado = (typeof out.avanzado === "string") ? parseMaybeJson(out.avanzado) : out.avanzado;
     if (out.avanzado && typeof out.avanzado !== "object") out.avanzado = null;
@@ -2084,6 +2092,16 @@ if (btnDelete) {
       </div>
 
       <div class="side-soft-divider"></div>
+      <div class="cultivo-field">
+        <div class="k">Avanzado</div>
+        <div class="v">
+          ${hasAvanzado(cultivo.avanzado)
+            ? `<button type="button" class="btn btn-outline-success btn-sm" id="btn-ver-avanzado-main">Ver</button>`
+            : "—"}
+        </div>
+      </div>
+
+      <div class="side-soft-divider"></div>
       <div class="mt-3">
         <div class="fw-bold mb-1">Observaciones</div>
 
@@ -2117,6 +2135,12 @@ if (btnDelete) {
     const obsEdit = container.querySelector("#obs-edit");
     const viewActions = container.querySelector("#obs-view-actions");
     const editActions = container.querySelector("#obs-edit-actions");
+
+    // Ver avanzado (si existe)
+    const btnVerAv = container.querySelector("#btn-ver-avanzado-main");
+    if (btnVerAv) {
+      btnVerAv.addEventListener("click", () => openAvanzadoModal(cultivo.avanzado));
+    }
 
     function renderObsText(text) {
       const t = String(text || "");
@@ -3473,7 +3497,7 @@ if (btnDelete) {
           <button id="btn-download-ops-csv"
             class="btn btn-outline-success btn-sm"
             ${ops.length ? "" : "disabled"}
-            title="${ops.length ? "" : "No hay datos para exportar"}">
+            title="${ops.length ? "" : "No hay datos para exportar"}" type="button">
             <i class="bi bi-download me-1"></i> CSV
           </button>
           <button id="btn-add-op-historico" class="btn btn-success btn-sm">
@@ -4444,10 +4468,10 @@ if (csvBtn && csvBtn.disabled){
     }
   );
 
- const baseSentinelRecent = L.imageOverlay(
-    `/static/sentinel2/s2_rgb_latest.png?v={{ sentinel2_version }}`,
-    ROI_BOUNDS,
-    { opacity: 1.0, interactive: false, className: "ndvi-overlay" }
+  const s2rgb = L.imageOverlay(
+    `/static/sentinel2/s2_rgb_latest_3857.png?v={{ s2_version }}`,
+    S2_BOUNDS,
+    { opacity: 1.0, className: "s2-overlay", interactive: false }
   );
 
   const baseNdvi = L.imageOverlay(
