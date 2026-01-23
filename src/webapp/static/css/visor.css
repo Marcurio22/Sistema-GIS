@@ -1171,3 +1171,346 @@
     opacity: .7;
   }
 
+  /* ================================
+   PANEL DE DIBUJOS
+  ================================ */
+#dibujos-panel-container {
+  position: fixed;
+  top: 80px;  /* Mismo nivel que capas */
+  left: 20px;
+  z-index: 1000;
+  font-family: inherit;
+}
+
+#dibujos-toggle {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: none;
+  background-color: #ffffff;
+  color: #198754;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background-color 0.2s ease,
+    transform 0.16s ease-out,
+    box-shadow 0.2s ease;
+  position: relative;
+}
+
+#dibujos-toggle i {
+  font-size: 22px;
+}
+
+#dibujos-toggle:hover {
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.35);
+}
+
+#dibujos-toggle:active {
+  transform: scale(0.96);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+.badge-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #dc3545;
+  color: white;
+  border-radius: 10px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: bold;
+  min-width: 20px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Panel */
+#dibujos-panel {
+  position: fixed;
+  top: 80px;
+  left: 80px;
+  width: 280px;
+  max-height: 65vh;
+  background-color: #ffffff;
+  box-shadow:
+    0 10px 30px rgba(15, 23, 42, 0.35),
+    0 1px 0 rgba(255, 255, 255, 0.5);
+  border-radius: 18px;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(-100%) translateY(-8px);
+  pointer-events: none;
+  transition:
+    transform 0.25s ease-out,
+    opacity 0.22s ease-out;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+}
+
+#dibujos-panel:not(.hidden) {
+  opacity: 1;
+  transform: translateX(0) translateY(0);
+  pointer-events: auto;
+}
+
+#dibujos-panel.hidden {
+  opacity: 0;
+  transform: translateX(-100%) translateY(-8px);
+  pointer-events: none;
+}
+
+/* Header simple */
+.dibujos-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background: #f8f9fa;
+  flex-shrink: 0;
+}
+
+.dibujos-header h6 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #333;
+}
+
+/* Lista */
+.dibujos-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 12px;
+}
+
+/* Item de dibujo - minimalista */
+.dibujo-item {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dibujo-item:hover {
+  border-color: #198754;
+  box-shadow: 0 2px 8px rgba(25, 135, 84, 0.15);
+  transform: translateY(-1px);
+}
+
+/* Item activo (visible en el mapa) */
+.dibujo-item.active {
+  border-color: #198754;
+  border-width: 2px;
+  padding: 9px; /* Compensar el borde extra */
+  box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.15);
+}
+
+.dibujo-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Indicador de color */
+.dibujo-color {
+  width: 4px;
+  height: 50px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Info compacta */
+.dibujo-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dibujo-ndvi-compact {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.ndvi-compact-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.ndvi-label {
+  font-size: 9px;
+  color: #666;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.ndvi-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: #198754;
+}
+
+.dibujo-area {
+  font-size: 11px;
+  color: #666;
+  text-align: center;
+  margin-top: 2px;
+}
+
+/* Acciones compactas */
+.dibujo-actions-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.dibujo-btn-icon {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #666;
+}
+
+.dibujo-btn-icon:hover {
+  background: #f8f9fa;
+}
+
+.dibujo-btn-icon.delete-btn:hover {
+  border-color: #dc3545;
+  color: #dc3545;
+  background: #fff5f5;
+}
+
+/* Empty state */
+.dibujos-empty {
+  text-align: center;
+  padding: 50px 20px;
+  color: #999;
+}
+
+.dibujos-empty i {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+.dibujos-empty p {
+  margin: 8px 0 0 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* Controles de zoom de Leaflet - abajo a la izquierda */
+.leaflet-control-zoom {
+  position: fixed !important;
+  bottom: 30px !important;
+  left: 20px !important;
+  top: auto !important;
+  margin: 0 !important;
+}
+
+/* Responsive móvil */
+@media (max-width: 576px) {
+  #dibujos-panel-container {
+    left: 10px;
+    top: 70px;
+  }
+
+  #dibujos-panel {
+    width: calc(100vw - 20px);
+    left: 10px;
+    max-height: 60vh;
+  }
+
+  #dibujos-panel:not(.hidden) {
+    transform: translateX(0) translateY(0);
+  }
+  
+  .leaflet-control-zoom {
+    bottom: 20px !important;
+    left: 10px !important;
+  }
+}
+
+body.split-mode #dibujos-panel-container {
+  left: 20px;
+}
+
+
+/* Header de lista con botón toggle all */
+.dibujos-list-header {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.dibujo-btn-toggle-all {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #198754;
+  background: white;
+  color: #198754;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.dibujo-btn-toggle-all:hover {
+  background: #198754;
+  color: white;
+}
+
+.dibujo-btn-toggle-all:active {
+  transform: scale(0.98);
+}
+
+
+.leaflet-interactive.dibujo-clickeable {
+  cursor: pointer !important;
+  pointer-events: all !important;
+}
+
+/* Mejorar la visibilidad de los paths en el mapa */
+.leaflet-overlay-pane svg path.dibujo-clickeable {
+  cursor: pointer !important;
+  transition: stroke-width 0.2s ease;
+}
+
+/* Hacer que los dibujos guardados tengan mejor z-index */
+.leaflet-overlay-pane {
+  z-index: 400 !important;
+}
+
+/* Asegurar que los dibujos se vean por encima de otros elementos */
+svg.leaflet-zoom-animated {
+  z-index: 2 !important;
+}

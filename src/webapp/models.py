@@ -35,6 +35,8 @@ class User(UserMixin, db.Model):
         lazy="dynamic"
     )
 
+    imagenes_dibujadas = db.relationship('ImagenDibujada', back_populates='usuario', lazy='dynamic')
+
     def set_password(self, password):
         """Genera el hash de la contraseña"""
         self.password_hash = generate_password_hash(password)
@@ -241,3 +243,35 @@ class IndicesRaster(db.Model):
             'fecha_ndvi': self.fecha_ndvi.isoformat() if self.fecha_ndvi else None,
             'ruta_ndvi': self.ruta_ndvi,
         }
+    
+class ImagenDibujada(db.Model):
+        __tablename__ = 'imagenes_dibujadas'
+        
+        id = db.Column(db.Integer, primary_key=True, index=True)
+        id_usuario = db.Column(db.Integer, db.ForeignKey('usuarios.id_usuario', ondelete='CASCADE'), nullable=False, index=True)
+        ndvi_max = db.Column(db.Numeric(5, 4), nullable=True)
+        ndvi_min = db.Column(db.Numeric(5, 4), nullable=True)
+        ndvi_medio = db.Column(db.Numeric(5, 4), nullable=True)
+        geom = db.Column(Geometry(geometry_type='GEOMETRY', srid=4326), nullable=False)
+        fecha_creacion = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+        tipo_geometria = db.Column(db.String(20), nullable=True)  # 'rectangulo' o 'poligono'
+        area_m2 = db.Column(db.Numeric(12, 2), nullable=True)
+        
+        # Relación con usuarios
+        usuario = db.relationship('User', back_populates='imagenes_dibujadas')
+        
+        def __repr__(self):
+            return f'<ImagenDibujada {self.id} - Usuario: {self.id_usuario}>'
+        
+        def to_dict(self):
+            """Convierte el objeto a diccionario para JSON"""
+            return {
+                'id': self.id,
+                'id_usuario': self.id_usuario,
+                'ndvi_max': float(self.ndvi_max) if self.ndvi_max else None,
+                'ndvi_min': float(self.ndvi_min) if self.ndvi_min else None,
+                'ndvi_medio': float(self.ndvi_medio) if self.ndvi_medio else None,
+                'tipo_geometria': self.tipo_geometria,
+                'area_m2': float(self.area_m2) if self.area_m2 else None,
+                'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None
+            }

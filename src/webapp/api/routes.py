@@ -12,16 +12,21 @@ from flask_login import login_required, current_user
 from sqlalchemy import text
 import matplotlib
 matplotlib.use('Agg') # Vital para que no intente abrir ventanas en el servidor
-import matplotlib.pyplot as plt
-import io
-import base64
 
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
+from shapely.geometry import shape, mapping
+from rasterio.mask import mask as rio_mask
 from decimal import Decimal
+from geoalchemy2.shape import from_shape
+import os
+
+import numpy as np
+import rasterio
+from rasterio.warp import transform_geom
 
 from .. import db
-from ..models import IndicesRaster, Recinto, Solicitudrecinto, Variedad
+from ..models import ImagenDibujada, IndicesRaster, Recinto, Solicitudrecinto, Variedad
 
 from . import api_bp
 from .services import (
@@ -721,3 +726,223 @@ def grafica_ndvi(recinto_id):
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+    
+
+@api_bp.route('/guardar-dibujos', methods=['POST'])
+@login_required
+def guardar_dibujos():
+    try:
+        data = request.get_json()
+        dibujos = data.get('dibujos', [])
+        
+        if not dibujos:
+            return jsonify({'error': 'No se recibieron dibujos'}), 400
+        
+        guardados = 0
+        
+        for dibujo in dibujos:
+            geojson = dibujo.get('geojson')
+            tipo = dibujo.get('tipo')
+            
+            if not geojson:
+                continue
+            
+            # Convertir GeoJSON a geometría de Shapely
+            geometry = shape(geojson['geometry'])
+            
+            # Calcular área en m²
+            # Nota: para cálculo preciso en m², necesitarías proyectar
+            # Aquí uso una aproximación simple
+            area_m2 = geometry.area * 111320 * 111320  # Aproximación
+            
+            # TODO: Aquí calcularías el NDVI real
+            # Por ahora, valores de ejemplo
+            ndvi_max, ndvi_min, ndvi_medio = calcular_ndvi(geometry)
+            
+            # Crear registro en la BD
+            nueva_imagen = ImagenDibujada(
+                id_usuario=current_user.id_usuario,
+                ndvi_max=ndvi_max,
+                ndvi_min=ndvi_min,
+                ndvi_medio=ndvi_medio,
+                geom=from_shape(geometry, srid=4326),
+                tipo_geometria=tipo,
+                area_m2=area_m2,
+                fecha_creacion=datetime.now(timezone.utc)
+            )
+            
+            db.session.add(nueva_imagen)
+            guardados += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'guardados': guardados,
+            'message': f'Se guardaron {guardados} dibujos correctamente'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error al guardar dibujos: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+
+
+
+def calcular_ndvi(geometry, tiff_path='../static/ndvi/ndvi3_latest_3857.tif'):
+
+
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    tiff_path = os.path.join(BASE_DIR, 'static', 'ndvi/ndvi3_latest_3857.tif')
+    """
+    Calcula NDVI desde GeoTIFF georreferenciado
+    
+    Args:
+        geometry: Geometría Shapely en EPSG:4326 (WGS84)
+        tiff_path: Ruta al archivo GeoTIFF
+    
+    Returns:
+        tuple: (ndvi_max, ndvi_min, ndvi_medio) o (None, None, None) si falla
+    """
+
+    try:
+        # 1. Verificar que el archivo existe
+        
+        if not os.path.exists(tiff_path):
+            print(f"❌ ERROR: Archivo no encontrado: {tiff_path}")
+            return None, None, None
+        
+        
+        # 2. Abrir el GeoTIFF
+        with rasterio.open(tiff_path) as src:
+            
+            # 3. Convertir geometría de entrada a GeoJSON
+            geom_geojson = mapping(geometry)
+            
+            # 4. Transformar geometría al CRS del raster
+            geom_transformed = transform_geom(
+                'EPSG:4326',
+                src.crs,
+                geom_geojson
+            )
+            from shapely.geometry import box, shape
+            raster_bbox = box(*src.bounds)
+            geom_shape = shape(geom_transformed)
+            
+            if not raster_bbox.intersects(geom_shape):
+                return None, None, None
+            
+            print(f"✓ Geometría intersecta con el raster")
+            
+            # 6. Recortar el raster con la geometría
+            try:
+                out_image, out_transform = rio_mask(
+                    src,
+                    [geom_transformed],
+                    crop=True,
+                    nodata=src.nodata if src.nodata is not None else -9999,
+                    all_touched=True  # Incluir píxeles que toquen el polígono
+                )
+            except ValueError as e:
+                return None, None, None
+            
+            # 7. Extraer datos NDVI
+            ndvi_data = out_image[0]  # Primera (y única) banda
+            
+            # 8. Filtrar valores válidos
+            # Considerar válidos los valores entre -1 y 1 (rango típico de NDVI)
+            nodata_value = src.nodata if src.nodata is not None else -9999
+            
+            # Crear máscara de valores válidos
+            mascara_validos = (
+                (ndvi_data >= -1) & 
+                (ndvi_data <= 1) & 
+                (ndvi_data != nodata_value) &
+                ~np.isnan(ndvi_data)
+            )
+            
+            ndvi_validos = ndvi_data[mascara_validos]
+            
+            # 9. Verificar que hay suficientes píxeles válidos
+            if len(ndvi_validos) < 10:
+                
+                if len(ndvi_validos) == 0:
+                   
+                    return None, None, None
+            
+            # 10. Calcular estadísticas
+            ndvi_max = float(np.max(ndvi_validos))
+            ndvi_min = float(np.min(ndvi_validos))
+            ndvi_medio = float(np.mean(ndvi_validos))
+            
+            
+            return ndvi_max, ndvi_min, ndvi_medio
+            
+    except rasterio.errors.RasterioIOError as e:
+        print(f"❌ ERROR de I/O al leer el GeoTIFF:")
+        print(f"   {str(e)}")
+        return None, None, None
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return None, None, None
+    
+
+
+
+@api_bp.route('/obtener-dibujos', methods=['GET'])
+@login_required
+def obtener_dibujos():
+    try:
+        from geoalchemy2.functions import ST_AsGeoJSON
+        
+        imagenes = ImagenDibujada.query.filter_by(
+            id_usuario=current_user.id_usuario
+        ).order_by(ImagenDibujada.fecha_creacion.desc()).all()
+        
+        dibujos = []
+        for img in imagenes:
+            geom_geojson = db.session.scalar(ST_AsGeoJSON(img.geom))
+            
+            dibujos.append({
+                'id': img.id,
+                'geojson': geom_geojson,
+                'tipo': img.tipo_geometria,
+                'ndvi_max': float(img.ndvi_max) if img.ndvi_max else None,
+                'ndvi_min': float(img.ndvi_min) if img.ndvi_min else None,
+                'ndvi_medio': float(img.ndvi_medio) if img.ndvi_medio else None,
+                'area_m2': float(img.area_m2) if img.area_m2 else None,
+                'fecha': img.fecha_creacion.isoformat()
+            })
+        
+        return jsonify({'dibujos': dibujos}), 200
+        
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/eliminar-dibujo/<int:dibujo_id>', methods=['DELETE'])
+@login_required
+def eliminar_dibujo(dibujo_id):
+    try:
+        dibujo = ImagenDibujada.query.filter_by(
+            id=dibujo_id,
+            id_usuario=current_user.id_usuario
+        ).first()
+
+        
+        if not dibujo:
+            return jsonify({'error': 'No encontrado'}), 404
+        
+        db.session.delete(dibujo)
+        db.session.commit()
+        
+        return jsonify({'success': True}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
