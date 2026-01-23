@@ -10,8 +10,9 @@ import numpy as np
 import geopandas as gpd
 from PIL import Image
 
+import math
 import rasterio
-from rasterio.warp import reproject, Resampling
+from rasterio.warp import reproject, transform_bounds, calculate_default_transform, Resampling
 from rasterio.transform import from_bounds
 
 from shapely.geometry import box, mapping
@@ -33,7 +34,8 @@ MAX_ITEMS_TOTAL = int(os.getenv("S2_MAX_ITEMS_TOTAL", "12"))
 PER_TILE = int(os.getenv("S2_MAX_ITEMS_PER_TILE", "2"))
 FETCH_LIMIT = int(os.getenv("S2_FETCH_LIMIT", "200"))
 
-RGB_MAX_DIM = int(os.getenv("S2_RGB_MAX_DIM", "4096"))  # más alto = más peso, más zoom
+RGB_RES_M = float(os.getenv("S2_RGB_RES_M", "10"))         # 10 m/px reales
+RGB_MAX_DIM = int(os.getenv("S2_RGB_MAX_DIM", "12000"))    # salvaguarda (sube si tu ROI es grande)
 RGB_COMPOSITE = os.getenv("S2_RGB_COMPOSITE", "median").lower()  # median | max
 RGB_GAMMA = float(os.getenv("S2_RGB_GAMMA", "1.15"))             # 1.0..1.4 típico
 MIN_VALID_FRAC = float(os.getenv("S2_RGB_MIN_VALID_FRAC", "0.02"))
@@ -62,26 +64,6 @@ def safe_replace(src_tmp: str, dst: str, retries: int = 6, sleep_s: float = 0.5)
             time.sleep(sleep_s)
     return False
 
-
-def compute_output_shape(minx, miny, maxx, maxy, max_dim=4096, min_dim=512):
-    lon_span = maxx - minx
-    lat_span = maxy - miny
-    if lon_span <= 0 or lat_span <= 0:
-        return (min_dim, min_dim)
-
-    ratio = lon_span / lat_span
-    if ratio >= 1:
-        w = max_dim
-        h = int(max_dim / ratio)
-    else:
-        h = max_dim
-        w = int(max_dim * ratio)
-
-    w = max(min_dim, min(max_dim, w))
-    h = max(min_dim, min(max_dim, h))
-    return w, h
-
-
 def get_roi_bbox_from_gpkg():
     roi_path = Path(ROI_PATH)
     if not roi_path.exists():
@@ -100,6 +82,75 @@ def open_stac_catalog():
         print("[STAC] Ejemplos:", [c.id for c in cols[:20]])
     return cat
 
+def get_item_asset_crs(item, asset_key="B04"):
+    a = item.assets
+    if asset_key not in a:
+        raise ValueError(f"Item {item.id} no tiene asset {asset_key}")
+
+    href = _href_readable(a[asset_key].href)
+    env_opts = dict(
+        AWS_NO_SIGN_REQUEST="YES",
+        GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+        GDAL_HTTP_MAX_RETRY="4",
+        GDAL_HTTP_RETRY_DELAY="1",
+    )
+    with rasterio.Env(**env_opts):
+        with rasterio.open(href) as src:
+            if src.crs is None:
+                raise ValueError(f"Asset {asset_key} de {item.id} no tiene CRS")
+            return src.crs
+
+def compute_grid_from_bbox_meters(bbox4326, dst_crs, res_m, max_dim=None):
+    minx, miny, maxx, maxy = bbox4326
+    b = transform_bounds("EPSG:4326", dst_crs, minx, miny, maxx, maxy, densify_pts=21)
+    minx_p, miny_p, maxx_p, maxy_p = b
+
+    span_x = maxx_p - minx_p
+    span_y = maxy_p - miny_p
+    if span_x <= 0 or span_y <= 0:
+        raise ValueError("BBox proyectada inválida (span <= 0)")
+
+    width = int(math.ceil(span_x / res_m))
+    height = int(math.ceil(span_y / res_m))
+
+    if max_dim is not None:
+        scale = max(width / max_dim, height / max_dim, 1.0)
+        width = int(math.ceil(width / scale))
+        height = int(math.ceil(height / scale))
+
+    dst_transform = from_bounds(minx_p, miny_p, maxx_p, maxy_p, width, height)
+    return width, height, dst_transform
+
+def warp_rgb_tif_to_3857(src_tif: str, dst_tif: str):
+    dst_crs = "EPSG:3857"
+    with rasterio.open(src_tif) as src:
+        transform, width, height = calculate_default_transform(
+            src.crs, dst_crs, src.width, src.height, *src.bounds
+        )
+        kwargs = src.meta.copy()
+        kwargs.update({
+            "crs": dst_crs,
+            "transform": transform,
+            "width": width,
+            "height": height,
+            "count": 3,
+            "dtype": src.dtypes[0],
+            "nodata": src.nodata,
+        })
+
+        with rasterio.open(dst_tif, "w", **kwargs) as dst:
+            for b in (1, 2, 3):
+                reproject(
+                    source=rasterio.band(src, b),
+                    destination=rasterio.band(dst, b),
+                    src_transform=src.transform,
+                    src_crs=src.crs,
+                    dst_transform=transform,
+                    dst_crs=dst_crs,
+                    resampling=Resampling.bilinear,
+                    src_nodata=src.nodata,
+                    dst_nodata=src.nodata,
+                )
 
 def _cloud(item):
     return float((item.properties or {}).get("eo:cloud_cover", 999.0))
@@ -283,9 +334,18 @@ def main():
         # Sign Planetary Computer items (SAS tokens)
         picked = [pc.sign(it) for it in picked]
 
-        width, height = compute_output_shape(minx, miny, maxx, maxy, max_dim=RGB_MAX_DIM)
-        dst_crs = "EPSG:4326"
-        dst_transform = from_bounds(minx, miny, maxx, maxy, width, height)
+        # CRS real (UTM) del tile Sentinel
+        dst_crs = get_item_asset_crs(picked[0], asset_key="B04")
+
+        # Grid a 10 m/px (en metros), con salvaguarda RGB_MAX_DIM
+        width, height, dst_transform = compute_grid_from_bbox_meters(
+            bbox4326=(minx, miny, maxx, maxy),
+            dst_crs=dst_crs,
+            res_m=RGB_RES_M,
+            max_dim=RGB_MAX_DIM,
+        )
+
+        print(f"[RGB] dst_crs={dst_crs} | grid={width}x{height} | res_m={RGB_RES_M}")
 
         r_stack, g_stack, b_stack = [], [], []
         used_ids = []
@@ -374,33 +434,74 @@ def main():
         rgba = make_rgba(r8, g8, b8, alpha)
 
         # -----------------------------
-        # Guardar PNG latest + JSON
+        # Guardar GeoTIFF UTM + reproyectado 3857 + PNG 3857 + meta.json
         # -----------------------------
         static_dir = Path(app.root_path) / "static" / "sentinel2"
         static_dir.mkdir(parents=True, exist_ok=True)
 
         ts = now.strftime("%Y%m%d_%H%M%S")
-        version_png = static_dir / f"s2_rgb_{ts}.png"
-        latest_png = static_dir / "s2_rgb_latest.png"
+
+        tif_utm = static_dir / f"s2_rgb_{ts}_utm.tif"
+        tif_3857 = static_dir / f"s2_rgb_{ts}_3857.tif"
+        png_3857 = static_dir / f"s2_rgb_{ts}_3857.png"
+
+        latest_tif_utm = static_dir / "s2_rgb_latest_utm.tif"
+        latest_tif_3857 = static_dir / "s2_rgb_latest_3857.tif"
+        latest_png_3857 = static_dir / "s2_rgb_latest_3857.png"
         meta_json = static_dir / "s2_rgb_latest.json"
 
-        # Guardar primero versión (no pisa)
-        Image.fromarray(rgba, mode="RGBA").save(str(version_png), format="PNG", optimize=True)
+        # Guardamos el composite en UTM (float32 0..1 aprox)
+        profile = {
+            "driver": "GTiff",
+            "height": r_comp.shape[0],
+            "width": r_comp.shape[1],
+            "count": 3,
+            "dtype": "float32",
+            "crs": dst_crs,
+            "transform": dst_transform,
+            "nodata": np.nan,
+            "compress": "deflate",
+        }
 
-        # Intentar pisar latest (si está bloqueado, no rompe)
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png", dir=str(static_dir)) as tmp:
-            tmp_png = tmp.name
-        Image.fromarray(rgba, mode="RGBA").save(tmp_png, format="PNG", optimize=True)
+        with rasterio.open(str(tif_utm), "w", **profile) as dst:
+            dst.write(r_comp.astype(np.float32), 1)
+            dst.write(g_comp.astype(np.float32), 2)
+            dst.write(b_comp.astype(np.float32), 3)
 
-        ok_latest = safe_replace(tmp_png, str(latest_png))
-        if not ok_latest:
-            # dejamos tmp como versionado extra
-            fallback = static_dir / f"s2_rgb_latest_failed_replace_{ts}.png"
-            try:
-                os.replace(tmp_png, str(fallback))
-            except Exception:
-                pass
-            print("WARNING: no pude reemplazar s2_rgb_latest.png (bloqueado). Se guardó versión con timestamp.")
+        # Warp a 3857 (para Leaflet)
+        warp_rgb_tif_to_3857(str(tif_utm), str(tif_3857))
+
+        # Leer el 3857 y generar PNG (stretch+gamma aquí, ya en 3857)
+        with rasterio.open(str(tif_3857)) as ds:
+            r3857 = ds.read(1).astype(np.float32)
+            g3857 = ds.read(2).astype(np.float32)
+            b3857 = ds.read(3).astype(np.float32)
+
+            alpha = np.isfinite(r3857) & np.isfinite(g3857) & np.isfinite(b3857)
+
+            r8, (r_lo, r_hi) = stretch_and_gamma(r3857, alpha, gamma=RGB_GAMMA)
+            g8, (g_lo, g_hi) = stretch_and_gamma(g3857, alpha, gamma=RGB_GAMMA)
+            b8, (b_lo, b_hi) = stretch_and_gamma(b3857, alpha, gamma=RGB_GAMMA)
+
+            rgba = make_rgba(r8, g8, b8, alpha)
+
+            # bounds reales desde el raster 3857 convertidos a 4326
+            b = transform_bounds(ds.crs, "EPSG:4326", *ds.bounds, densify_pts=21)
+            minx2, miny2, maxx2, maxy2 = map(float, b)
+
+        Image.fromarray(rgba, mode="RGBA").save(str(png_3857), format="PNG", optimize=True)
+
+        # Reemplazar "latest" (con safe_replace por Windows)
+        ok_tif_utm = safe_replace(str(tif_utm), str(latest_tif_utm))
+        ok_tif_3857 = safe_replace(str(tif_3857), str(latest_tif_3857))
+        ok_png_3857 = safe_replace(str(png_3857), str(latest_png_3857))
+
+        if not ok_tif_utm:
+            print("WARNING: no pude reemplazar s2_rgb_latest_utm.tif (bloqueado).")
+        if not ok_tif_3857:
+            print("WARNING: no pude reemplazar s2_rgb_latest_3857.tif (bloqueado).")
+        if not ok_png_3857:
+            print("WARNING: no pude reemplazar s2_rgb_latest_3857.png (bloqueado).")
 
         cloud_mean = float(np.mean(clouds)) if clouds else None
 
@@ -412,8 +513,8 @@ def main():
             "items_used": used_ids,
             "used": len(used_ids),
             "skipped": skipped,
-            "bbox": [minx, miny, maxx, maxy],              # lon/lat
-            "bounds_leaflet": [[miny, minx], [maxy, maxx]], # lat/lon (para evitar “desplazado”)
+            "bbox": [minx2, miny2, maxx2, maxy2],  # bounds reales (lon/lat) del 3857
+            "bounds_leaflet": [[miny2, minx2], [maxy2, maxx2]],
             "size": [int(width), int(height)],
             "cloud_max": CLOUD_MAX,
             "cloud_mean_used": cloud_mean,
@@ -425,14 +526,14 @@ def main():
                 "b": {"p2": b_lo, "p98": b_hi},
             },
             "min_valid_frac": MIN_VALID_FRAC,
-            "latest_png": str(latest_png.name),
-            "version_png": str(version_png.name),
+            "latest_png": latest_png_3857.name,
+            "latest_tif_utm": latest_tif_utm.name,
+            "latest_tif_3857": latest_tif_3857.name,
         }
         meta_json.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
 
-        print(f"OK: actualizado {latest_png} (used={len(used_ids)}, skipped={skipped})")
+        print(f"OK: actualizado {latest_png_3857} (used={len(used_ids)}, skipped={skipped})")
         return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
