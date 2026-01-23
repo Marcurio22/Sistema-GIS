@@ -4468,7 +4468,7 @@ if (csvBtn && csvBtn.disabled){
     }
   );
 
-  const s2rgb = L.imageOverlay(
+  const baseSentinelRecent = L.imageOverlay(
     `/static/sentinel2/s2_rgb_latest_3857.png?v={{ s2_version }}`,
     S2_BOUNDS,
     { opacity: 1.0, className: "s2-overlay", interactive: false }
