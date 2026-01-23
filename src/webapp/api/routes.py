@@ -738,28 +738,30 @@ def guardar_dibujos():
         if not dibujos:
             return jsonify({'error': 'No se recibieron dibujos'}), 400
         
+        # Límite de dibujos por usuario
+        MAX_DIBUJOS = 10
+        dibujos_existentes = ImagenDibujada.query.filter_by(id_usuario=current_user.id_usuario).count()
+        
+        if dibujos_existentes >= MAX_DIBUJOS:
+            return jsonify({'error': f'Has alcanzado el límite de {MAX_DIBUJOS} dibujos permitidos'}), 400
+        
+        # Solo guardar hasta llegar al límite
+        espacio_disponible = MAX_DIBUJOS - dibujos_existentes
+        dibujos_a_guardar = dibujos[:espacio_disponible]
+        
         guardados = 0
         
-        for dibujo in dibujos:
+        for dibujo in dibujos_a_guardar:
             geojson = dibujo.get('geojson')
             tipo = dibujo.get('tipo')
             
             if not geojson:
                 continue
             
-            # Convertir GeoJSON a geometría de Shapely
             geometry = shape(geojson['geometry'])
-            
-            # Calcular área en m²
-            # Nota: para cálculo preciso en m², necesitarías proyectar
-            # Aquí uso una aproximación simple
-            area_m2 = geometry.area * 111320 * 111320  # Aproximación
-            
-            # TODO: Aquí calcularías el NDVI real
-            # Por ahora, valores de ejemplo
+            area_m2 = geometry.area * 111320 * 111320
             ndvi_max, ndvi_min, ndvi_medio = calcular_ndvi(geometry)
             
-            # Crear registro en la BD
             nueva_imagen = ImagenDibujada(
                 id_usuario=current_user.id_usuario,
                 ndvi_max=ndvi_max,
@@ -786,7 +788,6 @@ def guardar_dibujos():
         db.session.rollback()
         print(f"Error al guardar dibujos: {str(e)}")
         return jsonify({'error': str(e)}), 500
-
 
 
 

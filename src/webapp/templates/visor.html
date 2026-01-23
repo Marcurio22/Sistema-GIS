@@ -5456,6 +5456,20 @@ if (recintoData) {
     }
 
     // Crear y activar el dibujador de rectángulos
+    L.drawLocal = L.drawLocal || {};
+    L.drawLocal.draw = L.drawLocal.draw || {};
+    L.drawLocal.draw.handlers = L.drawLocal.draw.handlers || {};
+
+    L.drawLocal.draw.handlers.rectangle = {
+      tooltip: {
+        start: 'Haz clic y arrastra para dibujar un rectángulo'
+      },
+      shapeOptions: {
+        color: '#3388ff'  // opcional, el color del rectángulo
+      }
+    };
+
+    // Ahora sí inicializamos el drawer
     rectangleDrawer = new L.Draw.Rectangle(map);
     rectangleDrawer.enable();
 
@@ -5471,8 +5485,26 @@ if (recintoData) {
     }
 
     // Crear y activar el dibujador de polígonos
+    // Configurar mensajes en español para polígonos
+    L.drawLocal = L.drawLocal || {};
+    L.drawLocal.draw = L.drawLocal.draw || {};
+    L.drawLocal.draw.handlers = L.drawLocal.draw.handlers || {};
+
+    L.drawLocal.draw.handlers.polygon = {
+      tooltip: {
+        start: 'Haz clic para empezar a dibujar el polígono',   // antes: "Click to start drawing shape."
+        cont: 'Haz clic para continuar el polígono',           // antes: "Click to continue drawing shape."
+        end: 'Haz clic en el primer punto para cerrar el polígono' // antes: "Click first point to close this shape."
+      },
+      shapeOptions: {
+        color: '#3388ff' // opcional: color del polígono
+      }
+    };
+
+    // Ahora inicializamos el drawer del polígono
     polygonDrawer = new L.Draw.Polygon(map);
     polygonDrawer.enable();
+
 
     console.log('Modo dibujo de polígono activado - Haz clic para añadir puntos, doble clic para terminar');
   });
@@ -5502,27 +5534,43 @@ if (recintoData) {
 
     // Si hay dibujos, enviarlos al backend
     if (dibujos.length > 0) {
-      try {
-        const response = await fetch('/api/guardar-dibujos', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ dibujos: dibujos })
-        });
+  try {
+    const response = await fetch('/api/guardar-dibujos', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ dibujos: dibujos })
+    });
 
-        const data = await response.json();
-        NotificationSystem.show({
-          type: "success",
-          title: "Solicitud enviada",
-          message: data.mensaje || "Dibujo/s creado/s correctamente"
-        });
-        
-       
-      } catch (error) {
-        console.error('Error en la petición:', error);
-      }
+    const data = await response.json();
+
+    if (!response.ok) {
+      NotificationSystem.show({
+        type: "error",
+        title: "No se pudo guardar",
+        message: data.error || "Ocurrió un error al guardar los dibujos"
+      });
+      return;
     }
+
+    // ✅ Mostrar éxito
+    NotificationSystem.show({
+      type: "success",
+      title: "Dibujo guardado",
+      message: data.message || "Dibujo/s creado/s correctamente"
+    });
+
+  } catch (error) {
+    console.error('Error en la petición:', error);
+    NotificationSystem.show({
+      type: "error",
+      title: "Error de conexión",
+      message: "No se pudo conectar con el servidor"
+    });
+  }
+}
+
 
 
 
