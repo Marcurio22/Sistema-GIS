@@ -4486,10 +4486,25 @@ if (csvBtn && csvBtn.disabled){
     ndvi: baseNdvi
   };
 
- const urlParams = new URLSearchParams(window.location.search);
+  const urlParams = new URLSearchParams(window.location.search);
   const capaInicial = urlParams.get('capa') || 'satellite';
 
+
+  function actualizarBasemapUI(layerKey) {
+  document.querySelectorAll('.basemap-option.basemap-main')
+    .forEach(opt => opt.classList.remove('active'));
+
+  const activeOption = document.querySelector(
+    `.basemap-option.basemap-main[data-layer="${layerKey}"]`
+  );
+
+  if (activeOption && !activeOption.classList.contains('disabled')) {
+    activeOption.classList.add('active');
+  }
+}
+
   let activeHighLayerKey = capaInicial;
+  actualizarBasemapUI(activeHighLayerKey);
   function getActiveHighLayer() {
     return highZoomLayers[activeHighLayerKey];
   }
