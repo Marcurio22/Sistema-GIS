@@ -518,10 +518,6 @@
   </div>
 </div>
 
-<!-- Culticvos y operaciones -->
-<script src="{{ url_for('static', filename='js/visor/visor-cultivos.js') }}"></script>
-<script src="{{ url_for('static', filename='js/visor/visor-operaciones.js') }}"></script>
-
 <!-- Script general -->
 <script>
   const NotificationSystem = {
@@ -1042,11 +1038,9 @@ async function restaurarEstadoMapa() {
     window.ndviManager.setRecintoId(window.currentSideRecintoId);
     
 
-    renderCultivosForRecinto(currentSideRecintoId);
-    renderOperacionesForRecinto(currentSideRecintoId);
+    window.renderCultivosForRecinto?.(currentSideRecintoId);
+    window.renderOperacionesForRecinto?.(currentSideRecintoId);
   }
-
-
 
 const btnDelete = document.getElementById("btn-delete-recinto");
 if (btnDelete) {
@@ -2966,5 +2960,9 @@ dibujosGuardadosLayer.on('click', function(e) {
 
   });
 </script>
+
+<!-- Culticvos y operaciones -->
+<script src="{{ url_for('static', filename='js/visor/visor-cultivos.js') }}"></script>
+<script src="{{ url_for('static', filename='js/visor/visor-operaciones.js') }}"></script>
 
 {% endblock %}

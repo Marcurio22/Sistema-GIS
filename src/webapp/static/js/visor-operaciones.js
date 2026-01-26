@@ -14,8 +14,8 @@ function openOperacionesPanel() {
     if (!sp || !panel) return;
 
     // Cierra otros overlays por si acaso
-    closeHistoricoPanel?.();
-    closeGaleriaPanel?.();
+    window.closeHistoricoPanel?.();
+    window.closeGaleriaPanel?.();
 
     sp.classList.add("operaciones-open");
     panel.classList.remove("d-none");
@@ -1274,3 +1274,9 @@ function actualizarHistoricoOperaciones() {
   }
   return false;
 }
+
+window.renderOperacionesForRecinto = window.renderOperacionesForRecinto || renderOperacionesForRecinto;
+window.openOperacionesPanel = window.openOperacionesPanel || openOperacionesPanel;
+window.closeOperacionesPanel = window.closeOperacionesPanel || closeOperacionesPanel;
+window.renderOperacionesHistorico = window.renderOperacionesHistorico || renderOperacionesHistorico;
+window.actualizarHistoricoOperaciones = window.actualizarHistoricoOperaciones || actualizarHistoricoOperaciones;

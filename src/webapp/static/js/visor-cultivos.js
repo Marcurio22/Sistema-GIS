@@ -2107,3 +2107,8 @@ function actualizarHistoricoCultivos() {
     }
     return false;
 }
+
+window.renderCultivosForRecinto = window.renderCultivosForRecinto || renderCultivosForRecinto;
+window.closeHistoricoPanel = window.closeHistoricoPanel || closeHistoricoPanel;
+window.closeGaleriaPanel = window.closeGaleriaPanel || closeGaleriaPanel;
+window.actualizarHistoricoCultivos = window.actualizarHistoricoCultivos || actualizarHistoricoCultivos;
