@@ -1119,22 +1119,28 @@ if (btnDelete) {
     { codigo: null, descripcion: "ALTRAMUZ DULCE" }
   ];
 
-  async function fetchJson(url, opts) {
+  async function fetchJson(url, opts = {}, allow404 = false) {
     const resp = await fetch(url, opts);
     const txt = await resp.text().catch(() => "");
+
     let data = null;
     try { data = txt ? JSON.parse(txt) : null; } catch (_) {}
 
     if (!resp.ok) {
+      // Caso esperado: "no hay cultivo todavía"
+      if (allow404 && resp.status === 404) return null;
+
       const err = new Error(`HTTP ${resp.status} en ${url}`);
       err.status = resp.status;
+      err.url = url;
       err.body = txt;
       err.data = data;
+
+      console.warn("fetchJson error", resp.status, url, txt);
       throw err;
     }
 
-    // Si no hay JSON, devuelve null
-    return data;
+    return data; // puede ser null si no hay JSON
   }
 
   // Convierte fechas de inputs a ISO (YYYY-MM-DD).
@@ -1207,8 +1213,12 @@ if (btnDelete) {
   }
 
   async function getCultivoRecinto(recintoId) {
-    const c = await fetchJson(`/api/mis-recinto/${recintoId}/cultivo`);
-    return normalizeCultivoFromApi(c);
+    const raw = await fetchJson(`/api/mis-recinto/${recintoId}/cultivo`, {}, true);
+    if (!raw) return null;
+
+    const cultivo = normalizeCultivoFromApi(raw);
+    await attachSistemaCultivoLabel(cultivo);
+    return cultivo;
   }
 
   async function renderCultivosForRecinto(recintoId) {
@@ -1232,12 +1242,15 @@ if (btnDelete) {
 
     try {
       const cultivo = await getCultivoRecinto(recintoId);
-      renderCultivoView(container, recintoId, cultivo, usos, productos);
-    } catch (e) {
-      if (e && e.status === 404) {
+
+      // ✅ Caso normal: no hay cultivo
+      if (!cultivo) {
         renderCultivoEmpty(container, recintoId, usos, productos);
         return;
       }
+
+      renderCultivoView(container, recintoId, cultivo, usos, productos);
+    } catch (e) {
       console.warn(e);
       container.innerHTML = `<div class="text-danger">Error cargando cultivo del recinto.</div>`;
     }
@@ -1331,27 +1344,41 @@ if (btnDelete) {
     overlay.setAttribute("aria-hidden", "true");
   };
 
-  // Botones del overlay (una sola vez)
-  document.getElementById("btn-volver-galeria")?.addEventListener("click", (e) => {
-    e.preventDefault(); e.stopPropagation();
-    window.galeria?.contraerGaleria(); // ya cierra overlay desde dentro
-  });
+  // // Botones del overlay
+  // document.getElementById("btn-volver-galeria")?.addEventListener("click", (e) => {
+  //   e.preventDefault(); e.stopPropagation();
+  //   closeGaleriaPanel();
+  // });
 
-  document.getElementById("btn-cerrar-galeria")?.addEventListener("click", (e) => {
-    e.preventDefault(); e.stopPropagation();
-    document.getElementById("side-close")?.click();
-  });
+  // document.getElementById("btn-cerrar-galeria")?.addEventListener("click", (e) => {
+  //   e.preventDefault(); e.stopPropagation();
+  //   document.getElementById("side-close")?.click(); // cierra el split completo
+  // });
 
-  // Botones del overlay
-  document.getElementById("btn-volver-galeria")?.addEventListener("click", (e) => {
-    e.preventDefault(); e.stopPropagation();
-    closeGaleriaPanel();
-  });
+  (function initGaleriaOverlayButtonsOnce() {
+    const volver = document.getElementById("btn-volver-galeria");
+    const cerrar = document.getElementById("btn-cerrar-galeria");
 
-  document.getElementById("btn-cerrar-galeria")?.addEventListener("click", (e) => {
-    e.preventDefault(); e.stopPropagation();
-    document.getElementById("side-close")?.click(); // cierra el split completo
-  });
+    if (volver && !volver.dataset.bound) {
+      volver.dataset.bound = "1";
+      volver.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+
+        // Preferimos el controlador propio de la galería si existe,
+        // si no, cerramos el overlay directamente.
+        if (window.galeria?.contraerGaleria) window.galeria.contraerGaleria();
+        else closeGaleriaPanel();
+      });
+    }
+
+    if (cerrar && !cerrar.dataset.bound) {
+      cerrar.dataset.bound = "1";
+      cerrar.addEventListener("click", (e) => {
+        e.preventDefault(); e.stopPropagation();
+        document.getElementById("side-close")?.click();
+      });
+    }
+  })();
 
 
   document.getElementById("btn-cerrar-historico")?.addEventListener("click", (e) => {
@@ -1365,32 +1392,6 @@ if (btnDelete) {
     e.stopPropagation();
     closeHistoricoPanel();
   });
-
-  function hasAvanzado(a){
-    if (!a || typeof a !== "object") return false;
-
-    // soporta string JSON
-    if (typeof a === "string") { try { a = JSON.parse(a); } catch(_) { return false; } }
-    if (!a || typeof a !== "object") return false;
-
-    const flat = [];
-
-    for (const v of Object.values(a)) {
-      if (!v) continue;
-      if (typeof v === "object") {
-        // material_vegetal o {codigo,label}
-        if (v.codigo || v.label) flat.push(v);
-        else {
-          for (const vv of Object.values(v)) {
-            if (vv && (vv.codigo || vv.label)) flat.push(vv);
-          }
-        }
-      } else if (String(v).trim() !== "") {
-        flat.push(v);
-      }
-    }
-    return flat.length > 0;
-  }
 
   function openAvanzadoModal(av){
     const body = document.getElementById("modalAvanzadoCultivoBody");
@@ -1567,10 +1568,10 @@ if (btnDelete) {
                       const hasObs = !!obsText.trim();
 
                       const sisCult = c.sistema_cultivo;
-                      const sisCultLbl =
-                        (sisCult && typeof sisCult === "object")
-                          ? (sisCult.label || sisCult.codigo || "—")
-                          : (sisCult || "—");
+                      const sisCultLbl = c?._sistema_cultivo_label
+                        ? String(c._sistema_cultivo_label).trim()
+                        : "—";
+
 
                       const advYes = hasAvanzado(c.avanzado);
 
@@ -1611,7 +1612,7 @@ if (btnDelete) {
                           <td>${safeText(tipoLbl)}</td>
                           <td>${safeText(c.variedad, "N/A")}</td>
                           <td>${safeText(sistemaLabel(c.sistema_explotacion))}</td>
-                          <td>${escapeHtml(sisCultLbl)}</td>
+                          <td>${sisCultLbl ? escapeHtml(sisCultLbl) : "<span class='text-muted'>—</span>"}</td>
                           <td>
                             ${advYes
                               ? `<span class="badge bg-success me-2">Sí</span>
@@ -1746,7 +1747,7 @@ if (btnDelete) {
         });
 
         listEl.querySelector("#btn-download-cultivos-csv")?.addEventListener("click", () => {
-          if (!Array.isArray(arr) || arr.length === 0) return;
+          // if (!Array.isArray(arr) || arr.length === 0) return;
           const headers = [
             "id_cultivo",
             "fecha_inicio",
@@ -1776,9 +1777,16 @@ if (btnDelete) {
             let tipoCod = "";
             let tipoDesc = "";
 
+            const origen = String(c.origen_cultivo || "").toUpperCase();
+            if (origen === "F" && c.cod_producto != null) {
               const p = prodMap.get(String(c.cod_producto));
               tipoCod = String(c.cod_producto);
               tipoDesc = p?.descripcion || (c.tipo_cultivo || "");
+            } else {
+              // custom u otros: NO ponemos origen en CSV, y dejamos código vacío
+              tipoCod = "";
+              tipoDesc = (c.cultivo_custom || c.tipo_cultivo || "");
+            }
 
             const campOrReg = isCamp ? (c.campana ?? "") : tipoRegistroLabel(c.tipo_registro);
 
@@ -1794,7 +1802,7 @@ if (btnDelete) {
               sistemaLabel(c.sistema_explotacion),
               campOrReg ?? "",
               estadoLabel(c.estado),
-              sisCultLbl,
+              (c?._sistema_cultivo_label ? String(c._sistema_cultivo_label) : ""),
               (hasAvanzado(c.avanzado) ? "Sí" : "No"),
               (c.avanzado ? JSON.stringify(c.avanzado) : ""),
               c.observaciones ?? ""
@@ -1818,8 +1826,15 @@ if (btnDelete) {
 
   function formatDateOnly(v) {
     if (!v) return "N/A";
-    const d = new Date(v);
+    const s = String(v).trim();
+
+    // ✅ Si viene como YYYY-MM-DD, lo devolvemos directamente sin Date()
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+
+    const d = new Date(s);
     if (Number.isNaN(d.getTime())) return safeText(v);
+
     const dd = String(d.getDate()).padStart(2,"0");
     const mm = String(d.getMonth()+1).padStart(2,"0");
     const yy = d.getFullYear();
@@ -2033,6 +2048,7 @@ if (btnDelete) {
   function renderCultivoView(container, recintoId, cultivo, usos, productos) {
     const usosMap = byCodigo(usos);
     const tipoReg = tipoRegistroLabel(cultivo.tipo_registro);
+    const sisCultLbl = cultivo?._sistema_cultivo_label ? String(cultivo._sistema_cultivo_label).trim() : "";
     const isCamp = String(cultivo.tipo_registro || "").toUpperCase().includes("CAMP");
 
     const inicio = isCamp ? cultivo.fecha_siembra : cultivo.fecha_implantacion;
@@ -2063,13 +2079,7 @@ if (btnDelete) {
 
         <div class="cultivo-field">
           <div class="k">Sistema de cultivo</div>
-          <div class="v">${
-            escapeHtml(
-              (cultivo?.sistema_cultivo && typeof cultivo.sistema_cultivo === "object")
-                ? (cultivo.sistema_cultivo.label || cultivo.sistema_cultivo.codigo || "—")
-                : (cultivo?.sistema_cultivo || "—")
-            )
-          }</div>
+          <div class="v">${sisCultLbl ? escapeHtml(sisCultLbl) : "<span class='text-muted'>—</span>"}</div>
         </div>
 
         <div class="cultivo-field">
@@ -2091,15 +2101,15 @@ if (btnDelete) {
         </div>
       </div>
 
-      <div class="side-soft-divider"></div>
-      <div class="cultivo-field">
-        <div class="k">Avanzado</div>
-        <div class="v">
-          ${hasAvanzado(cultivo.avanzado)
-            ? `<button type="button" class="btn btn-outline-success btn-sm" id="btn-ver-avanzado-main">Ver</button>`
-            : "—"}
+      ${hasAvanzado(cultivo.avanzado) ? `
+        <div class="side-soft-divider"></div>
+        <div class="mt-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <div class="fw-bold">Avanzado</div>
+            <button type="button" class="btn btn-outline-success btn-sm" id="btn-ver-avanzado-main">Ver</button>
+          </div>
         </div>
-      </div>
+      ` : ``}
 
       <div class="side-soft-divider"></div>
       <div class="mt-3">
@@ -2273,6 +2283,7 @@ if (btnDelete) {
       onSelect,
       allowFreeText = false,
       emptyText = "Sin resultados",
+      signal,
     } = opts;
 
     function renderList(list) {
@@ -2289,13 +2300,13 @@ if (btnDelete) {
         d.className = "ss-item";
         d.textContent = getLabel(it);
         d.addEventListener("mousedown", (ev) => {
-          ev.preventDefault(); // evita perder foco antes de seleccionar
+          ev.preventDefault();
           const val = getValue(it);
           hidden.value = (val === null || val === undefined) ? "" : String(val);
           input.value = getLabel(it);
           closeSs(ssEl);
           onSelect?.(it);
-        });
+        }, { signal });
         menu.appendChild(d);
       }
     }
@@ -2310,32 +2321,34 @@ if (btnDelete) {
       renderList(list.slice(0, 200));
     }
 
-    input.addEventListener("focus", () => { openSs(ssEl); filterNow(); });
-    input.addEventListener("input", () => { openSs(ssEl); filterNow(); });
+    input.addEventListener("focus", () => { openSs(ssEl); filterNow(); }, { signal });
+    input.addEventListener("input", () => { openSs(ssEl); filterNow(); }, { signal });
 
     input.addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeSs(ssEl);
       if (allowFreeText && e.key === "Enter") closeSs(ssEl);
-    });
+    }, { signal });
 
     document.addEventListener("click", (e) => {
       if (!ssEl.contains(e.target)) closeSs(ssEl);
-    });
+    }, { signal });
 
-    // inicial
     renderList(items.slice(0, 50));
     return {
-      setItems(newItems) {
-        items = newItems;
-        filterNow();
-      },
-      getSelectedValue() {
-        return hidden.value || null;
-      }
+      setItems(newItems) { items = newItems; filterNow(); },
+      getSelectedValue() { return hidden.value || null; }
     };
   }
 
-  function renderCultivoForm(container, { recintoId, cultivo, usos, productos, mode="actual", cultivoId=null, currentCultivoId=null, onDone=null, onCancel=null }) {
+
+  function renderCultivoForm(container, args) {
+    if (container.__cultivoFormAbort) container.__cultivoFormAbort.abort();
+    const abort = new AbortController();
+    container.__cultivoFormAbort = abort;
+    const { signal } = abort;
+
+    const { recintoId, cultivo, usos, productos, mode="actual", cultivoId=null, currentCultivoId=null, onDone=null, onCancel=null } = args;
+
     const usosMap = byCodigo(usos);
     const productosAll = productos || [];
 
@@ -2576,7 +2589,7 @@ if (btnDelete) {
           suggestionsList.innerHTML = "";
         }
       }, 200); // Debounce de 200ms
-    });
+    }, {signal});
 
     // Click en una sugerencia
     suggestionsList.addEventListener("click", (e) => {
@@ -2587,29 +2600,32 @@ if (btnDelete) {
         suggestionsList.style.display = "none";
         suggestionsList.innerHTML = "";
       }
-    });
+    }, {signal});
 
     // Cerrar sugerencias al hacer click fuera
     document.addEventListener("click", (e) => {
       if (!variedadInput.contains(e.target) && !suggestionsList.contains(e.target)) {
         suggestionsList.style.display = "none";
       }
-    });
+    }, { signal });
 
-    // Cerrar sugerencias con Escape
     variedadInput.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
-        suggestionsList.style.display = "none";
+        suggestionsList.classList.add("d-none");
+        return;
       }
-    });
-
-    // Permitir enviar con Enter incluso sin seleccionar de la lista
-    variedadInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
-        suggestionsList.style.display = "none";
+        const first = suggestionsList.querySelector("li[data-value]");
+        if (first) {
+          variedadInput.value = first.dataset.value || "";
+          suggestionsList.classList.add("d-none");
+          suggestionsList.innerHTML = "";
+          e.preventDefault();
+        }
       }
-    });
+    }, { signal });
 
+    // Elementos SS
     const ssUsoEl = container.querySelector("#ss-uso");
     const ssProdEl = container.querySelector("#ss-prod");
     const btnVerTodos = container.querySelector("#btn-ver-todos");
@@ -2663,7 +2679,8 @@ if (btnDelete) {
         }
 
         actualizarListaProductos();
-      }
+      },
+      signal
     });
 
     function buildProductosList() {
@@ -2679,8 +2696,13 @@ if (btnDelete) {
         origen: "C",
         label: formatCodigoDesc(null, p.descripcion),
       }));
-      // Añadimos "OTRO" para permitir escribir
-      const otro = [{ codigo: "__OTRO__", descripcion: "OTRO (escribir...)", origen: "C", label: "N/A-OTRO (escribir...)" }];
+      const otro = [{
+        codigo: "__OTRO__",
+        descripcion: "OTRO (escribir…)",
+        origen: "C",
+        label: "N/A-OTRO (escribir…)"
+      }];
+
       return [...base, ...custom, ...otro];
     }
 
@@ -2707,7 +2729,8 @@ if (btnDelete) {
           codHidden.value = String(it.codigo);
           customInput.value = "";
         }
-      }
+      },
+      signal
     });
 
     function actualizarListaProductos() {
@@ -2729,9 +2752,9 @@ if (btnDelete) {
 
       const otro = [{
         codigo: "__OTRO__",
-        descripcion: "OTRO (escribir...)",
+        descripcion: "OTRO (escribir…)",
         origen: "C",
-        label: "N/A-OTRO (escribir...)"
+        label: "N/A-OTRO (escribir…)"
       }];
 
       productosItems = [...fega, ...custom, ...otro];
@@ -2750,7 +2773,7 @@ if (btnDelete) {
       modoVerTodos = !modoVerTodos;
       btnVerTodos.textContent = modoVerTodos ? "Filtrar" : "Ver todos";
       actualizarListaProductos();
-    });
+    }, {signal});
 
     // Tipo registro: muestra campaña o cambia etiqueta de fecha
     const tipoRegSel = container.querySelector("#tipo_registro");
@@ -2763,7 +2786,7 @@ if (btnDelete) {
       campWrap.style.display = isCamp ? "" : "none";
       lblInicio.textContent = isCamp ? "Fecha siembra" : "Fecha plantación";
     }
-    tipoRegSel.addEventListener("change", syncTipoRegistroUi);
+    tipoRegSel.addEventListener("change", syncTipoRegistroUi, { signal });
     syncTipoRegistroUi();
 
     // -------- Avanzado (opcional) --------
@@ -2845,7 +2868,7 @@ if (btnDelete) {
     advMvrTipo.addEventListener("change", () => {
       // al cambiar tipo, resetea detalle y recarga por parent
       reloadMvrDetalle({ selected: "" });
-    });
+    }, {signal});
 
     // Si venimos de editar
     if (cultivo) {
@@ -2912,7 +2935,7 @@ if (btnDelete) {
       } else {
         renderCultivosForRecinto(recintoId);
       }
-    });
+    }, {signal});
 
     container.querySelector("#btn-save-cultivo").addEventListener("click", async () => {
       const msg = container.querySelector("#cultivo-form-msg");
@@ -3041,11 +3064,11 @@ if (btnDelete) {
 
       // Fechas según tipo_registro
       if (tipo_registro === "CAMPANA") {
-        payload.fecha_siembra = fechaInicio;
+        payload.fecha_siembra = toISODate(fechaInicio);
       } else {
-        payload.fecha_implantacion = fechaInicio;
+        payload.fecha_implantacion = toISODate(fechaInicio);
       }
-      payload.fecha_cosecha_estimada = fechaCosechaEst;
+      payload.fecha_cosecha_estimada = toISODate(fechaCosechaEst);
 
       // Construir Avanzado (opcional)
       const aAprove = pickObjFromSelect(advAprove);
@@ -3163,7 +3186,7 @@ if (btnDelete) {
 
           msg.className = "text-danger";
       }
-    });
+    }, {signal});
   }
 
   async function guardarNombreRecinto(nombre) {
@@ -3571,7 +3594,7 @@ if (btnDelete) {
                   <td>${escapeHtml(otras || "—")}</td>
                   <td>${escapeHtml(obs || "—")}</td>
 
-                  <td class="="text-end">
+                  <td class="text-end">
                     <div class="d-flex gap-2 justify-content-end flex-wrap">
                       <button class="btn btn-success btn-sm btn-edit-op" data-id="${op.id_operacion}">
                         <i class="bi bi-pencil-fill me-1"></i> Editar
@@ -3593,23 +3616,11 @@ if (btnDelete) {
 
     // Deshabilitar botón CSV si no hay datos
     const csvBtn = listEl.querySelector("#btn-download-ops-csv");
-    if (csvBtn && csvBtn.disabled){
+    if (csvBtn && csvBtn.disabled) {
       csvBtn.classList.remove("btn-outline-success");
       csvBtn.classList.add("btn-outline-secondary");
 
-      const wrap = document.createElement("span");const csvBtn = listEl.querySelector("#btn-download-operaciones-csv");
-if (csvBtn && csvBtn.disabled){
-  csvBtn.classList.remove("btn-outline-success");
-  csvBtn.classList.add("btn-outline-secondary");
-
-  const wrap = document.createElement("span");
-  wrap.className = "d-inline-block";
-  wrap.title = "Ahora mismo no se puede descargar CSV";
-
-  csvBtn.parentNode.insertBefore(wrap, csvBtn);
-  wrap.appendChild(csvBtn);
-}
-
+      const wrap = document.createElement("span");
       wrap.className = "d-inline-block";
       wrap.title = "Ahora mismo no se puede descargar CSV";
 
@@ -3668,7 +3679,7 @@ if (csvBtn && csvBtn.disabled){
     });
 
     listEl.querySelector("#btn-download-ops-csv")?.addEventListener("click", () => {
-      if (!Array.isArray(arr) || arr.length === 0) return;
+      if (!Array.isArray(ops) || ops.length === 0) return;
       const headers = [
         "id_operacion",
         "fecha",
@@ -3788,9 +3799,64 @@ if (csvBtn && csvBtn.disabled){
 
     const data = await fetchJson(url);
     const arr = Array.isArray(data) ? data : [];
+    await Promise.all(arr.map(attachSistemaCultivoLabel));
     _catCache.set(key, arr);
     return arr;
   }
+
+  // --------------------------------
+  // Catálogo SIEX: SISTEMA_CULTIVO
+  // --------------------------------
+  let _sistemaCultivoMap = null;         // Map<string,string>
+  let _sistemaCultivoMapPromise = null;  // Promise<Map>
+
+  async function loadSistemaCultivoMap() {
+    if (_sistemaCultivoMap) return _sistemaCultivoMap;
+    if (_sistemaCultivoMapPromise) return _sistemaCultivoMapPromise;
+
+    _sistemaCultivoMapPromise = (async () => {
+      const ops = await fetchCatalogoOps("SISTEMA_CULTIVO", { limit: 2000 });
+      const m = new Map();
+      (ops || []).forEach((it) => {
+        const cod = String(it?.codigo ?? "").trim();
+        const name = String(it?.nombre || it?.descripcion || "").trim();
+        if (cod && name) m.set(cod, name);
+      });
+      _sistemaCultivoMap = m;
+      return m;
+    })().catch((err) => {
+      console.warn("No se pudo cargar el catálogo SISTEMA_CULTIVO", err);
+      _sistemaCultivoMap = new Map();
+      return _sistemaCultivoMap;
+    });
+
+    return _sistemaCultivoMapPromise;
+  }
+
+function extractSistemaCultivoCodigo(obj) {
+  const sc = obj?.sistema_cultivo;
+  const cod =
+    (sc && typeof sc === "object" ? sc.codigo : null) ??
+    obj?.sistema_cultivo_codigo ??
+    null;
+  return cod == null ? null : String(cod).trim() || null;
+}
+
+async function attachSistemaCultivoLabel(obj) {
+  if (!obj) return obj;
+
+  const cod = extractSistemaCultivoCodigo(obj);
+  if (!cod) {
+    obj._sistema_cultivo_label = null;
+    return obj;
+  }
+
+  const map = await loadSistemaCultivoMap();
+  // Importante: si no hay label, NO devolvemos el código (la UI mostrará "—")
+  obj._sistema_cultivo_label = map.get(cod) || null;
+  return obj;
+}
+
 
   function fillSelectFromCatalog(selectEl, catalogo, { selected = "", placeholder = "Selecciona..." , parent = null, q = null, limit = 500 } = {}) {
     if (!selectEl) return;
@@ -4445,7 +4511,6 @@ if (csvBtn && csvBtn.disabled){
       }
     });
   }
-
 
   // -----------------------------------------
   // 3) Capas base
