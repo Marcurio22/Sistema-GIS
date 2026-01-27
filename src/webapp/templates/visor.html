@@ -1327,6 +1327,51 @@ if (btnDelete) {
     },
   }).addTo(map);
 
+  // ============================
+  // Highlight para WMS (Cultivos/Catastro)
+  // ============================
+  map.createPane("wmsHighlightPane");
+  map.getPane("wmsHighlightPane").style.zIndex = 900; // por encima de WMS
+
+  const CULTIVO_HL_STYLE = { color: "#0077ff", weight: 2, fillColor: "#0077ff", fillOpacity: 0.20 };
+  const CATASTRO_HL_STYLE = { color: "#0077ff", weight: 2, fillColor: "#0077ff", fillOpacity: 0.20 };
+
+  let cultivoHighlightLayer = null;
+  let catastroHighlightLayer = null;
+
+  function clearCultivoHighlight() {
+    if (cultivoHighlightLayer) {
+      try { map.removeLayer(cultivoHighlightLayer); } catch (_) {}
+      cultivoHighlightLayer = null;
+    }
+  }
+
+  function clearCatastroHighlight() {
+    if (catastroHighlightLayer) {
+      try { map.removeLayer(catastroHighlightLayer); } catch (_) {}
+      catastroHighlightLayer = null;
+    }
+  }
+
+  function highlightGeojson(geojson, which) {
+    if (!geojson) return;
+
+    // limpiar el otro highlight para evitar “doble selección”
+    if (which === "cultivo") clearCatastroHighlight();
+    if (which === "catastro") clearCultivoHighlight();
+
+    const layer = L.geoJSON(geojson, {
+      pane: "wmsHighlightPane",
+      style: which === "cultivo" ? CULTIVO_HL_STYLE : CATASTRO_HL_STYLE
+    }).addTo(map);
+
+    layer.bringToFront();
+
+    if (which === "cultivo") cultivoHighlightLayer = layer;
+    else catastroHighlightLayer = layer;
+  }
+
+
   function openSigpacPopupForKey(key) {
     let targetLayer = null;
 
@@ -1690,6 +1735,7 @@ async function abrirRecintoEnPanel(data) {
         const r = await fetch(`/api/popup/cultivo-sigpac?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
         const j = await r.json().catch(() => ({}));
         if (j.ok && j.found) {
+          highlightGeojson(j.data.geojson, "cultivo"); 
           abrirPopupHtml(e.latlng, buildCultivoPopup(j.data));
           return;
         }
@@ -1699,13 +1745,16 @@ async function abrirRecintoEnPanel(data) {
         const r = await fetch(`/api/popup/catastro?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
         const j = await r.json().catch(() => ({}));
         if (j.ok && j.found) {
+          highlightGeojson(j.data.geojson, "catastro");
           abrirPopupHtml(e.latlng, buildCatastroPopup(j.data));
           return;
         }
       }
 
-      // si no hay nada debajo, cerramos popup
+      // si no hay nada debajo, cerramos popup y highlights
       map.closePopup();
+      clearCultivoHighlight();
+      clearCatastroHighlight();
     } catch (err) {
       console.error("Error popup click:", err);
     }
@@ -2009,6 +2058,13 @@ async function abrirRecintoEnPanel(data) {
   function desactivarDetalle(key) {
     const opt = document.querySelector(`.basemap-option.basemap-detail[data-detail="${key}"]`);
     if (opt) opt.classList.remove("active");
+
+    // cerrar popups y limpiar resaltados al cambiar de capa
+    try { map.closePopup(); } catch (_) {}
+
+    // limpiar highlights WMS
+    clearCultivoHighlight();
+    clearCatastroHighlight();
 
     if (key === "sigpac") {
       recintosActivos = false;

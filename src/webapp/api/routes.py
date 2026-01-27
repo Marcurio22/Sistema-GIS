@@ -302,7 +302,8 @@ def popup_cultivo_sigpac():
             cultsecun_producto,
             cultsecun_ayudasol,
             parc_ayudasol,
-            cultivo_actual_nombre
+            cultivo_actual_nombre,
+            ST_AsGeoJSON(geometry)::json AS geojson
         FROM sigpac.v_cultivo_declarado_popup
         WHERE ST_Intersects(
             geometry,
@@ -350,7 +351,7 @@ def popup_catastro():
             id,
             refcat,
             area_m2,
-            fecha_descarga
+            ST_AsGeoJSON(geometry)::json AS geojson
         FROM catastro.parcelas
         WHERE ST_Intersects(
             geometry,
