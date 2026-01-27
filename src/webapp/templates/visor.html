@@ -605,7 +605,6 @@
       }, 300);
     },
 
-    // Escapar HTML para prevenir XSS
     escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;
@@ -993,7 +992,7 @@ async function restaurarEstadoMapa() {
 
   }
 
-  function safeText(v, fallback = "-") {
+  window.safeText = function(v, fallback = "-") {
     if (v === null || v === undefined) return fallback;
     const s = String(v).trim();
     return s === "" ? fallback : s;
@@ -3181,7 +3180,6 @@ dibujosGuardadosLayer.on('click', function(e) {
   });
 </script>
 
-<!-- Culticvos y operaciones -->
 <script src="{{ url_for('static', filename='js/visor/visor-cultivos.js') }}"></script>
 <script src="{{ url_for('static', filename='js/visor/visor-operaciones.js') }}"></script>
 
