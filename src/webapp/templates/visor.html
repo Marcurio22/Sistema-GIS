@@ -82,14 +82,14 @@
       <div class="basemap-thumb">
         <img src="{{ url_for('static', filename='img/thumb_satellite.png') }}" alt="Imagen satélite" />
       </div>
-      <div class="basemap-option-label">Imagen<br>Satelital</div>
+      <div class="basemap-option-label">Imagen Satelital<br>(OSM Standard)</div>
     </div>
 
     <div class="basemap-option basemap-main {% if sentinel2_version == 0 %}disabled{% endif %}" data-layer="sentinel_recent">
       <div class="basemap-thumb">
         <img src="{{ url_for('static', filename='img/thumb_sentinel2.png') }}" alt="Sentinel-2 reciente" />
       </div>
-      <div class="basemap-option-label">Satélite<br>reciente</div>
+      <div class="basemap-option-label">Satélite más reciente<br>(Sentinel-2)</div>
     </div>
 
     <div class="basemap-option basemap-main" data-layer="ndvi">
@@ -123,11 +123,19 @@
       <div class="basemap-option-label">Recintos SigPac</div>
     </div>
 
-    <div class="basemap-option disabled">
+    <div class="basemap-option basemap-detail" data-detail="cultivosSigpac">
       <div class="basemap-thumb">
         <img src="{{ url_for('static', filename='img/thumb_cultivos.png') }}" alt="Cultivos SigPac" />
       </div>
       <div class="basemap-option-label">Cultivos SigPac</div>
+    </div>
+
+    <div class="basemap-option basemap-detail" data-detail="catastro">
+        <div class="basemap-thumb">
+          <img src="{{ url_for('static', filename='img/thumb_etp.png') }}" alt="Parcelas Catastro" />
+        </div>
+        <div class="basemap-option-label">Parcelas Catastro</div>
+      </div>
     </div>
   </div>
 </div>
@@ -840,6 +848,12 @@ async function restaurarEstadoMapa() {
 
   map.createPane('highlightPane');
   map.getPane('highlightPane').style.zIndex = 650;
+
+  map.createPane("cultivosSigpacPane");
+  map.getPane("cultivosSigpacPane").style.zIndex = 440;
+
+  map.createPane("catastroPane");
+  map.getPane("catastroPane").style.zIndex = 430;
 
   // --- Modo split (panel derecho vacío) ---
   let splitOpen = false;
@@ -1563,6 +1577,65 @@ async function abrirRecintoEnPanel(data) {
       });
   }
 
+  // Parcelas catastro
+  // -----------------------------------------
+  // Parcelas Catastro + Cultivos SIGPAC (WMS desde GeoServer)
+  // -----------------------------------------
+
+  // 1) URL WMS (AJUSTA ESTO)
+  const GEOSERVER_WMS = "http://100.102.237.86:8080/geoserver/wms";
+
+  // 2) Flags de visibilidad
+  let parcelasCatastroActivas = false;
+  let cultivosSigpacActivos = false;
+
+  // 3) Capas WMS (AJUSTA layers)
+  const parcelasCatastroLayer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:parcelasCatastro",
+    styles: "catastro_fucsia", 
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    pane: "catastroPane",
+    // opcional: si tu GeoServer soporta CORS/tiles bien
+    // crossOrigin: true,
+    minZoom: 8,
+    maxZoom: 19
+  });
+
+  const cultivosSigpacLayer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:cultivo_declarado", 
+    styles: "cultivos_verde", 
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    pane: "cultivosSigpacPane",
+    minZoom: 8,
+    maxZoom: 19
+  });
+
+  // 4) Misma filosofía que recintos: solo mostrar a partir de cierto zoom
+  // (usa el mismo umbral que ya tienes para SIGPAC)
+  function cargarParcelasCatastroSiProcede() {
+    const z = map.getZoom();
+    if (!parcelasCatastroActivas || z < ZOOM_RECINTOS) {
+      if (map.hasLayer(parcelasCatastroLayer)) map.removeLayer(parcelasCatastroLayer);
+      return;
+    }
+    if (!map.hasLayer(parcelasCatastroLayer)) parcelasCatastroLayer.addTo(map);
+  }
+
+  function cargarCultivosSigpacSiProcede() {
+    const z = map.getZoom();
+    if (!cultivosSigpacActivos || z < ZOOM_RECINTOS) {
+      if (map.hasLayer(cultivosSigpacLayer)) map.removeLayer(cultivosSigpacLayer);
+      return;
+    }
+    if (!map.hasLayer(cultivosSigpacLayer)) cultivosSigpacLayer.addTo(map);
+  }
+  // -----------------------------------------
+
+
   // Función auxiliar para mensajes tipo bootstrap
   function mostrarErrorInline(msg) {
     const c = document.getElementById("side-alerts");
@@ -1726,6 +1799,8 @@ async function abrirRecintoEnPanel(data) {
     actualizarMapaSegunZoom();
     cargarRecintosSiProcede();
     cargarMisRecintosSiProcede();
+    cargarParcelasCatastroSiProcede();
+    cargarCultivosSigpacSiProcede();
     if (splitOpen && currentSideRecintoId) {
     guardarEstadoMapa();
   }
@@ -1734,11 +1809,15 @@ async function abrirRecintoEnPanel(data) {
   map.on("moveend", () => {
     cargarRecintosSiProcede();
     cargarMisRecintosSiProcede();
+    cargarParcelasCatastroSiProcede();
+    cargarCultivosSigpacSiProcede();
   });
 
   actualizarMapaSegunZoom();
   cargarRecintosSiProcede();
   cargarMisRecintosSiProcede();
+  cargarParcelasCatastroSiProcede();
+  cargarCultivosSigpacSiProcede();
 
   // -----------------------------------------
   // 8) Lógica del panel y botones sincronizados
@@ -1785,25 +1864,6 @@ async function abrirRecintoEnPanel(data) {
       });
     });
 
-  // --- Toggle Recintos SigPac ---
-  const recintosOption = document.querySelector(
-    '.basemap-option.basemap-detail[data-detail="sigpac"]'
-  );
-
-  if (recintosOption) {
-    recintosOption.addEventListener("click", () => {
-      recintosActivos = !recintosActivos;
-
-      if (recintosActivos) {
-        recintosOption.classList.add("active");
-        cargarRecintosSiProcede();
-      } else {
-        recintosOption.classList.remove("active");
-        recintosLayer.clearLayers();
-      }
-    });
-  }
-
   // --- Toggle MisRecintos ---
   const misRecintosOption = document.querySelector(
     '.basemap-option.basemap-detail[data-detail="mis"]'
@@ -1822,6 +1882,90 @@ async function abrirRecintoEnPanel(data) {
       }
     });
   }
+
+  // --- Toggle Recintos SigPac ---
+  const recintosOption = document.querySelector(
+    '.basemap-option.basemap-detail[data-detail="sigpac"]'
+  );
+
+  if (recintosOption) {
+    recintosOption.addEventListener("click", () => {
+      if (recintosActivos) {
+        desactivarDetalle("sigpac");
+      } else {
+        activarDetalleExclusivo("sigpac");
+      }
+    });
+  }
+
+  // --- Toggle Cultivos SIGPAC ---
+  const cultivosSigpacOption = document.querySelector(
+    '.basemap-option.basemap-detail[data-detail="cultivosSigpac"]'
+  );
+
+  if (cultivosSigpacOption) {
+    cultivosSigpacOption.addEventListener("click", () => {
+      if (cultivosSigpacActivos) {
+        desactivarDetalle("cultivosSigpac");
+      } else {
+        activarDetalleExclusivo("cultivosSigpac");
+      }
+    });
+  }
+
+  // --- Toggle Parcelas Catastro ---
+  const parcelasCatastroOption = document.querySelector(
+    '.basemap-option.basemap-detail[data-detail="catastro"]'
+  );
+
+  if (parcelasCatastroOption) {
+    parcelasCatastroOption.addEventListener("click", () => {
+      if (parcelasCatastroActivas) {
+        desactivarDetalle("catastro");
+      } else {
+        activarDetalleExclusivo("catastro");
+      }
+    });
+  }
+
+  // Funciones para activar/desactivar detalles de los toggles
+  function desactivarDetalle(key) {
+    const opt = document.querySelector(`.basemap-option.basemap-detail[data-detail="${key}"]`);
+    if (opt) opt.classList.remove("active");
+
+    if (key === "sigpac") {
+      recintosActivos = false;
+      recintosLayer.clearLayers();
+    } else if (key === "cultivosSigpac") {
+      cultivosSigpacActivos = false;
+      if (map.hasLayer(cultivosSigpacLayer)) map.removeLayer(cultivosSigpacLayer);
+    } else if (key === "catastro") {
+      parcelasCatastroActivas = false;
+      if (map.hasLayer(parcelasCatastroLayer)) map.removeLayer(parcelasCatastroLayer);
+    }
+  }
+
+  function activarDetalleExclusivo(key) {
+    // apaga los otros (menos "mis")
+    ["sigpac", "cultivosSigpac", "catastro"].forEach(k => {
+      if (k !== key) desactivarDetalle(k);
+    });
+
+    const opt = document.querySelector(`.basemap-option.basemap-detail[data-detail="${key}"]`);
+    if (opt) opt.classList.add("active");
+
+    if (key === "sigpac") {
+      recintosActivos = true;
+      cargarRecintosSiProcede();
+    } else if (key === "cultivosSigpac") {
+      cultivosSigpacActivos = true;
+      cargarCultivosSigpacSiProcede();
+    } else if (key === "catastro") {
+      parcelasCatastroActivas = true;
+      cargarParcelasCatastroSiProcede();
+    }
+  }
+
 
 
   // ============================================
