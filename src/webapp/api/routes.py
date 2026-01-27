@@ -27,6 +27,7 @@ from rasterio.warp import transform_geom
 
 from .. import db
 from ..models import ImagenDibujada, IndicesRaster, Recinto, Solicitudrecinto, Variedad
+from webapp.dashboard.utils_dashboard import municipios_finder
 
 from . import api_bp
 from .services import (
@@ -275,6 +276,95 @@ def solicitar_eliminar_recinto(id_recinto):
         db.session.rollback()
         print(f"Error al crear solicitud: {str(e)}")
         return jsonify({"error": "Error interno del servidor"}), 500
+    
+@api_bp.get("/popup/cultivo-sigpac")
+@login_required
+def popup_cultivo_sigpac():
+    """
+    Devuelve info de cultivos SIGPAC en el punto (lat,lng) WGS84.
+    Usa la view sigpac.v_cultivo_declarado_popup para mostrar campos 'bonitos' para popup.
+    """
+    lat = request.args.get("lat", type=float)
+    lng = request.args.get("lng", type=float)
+    if lat is None or lng is None:
+        return jsonify({"ok": False, "error": "Faltan lat/lng"}), 400
+
+    sql = text("""
+        SELECT
+            provincia,
+            municipio,
+            poligono,
+            parcela,
+            recinto,
+            parc_producto,
+            parc_producto_nombre, 
+            parc_sistexp,
+            cultsecun_producto,
+            cultsecun_ayudasol,
+            parc_ayudasol,
+            cultivo_actual_nombre
+        FROM sigpac.v_cultivo_declarado_popup
+        WHERE ST_Intersects(
+            geometry,
+            ST_SetSRID(ST_Point(:lng, :lat), 4326)
+        )
+        ORDER BY ST_Area(geometry) ASC
+        LIMIT 1
+    """)
+
+    row = db.session.execute(sql, {"lat": lat, "lng": lng}).mappings().first()
+    if not row:
+        return jsonify({"ok": True, "found": False})
+
+    # Nombres (si falla, devolvemos vacío, pero mantenemos el código)
+    nombre_provincia = ""
+    nombre_municipio = ""
+    try:
+        if row["provincia"] is not None:
+            nombre_provincia = municipios_finder.obtener_nombre_provincia(int(row["provincia"])) or ""
+        if row["provincia"] is not None and row["municipio"] is not None:
+            nombre_municipio = municipios_finder.obtener_nombre_municipio(int(row["provincia"]), int(row["municipio"])) or ""
+    except Exception:
+        pass
+
+    data = dict(row)
+    data["nombre_provincia"] = nombre_provincia
+    data["nombre_municipio"] = nombre_municipio
+
+    return jsonify({"ok": True, "found": True, "data": data})
+
+
+@api_bp.get("/popup/catastro")
+@login_required
+def popup_catastro():
+    """
+    Devuelve info de catastro.parcelas en el punto (lat,lng) WGS84.
+    """
+    lat = request.args.get("lat", type=float)
+    lng = request.args.get("lng", type=float)
+    if lat is None or lng is None:
+        return jsonify({"ok": False, "error": "Faltan lat/lng"}), 400
+
+    sql = text("""
+        SELECT
+            id,
+            refcat,
+            area_m2,
+            fecha_descarga
+        FROM catastro.parcelas
+        WHERE ST_Intersects(
+            geometry,
+            ST_SetSRID(ST_Point(:lng, :lat), 4326)
+        )
+        ORDER BY ST_Area(geometry) ASC
+        LIMIT 1
+    """)
+
+    row = db.session.execute(sql, {"lat": lat, "lng": lng}).mappings().first()
+    if not row:
+        return jsonify({"ok": True, "found": False})
+
+    return jsonify({"ok": True, "found": True, "data": dict(row)})
 
 # ---------------------------
 # Catálogos para el frontend

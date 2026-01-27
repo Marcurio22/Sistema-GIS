@@ -1235,9 +1235,6 @@ if (btnDelete) {
     return highZoomLayers[activeHighLayerKey];
   }
 
-
-  
-
   // -----------------------------------------
   // 4) Capa de recintos
   // -----------------------------------------
@@ -1577,19 +1574,18 @@ async function abrirRecintoEnPanel(data) {
       });
   }
 
-  // Parcelas catastro
   // -----------------------------------------
   // Parcelas Catastro + Cultivos SIGPAC (WMS desde GeoServer)
   // -----------------------------------------
 
-  // 1) URL WMS (AJUSTA ESTO)
+  // 1) URL WMS
   const GEOSERVER_WMS = "http://100.102.237.86:8080/geoserver/wms";
 
   // 2) Flags de visibilidad
   let parcelasCatastroActivas = false;
   let cultivosSigpacActivos = false;
 
-  // 3) Capas WMS (AJUSTA layers)
+  // 3) Capas WMS
   const parcelasCatastroLayer = L.tileLayer.wms(GEOSERVER_WMS, {
     layers: "gis_project:parcelasCatastro",
     styles: "catastro_fucsia", 
@@ -1597,10 +1593,7 @@ async function abrirRecintoEnPanel(data) {
     transparent: true,
     tiled: true,
     pane: "catastroPane",
-    // opcional: si tu GeoServer soporta CORS/tiles bien
-    // crossOrigin: true,
-    minZoom: 8,
-    maxZoom: 19
+    maxZoom: 22
   });
 
   const cultivosSigpacLayer = L.tileLayer.wms(GEOSERVER_WMS, {
@@ -1610,12 +1603,10 @@ async function abrirRecintoEnPanel(data) {
     transparent: true,
     tiled: true,
     pane: "cultivosSigpacPane",
-    minZoom: 8,
-    maxZoom: 19
+    maxZoom: 22
   });
 
-  // 4) Misma filosofía que recintos: solo mostrar a partir de cierto zoom
-  // (usa el mismo umbral que ya tienes para SIGPAC)
+  // 4) Sólo mostrar a partir de cierto zoom
   function cargarParcelasCatastroSiProcede() {
     const z = map.getZoom();
     if (!parcelasCatastroActivas || z < ZOOM_RECINTOS) {
@@ -1633,8 +1624,95 @@ async function abrirRecintoEnPanel(data) {
     }
     if (!map.hasLayer(cultivosSigpacLayer)) cultivosSigpacLayer.addTo(map);
   }
-  // -----------------------------------------
 
+  // Funciones auxiliares para popups
+  function fmt(v, fallback = "-") {
+    if (v === null || v === undefined) return fallback;
+    const s = String(v).trim();
+    return s === "" ? fallback : s;
+  }
+
+  function abrirPopupHtml(latlng, html) {
+    L.popup({ maxWidth: 320, autoPan: true })
+      .setLatLng(latlng)
+      .setContent(html)
+      .openOn(map);
+  }
+
+  function buildCultivoPopup(d) {
+    const cultivoNombre = fmt(d.parc_producto_nombre || d.cultivo_actual_nombre, "Cultivo");
+
+    const provinciaTxt = `${fmt(d.provincia)}${d.nombre_provincia ? " - " + d.nombre_provincia : ""}`;
+    const municipioTxt = `${fmt(d.municipio)}${d.nombre_municipio ? " - " + d.nombre_municipio : ""}`;
+
+    const prodNombre = fmt(d.parc_producto_nombre, "");
+    const prodTxt = prodNombre ? `${fmt(d.parc_producto)} - ${prodNombre}` : fmt(d.parc_producto);
+
+    return `
+      <div class="popup-recinto" style="min-width: 250px;">
+        <div class="popup-recinto-info" style="font-size: 0.9rem;">
+          <div style="font-weight: 800; margin-bottom: 6px;">${cultivoNombre}</div>
+          <strong>Provincia:</strong> ${provinciaTxt}<br>
+          <strong>Municipio:</strong> ${municipioTxt}<br>
+          <strong>Parcela:</strong> ${fmt(d.parcela)}<br>
+          <strong>Recinto:</strong> ${fmt(d.recinto)}<br>
+          <hr style="margin: 8px 0;">
+          <strong>Producto:</strong> <strong>${prodTxt}</strong><br>
+          <strong>Sist. exp.:</strong> ${fmt(d.parc_sistexp)}<br>
+        </div>
+      </div>
+    `;
+  }
+
+  function buildCatastroPopup(d) {
+    const areaHa = d.area_m2 ? (Number(d.area_m2) / 10000).toFixed(2) : null;
+
+    return `
+      <div class="popup-recinto" style="min-width: 250px;">
+        <div class="popup-recinto-info" style="font-size: 0.9rem;">
+          <div style="font-weight: 800; margin-bottom: 6px;">Parcela Catastro</div>
+          <strong>Ref. Catastral:</strong> ${fmt(d.refcat)}<br>
+          <strong>Área:</strong> ${areaHa ? areaHa + " ha" : "-"}<br>
+        </div>
+      </div>
+    `;
+  }
+
+  // 5) Handler click mapa para popups
+  map.on("click", async (e) => {
+    // Evitar que un click sobre una geometría interactiva (recintos/mis recintos) dispare también esto
+    const t = e?.originalEvent?.target;
+    if (t && (t.classList?.contains("leaflet-interactive") || t.closest?.(".leaflet-interactive"))) return;
+    if (map.getZoom() < ZOOM_RECINTOS) return;
+
+    try {
+      // prioridad: si están ambos activos por error, mostramos el que esté activo (cultivos > catastro)
+      if (cultivosSigpacActivos) {
+        const r = await fetch(`/api/popup/cultivo-sigpac?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
+        const j = await r.json().catch(() => ({}));
+        if (j.ok && j.found) {
+          abrirPopupHtml(e.latlng, buildCultivoPopup(j.data));
+          return;
+        }
+      }
+
+      if (parcelasCatastroActivas) {
+        const r = await fetch(`/api/popup/catastro?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
+        const j = await r.json().catch(() => ({}));
+        if (j.ok && j.found) {
+          abrirPopupHtml(e.latlng, buildCatastroPopup(j.data));
+          return;
+        }
+      }
+
+      // si no hay nada debajo, cerramos popup
+      map.closePopup();
+    } catch (err) {
+      console.error("Error popup click:", err);
+    }
+  });
+
+  // -----------------------------------------
 
   // Función auxiliar para mensajes tipo bootstrap
   function mostrarErrorInline(msg) {
@@ -1709,7 +1787,7 @@ async function abrirRecintoEnPanel(data) {
         return;
       }
       
-      // NUEVO: Guardar información del popup abierto antes de limpiar
+      // Guardar información del popup abierto antes de limpiar
       let popupAbiertoId = null;
       let popupEstiloSeleccionado = false;
       
@@ -1729,7 +1807,7 @@ async function abrirRecintoEnPanel(data) {
       }
       recintosLayer.addData(fc);
       
-      // NUEVO: Reabrir el popup si estaba abierto
+      // Reabrir el popup si estaba abierto
       if (popupAbiertoId) {
         recintosLayer.eachLayer((layer) => {
           const props = layer.feature?.properties || {};
@@ -1965,8 +2043,6 @@ async function abrirRecintoEnPanel(data) {
       cargarParcelasCatastroSiProcede();
     }
   }
-
-
 
   // ============================================
   // CENTRAR EN RECINTO ESPECÍFICO
