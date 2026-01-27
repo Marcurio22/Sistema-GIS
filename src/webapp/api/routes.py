@@ -48,7 +48,8 @@ from .services import (
     list_operaciones_recinto,
     create_operacion_recinto,
     patch_operacion_by_id,
-    delete_operacion_by_id
+    delete_operacion_by_id,
+    _sistema_cultivo_obj
 )
 
 
@@ -545,7 +546,11 @@ def api_get_cultivos_historico(recinto_id: int):
     out = []
     for r in rows:
         d = dict(r)
-        out.append({k: _jsonable(v) for k, v in d.items()})
+        cultivo_dict = {k: _jsonable(v) for k, v in d.items()}
+        
+        cultivo_dict["sistema_cultivo"] = _sistema_cultivo_obj(r["sistema_cultivo_codigo"])
+        
+        out.append(cultivo_dict)
 
     return jsonify(out)
 
@@ -568,6 +573,8 @@ def api_create_cultivo_historico(recinto_id: int):
         return jsonify({"ok": False, "error": str(e)}), 400
     except Exception:
         return jsonify({"ok": False, "error": "Error interno"}), 500
+    
+    
     
 @api_bp.patch("/cultivos/<int:id_cultivo>")
 @login_required
@@ -739,7 +746,7 @@ def get_indices_raster():
         indices = IndicesRaster.query.filter_by(
             id_recinto=id_recinto,
             tipo_indice=tipo_indice
-        ).order_by(IndicesRaster.fecha_ndvi.asc()).all()
+        ).order_by(IndicesRaster.fecha_ndvi.desc()).all()
         
         # Meses abreviados
         meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 
@@ -789,7 +796,7 @@ def grafica_ndvi(recinto_id):
         indices = IndicesRaster.query.filter_by(
             id_recinto=recinto_id,
             tipo_indice='NDVI'
-        ).order_by(IndicesRaster.fecha_ndvi.asc()).all()
+        ).order_by(IndicesRaster.fecha_ndvi.desc()).all()
 
         if not indices:
             return jsonify({"error": "No hay datos NDVI disponibles"}), 404
