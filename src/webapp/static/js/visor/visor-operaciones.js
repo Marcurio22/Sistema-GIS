@@ -547,7 +547,12 @@ async function fetchCatalogoOps(catalogo, { parent = null, q = null, limit = 200
 
     const data = await fetchJson(url);
     const arr = Array.isArray(data) ? data : [];
-    await Promise.all(arr.map(attachSistemaCultivoLabel));
+
+    const cat = String(catalogo).toUpperCase();
+    if (cat !== "SISTEMA_CULTIVO") {
+        await Promise.all(arr.map(attachSistemaCultivoLabel));
+    }
+
     _catCache.set(key, arr);
     return arr;
 }
