@@ -1404,7 +1404,7 @@ function renderCultivoForm(container, args) {
                 <div class="col-12 col-md-4">
                     <label class="form-label fw-bold">Procedencia material vegetal</label>
                     <select id="adv-proc-mv" class="form-select"></select>
-                    <div class="form-text">Catálogo SIEX: PROCEDENCIA_MATERIAL_VEGETAL</div>
+                    <div class="form-text">Catálogo SIEX: MVR_PROCEDENCIA</div>
                 </div>
 
                 <div class="col-12 col-md-4">
@@ -1685,7 +1685,7 @@ function renderCultivoForm(container, args) {
 
     fillSelectFromCatalog(advMvrTipo, "MVR_TIPO", { selected: advMvrTipoSel, placeholder: "(Opcional)" });
     fillSelectFromCatalog(advTipoLabor, "TIPO_LABOR", { selected: advTipoLaborSel, placeholder: "(Opcional)" });
-    fillSelectFromCatalog(advProcMv, "PROCEDENCIA_MATERIAL_VEGETAL", { selected: advProcMvSel, placeholder: "(Opcional)" });
+    fillSelectFromCatalog(advProcMv, "MVR_PROCEDENCIA", { selected: advProcMvSel, placeholder: "(Opcional)" });
     fillSelectFromCatalog(advSenp, "SENP", { selected: advSenpSel, placeholder: "(Opcional)" });
 
     function reloadMvrDetalle({ selected = "" } = {}) {
