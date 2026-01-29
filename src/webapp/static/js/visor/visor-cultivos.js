@@ -82,17 +82,6 @@ async function loadProductosFega() {
     return _productosFega;
 }
 
-// const _productosFegaByUso = new Map();
-
-// async function loadProductosFegaPorUso(usoSigpac) {
-//     const key = String(usoSigpac || "").trim();
-//     if (!key) return [];
-//     if (_productosFegaByUso.has(key)) return _productosFegaByUso.get(key);
-//     const list = await fetchJson(`/api/catalogos/productos-fega/${encodeURIComponent(key)}`);
-//     _productosFegaByUso.set(key, list || []);
-//     return list || [];
-// }
-
 function byCodigo(list) {
     const m = new Map();
     (list || []).forEach(it => m.set(String(it.codigo), it));
