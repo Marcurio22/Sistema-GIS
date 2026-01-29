@@ -239,42 +239,48 @@ def editar_nombre_recinto(recinto_id):
 @login_required
 def solicitar_eliminar_recinto(id_recinto):
     try:
+        data = request.get_json(silent=True) or {}
+        motivo = (data.get("motivo") or "").strip()
+
+        if not motivo:
+            return jsonify({"error": "Debes indicar un motivo"}), 400
+
         # Verificar que el recinto existe
         recinto = Recinto.query.get(id_recinto)
-        print("a", recinto)
         if not recinto:
             return jsonify({"error": "Recinto no encontrado"}), 404
-        
+
         # Verificar que el usuario es el propietario del recinto
         if recinto.id_propietario != current_user.id_usuario:
             return jsonify({"error": "No tienes permiso para solicitar eliminar este recinto"}), 403
-        
+
         # Verificar si ya existe una solicitud pendiente para este recinto
         solicitud_existente = Solicitudrecinto.query.filter_by(
             id_recinto=id_recinto,
             tipo_solicitud="eliminacion",
             estado="pendiente"
         ).first()
-        
+
         if solicitud_existente:
             return jsonify({"error": "Ya existe una solicitud de eliminación pendiente para este recinto"}), 400
-        
-        # Crear la nueva solicitud
+
+        # Crear la nueva solicitud (GUARDANDO el motivo)
         nueva_solicitud = Solicitudrecinto(
             id_usuario=current_user.id_usuario,
             id_recinto=id_recinto,
             tipo_solicitud="eliminacion",
-            estado="pendiente"
+            estado="pendiente",
+            motivo_solicitud=motivo
         )
-        
+
         db.session.add(nueva_solicitud)
         db.session.commit()
-        
+
         return jsonify({
             "mensaje": "Solicitud de eliminación creada exitosamente",
             "id_solicitud": nueva_solicitud.id_solicitud
         }), 201
-        
+
     except Exception as e:
         db.session.rollback()
         print(f"Error al crear solicitud: {str(e)}")

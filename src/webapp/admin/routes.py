@@ -218,8 +218,15 @@ def aprobar_solicitud_recinto(id_solicitud):
 
     if tipo_solicitud == "eliminacion":
         # SOLICITUD DE ELIMINACIÓN
-        # Verificar que el usuario sea el propietario actual
-       
+        # Seguridad: exigir motivo en solicitudes de eliminación (por si hay registros antiguos)
+        if not (solicitud.motivo_solicitud or "").strip():
+            flash("No se puede aprobar una eliminación sin motivo. Falta el motivo en la solicitud.", "danger")
+            logger.warning(
+                f'Admin {current_user.username} intentó aprobar eliminación {id_solicitud} sin motivo',
+                extra={'tipo_operacion': 'APROBAR_ELIMINACION_SIN_MOTIVO', 'modulo': 'SOLICITUDES'}
+            )
+            return redirect(url_for("admin.gestion_recintos"))
+        
         # Eliminar propietario (liberar recinto)
         recinto.id_propietario = None
         solicitud.estado = "aprobada"
@@ -305,8 +312,26 @@ def aprobar_solicitud_recinto(id_solicitud):
                     direccion_recinto=direccion_recinto
                 )
         
+        motivo = (getattr(solicitud, "motivo_solicitud", "") or "").strip()
+        
+        if solicitud.tipo_solicitud == "eliminacion":
+            logger.info(
+                f"... Motivo: {motivo}",
+                extra={...}
+            )
+        else:
+            logger.info(
+                f"...",
+                extra={...}
+            )
+            
         logger.info(
-            f'Admin {current_user.username} aprobó solicitud {id_solicitud} del usuario {usuario_solicitante.username if usuario_solicitante else "desconocido"} para recinto {recinto.id_recinto} (Prov: {recinto.provincia}, Mun: {recinto.municipio}, Pol: {recinto.poligono}, Par: {recinto.parcela})',
+            f'Admin {current_user.username} aprobó solicitud {id_solicitud} '
+            f'del usuario {usuario_solicitante.username if usuario_solicitante else "desconocido"} '
+            f'para recinto {recinto.id_recinto} '
+            f'(Prov: {recinto.provincia}, Mun: {recinto.municipio}, '
+            f'Pol: {recinto.poligono}, Par: {recinto.parcela}) '
+            f'Motivo: {motivo}',
             extra={'tipo_operacion': 'APROBAR_SOLICITUD', 'modulo': 'SOLICITUDES'}
         )
         

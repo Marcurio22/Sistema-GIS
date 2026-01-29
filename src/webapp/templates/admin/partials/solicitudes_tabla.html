@@ -10,6 +10,7 @@
         <th class="text-center">Fecha solicitud</th>
         <th class="text-center">Fecha resolución</th>
         <th class="text-center">Tipo de solicitud</th>
+        <th class="text-center">Motivo</th>
         <th class="text-center">Acciones</th>
       </tr>
     </thead>
@@ -69,9 +70,28 @@
           </span>
           {% endif %}
         </td>
+        <td class="text-start" style="max-width: 260px;">
+          {% if s.tipo_solicitud == 'eliminacion' %}
+            {% if s.motivo_solicitud %}
+              <span class="d-inline-block text-truncate" style="max-width: 240px;"
+                    title="{{ s.motivo_solicitud }}">
+                {{ s.motivo_solicitud }}
+              </span>
+            {% else %}
+              <span class="text-muted">—</span>
+            {% endif %}
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
         <td style="min-width: 260px">
           {% if s.estado == 'pendiente' %}
           {% if s.recinto %}
+            {% if s.tipo_solicitud == 'eliminacion' and s.motivo_solicitud %}
+              <small class="text-muted d-block mb-1">
+                <strong>Motivo:</strong> {{ s.motivo_solicitud }}
+              </small>
+            {% endif %}
           <a href="{{ url_for('dashboard.visor', recinto_id=s.recinto.id_recinto) }}"
             class="btn btn-sm btn-info me-1" title="Ver recinto en el mapa">
             <i class="bi bi-map"></i> Ver

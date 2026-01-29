@@ -472,6 +472,7 @@
     </div>
   </div>
 </div>
+
 <!-- Modal para editar imagen -->
 <div class="modal fade" id="modalEditar" tabindex="-1" aria-labelledby="modalEditarLabel" aria-hidden="true">
   <div class="modal-dialog">
@@ -522,6 +523,52 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Motivo Eliminación Recinto -->
+<div class="modal fade" id="motivoEliminacionModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+          Solicitar eliminación de recinto
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="mb-3">
+          ¿Estás seguro de que deseas solicitar la eliminación de este recinto?
+          Un administrador deberá aprobar la solicitud antes de que el recinto sea eliminado.
+        </p>
+
+        <label for="motivoEliminacionInput" class="form-label fw-bold">
+          Motivo de eliminación <span class="text-danger">*</span>
+        </label>
+
+        <textarea id="motivoEliminacionInput"
+                  class="form-control"
+                  rows="4"
+                  maxlength="500"
+                  placeholder="Explica brevemente por qué solicitas la eliminación..."
+                  required></textarea>
+
+        <div class="invalid-feedback">
+          Debes indicar un motivo.
+        </div>
+
+        <small class="text-muted d-block mt-2">Máximo 500 caracteres.</small>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="btnConfirmarMotivoEliminacion">
+          Solicitar eliminación
+        </button>
       </div>
     </div>
   </div>
@@ -727,6 +774,79 @@
     return { open };
   })();
 
+  function openMotivoEliminacionModal() {
+  return new Promise((resolve) => {
+    const modalEl = document.getElementById("motivoEliminacionModal");
+    const inputEl = document.getElementById("motivoEliminacionInput");
+    const btnOk = document.getElementById("btnConfirmarMotivoEliminacion");
+
+    if (!modalEl || !inputEl || !btnOk) {
+      console.error("Faltan elementos del modal de motivo de eliminación");
+      resolve(null);
+      return;
+    }
+
+    // Bootstrap modal instance
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl, {
+      backdrop: "static", // no cerrar clic fuera
+      keyboard: false     // no cerrar con ESC
+    });
+
+    // Estado inicial
+    inputEl.value = "";
+    inputEl.classList.remove("is-invalid");
+
+    let settled = false;
+
+    const cleanup = () => {
+      btnOk.removeEventListener("click", onOk);
+      modalEl.removeEventListener("hidden.bs.modal", onHidden);
+      inputEl.removeEventListener("keydown", onKeyDown);
+    };
+
+    const finish = (val) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(val);
+    };
+
+    const onOk = () => {
+      const motivo = (inputEl.value || "").trim();
+
+      if (!motivo) {
+        inputEl.classList.add("is-invalid");
+        inputEl.focus();
+        return;
+      }
+
+      modal.hide();
+      finish(motivo);
+    };
+
+    // Si se cierra por cancelar (btn-close o btn-secondary), devolver null
+    const onHidden = () => {
+      if (!settled) finish(null);
+    };
+
+    // Enter envía (Shift+Enter hace salto de línea)
+    const onKeyDown = (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        btnOk.click();
+      }
+    };
+
+    btnOk.addEventListener("click", onOk);
+    modalEl.addEventListener("hidden.bs.modal", onHidden);
+    inputEl.addEventListener("keydown", onKeyDown);
+
+    modal.show();
+
+    // foco al mostrar
+    setTimeout(() => inputEl.focus(), 150);
+  });
+}
 
   // -----------------------------------------
   // DOM Content Loaded
@@ -1056,37 +1176,31 @@ async function restaurarEstadoMapa() {
     window.renderOperacionesForRecinto?.(currentSideRecintoId);
   }
 
+
 const btnDelete = document.getElementById("btn-delete-recinto");
 if (btnDelete) {
   btnDelete.addEventListener("click", async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!currentSideRecintoId) {
       console.warn("No hay recinto seleccionado");
       return;
     }
 
-    // Abrir modal de confirmación
-    const ok = await AppConfirm.open({
-      title: "Solicitar eliminación de recinto",
-      message: "¿Estás seguro de que deseas solicitar la eliminación de este recinto? Un administrador deberá aprobar la solicitud antes de que el recinto sea eliminado.",
-      okText: "Solicitar eliminación",
-      cancelText: "Cancelar",
-      okClass: "btn-danger"
-    });
+    const motivo = (await openMotivoEliminacionModal())?.trim();
+    if (!motivo) return;
 
-    // Si el usuario cancela, salir
-    if (!ok) return;
+    btnDelete.disabled = true;
 
-    // Si confirma, proceder con la eliminación
     try {
       const response = await fetch(`/api/solicitud-eliminar-recinto/${currentSideRecintoId}/borrar`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ motivo })
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         throw new Error(data.error || "Error al crear la solicitud");
@@ -1105,6 +1219,8 @@ if (btnDelete) {
         title: "Error",
         message: err.message || "Error al solicitar eliminación"
       });
+    } finally {
+      btnDelete.disabled = false;
     }
   });
 }

@@ -158,6 +158,7 @@ class Solicitudrecinto(db.Model):
     fecha_resolucion = db.Column(db.DateTime(timezone=True), nullable=True)
     motivo_rechazo = db.Column(db.Text, nullable=True)
     tipo_solicitud = db.Column(db.String(100), nullable=True)
+    motivo_solicitud = db.Column(db.Text, nullable=True)
 
     # Relaciones
     usuario = db.relationship("User", back_populates="solicitudes_recintos")
