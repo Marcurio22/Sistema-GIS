@@ -286,7 +286,7 @@ window.closeGaleriaPanel = function closeGaleriaPanel() {
 document.getElementById("btn-cerrar-historico")?.addEventListener("click", (e) => {
     e.preventDefault();
     e.stopPropagation();
-    sideCloseBtn?.click();
+    document.getElementById("side-close")?.click();
 });
 
 document.getElementById("btn-volver-historico")?.addEventListener("click", (e) => {
@@ -444,6 +444,7 @@ document.getElementById("btn-historico-cultivos")?.addEventListener("click", asy
                 </thead>
                 <tbody>
                 ${arr.map((c) => {
+                    console.log("Render cultivo histórico:", c);
                     const isCamp = String(c.tipo_registro || "").toUpperCase().includes("CAMP");
                     const inicio = isCamp ? c.fecha_siembra : c.fecha_implantacion;
                     const fin = c.fecha_cosecha_real || c.fecha_cosecha_estimada;
@@ -470,10 +471,9 @@ document.getElementById("btn-historico-cultivos")?.addEventListener("click", asy
                     const hasObs = !!obsText.trim();
 
                     const sisCult = c.sistema_cultivo;
-                    const sisCultLbl = c?._sistema_cultivo_label
-                        ? String(c._sistema_cultivo_label).trim()
+                    const sisCultLbl = sisCult?.label
+                        ? String(sisCult.label).trim()
                         : "—";
-
 
                     const advYes = hasAvanzado(c.avanzado);
 
@@ -503,7 +503,7 @@ document.getElementById("btn-historico-cultivos")?.addEventListener("click", asy
                         ? `<div class="border rounded-3 p-2 hist-obs-box" style="white-space:pre-wrap;">${escapeHtml(obsText)}</div>`
                         : `<div class="text-muted">(Sin observaciones)</div>`;
 
-                    return `
+                   return `
                     <tr>
                         <td class="hist-fechas">
                         ${safeText(formatDateOnly(inicio))} → ${safeText(formatDateOnly(fin))}
@@ -950,6 +950,7 @@ function tipoRegistroLabel(val) {
 function renderCultivoView(container, recintoId, cultivo, usos, productos) {
     const usosMap = byCodigo(usos);
     const tipoReg = tipoRegistroLabel(cultivo.tipo_registro);
+    console.log("Render view cultivo:", cultivo);
     const sisCultLbl = cultivo?._sistema_cultivo_label ? String(cultivo._sistema_cultivo_label).trim() : "";
     const isCamp = String(cultivo.tipo_registro || "").toUpperCase().includes("CAMP");
 

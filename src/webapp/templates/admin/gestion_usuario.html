@@ -97,7 +97,7 @@
                         <tr>
                             <th class="px-3">ID</th>
                             <th class="text-center">Usuario</th>
-                            <th class="text-center">Email</th>
+                            <th class="text-center" style="min-width: 150px;">Email</th>
                             <th class="text-center">Teléfono</th>
                             <th class="text-center">Rol</th>
                             <th class="text-center">Estado</th>
@@ -128,10 +128,11 @@
                                     </div>
                                 </div>
                             </td>
-                            <td>
+                            <td style="min-width: 150px;">
                                 <i class="bi bi-envelope me-2 text-muted"></i>
-                                <span class="text-break">{{ usuario.email if usuario.email else 'No especificado'
-                                    }}</span>
+                                <span class="text-break">
+                                    {{ usuario.email if usuario.email else 'No especificado' }}
+                                </span>
                             </td>
                             <td style="white-space: nowrap;">
                                 {% if usuario.telefono %}

@@ -195,109 +195,116 @@ class NDVI {
     }
 
     async cargarDetalleNDVI() {
-        const listEl = document.getElementById('ndvi-historico-list');
-        if (!listEl) return;
+    const listEl = document.getElementById('ndvi-historico-list');
+    if (!listEl) return;
 
-        if (!this.recintoId) {
-            listEl.innerHTML = '<p class="text-muted">No hay recinto seleccionado</p>';
+    if (!this.recintoId) {
+        listEl.innerHTML = '<p class="text-muted">No hay recinto seleccionado</p>';
+        return;
+    }
+
+    listEl.innerHTML = '<div class="text-muted">Cargando histórico NDVI...</div>';
+
+    try {
+        const response = await fetch(`/api/indices-raster?id_recinto=${this.recintoId}&tipo_indice=NDVI`);
+
+        if (!response.ok) {
+            throw new Error('Error al cargar NDVI');
+        }
+
+        const indices = await response.json();
+
+        if (!indices || indices.length === 0) {
+            listEl.innerHTML = `<div class="text-muted text-center py-3">
+                <i class="fa-solid fa-leaf mb-2" style="font-size: 2rem; opacity: 0.3;"></i>
+                <p class="mb-0">No hay datos NDVI disponibles</p>
+            </div>`;
             return;
         }
 
-        listEl.innerHTML = '<div class="text-muted">Cargando histórico NDVI...</div>';
+        // INVERTIR el orden para el carrusel (de más antigua a más reciente)
+        this.todosLosIndices = indices.reverse();
+        
+        // Empezar mostrando las 5 más recientes (que ahora están al final del array)
+        this.indiceActual = Math.max(0, this.todosLosIndices.length - 5);
 
-        try {
-            const response = await fetch(`/api/indices-raster?id_recinto=${this.recintoId}&tipo_indice=NDVI`);
+        this.renderizarDetalle(listEl);
 
-            if (!response.ok) {
-                throw new Error('Error al cargar NDVI');
-            }
-
-            const indices = await response.json();
-
-            if (!indices || indices.length === 0) {
-                listEl.innerHTML = `<div class="text-muted text-center py-3">
-                    <i class="fa-solid fa-leaf mb-2" style="font-size: 2rem; opacity: 0.3;"></i>
-                    <p class="mb-0">No hay datos NDVI disponibles</p>
-                </div>`;
-                return;
-            }
-
-            this.todosLosIndices = indices;
-            this.indiceActual = 0;
-
-            this.renderizarDetalle(listEl);
-
-        } catch (error) {
-            console.error('Error al cargar detalle NDVI:', error);
-            listEl.innerHTML = '<p class="text-danger">Error cargando el histórico NDVI</p>';
-        }
+    } catch (error) {
+        console.error('Error al cargar detalle NDVI:', error);
+        listEl.innerHTML = '<p class="text-danger">Error cargando el histórico NDVI</p>';
     }
+}
 
     renderizarDetalle(listEl) {
-        const total = this.todosLosIndices.length;
+    const total = this.todosLosIndices.length;
 
-        listEl.innerHTML = `<!-- Carrusel de imágenes -->
-        <div class="mb-4">
-            <h5 class="mb-3">
-                <i class="bi bi-images me-2"></i>
-                Imágenes NDVI
-                <span class="badge bg-success ms-2">${total}</span>
-            </h5>
+    listEl.innerHTML = `<!-- Carrusel de imágenes -->
+    <div class="mb-4">
+        <h5 class="mb-3">
+            <i class="bi bi-images me-2"></i>
+            Imágenes NDVI
+            <span class="badge bg-success ms-2">${total}</span>
+        </h5>
 
-            <div class="ndvi-carousel">
-                <button id="btn-carousel-prev" class="carousel-btn carousel-btn-prev">
-                    <i class="bi bi-chevron-left"></i>
-                </button>
+        <div class="ndvi-carousel">
+            <button id="btn-carousel-prev" class="carousel-btn carousel-btn-prev">
+                <i class="bi bi-chevron-left"></i>
+            </button>
 
-                <div class="carousel-images" id="carousel-images">
-                    ${this.renderizarImagenes()}
-                </div>
-
-                <button id="btn-carousel-next" class="carousel-btn carousel-btn-next">
-                    <i class="bi bi-chevron-right"></i>
-                </button>
+            <div class="carousel-images" id="carousel-images">
+                ${this.renderizarImagenes()}
             </div>
 
-           
+            <button id="btn-carousel-next" class="carousel-btn carousel-btn-next">
+                <i class="bi bi-chevron-right"></i>
+            </button>
         </div>
 
-        <div class="side-divider"></div>
+        <div class="text-center mt-2">
+            <small class="text-muted" id="contador-carousel"></small>
+        </div>
+    </div>
 
-        <!-- Gráfica de evolución -->
-        <div class="mb-3">
-            <h5 class="mb-3">
-                <i class="bi bi-graph-up me-2"></i>
-                Evolución del NDVI
-            </h5>
-            <div id="ndvi-chart"></div>
-        </div>`;
+    <div class="side-divider"></div>
 
-        const btnPrev = listEl.querySelector('#btn-carousel-prev');
-        const btnNext = listEl.querySelector('#btn-carousel-next');
+    <!-- Gráfica de evolución -->
+    <div class="mb-3">
+        <h5 class="mb-3">
+            <i class="bi bi-graph-up me-2"></i>
+            Evolución del NDVI
+        </h5>
+        <div id="ndvi-chart"></div>
+    </div>`;
 
-        if (btnPrev) {
-            btnPrev.addEventListener('click', () => {
-                if (this.indiceActual > 0) {
-                    this.indiceActual = Math.max(0, this.indiceActual - 3);
-                    this.actualizarCarousel();
-                }
-            });
-        }
+    const btnPrev = listEl.querySelector('#btn-carousel-prev');
+    const btnNext = listEl.querySelector('#btn-carousel-next');
 
-        if (btnNext) {
-            btnNext.addEventListener('click', () => {
-                const total = this.todosLosIndices.length;
-                if (this.indiceActual + 3 < total) {
-                    this.indiceActual = this.indiceActual + 3;
-                    this.actualizarCarousel();
-                }
-            });
-        }
-
-        this.actualizarEstadoBotones();
-        this.renderizarGrafica();
-        this.agregarEventosZoom();
+    if (btnPrev) {
+        btnPrev.addEventListener('click', () => {
+            // Ir hacia atrás en el tiempo (imágenes más antiguas)
+            if (this.indiceActual > 0) {
+                this.indiceActual = Math.max(0, this.indiceActual - 5);
+                this.actualizarCarousel();
+            }
+        });
     }
+
+    if (btnNext) {
+        btnNext.addEventListener('click', () => {
+            // Ir hacia adelante en el tiempo (imágenes más recientes)
+            const total = this.todosLosIndices.length;
+            if (this.indiceActual + 5 < total) {
+                this.indiceActual = Math.min(total - 5, this.indiceActual + 5);
+                this.actualizarCarousel();
+            }
+        });
+    }
+
+    this.actualizarEstadoBotones();
+    this.renderizarGrafica();
+    this.agregarEventosZoom();
+}
 
     agregarEventosZoom() {
         // Agregar eventos click a todas las imágenes del carrusel
@@ -312,73 +319,76 @@ class NDVI {
     }
 
     renderizarImagenes() {
-        const total = this.todosLosIndices.length;
-        const inicio = this.indiceActual;
-        const fin = Math.min(inicio + 3, total);
-        const imagenes = this.todosLosIndices.slice(inicio, fin);
+    const total = this.todosLosIndices.length;
+    const inicio = this.indiceActual;
+    const fin = Math.min(inicio + 5, total); // Cambiar de 3 a 5
+    const imagenes = this.todosLosIndices.slice(inicio, fin);
 
-        if (imagenes.length === 0) {
-            return '<p class="text-muted">No hay imágenes para mostrar</p>';
+    if (imagenes.length === 0) {
+        return '<p class="text-muted">No hay imágenes para mostrar</p>';
+    }
+
+    return imagenes.map((indice) => {
+        let rutaImagen = indice.ruta_ndvi;
+
+        if (rutaImagen) {
+            rutaImagen = rutaImagen.replace(/^webapp\//, '');
+            if (!rutaImagen.startsWith('/')) {
+                rutaImagen = '/' + rutaImagen;
+            }
+        } else {
+            rutaImagen = `/static/thumbnails/${indice.fecha_ndvi ? indice.fecha_ndvi.replace(/-/g, '').substring(0, 8) : 'unknown'}_${this.recintoId}.png`;
         }
 
-        return imagenes.map((indice) => {
-            let rutaImagen = indice.ruta_ndvi;
+        const fecha = indice.fecha_ndvi_formateada || 'N/A';
 
-            if (rutaImagen) {
-                rutaImagen = rutaImagen.replace(/^webapp\//, '');
-                if (!rutaImagen.startsWith('/')) {
-                    rutaImagen = '/' + rutaImagen;
-                }
-            } else {
-                rutaImagen = `/static/thumbnails/${indice.fecha_ndvi ? indice.fecha_ndvi.replace(/-/g, '').substring(0, 8) : 'unknown'}_${this.recintoId}.png`;
-            }
-
-            const fecha = indice.fecha_ndvi_formateada || 'N/A';
-
-            return `<div class="carousel-item" style="margin-right: 8px;">
-                <img src="${rutaImagen}"
-                    alt="NDVI ${fecha}"
-                    class="carousel-img"
-                    style="object-fit: contain; background: #f8f9fa;"
-                    onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22110%22 height=%22110%22><rect width=%22110%22 height=%22110%22 fill=%22%23e9ecef%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%236c757d%22 font-size=%2212%22>Sin imagen</text></svg>'">
-                <div class="carousel-item-info">
-                    <div class="fw-bold">${fecha}</div>
-                    <div class="text-muted" style="font-size: 0.75rem;">Media: ${indice.valor_medio.toFixed(4)}</div>
-                </div>
-            </div>`;
-        }).join('');
-    }
+        return `<div class="carousel-item" style="margin-right: 8px;">
+            <img src="${rutaImagen}"
+                alt="NDVI ${fecha}"
+                class="carousel-img"
+                style="object-fit: contain; background: #f8f9fa;"
+                onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22110%22 height=%22110%22><rect width=%22110%22 height=%22110%22 fill=%22%23e9ecef%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%236c757d%22 font-size=%2212%22>Sin imagen</text></svg>'">
+            <div class="carousel-item-info">
+                <div class="fw-bold">${fecha}</div>
+                <div class="text-muted" style="font-size: 0.75rem;">Media: ${indice.valor_medio.toFixed(4)}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
 
     actualizarEstadoBotones() {
-        const btnPrev = document.getElementById('btn-carousel-prev');
-        const btnNext = document.getElementById('btn-carousel-next');
-        const total = this.todosLosIndices.length;
+    const btnPrev = document.getElementById('btn-carousel-prev');
+    const btnNext = document.getElementById('btn-carousel-next');
+    const total = this.todosLosIndices.length;
 
-        if (btnPrev) {
-            btnPrev.disabled = this.indiceActual === 0;
-        }
-
-        if (btnNext) {
-            btnNext.disabled = (this.indiceActual + 3) >= total;
-        }
+    if (btnPrev) {
+        // Deshabilitar si estamos en las más antiguas (inicio del array)
+        btnPrev.disabled = this.indiceActual === 0;
     }
+
+    if (btnNext) {
+        // Deshabilitar si estamos en las más recientes (final del array)
+        btnNext.disabled = (this.indiceActual + 5) >= total;
+    }
+}
 
     actualizarCarousel() {
-        const carouselEl = document.getElementById('carousel-images');
-        const total = this.todosLosIndices.length;
+    const carouselEl = document.getElementById('carousel-images');
+    const total = this.todosLosIndices.length;
+    const totalMostrar = Math.min(5, total);
 
-        if (carouselEl) {
-            carouselEl.innerHTML = this.renderizarImagenes();
-        }
-
-        this.actualizarEstadoBotones();
-        this.agregarEventosZoom();
-
-        const contador = document.getElementById('contador-carousel');
-        if (contador) {
-            contador.textContent = `Mostrando ${this.indiceActual + 1} - ${Math.min(this.indiceActual + 3, total)} de ${total}`;
-        }
+    if (carouselEl) {
+        carouselEl.innerHTML = this.renderizarImagenes();
     }
+
+    this.actualizarEstadoBotones();
+    this.agregarEventosZoom();
+
+    const contador = document.getElementById('contador-carousel');
+    if (contador) {
+        contador.textContent = `Mostrando ${this.indiceActual + 1} - ${Math.min(this.indiceActual + totalMostrar, total)} de ${total}`;
+    }
+}
 
     async renderizarGrafica() {
         const container = document.getElementById('ndvi-chart');

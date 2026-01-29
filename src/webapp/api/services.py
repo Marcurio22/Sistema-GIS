@@ -462,6 +462,7 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     # ============================================
     variedad_nombre = data.get("variedad", "").strip() if data.get("variedad") else None
     cod_producto = data.get("cod_producto")
+    avanzado_normalizado = _normalize_avanzado(data.get("avanzado")) or {}
     
     if variedad_nombre:
         # Buscar si la variedad ya existe (case insensitive)
@@ -501,7 +502,7 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
         "cosecha_estimada_auto": data.get("cosecha_estimada_auto", False),
         "observaciones": data.get("observaciones"),
         "sistema_cultivo_codigo": _extract_sistema_cultivo_codigo(data),
-        "avanzado": json.dumps(_normalize_avanzado(data.get("avanzado"))),
+        "avanzado": json.dumps(avanzado_normalizado),
     }
 
     if existing:

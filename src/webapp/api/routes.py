@@ -473,6 +473,7 @@ def api_create_cultivo(recinto_id: int):
             return jsonify({"ok": False, "error": "Recinto no encontrado"}), 404
 
         cultivo = create_cultivo_recinto(recinto_id, data)
+        print ("Cultivo creado:", cultivo)
         return jsonify({"ok": True, "cultivo": cultivo}), 201
 
     except Exception:
