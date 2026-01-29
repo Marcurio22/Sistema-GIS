@@ -48,15 +48,40 @@
     <!-- Offcanvas Sidebar -->
     <div class="offcanvas offcanvas-start text-white" tabindex="-1" id="sidebar">
         <div class="offcanvas-header bg-success border-bottom border-white border-opacity-25">
-            <div class="d-flex align-items-center">
-                <i class="bi bi-droplet-fill me-2 fs-3"></i>
-                <div>
-                    <h5 class="mb-0 fw-bold">Comunidad de Regantes</h5>
-                    <small class="opacity-75">Sistema de Gestión</small>
-                </div>
+            <div class="d-flex align-items-center w-100">
+            <i class="bi bi-droplet-fill me-2 fs-3 flex-shrink-0"></i>
+
+            <!-- BLOQUE TEXTO + USUARIO -->
+            <div class="flex-grow-1"
+                style="display:grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; column-gap:.75rem;">
+
+                <!-- Fila 1, Col 1: TÍTULO -->
+                <h5 class="mb-0 fw-bold" style="grid-column:1; grid-row:1;">
+                Comunidad de Regantes
+                </h5>
+
+                <!-- Fila 2, Col 1: SUBTÍTULO -->
+                <small class="opacity-75" style="grid-column:1; grid-row:2;">
+                Sistema de Gestión
+                </small>
+
+                <!-- Col 2: USUARIO centrado entre título y subtítulo -->
+                {% if current_user.is_authenticated %}
+                <a href="{{ url_for('auth.perfil') }}"
+                    id="profile-link-offcanvas"
+                    class="d-flex align-items-center opacity-75 text-decoration-none"
+                    style="grid-column:2; grid-row:1 / span 2; align-self:center; white-space:nowrap; color: inherit; cursor:pointer;">
+                    <span class="me-2">-</span>
+                    <i class="bi bi-person-circle me-2"></i>
+                    <span class="text-white opacity-100">{{ current_user.username }}</span>
+                </a>
+                {% endif %}
             </div>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+
+            <button type="button" class="btn-close btn-close-white ms-2" data-bs-dismiss="offcanvas"></button>
+            </div>
         </div>
+
         <div class="offcanvas-body d-flex flex-column p-0">
             <nav class="nav flex-column">
                 <a class="nav-link {% if request.path == url_for('dashboard.dashboard') %}text-success fw-bold{% else %}text-dark{% endif %} py-4 px-4 border-bottom border-white border-opacity-10 d-flex align-items-center"
@@ -151,10 +176,24 @@
             </button>
 
             <!-- Logo y nombre -->
-            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard.dashboard') }}">
+            <div class="d-flex align-items-center">
+                <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard.dashboard') }}">
                 <i class="bi bi-droplet-fill me-2 fs-4"></i>
                 <span class="fw-bold">Comunidad de Regantes</span>
-            </a>
+
+                {% if current_user.is_authenticated %}
+                    <span class="ms-2 fw-normal opacity-75">-</span>
+                    <span class="ms-2 d-flex align-items-center text-white profile-link"
+                        data-href="{{ url_for('auth.perfil') }}"
+                        role="link"
+                        tabindex="0"
+                        style="cursor:pointer;">
+                    <i class="bi bi-person-circle me-2"></i>
+                    {{ current_user.username }}
+                    </span>
+                {% endif %}
+                </a>
+            </div>
 
             <!-- Espaciador (mantener) -->
             <div class="ms-auto"></div>
@@ -172,6 +211,7 @@
 
     <!-- 2. Bootstrap -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/profile_link.js') }}"></script>
 
     <!-- 3. DataTables JS -->
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
