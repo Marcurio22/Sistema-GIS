@@ -670,7 +670,7 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     merged = normalize_cultivo_payload(merged, existing=prev)
 
     merged["sistema_cultivo_codigo"] = _extract_sistema_cultivo_codigo(merged)
-    merged["avanzado"] = _normalize_avanzado(merged.get("avanzado"))
+    merged["avanzado"] = _normalize_avanzado(merged.get("avanzado")) or {}
 
     # ============================================
     # NUEVA LÓGICA: Crear variedad si es nueva
