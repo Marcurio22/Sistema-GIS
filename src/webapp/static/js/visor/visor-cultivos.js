@@ -82,16 +82,16 @@ async function loadProductosFega() {
     return _productosFega;
 }
 
-const _productosFegaByUso = new Map();
+// const _productosFegaByUso = new Map();
 
-async function loadProductosFegaPorUso(usoSigpac) {
-    const key = String(usoSigpac || "").trim();
-    if (!key) return [];
-    if (_productosFegaByUso.has(key)) return _productosFegaByUso.get(key);
-    const list = await fetchJson(`/api/catalogos/productos-fega/${encodeURIComponent(key)}`);
-    _productosFegaByUso.set(key, list || []);
-    return list || [];
-}
+// async function loadProductosFegaPorUso(usoSigpac) {
+//     const key = String(usoSigpac || "").trim();
+//     if (!key) return [];
+//     if (_productosFegaByUso.has(key)) return _productosFegaByUso.get(key);
+//     const list = await fetchJson(`/api/catalogos/productos-fega/${encodeURIComponent(key)}`);
+//     _productosFegaByUso.set(key, list || []);
+//     return list || [];
+// }
 
 function byCodigo(list) {
     const m = new Map();
@@ -1283,9 +1283,8 @@ function renderCultivoForm(container, args) {
         <div class="ss-menu"></div>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center mb-1">
-        <label class="form-label fw-bold mb-0">Tipo de cultivo *</label>
-        <button id="btn-ver-todos" type="button" class="btn btn-sm btn-outline-success" disabled>Ver todos</button>
+        <div class="mb-1">
+            <label class="form-label fw-bold mb-0">Tipo de cultivo *</label>
         </div>
 
         <div class="mb-3 ss" id="ss-prod">
@@ -1531,7 +1530,6 @@ function renderCultivoForm(container, args) {
     // Elementos SS
     const ssUsoEl = container.querySelector("#ss-uso");
     const ssProdEl = container.querySelector("#ss-prod");
-    const btnVerTodos = container.querySelector("#btn-ver-todos");
 
     // --- SISTEMA_CULTIVO (obligatorio) ---
     const sisCultSel = container.querySelector("#cultivo-sistema");
@@ -1557,33 +1555,24 @@ function renderCultivoForm(container, args) {
         label: formatCodigoDesc(u.codigo, u.descripcion),
     }));
 
-    let modoVerTodos = false;
     let selectedUso = null;
     let selectedProd = null;
-    let productosUso = [];
 
     const ssUso = attachSearchSelect(ssUsoEl, usoItems, {
-        getLabel: (it) => it.label,
-        getValue: (it) => it.codigo,
-        onSelect: async (it) => {
-            selectedUso = it;
+    getLabel: (it) => it.label,
+    getValue: (it) => it.codigo,
+    onSelect: (it) => {
+        selectedUso = it;
 
-            ssProdEl.querySelector("input").disabled = false;
-            ssProdEl.querySelector("#prod-help").style.display = "none";
-            btnVerTodos.disabled = false;
+        // habilitar tipo cultivo
+        ssProdEl.querySelector("input").disabled = false;
 
-            modoVerTodos = false;
-            btnVerTodos.textContent = "Ver todos";
+        // ocultar help
+        ssProdEl.querySelector("#prod-help").style.display = "none";
 
-            try {
-                productosUso = await loadProductosFegaPorUso(it.codigo);
-            } catch (_) {
-                productosUso = [];
-            }
-
-            actualizarListaProductos();
-        },
-        signal
+        // cargar lista completa SIEMPRE
+        ssProd.setItems(buildProductosList());
+    }
     });
 
     function buildProductosList() {
@@ -1609,7 +1598,7 @@ function renderCultivoForm(container, args) {
         return [...base, ...custom, ...otro];
     }
 
-    let productosItems = buildProductosList();
+    // let productosItems = buildProductosList();
     let ssProd = attachSearchSelect(ssProdEl, [], {
         getLabel: (it) => it.label,
         getValue: (it) => (it.codigo === null ? "" : it.codigo),
@@ -1636,47 +1625,7 @@ function renderCultivoForm(container, args) {
         signal
     });
 
-    function actualizarListaProductos() {
-        const baseList = (modoVerTodos || !productosUso.length) ? productosAll : productosUso;
-
-        const fega = (baseList || []).map(p => ({
-            codigo: p.codigo,
-            descripcion: p.descripcion,
-            origen: "F",
-            label: formatCodigoDesc(p.codigo, p.descripcion),
-        }));
-
-        const custom = _cultivosCustom.map(p => ({
-            codigo: null,
-            descripcion: p.descripcion,
-            origen: "C",
-            label: formatCodigoDesc(null, p.descripcion),
-        }));
-
-        const otro = [{
-            codigo: "__OTRO__",
-            descripcion: "OTRO (escribir…)",
-            origen: "C",
-            label: "N/A-OTRO (escribir…)"
-        }];
-
-        productosItems = [...fega, ...custom, ...otro];
-        ssProd.setItems(productosItems);
-
-        const help = container.querySelector("#prod-help");
-        if (!modoVerTodos && !productosUso.length) {
-            help.style.display = "";
-            help.textContent = "No hay productos asociados a este uso (según histórico). Pulsa “Ver todos”.";
-        } else {
-            help.style.display = "none";
-        }
-    }
-
-    btnVerTodos.addEventListener("click", () => {
-        modoVerTodos = !modoVerTodos;
-        btnVerTodos.textContent = modoVerTodos ? "Filtrar" : "Ver todos";
-        actualizarListaProductos();
-    }, { signal });
+    ssProd.setItems(buildProductosList());
 
     // Tipo registro: muestra campaña o cambia etiqueta de fecha
     const tipoRegSel = container.querySelector("#tipo_registro");
@@ -1782,8 +1731,7 @@ function renderCultivoForm(container, args) {
             ssUsoEl.querySelector("#uso_sigpac_val").value = cultivo.uso_sigpac;
             selectedUso = { codigo: cultivo.uso_sigpac, grupo: u?.grupo };
             ssProdEl.querySelector("input").disabled = false;
-            btnVerTodos.disabled = false;
-            actualizarListaProductos();
+            ssProd.setItems(buildProductosList());
         }
 
         // Tipo cultivo
