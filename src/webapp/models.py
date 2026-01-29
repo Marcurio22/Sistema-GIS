@@ -3,6 +3,7 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from . import db 
 
+
 # Importación condicional de GeoAlchemy2
 try:
     from geoalchemy2 import Geometry
@@ -181,6 +182,10 @@ class Galeria(db.Model):
     descripcion = db.Column(db.Text, nullable=True)
     url = db.Column(db.String(500), nullable=False)
     fecha_subida = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    geom = db.Column(Geometry('POINT', srid=4326), nullable=True)
+    
+    # Metadatos adicionales de la foto
+    fecha_foto = db.Column(db.DateTime, nullable=True)
 
 
 class ProductoFega(db.Model):

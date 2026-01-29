@@ -54,6 +54,8 @@ from .services import (
 
 
 
+
+
 @api_bp.get("/recintos")
 def recintos():
     """
@@ -891,11 +893,11 @@ def guardar_dibujos():
 
 
 
-def calcular_ndvi(geometry, tiff_path='../static/ndvi/ndvi3_latest_3857.tif'):
+def calcular_ndvi(geometry, tiff_path='../static/ndvi/ndvi2_latest_3857.tif'):
 
 
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    tiff_path = os.path.join(BASE_DIR, 'static', 'ndvi/ndvi3_latest_3857.tif')
+    tiff_path = os.path.join(BASE_DIR, 'static', 'ndvi/ndvi2_latest_3857.tif')
     """
     Calcula NDVI desde GeoTIFF georreferenciado
     

@@ -2,39 +2,148 @@ from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime, timezone
-from werkzeug.utils import secure_filename
-from ..models import db, Galeria  # tu modelo Galeria
+from ..models import db, Galeria  
+
+from PIL import Image
+from PIL.ExifTags import TAGS, GPSTAGS
+
+from geoalchemy2 import functions as geo_func
 
 galeria_bp = Blueprint('galeria', __name__, url_prefix='/api/galeria')
 
 UPLOAD_FOLDER = "./webapp/static/uploads/images"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# --------------------------
-# Subir nueva imagen
-# --------------------------
-
+MAX_FILE_SIZE = 12 * 1024 * 1024
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB
 
-
+# ============================================================================
+# FUNCIONES AUXILIARES
+# ============================================================================
 
 def allowed_file(filename):
+    """Valida extensión del archivo"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def convertir_a_grados(coordenada):
+    """Convierte coordenadas GPS de formato DMS a decimal"""
+    if not coordenada:
+        return None
+    
+    try:
+        grados = float(coordenada[0])
+        minutos = float(coordenada[1])
+        segundos = float(coordenada[2])
+        return grados + (minutos / 60.0) + (segundos / 3600.0)
+    except (TypeError, IndexError, ValueError):
+        return None
 
+def extraer_gps_y_fecha(ruta_imagen):
+    """
+    Extrae GPS y fecha de la foto
+    Retorna: dict con 'latitud', 'longitud', 'fecha_foto'
+    """
+    print(f"🔍 Iniciando extracción de metadatos de: {ruta_imagen}")
+    
+    metadatos = {
+        'latitud': None,
+        'longitud': None,
+        'fecha_foto': None
+    }
+    
+    # Verificar que el archivo existe
+    if not os.path.exists(ruta_imagen):
+        print(f"❌ ERROR: El archivo no existe en {ruta_imagen}")
+        return metadatos
+    
+    try:
+        with Image.open(ruta_imagen) as imagen:
+            print(f"✅ Imagen abierta correctamente")
+            exif_data = imagen._getexif()
+            
+            if not exif_data:
+                print("⚠️ No hay datos EXIF en la imagen")
+                return metadatos
+            
+            print(f"📊 Datos EXIF encontrados: {len(exif_data)} tags")
+            
+            for tag, value in exif_data.items():
+                tag_name = TAGS.get(tag, tag)
+                
+                # Fecha de la foto
+                if tag_name in ['DateTime', 'DateTimeOriginal', 'DateTimeDigitized']:
+                    if not metadatos['fecha_foto']:
+                        try:
+                            metadatos['fecha_foto'] = datetime.strptime(str(value), '%Y:%m:%d %H:%M:%S')
+                            print(f"📅 Fecha encontrada: {metadatos['fecha_foto']}")
+                        except (ValueError, TypeError) as e:
+                            print(f"⚠️ Error parseando fecha: {e}")
+                            pass
+                
+                # GPS
+                elif tag_name == 'GPSInfo':
+                    print(f"🗺️ Información GPS encontrada")
+                    gps_info = {}
+                    for gps_tag in value:
+                        gps_tag_name = GPSTAGS.get(gps_tag, gps_tag)
+                        gps_info[gps_tag_name] = value[gps_tag]
+                    
+                    print(f"GPS Info: {gps_info.keys()}")
+                    
+                    # Latitud
+                    if 'GPSLatitude' in gps_info and 'GPSLatitudeRef' in gps_info:
+                        latitud = convertir_a_grados(gps_info['GPSLatitude'])
+                        if latitud and gps_info['GPSLatitudeRef'] == 'S':
+                            latitud = -latitud
+                        metadatos['latitud'] = latitud
+                        print(f"📍 Latitud: {latitud}")
+                    
+                    # Longitud
+                    if 'GPSLongitude' in gps_info and 'GPSLongitudeRef' in gps_info:
+                        longitud = convertir_a_grados(gps_info['GPSLongitude'])
+                        if longitud and gps_info['GPSLongitudeRef'] == 'W':
+                            longitud = -longitud
+                        metadatos['longitud'] = longitud
+                        print(f"📍 Longitud: {longitud}")
+        
+        print(f"✅ Extracción completada: {metadatos}")
+        return metadatos
+    
+    except Exception as e:
+        print(f"❌ ERROR extrayendo metadatos: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return metadatos
+
+def crear_wkt_point(longitud, latitud):
+    """
+    Crea un punto en formato WKT para PostGIS
+    IMPORTANTE: PostGIS usa (longitud, latitud)
+    """
+    if longitud is None or latitud is None:
+        return None
+    return f'SRID=4326;POINT({longitud} {latitud})'
+
+# ============================================================================
+# RUTAS
+# ============================================================================
 
 @galeria_bp.route('/subir', methods=['POST'])
 def subir_imagen():
+    print("=" * 80)
+    print("📤 Nueva petición de subida de imagen")
+    
     archivo = request.files.get('imagen')
     titulo = request.form.get('titulo')
     descripcion = request.form.get('descripcion', '')
     recinto_id = request.form.get('recinto_id')
 
+    print(f"Título: {titulo}, Recinto: {recinto_id}")
+
+    # Validaciones
     if not archivo or not titulo or not recinto_id:
         return jsonify({"error": "Faltan datos (imagen, título o recinto)"}), 400
 
-    # Validar que es una imagen
     if not allowed_file(archivo.filename):
         return jsonify({"error": "Solo se permiten imágenes (JPG, PNG, GIF, WEBP)"}), 400
 
@@ -44,36 +153,60 @@ def subir_imagen():
     archivo.seek(0)
     
     if file_size > MAX_FILE_SIZE:
-        return jsonify({"error": "La imagen no puede superar los 5MB"}), 400
+        return jsonify({"error": "La imagen no puede superar los 12MB"}), 400
 
     try:
+        # Guardar archivo
         filename = secure_filename(archivo.filename)
+        
+        # Añadir timestamp para evitar colisiones
+        nombre_base, extension = os.path.splitext(filename)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{nombre_base}_{timestamp}{extension}"
+        
         ruta_guardada = os.path.join(UPLOAD_FOLDER, filename)
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        
         archivo.save(ruta_guardada)
 
+        # Extraer GPS y fecha
+        metadatos = extraer_gps_y_fecha(ruta_guardada)
+        
+        # Crear punto geométrico si hay coordenadas
+        geom = None
+        if metadatos['latitud'] and metadatos['longitud']:
+            geom = crear_wkt_point(metadatos['longitud'], metadatos['latitud'])
+
+        # Guardar en base de datos
         nueva_imagen = Galeria(
             recinto_id=int(recinto_id),
             nombre=titulo,
             descripcion=descripcion or None,
             url=f"/static/uploads/images/{filename}",
-            fecha_subida=datetime.now(timezone.utc)
+            fecha_subida=datetime.now(timezone.utc),
+            geom=geom,
+            fecha_foto=metadatos['fecha_foto']
         )
         
         db.session.add(nueva_imagen)
         db.session.commit()
-
+        
         return jsonify({
             "id": nueva_imagen.id_imagen,
             "thumb": nueva_imagen.url,
             "titulo": nueva_imagen.nombre,
-            "descripcion": nueva_imagen.descripcion
+            "descripcion": nueva_imagen.descripcion,
+            "latitud": metadatos['latitud'],
+            "longitud": metadatos['longitud'],
+            "fecha_foto": metadatos['fecha_foto'].isoformat() if metadatos['fecha_foto'] else None,
+            "tiene_ubicacion": geom is not None
         }), 201
 
     except Exception as e:
         db.session.rollback()
-        print(f"Error completo: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": "Error al guardar la imagen en la base de datos"}), 500
-    
 
 
 @galeria_bp.route('/listar/<int:recinto_id>', methods=['GET'])
@@ -88,15 +221,17 @@ def listar_imagenes(recinto_id):
                 "thumb": img.url,
                 "titulo": img.nombre,
                 "descripcion": img.descripcion,
-                "fecha_subida": img.fecha_subida.isoformat() if img.fecha_subida else None
+                "fecha_subida": img.fecha_subida.isoformat() if img.fecha_subida else None,
+                "fecha_foto": img.fecha_foto.isoformat() if img.fecha_foto else None,
+                "geom": db.session.scalar(geo_func.ST_AsText(img.geom)) if img.geom else None
+                
             })
         
         return jsonify(resultado), 200
         
     except Exception as e:
-        print(f"Error al listar imágenes: {str(e)}")
         return jsonify({"error": str(e)}), 500
-    
+
 
 @galeria_bp.route('/editar/<int:id_imagen>', methods=['PATCH'])
 def editar_imagen(id_imagen):
@@ -128,7 +263,7 @@ def editar_imagen(id_imagen):
         print(f"Error al editar imagen: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-# NUEVO: Eliminar imagen
+
 @galeria_bp.route('/eliminar/<int:id_imagen>', methods=['DELETE'])
 def eliminar_imagen(id_imagen):
     try:
@@ -139,8 +274,6 @@ def eliminar_imagen(id_imagen):
         
         # Eliminar archivo físico
         if imagen.url:
-            # Convertir URL a ruta del sistema de archivos
-            # /static/uploads/images/foto.jpg -> ./webapp/static/uploads/images/foto.jpg
             ruta_archivo = imagen.url.replace('/static/', './webapp/static/')
             ruta_archivo = ruta_archivo.replace('/', os.sep)
             
@@ -163,3 +296,85 @@ def eliminar_imagen(id_imagen):
         db.session.rollback()
         print(f"Error al eliminar imagen: {str(e)}")
         return jsonify({"error": str(e)}), 500
+    
+
+
+@galeria_bp.route('/debug-exif', methods=['POST'])
+def debug_exif():
+    """Ruta para ver TODOS los metadatos EXIF de una imagen"""
+    archivo = request.files.get('imagen')
+    
+    if not archivo:
+        return jsonify({"error": "No se envió imagen"}), 400
+    
+    try:
+        # Guardar temporalmente
+        temp_path = os.path.join(UPLOAD_FOLDER, 'temp_debug.jpg')
+        archivo.save(temp_path)
+        
+        print("=" * 80)
+        print("🔍 ANÁLISIS COMPLETO DE EXIF")
+        print("=" * 80)
+        
+        with Image.open(temp_path) as imagen:
+            exif_data = imagen._getexif()
+            
+            if not exif_data:
+                resultado = {
+                    "tiene_exif": False,
+                    "formato": imagen.format,
+                    "tamaño": imagen.size,
+                    "modo": imagen.mode
+                }
+                print("❌ NO HAY DATOS EXIF")
+                return jsonify(resultado), 200
+            
+            print(f"✅ EXIF encontrado: {len(exif_data)} tags")
+            
+            # Mostrar TODOS los tags
+            todos_tags = {}
+            tiene_gps = False
+            
+            for tag, value in exif_data.items():
+                tag_name = TAGS.get(tag, f"Unknown_{tag}")
+                
+                print(f"\n📌 Tag: {tag_name} (ID: {tag})")
+                
+                # GPSInfo es especial
+                if tag_name == 'GPSInfo':
+                    tiene_gps = True
+                    print("  🗺️ INFORMACIÓN GPS ENCONTRADA:")
+                    gps_readable = {}
+                    
+                    for gps_tag in value:
+                        gps_tag_name = GPSTAGS.get(gps_tag, f"Unknown_GPS_{gps_tag}")
+                        gps_value = value[gps_tag]
+                        
+                        print(f"    - {gps_tag_name}: {gps_value}")
+                        gps_readable[gps_tag_name] = str(gps_value)
+                    
+                    todos_tags['GPSInfo'] = gps_readable
+                else:
+                    print(f"  Valor: {str(value)[:200]}")
+                    todos_tags[tag_name] = str(value)[:200]
+            
+            print("\n" + "=" * 80)
+            
+            resultado = {
+                "tiene_exif": True,
+                "total_tags": len(todos_tags),
+                "tiene_gps": tiene_gps,
+                "tags": todos_tags
+            }
+            
+            return jsonify(resultado), 200
+        
+    except Exception as e:
+        print(f"❌ ERROR: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        # Limpiar archivo temporal
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
