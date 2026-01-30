@@ -1,0 +1,24 @@
+/* Fondo para login / register */
+body.auth-bg {
+  background-image: url("../img/auth-bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+/* Overlay suave para mejorar legibilidad del panel */
+body.auth-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.35); /* ajusta 0.25–0.45 según gusto */
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Asegura que el contenido quede por encima del overlay */
+body.auth-bg > .container {
+  position: relative;
+  z-index: 1;
+}
