@@ -87,11 +87,11 @@
         <td style="min-width: 260px">
           {% if s.estado == 'pendiente' %}
           {% if s.recinto %}
-            {% if s.tipo_solicitud == 'eliminacion' and s.motivo_solicitud %}
+            <!-- {% if s.tipo_solicitud == 'eliminacion' and s.motivo_solicitud %}
               <small class="text-muted d-block mb-1">
                 <strong>Motivo:</strong> {{ s.motivo_solicitud }}
               </small>
-            {% endif %}
+            {% endif %} -->
           <a href="{{ url_for('dashboard.visor', recinto_id=s.recinto.id_recinto) }}"
             class="btn btn-sm btn-info me-1" title="Ver recinto en el mapa">
             <i class="bi bi-map"></i> Ver
@@ -99,12 +99,19 @@
           {% else %}
           <span class="text-muted small">Recinto no disponible</span>
           {% endif %}
-          <form method="post"
-            action="{{ url_for('admin.aprobar_solicitud_recinto', id_solicitud=s.id_solicitud) }}"
-            class="d-inline">
-            <button class="btn btn-sm btn-success" title="Aprobar solicitud">
-              <i class="bi bi-check-lg"></i> Aprobar
-            </button>
+         <form method="post"
+                action="{{ url_for('admin.aprobar_solicitud_recinto', id_solicitud=s.id_solicitud) }}"
+                class="d-inline">
+            {% if s.tipo_solicitud == 'eliminacion' and not s.motivo_solicitud %}
+              <button class="btn btn-sm btn-success" disabled
+                      title="No se puede aprobar una eliminación sin motivo">
+                <i class="bi bi-check-lg"></i> Aprobar
+              </button>
+            {% else %}
+              <button class="btn btn-sm btn-success" title="Aprobar solicitud">
+                <i class="bi bi-check-lg"></i> Aprobar
+              </button>
+            {% endif %}
           </form>
           <button class="btn btn-sm btn-outline-danger ms-1" type="button" data-bs-toggle="collapse"
             data-bs-target="#rechazo-{{ s.id_solicitud }}" title="Rechazar solicitud">
