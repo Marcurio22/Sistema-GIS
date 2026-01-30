@@ -49,7 +49,8 @@ from .services import (
     create_operacion_recinto,
     patch_operacion_by_id,
     delete_operacion_by_id,
-    _sistema_cultivo_obj
+    _sistema_cultivo_obj,
+    visor_start_view_usuario
 )
 
 
@@ -234,6 +235,23 @@ def editar_nombre_recinto(recinto_id):
     db.session.commit()
 
     return jsonify({"ok": True, "nombre": nombre})
+
+@api_bp.get("/visor-start-view")
+@login_required
+def visor_start_view():
+    """Devuelve la vista inicial recomendada del visor para el usuario actual.
+
+    - Solo para usuarios normales.
+    - Para admins/superadmins devuelve nulls (no altera el comportamiento actual).
+    """
+    if getattr(current_user, "rol", None) in {"admin", "superadmin"}:
+        return jsonify({"municipio_top": None, "center": None, "bbox": None})
+
+    data = visor_start_view_usuario(current_user.id_usuario)
+    if not data:
+        return jsonify({"municipio_top": None, "center": None, "bbox": None})
+
+    return jsonify(data)
 
 @api_bp.route('/solicitud-eliminar-recinto/<int:id_recinto>/borrar', methods=['POST'])
 @login_required

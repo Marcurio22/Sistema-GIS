@@ -920,6 +920,43 @@ async function restaurarEstadoMapa() {
   }
 }
 
+// Vista inicial recomendada: centrar en el municipio donde el usuario tiene MÁS "mis recintos"
+// - Si no hay datos (o el usuario es admin), devuelve false y se mantiene el fallback actual.
+async function aplicarVistaInicialUsuario() {
+  try {
+    const resp = await fetch('/api/visor-start-view', { credentials: 'same-origin' });
+    if (!resp.ok) return false;
+
+    const data = await resp.json();
+    if (!data) return false;
+
+    // bbox: [minx, miny, maxx, maxy] -> Leaflet bounds [[miny, minx],[maxy, maxx]]
+    if (data.bbox && Array.isArray(data.bbox) && data.bbox.length === 4) {
+      const [minx, miny, maxx, maxy] = data.bbox;
+      if ([minx, miny, maxx, maxy].every(v => typeof v === 'number' && isFinite(v))) {
+        map.fitBounds([[miny, minx], [maxy, maxx]], {
+          padding: [80, 80],
+          maxZoom: 16,
+          animate: true,
+          duration: 0.35
+        });
+        return true;
+      }
+    }
+
+    // center fallback
+    if (data.center && typeof data.center.lat === 'number' && typeof data.center.lng === 'number') {
+      const z = (typeof data.zoom_sugerido === 'number' && isFinite(data.zoom_sugerido)) ? data.zoom_sugerido : 13;
+      map.setView([data.center.lat, data.center.lng], z);
+      return true;
+    }
+
+    return false;
+  } catch (e) {
+    console.warn('No se pudo aplicar vista inicial del usuario:', e);
+    return false;
+  }
+}
 
   const CURRENT_USER_ID = {{ current_user.id_usuario if current_user.is_authenticated else 'null' }};
   NotificationSystem.init();
@@ -2736,15 +2773,20 @@ if (recintoData) {
 
 
   actualizarMapaSegunZoom();
-    cargarRecintosSiProcede();
-    cargarMisRecintosSiProcede();
+  cargarRecintosSiProcede();
+  cargarMisRecintosSiProcede();
 
-    // Intentar restaurar el estado guardado
-    map.whenReady(async function () {
-      if (!recintoData) {
-        await restaurarEstadoMapa();
+  // Intentar restaurar el estado guardado.
+  // Si no hay estado guardado, centrar en el municipio donde el usuario tiene más "mis recintos".
+  map.whenReady(async function () {
+    if (!recintoData) {
+      const restaurado = await restaurarEstadoMapa();
+      if (!restaurado) {
+        await aplicarVistaInicialUsuario();
       }
-    });
+    }
+  });
+
 
 
 

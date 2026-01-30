@@ -185,6 +185,91 @@ def mis_recinto_detalle(id_recinto: int, user_id: int) -> dict:
     }
 
 # ---------------------------
+# Visor: vista inicial por usuario
+# ---------------------------
+
+def visor_start_view_usuario(user_id: int) -> dict | None:
+    """Calcula la vista inicial recomendada para el visor del usuario.
+
+    - Elige el municipio (provincia+municipio) donde el usuario tiene más recintos.
+    - Devuelve centroid y bbox del conjunto de geometrías de ese municipio.
+
+    Nota: usamos ST_Extent (bbox) + centroid del bbox para minimizar coste.
+    """
+    sql = text("""
+        WITH ranked AS (
+            SELECT
+                r.provincia,
+                r.municipio,
+                COUNT(*) AS n,
+                SUM(COALESCE(r.superficie_ha, 0)) AS superficie_sum,
+                MAX(r.fecha_creacion) AS last_ts
+            FROM public.recintos r
+            WHERE r.id_propietario = :uid
+              AND r.geom IS NOT NULL
+              AND NOT ST_IsEmpty(r.geom)
+            GROUP BY r.provincia, r.municipio
+            ORDER BY
+                n DESC,
+                superficie_sum DESC,
+                last_ts DESC
+            LIMIT 1
+        ),
+        agg AS (
+            SELECT
+                ST_SetSRID(ST_Extent(r.geom)::geometry, 4326) AS extent_geom
+            FROM public.recintos r
+            JOIN ranked t
+              ON r.provincia = t.provincia
+             AND r.municipio = t.municipio
+            WHERE r.id_propietario = :uid
+              AND r.geom IS NOT NULL
+              AND NOT ST_IsEmpty(r.geom)
+        )
+        SELECT
+            t.provincia,
+            t.municipio,
+            t.n,
+            ST_Y(ST_Centroid(a.extent_geom)) AS lat,
+            ST_X(ST_Centroid(a.extent_geom)) AS lng,
+            ST_XMin(a.extent_geom) AS minx,
+            ST_YMin(a.extent_geom) AS miny,
+            ST_XMax(a.extent_geom) AS maxx,
+            ST_YMax(a.extent_geom) AS maxy
+        FROM ranked t, agg a;
+    """)
+
+    row = db.session.execute(sql, {"uid": user_id}).mappings().first()
+    if not row:
+        return None
+
+    if row["lat"] is None or row["lng"] is None:
+        return None
+
+    provincia = row["provincia"]
+    municipio = row["municipio"]
+
+    nombre_provincia = municipios_finder.obtener_nombre_provincia(provincia)
+    nombre_municipio = municipios_finder.obtener_nombre_municipio(provincia, municipio)
+
+    bbox = None
+    if None not in (row["minx"], row["miny"], row["maxx"], row["maxy"]):
+        bbox = [float(row["minx"]), float(row["miny"]), float(row["maxx"]), float(row["maxy"])]
+
+    return {
+        "municipio_top": {
+            "provincia": int(provincia),
+            "municipio": int(municipio),
+            "nombre_provincia": nombre_provincia,
+            "nombre_municipio": nombre_municipio,
+            "n_recintos": int(row["n"] or 0),
+        },
+        "center": {"lat": float(row["lat"]), "lng": float(row["lng"])},
+        "bbox": bbox,
+        "zoom_sugerido": 13,
+    }
+
+# ---------------------------
 # Catálogos
 # ---------------------------
 
