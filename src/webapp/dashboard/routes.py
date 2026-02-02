@@ -1,8 +1,11 @@
+from datetime import date, timedelta
 from  pathlib import Path
 from sqlalchemy import text
 from webapp import db
 from flask import render_template, current_app
 from flask_login import login_required, current_user
+from collections import defaultdict
+from webapp.api.services import visor_start_view_usuario
 from . import dashboard_bp
 import json
 import logging
@@ -20,16 +23,265 @@ logger.setLevel(logging.INFO)
 @login_required
 def dashboard():
 
-    # Obtener datos meteorológicos de AEMET
-    weather = obtener_datos_aemet("34023")
-
-    # URL widget AEMET
+    # ---------------------------
+    # AEMET (widget)
+    # ---------------------------
     municipios_codigos_finder = MunicipiosCodigosFinder()
     url_widget = municipios_codigos_finder.obtener_url_municipio_usuario(current_user.id_usuario)
+    municipios_codigos_finder = MunicipiosCodigosFinder()
+    codigo_municipio = municipios_codigos_finder.codigo_recintos(current_user.id_usuario)
+    weather = obtener_datos_aemet(codigo_municipio) if codigo_municipio else None
 
+    # ---------------------------
+    # Vista inicial recomendada (para el minimapa del dashboard)
+    # ---------------------------
+    start_view = visor_start_view_usuario(current_user.id_usuario) or {
+        "municipio_top": None,
+        "center": {"lat": 41.95, "lng": -4.20},
+        "bbox": None,
+        "zoom_sugerido": 11,
+    }
 
-    return render_template('dashboard.html', username=current_user.username, weather=weather, url_widget=url_widget)
+    # ---------------------------
+    # Minimapa estático (imagen satélite)
+    # ---------------------------
+    minimap_img_url = None
 
+    bbox = start_view.get("bbox")
+    if bbox and len(bbox) == 4:
+        minx, miny, maxx, maxy = bbox
+
+        # ESRI World Imagery (estático)
+        minimap_img_url = (
+            "https://services.arcgisonline.com/ArcGIS/rest/services/"
+            "World_Imagery/MapServer/export"
+            f"?bbox={minx},{miny},{maxx},{maxy}"
+            "&bboxSR=4326"
+            "&imageSR=3857"
+            "&size=600,400"
+            "&format=png"
+            "&f=image"
+        )
+
+    # ---------------------------
+    # Resumen rápido
+    # ---------------------------
+    recintos_q = (
+        Recinto.query
+        .filter(Recinto.id_propietario == current_user.id_usuario)
+        .order_by(Recinto.provincia, Recinto.municipio, Recinto.poligono, Recinto.parcela, Recinto.recinto)
+    )
+
+    recintos = recintos_q.all()
+    recintos_count = len(recintos)
+
+    # Cultivo principal (por hectáreas ocupadas) usando el cultivo “actual” de cada recinto
+    cultivo_principal = None
+    if recintos_count > 0:
+        sql_cultivo = text("""
+            WITH myrec AS (
+                SELECT id_recinto, superficie_ha
+                FROM public.recintos
+                WHERE id_propietario = :uid
+                  AND (activa IS TRUE OR activa IS NULL)
+            ),
+            cur AS (
+                SELECT DISTINCT ON (c.id_recinto)
+                    c.id_recinto,
+                    COALESCE(
+                        NULLIF(BTRIM(c.tipo_cultivo), ''),
+                        NULLIF(BTRIM(c.cultivo_custom), ''),
+                        NULLIF(BTRIM(pf.descripcion), ''),
+                        NULLIF(BTRIM(c.uso_sigpac), '')
+                    ) AS cultivo
+                FROM public.cultivos c
+                JOIN myrec r ON r.id_recinto = c.id_recinto
+                LEFT JOIN public.productos_fega pf ON pf.codigo = c.cod_producto
+                WHERE c.id_padre IS NOT NULL
+                  AND COALESCE(c.estado, '') <> 'eliminado'
+                ORDER BY
+                    c.id_recinto,
+                    COALESCE(c.fecha_siembra, c.fecha_implantacion) DESC NULLS LAST,
+                    c.id_cultivo DESC
+            )
+            SELECT cur.cultivo, SUM(COALESCE(r.superficie_ha, 0)) AS ha
+            FROM cur
+            JOIN public.recintos r ON r.id_recinto = cur.id_recinto
+            WHERE r.id_propietario = :uid
+            GROUP BY cur.cultivo
+            ORDER BY ha DESC NULLS LAST
+            LIMIT 1;
+        """)
+
+        row = db.session.execute(sql_cultivo, {"uid": current_user.id_usuario}).mappings().first()
+        if row and row.get("cultivo"):
+            cultivo_principal = str(row["cultivo"]).strip() or None
+
+    # Operaciones “activas” (últimos 30 días) por recinto
+    cutoff = date.today() - timedelta(days=30)
+
+    sql_ops = text("""
+        SELECT
+            o.id_operacion,
+            o.id_recinto,
+            t.codigo AS tipo,
+            o.fecha,
+            o.descripcion,
+            o.detalle
+        FROM public.operaciones o
+        JOIN public.tipos_operacion t ON t.id_tipo_operacion = o.id_tipo_operacion
+        JOIN public.recintos r ON r.id_recinto = o.id_recinto
+        WHERE r.id_propietario = :uid
+          AND (r.activa IS TRUE OR r.activa IS NULL)
+          AND o.fecha >= :cutoff
+        ORDER BY o.fecha DESC, o.id_operacion DESC
+    """)
+
+    rows_ops = db.session.execute(sql_ops, {"uid": current_user.id_usuario, "cutoff": cutoff}).mappings().all()
+
+    ops_by_recinto: dict[int, list[dict]] = defaultdict(list)
+    for r in rows_ops:
+        ops_by_recinto[int(r["id_recinto"])].append(dict(r))
+
+    def _op_tipo_label(tipo: str | None) -> str:
+        t = (tipo or "").upper().strip()
+        if t == "RIEGO":
+            return "Riego"
+        if t == "FERTILIZACION":
+            return "Fertilización"
+        if t == "FITOSANITARIO":
+            return "Fitosanitario"
+        if t == "OTRAS":
+            return "Otras"
+        return (tipo or "Operación").strip() or "Operación"
+
+    def _op_badge_class(tipo: str | None) -> str:
+        t = (tipo or "").upper().strip()
+        if t == "RIEGO":
+            return "bg-info"
+        if t == "FERTILIZACION":
+            return "bg-success"
+        if t == "FITOSANITARIO":
+            return "bg-warning text-dark"
+        if t == "OTRAS":
+            return "bg-secondary"
+        return "bg-secondary"
+
+    def _procedencia_agua_to_text(v) -> str:
+        if not v:
+            return ""
+        arr = v if isinstance(v, list) else [v]
+        out = []
+        for x in arr:
+            if not isinstance(x, dict):
+                continue
+            lab = (x.get("label") or x.get("codigo") or "").strip()
+            if lab:
+                out.append(lab)
+        return ", ".join(out)
+
+    def _op_resumen(tipo: str | None, detalle, descripcion: str | None) -> str:
+        t = (tipo or "").upper().strip()
+        d = detalle
+        if isinstance(d, str):
+            try:
+                d = json.loads(d)
+            except Exception:
+                d = {}
+        if not isinstance(d, dict):
+            d = {}
+
+        if t == "RIEGO":
+            v = d.get("volumen_m3", d.get("volumen"))
+            try:
+                txt_v = f"{float(v):.0f} m³" if v not in (None, "") else "—"
+            except Exception:
+                txt_v = "—"
+            sis = (d.get("sistema_riego") or {}).get("label") or (d.get("sistema_riego") or {}).get("codigo") or ""
+            proc = _procedencia_agua_to_text(d.get("procedencia_agua"))
+            obs = (d.get("observaciones") or "").strip()
+            parts = [txt_v]
+            if sis:
+                parts.append(sis)
+            if proc:
+                parts.append(proc)
+            base = " · ".join([p for p in parts if p])
+            return f"{base}{(' — ' + obs) if obs else ''}".strip()
+
+        if t == "FERTILIZACION":
+            prod = (d.get("producto") or {}).get("label") or (d.get("producto") or {}).get("codigo") or ""
+            cant = d.get("cantidad")
+            uni = (d.get("unidad") or "").strip()
+            tipo_f = (d.get("tipo_fertilizacion") or {}).get("label") or (d.get("tipo_fertilizacion") or {}).get("codigo") or ""
+            obs = (d.get("observaciones") or "").strip()
+            txt_c = f"{cant} {uni}".strip() if cant not in (None, "") else "—"
+            parts = [txt_c]
+            if prod:
+                parts.append(prod)
+            if tipo_f:
+                parts.append(tipo_f)
+            base = " · ".join([p for p in parts if p])
+            return f"{base}{(' — ' + obs) if obs else ''}".strip()
+
+        if t == "OTRAS":
+            cat = (d.get("catalogo") or "").strip()
+            lab = (d.get("label") or d.get("codigo") or "").strip()
+            obs = (d.get("observaciones") or "").strip()
+            base = " · ".join([p for p in [cat, lab] if p]).strip() or "—"
+            return f"{base}{(' — ' + obs) if obs else ''}".strip()
+
+        return (descripcion or "—").strip() or "—"
+
+    operaciones_resumen = []
+    for rec in recintos:
+        rid = int(rec.id_recinto)
+        nombre = (rec.nombre or "").strip()
+        if not nombre:
+            if rec.parcela is not None:
+                nombre = f"Parcela {rec.parcela}"
+            else:
+                nombre = f"Recinto {rid}"
+
+        ops = ops_by_recinto.get(rid, [])
+        preview = []
+        for op in ops[:3]:
+            f = op.get("fecha")
+            fecha_txt = f.strftime("%d/%m/%Y") if hasattr(f, "strftime") else (str(f) if f else "")
+            tipo = op.get("tipo")
+            preview.append({
+                "tipo": tipo,
+                "tipo_label": _op_tipo_label(tipo),
+                "badge_class": _op_badge_class(tipo),
+                "fecha": fecha_txt,
+                "resumen": _op_resumen(tipo, op.get("detalle"), op.get("descripcion")),
+            })
+
+        operaciones_resumen.append({
+            "id_recinto": rid,
+            "nombre": nombre,
+            "n_ops": len(ops),
+            "ops": preview,
+        })
+
+    operaciones_resumen = [
+        r for r in operaciones_resumen
+        if r["n_ops"] > 0
+    ]
+    
+    operaciones_resumen.sort(key=lambda x: (-int(x["n_ops"]), (x["nombre"] or "").lower()))
+
+    return render_template(
+        'dashboard.html',
+        username=current_user.username,
+        url_widget=url_widget,
+        weather=weather,
+        start_view=start_view,
+        minimap_img_url=minimap_img_url,
+        recintos_count=recintos_count,
+        cultivo_principal=cultivo_principal,
+        operaciones_resumen=operaciones_resumen,
+        is_admin=getattr(current_user, "rol", None) in ["admin", "superadmin"],
+    )
 
 @dashboard_bp.route("/visor")
 @login_required
