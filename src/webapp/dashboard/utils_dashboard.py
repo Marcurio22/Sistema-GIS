@@ -433,30 +433,37 @@ class MunicipiosCodigosFinder:
         base_dir = Path(__file__).parent.parent
         csv_dir = base_dir / 'static' / 'csv'
         
-        # Cargar municipios
-        self.df_municipios = pd.read_csv(
-            csv_dir / 'nombres_municipios.csv', 
-            skiprows=1, 
+        # Cargar el CSV unificado
+        self.df = pd.read_csv(
+            csv_dir / 'RELACION_MUNICIPIOS_RUSECTOR_AGREGADO_ZONA_C2026(RELACION MUNCIPIOS SIGPAC).csv',  # o el nombre que tenga tu archivo
+            sep=';',
             dtype=str
         )
-        self.df_municipios['CPRO'] = self.df_municipios['CPRO'].str.strip()
-        self.df_municipios['CMUN'] = self.df_municipios['CMUN'].str.strip()
-        self.df_municipios['NOMBRE'] = self.df_municipios['NOMBRE'].str.strip()
-        self.df_municipios['CODIGO'] = self.df_municipios['CPRO'] + self.df_municipios['CMUN']
-        self.df_municipios.set_index('CODIGO', inplace=True)
         
-        # Cargar provincias
-        self.df_provincias = pd.read_csv(
-            csv_dir / 'nombres_provincias.csv', 
-            dtype=str
-        )
-        self.df_provincias['CPRO'] = self.df_provincias['CPRO'].str.strip()
-        self.df_provincias['NOMBRE'] = self.df_provincias['NOMBRE'].str.strip()
-        self.df_provincias.set_index('CPRO', inplace=True)
+        # Limpiar espacios
+        self.df['Provincia'] = self.df['Provincia'].str.strip()
+        self.df['Municipio'] = self.df['Municipio'].str.strip()  # Cambiado a 'Municipio'
+        self.df['Municipio INE'] = self.df['Municipio INE'].str.strip()
+        self.df['Nombre Municipio'] = self.df['Nombre Municipio'].str.strip()
+        self.df['Nombre Provincia'] = self.df['Nombre Provincia'].str.strip()
+        
+        # Crear código completo (provincia + municipio)
+        self.df['CODIGO'] = self.df['Provincia'].str.zfill(2) + self.df['Municipio'].str.zfill(3)
+
+        self.df['CODIGO_INE'] = (
+        self.df['Provincia'].str.zfill(2) +
+        self.df['Municipio INE'].str.zfill(3)
+    )
+        
+        # Eliminar duplicados quedándonos con el primero de cada código
+        self.df_municipios = self.df.drop_duplicates(subset='CODIGO', keep='first').set_index('CODIGO')
+        
+        # Crear índice por provincia (eliminando duplicados)
+        self.df_provincias = self.df[['Provincia', 'Nombre Provincia']].drop_duplicates().set_index('Provincia')
     
     def obtener_nombre_municipio(self, cod_provincia, cod_municipio):
         """
-        Obtiene el nombre del municipio y el nombre de la provincia.
+        Obtiene el nombre del municipio.
         
         Args:
             cod_provincia: Código provincia (16 o '16')
@@ -470,7 +477,8 @@ class MunicipiosCodigosFinder:
         codigo = f"{cpro}{cmun}"
         
         try:
-            return self.df_municipios.loc[codigo, 'NOMBRE']
+            # Ahora devuelve un string, no una Serie
+            return self.df_municipios.loc[codigo, 'Nombre Municipio']
         except KeyError:
             return None
         
@@ -479,33 +487,52 @@ class MunicipiosCodigosFinder:
         cpro = str(cod_provincia).zfill(2)
         
         try:
-            return self.df_provincias.loc[cpro, 'NOMBRE']
+            return self.df_provincias.loc[cpro, 'Nombre Provincia']
         except KeyError:
             return None
     
     def construir_url_aemet(self, cod_provincia, cod_municipio):
         """
         Construye la URL a la página de AEMET para el municipio dado.
-        
-        Args:
-            cod_provincia: Código provincia (16 o '16')
-            cod_municipio: Código municipio (51 o '051')
-        
-        Returns:
-            URL completa a la página de AEMET o None si no existe
         """
         cpro = str(cod_provincia).zfill(2)
         cmun = str(cod_municipio).zfill(3)
-        codigo = f"{cpro}{cmun}"
-        
-        nombre_municipio = self.obtener_nombre_municipio(cpro, cmun)  
-        if nombre_municipio is None:
-            return None
-        
-        nombre_municipio_url = nombre_municipio.lower().replace(' ', '-').replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ó', 'o').replace('ú', 'u').replace('ñ', 'n')
-        url = f'https://www.aemet.es/es/eltiempo/prediccion/municipios/mostrarwidget/{nombre_municipio_url}-id{codigo}?w=g4p111111111ohmffffffx4f86d9t95b6e9r1s8n2'
 
+        codigo_normal = f"{cpro}{cmun}"
+
+        try:
+            fila = self.df_municipios.loc[codigo_normal]
+        except KeyError:
+            return None
+
+        codigo_ine = (
+            cpro +
+            fila['Municipio INE'].zfill(3)
+        )
+
+        nombre_municipio = fila['Nombre Municipio']
+
+        nombre_municipio_url = (
+            nombre_municipio
+            .lower()
+            .replace(' ', '-')
+            .replace('á', 'a')
+            .replace('é', 'e')
+            .replace('í', 'i')
+            .replace('ó', 'o')
+            .replace('ú', 'u')
+            .replace('ñ', 'n')
+        )
+
+        url = (
+            f'https://www.aemet.es/es/eltiempo/prediccion/municipios/mostrarwidget/'
+            f'{nombre_municipio_url}-id{codigo_ine}'
+            f'?w=g1p111111111ohmffffffx4f86d9t95b6e9r1s8n2'
+        )
+
+        print(f"URL AEMET construida: {url}")
         return url
+
     
     def codigo_recintos(self, user_id):
         """
@@ -526,7 +553,6 @@ class MunicipiosCodigosFinder:
         
         if not recintos:
             MUNICIPIO_POR_DEFECTO = "34120"
-
             return MUNICIPIO_POR_DEFECTO
         
         # Contar recintos por municipio (asegurando formato correcto)
@@ -570,7 +596,6 @@ class MunicipiosCodigosFinder:
         
         # Construir y devolver la URL
         return self.construir_url_aemet(cpro, cmun)
-
     
     
 municipios_finder = MunicipiosCodigosFinder()

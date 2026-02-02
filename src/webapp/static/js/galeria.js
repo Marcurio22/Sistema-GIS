@@ -5,89 +5,34 @@ class GaleriaImagenes {
     this.maxVisibles = 5;
     this.mostrandoTodas = false;
     this.recintoId = null;
-    this.currentImageIndex = 0; // Para navegación en lightbox
     this.init();
   }
 
   init() {
     this.initSubida();
     this.initEdicion();
-    this.initLightbox();
     this.container.innerHTML = '<p class="text-muted">Selecciona un recinto para ver sus imágenes</p>';
   }
 
-  initLightbox() {
-    const lightbox = document.getElementById('lightbox');
-    const lightboxImg = document.getElementById('lightbox-img');
-    const lightboxCaption = document.getElementById('lightbox-caption');
-    const closeBtn = document.querySelector('.lightbox-close');
-    const prevBtn = document.getElementById('lightbox-prev');
-    const nextBtn = document.getElementById('lightbox-next');
-
-    // Cerrar con el botón X
-    if (closeBtn) {
-      closeBtn.onclick = () => this.closeLightbox();
-    }
-
-    // Cerrar al hacer clic fuera de la imagen
-    if (lightbox) {
-      lightbox.onclick = (e) => {
-        if (e.target === lightbox) {
-          this.closeLightbox();
-        }
+  // Extraer coordenadas de geometría WKT (ej: "POINT(lon lat)")
+  extraerCoordenadas(geom) {
+    if (!geom) return null;
+    
+    // Si es string WKT: "POINT(-3.12345 42.67890)"
+    const match = geom.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
+    if (match) {
+      return {
+        lon: parseFloat(match[1]),
+        lat: parseFloat(match[2])
       };
     }
-
-    // Cerrar con tecla ESC
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && lightbox.style.display === 'block') {
-        this.closeLightbox();
-      }
-      // Navegación con flechas
-      if (lightbox.style.display === 'block') {
-        if (e.key === 'ArrowLeft') this.showPrevImage();
-        if (e.key === 'ArrowRight') this.showNextImage();
-      }
-    });
-
-    // Botones de navegación
-    if (prevBtn) prevBtn.onclick = () => this.showPrevImage();
-    if (nextBtn) nextBtn.onclick = () => this.showNextImage();
+    
+    return null;
   }
 
-  openLightbox(index) {
-    const lightbox = document.getElementById('lightbox');
-    const lightboxImg = document.getElementById('lightbox-img');
-    const lightboxCaption = document.getElementById('lightbox-caption');
-
-    this.currentImageIndex = index;
-    const imagen = this.imagenes[index];
-
-    lightbox.style.display = 'block';
-    lightboxImg.src = imagen.thumb;
-    lightboxCaption.innerHTML = `
-      <strong>${imagen.titulo}</strong>
-      ${imagen.descripcion ? '<br>' + imagen.descripcion : ''}
-    `;
-
-    // Deshabilitar scroll del body
-    document.body.style.overflow = 'hidden';
-  }
-
-  closeLightbox() {
-    const lightbox = document.getElementById('lightbox');
-    lightbox.style.display = 'none';
-    document.body.style.overflow = '';
-  }
-
-  showPrevImage() {
-    this.currentImageIndex = (this.currentImageIndex - 1 + this.imagenes.length) % this.imagenes.length;
-    this.openLightbox(this.currentImageIndex);
-  }
-
-  showNextImage() {
-    this.currentImageIndex = (this.currentImageIndex + 1) % this.imagenes.length;
-    this.openLightbox(this.currentImageIndex);
+  formatearCoordenadas(coords) {
+    if (!coords) return '';
+    return `Lat: ${coords.lat.toFixed(6)}, Lon: ${coords.lon.toFixed(6)}`;
   }
 
   async setRecintoId(recintoId) {
@@ -98,6 +43,12 @@ class GaleriaImagenes {
   async cargarImagenes() {
     if (!this.recintoId) {
       this.container.innerHTML = '<p class="text-muted">Selecciona un recinto para ver sus imágenes</p>';
+      
+      // Actualizar lightbox manager con array vacío
+      if (window.lightboxManager) {
+        window.lightboxManager.updateImages([], null);
+      }
+      
       return;
     }
 
@@ -111,18 +62,35 @@ class GaleriaImagenes {
       }
 
       this.imagenes = await response.json();
+      
+      console.log(`Galería: Cargadas ${this.imagenes.length} imágenes para recinto ${this.recintoId}`);
+      console.log('Galería: Primeras 3 imágenes:', this.imagenes.slice(0, 3).map(img => img.titulo));
+      
+      // ✅ ACTUALIZAR LIGHTBOX MANAGER CON LAS NUEVAS IMÁGENES
+      if (window.lightboxManager) {
+        console.log('Galería: Actualizando lightboxManager...');
+        window.lightboxManager.updateImages(this.imagenes, this.recintoId);
+      } else {
+        console.error('Galería: lightboxManager no está disponible!');
+      }
+      
       this.renderizarGaleria();
       
     } catch (error) {
       console.error(error);
       this.container.innerHTML = '<p class="text-danger">Error cargando imágenes</p>';
+      
+      // Limpiar lightbox manager en caso de error
+      if (window.lightboxManager) {
+        window.lightboxManager.updateImages([], null);
+      }
     }
   }
 
 renderizarGaleria() {
     this.container.innerHTML = '';
     
-    // ← MOVER ESTA ACTUALIZACIÓN ANTES DEL CHECK DE IMÁGENES VACÍAS
+    // Actualizar contador de imágenes
     const countEl = document.getElementById('galeria-count');
     if (countEl) countEl.textContent = String(this.imagenes.length || 0);
     
@@ -135,18 +103,25 @@ renderizarGaleria() {
       ? this.imagenes 
       : this.imagenes.slice(0, this.maxVisibles);
 
-    imagenesAMostrar.forEach((imagen, index) => {
+    imagenesAMostrar.forEach((imagen, localIndex) => {
       const item = document.createElement('div');
       item.className = 'galeria-item';
+      
+      // Encontrar el índice real en el array completo
+      const indiceReal = this.imagenes.findIndex(img => img.id === imagen.id);
+      
+      const coords = this.extraerCoordenadas(imagen.geom);
+      const coordsHTML = coords ? `<small class="d-block mt-1" style="color: #17a2b8; font-weight: 500;">${this.formatearCoordenadas(coords)}</small>` : '';
       
       item.innerHTML = `
       <img src="${imagen.thumb}" alt="${imagen.titulo}" loading="lazy">
       <div class="galeria-overlay">
         <h4>${imagen.titulo}</h4>
         <p>${imagen.descripcion || ''}</p>
+        ${coordsHTML}
       </div>
       <div class="galeria-actions">
-        <button class="galeria-action-btn edit" data-id="${imagen.id}" data-index="${index}" title="Editar">
+        <button class="galeria-action-btn edit" data-id="${imagen.id}" data-index="${indiceReal}" title="Editar">
           <i class="bi bi-pencil-fill"></i>
         </button>
         <button class="galeria-action-btn delete" data-id="${imagen.id}" title="Eliminar">
@@ -158,8 +133,23 @@ renderizarGaleria() {
       const imgElement = item.querySelector('img');
       const overlayElement = item.querySelector('.galeria-overlay');
       
-      imgElement.onclick = () => this.openLightbox(index);
-      overlayElement.onclick = () => this.openLightbox(index);
+      // ✅ USAR LIGHTBOX MANAGER PARA ABRIR CON EL ÍNDICE REAL
+      imgElement.onclick = () => {
+        console.log(`Galería: Click en imagen. Local index: ${localIndex}, Índice real: ${indiceReal}`);
+        console.log(`Galería: Imagen clickeada:`, imagen.titulo);
+        if (window.lightboxManager) {
+          window.lightboxManager.open(indiceReal);
+        } else {
+          console.error('Galería: lightboxManager no disponible al hacer click');
+        }
+      };
+      
+      overlayElement.onclick = () => {
+        console.log(`Galería: Click en overlay. Local index: ${localIndex}, Índice real: ${indiceReal}`);
+        if (window.lightboxManager) {
+          window.lightboxManager.open(indiceReal);
+        }
+      };
 
       const editBtn = item.querySelector('.edit');
       editBtn.onclick = (e) => {
@@ -206,6 +196,7 @@ renderizarGaleria() {
       this.container.appendChild(toggleBtn);
     }
   }
+  
   expandirGaleria() {
     // Abrir overlay (lo maneja visor.html)
     if (typeof window.openGaleriaPanel === "function") {
@@ -239,16 +230,6 @@ renderizarGaleria() {
   }
 
   abrirModalEditar(imagen) {
-    document.getElementById('editar-id-imagen').value = imagen.id;
-    document.getElementById('editar-titulo').value = imagen.titulo;
-    document.getElementById('editar-descripcion').value = imagen.descripcion || '';
-    document.getElementById('editar-preview').src = imagen.thumb;
-
-    const modal = new bootstrap.Modal(document.getElementById('modalEditar'));
-    modal.show();
-  }
-
-   abrirModalEditar(imagen) {
     document.getElementById('editar-id-imagen').value = imagen.id;
     document.getElementById('editar-titulo').value = imagen.titulo;
     document.getElementById('editar-descripcion').value = imagen.descripcion || '';
@@ -383,12 +364,12 @@ renderizarGaleria() {
         return;
       }
 
-      const maxSize = 5 * 1024 * 1024;
+      const maxSize = 12 * 1024 * 1024;
       if (file.size > maxSize) {
         NotificationSystem.show({
           type: "error",
           title: "Archivo muy grande",
-          message: "La imagen no puede superar los 5MB"
+          message: "La imagen no puede superar los 12MB"
         });
         return;
       }
