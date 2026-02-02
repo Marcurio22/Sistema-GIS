@@ -382,11 +382,11 @@ def visor():
     ndvi_bounds = leaflet_bounds_from_tif(ndvi_tif)
 
 
-    # Para saber el codigo del municipio
+    # Para saber el codigo del municipio - USAR codigo_recintos_ine para AEMET
     municipios_codigos_finder = MunicipiosCodigosFinder()
-    codigo_municipio = municipios_codigos_finder.codigo_recintos(current_user.id_usuario)
+    codigo_municipio_ine = municipios_codigos_finder.codigo_recintos_ine(current_user.id_usuario)
 
-    weather = obtener_datos_aemet(codigo_municipio)
+    weather = obtener_datos_aemet(codigo_municipio_ine)
 
     # --- Sentinel-2 RGB (mosaico reciente) ---
     meta_path = Path(current_app.root_path) / "static" / "sentinel2" / "s2_rgb_latest.json"
@@ -408,8 +408,6 @@ def visor():
                          s2_bounds=s2_bounds,
                          s2_version=s2_version,
                          ndvi_version=ndvi_version)
-
-
 
 @dashboard_bp.route('/recinto/<int:id_recinto>')
 @login_required

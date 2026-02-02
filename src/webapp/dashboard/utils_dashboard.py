@@ -569,6 +569,39 @@ class MunicipiosCodigosFinder:
         
         return municipio_mas_recintos
     
+    def codigo_recintos_ine(self, user_id):
+        """
+        Obtiene el código INE del municipio donde el usuario tiene más recintos.
+        SIEMPRE devuelve el código con formato: 2 dígitos provincia + 3 dígitos municipio INE
+        
+        Args:
+            user_id: ID del usuario
+        
+        Returns:
+            Código INE del municipio (formato: "01005" o "28079") o None si no hay recintos
+        
+        Ejemplo:
+            provincia=1, municipio=5 → busca en el CSV y devuelve código INE "01XXX"
+            provincia=28, municipio=79 → busca en el CSV y devuelve código INE "28XXX"
+        """
+        # Primero obtener el código normal del municipio con más recintos
+        codigo_normal = self.codigo_recintos(user_id)
+        
+        if codigo_normal is None:
+            MUNICIPIO_INE_POR_DEFECTO = "34120"  
+            return MUNICIPIO_INE_POR_DEFECTO
+        
+        try:
+            fila = self.df_municipios.loc[codigo_normal]
+            cpro = codigo_normal[:2]
+            cmun_ine = fila['Municipio INE'].zfill(3)
+            codigo_ine = f"{cpro}{cmun_ine}"
+            return codigo_ine
+        except KeyError:
+            return None
+    
+
+
     def obtener_url_municipio_usuario(self, user_id):
         """
         Obtiene la URL de AEMET del municipio donde el usuario tiene más recintos.
