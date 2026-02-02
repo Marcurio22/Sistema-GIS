@@ -137,8 +137,14 @@ def subir_imagen():
     titulo = request.form.get('titulo')
     descripcion = request.form.get('descripcion', '')
     recinto_id = request.form.get('recinto_id')
+    
+
+    lat_form = request.form.get('lat')
+    lon_form = request.form.get('lon')
 
     print(f"Título: {titulo}, Recinto: {recinto_id}")
+    if lat_form and lon_form:
+        print(f"📍 GPS desde formulario: Lat {lat_form}, Lon {lon_form}")
 
     # Validaciones
     if not archivo or not titulo or not recinto_id:
@@ -169,13 +175,50 @@ def subir_imagen():
         
         archivo.save(ruta_guardada)
 
-        # Extraer GPS y fecha
-        metadatos = extraer_gps_y_fecha(ruta_guardada)
+
+
+        latitud = None
+        longitud = None
+        fecha_foto = None
+        
+        if lat_form and lon_form:
+            # Usar coordenadas del formulario (del GPS del móvil)
+            try:
+                latitud = float(lat_form)
+                longitud = float(lon_form)
+                print(f"✅ Usando GPS del formulario: {latitud}, {longitud}")
+            except ValueError:
+                print("⚠️ Coordenadas del formulario inválidas")
+        
+        # Intentar extraer metadatos EXIF (siempre, para fecha y GPS de respaldo)
+        try:
+            metadatos = extraer_gps_y_fecha(ruta_guardada)
+            
+            # Si no teníamos GPS del formulario, usar el de EXIF
+            if not latitud or not longitud:
+                if metadatos.get('latitud') and metadatos.get('longitud'):
+                    latitud = metadatos['latitud']
+                    longitud = metadatos['longitud']
+                    print(f"✅ GPS extraído de EXIF: {latitud}, {longitud}")
+                else:
+                    print("⚠️ No se encontró GPS ni en formulario ni en EXIF")
+            
+            # Usar fecha de EXIF si existe
+            fecha_foto = metadatos.get('fecha_foto')
+            
+        except Exception as e:
+            print(f"⚠️ Error al extraer EXIF: {str(e)}")
+            # Continuar sin EXIF
+        
+        # Si no hay fecha, usar actual
+        if not fecha_foto:
+            fecha_foto = datetime.now(timezone.utc)
         
         # Crear punto geométrico si hay coordenadas
         geom = None
-        if metadatos['latitud'] and metadatos['longitud']:
-            geom = crear_wkt_point(metadatos['longitud'], metadatos['latitud'])
+        if latitud and longitud:
+            geom = crear_wkt_point(longitud, latitud)
+            print(f"✅ Punto WKT creado: {geom}")
 
         # Guardar en base de datos
         nueva_imagen = Galeria(
@@ -185,21 +228,25 @@ def subir_imagen():
             url=f"/static/uploads/images/{filename}",
             fecha_subida=datetime.now(timezone.utc),
             geom=geom,
-            fecha_foto=metadatos['fecha_foto']
+            fecha_foto=fecha_foto
         )
         
         db.session.add(nueva_imagen)
         db.session.commit()
+        
+        print(f"✅ Imagen guardada en BD con ID: {nueva_imagen.id_imagen}")
+        print("=" * 80)
         
         return jsonify({
             "id": nueva_imagen.id_imagen,
             "thumb": nueva_imagen.url,
             "titulo": nueva_imagen.nombre,
             "descripcion": nueva_imagen.descripcion,
-            "latitud": metadatos['latitud'],
-            "longitud": metadatos['longitud'],
-            "fecha_foto": metadatos['fecha_foto'].isoformat() if metadatos['fecha_foto'] else None,
-            "tiene_ubicacion": geom is not None
+            "latitud": latitud,
+            "longitud": longitud,
+            "fecha_foto": fecha_foto.isoformat() if fecha_foto else None,
+            "tiene_ubicacion": geom is not None,
+            "fuente_gps": "formulario" if (lat_form and lon_form) else "exif"
         }), 201
 
     except Exception as e:
@@ -207,6 +254,8 @@ def subir_imagen():
         import traceback
         traceback.print_exc()
         return jsonify({"error": "Error al guardar la imagen en la base de datos"}), 500
+    
+
 
 
 @galeria_bp.route('/listar/<int:recinto_id>', methods=['GET'])
@@ -308,7 +357,6 @@ def debug_exif():
         return jsonify({"error": "No se envió imagen"}), 400
     
     try:
-        # Guardar temporalmente
         temp_path = os.path.join(UPLOAD_FOLDER, 'temp_debug.jpg')
         archivo.save(temp_path)
         

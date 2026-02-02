@@ -527,7 +527,7 @@ class MunicipiosCodigosFinder:
         url = (
             f'https://www.aemet.es/es/eltiempo/prediccion/municipios/mostrarwidget/'
             f'{nombre_municipio_url}-id{codigo_ine}'
-            f'?w=g1p111111111ohmffffffx4f86d9t95b6e9r1s8n2'
+            f'?w=g4p111111111ohmffffffx4f86d9t95b6e9r1s8n2'
         )
 
         print(f"URL AEMET construida: {url}")

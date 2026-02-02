@@ -960,7 +960,7 @@ def calcular_ndvi(geometry, tiff_path='../static/ndvi/ndvi2_latest_3857.tif'):
             if not raster_bbox.intersects(geom_shape):
                 return None, None, None
             
-            print(f"✓ Geometría intersecta con el raster")
+            
             
             # 6. Recortar el raster con la geometría
             try:
