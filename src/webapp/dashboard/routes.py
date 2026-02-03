@@ -244,7 +244,7 @@ def dashboard():
 
         ops = ops_by_recinto.get(rid, [])
         preview = []
-        for op in ops[:3]:
+        for op in ops:
             f = op.get("fecha")
             fecha_txt = f.strftime("%d/%m/%Y") if hasattr(f, "strftime") else (str(f) if f else "")
             tipo = op.get("tipo")
