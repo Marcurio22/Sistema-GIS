@@ -1,168 +1,144 @@
 /* =========================
-   Dashboard - ajustes finales
+   Dashboard - Layout Fluido
    ========================= */
 
-/* ✅ Evitar scroll en la página (solo en dashboard) */
-html, body {
-  height: 100%;
-  overflow: hidden;
+body {
+  overflow-y: auto !important; 
+  height: auto !important;
+  background-color: #f8f9fa;
 }
 
-/* Contenedor principal del dashboard: ocupa el viewport */
 .dashboard-root {
-  height: calc(100vh - 72px); /* ajusta si tu navbar tiene otra altura */
-  overflow: hidden;
+  padding-bottom: 2rem;
 }
 
-/* Cards */
-.dashboard-card { border: 0; }
+/* =========================
+   Tarjetas y Componentes
+   ========================= */
 
-/* Minimapa */
+.dashboard-card {
+  border: 0;
+  transition: transform 0.2s;
+  /* Asegura que el contenido flex no desborde */
+  min-width: 0; 
+}
+
+/* =========================
+   Minimapa y Ajuste de Imagen
+   ========================= */
+
 .dashboard-map-frame {
-  border: 2px solid #198754;
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
   background: #ffffff;
-}
-
-.dashboard-map {
+  /* Altura fija para mantener consistencia en la fila */
+  height: 240px; 
   width: 100%;
-  height: 240px; /* un poco más compacto para que quepa todo */
 }
 
-/* Leaflet fixes (tiles glitch) */
-.leaflet-container { background: #f1f3f5; }
-.leaflet-tile { image-rendering: auto; }
+/* CORRECCIÓN: La imagen debe ocupar el 100% del contenedor sin dejar espacios */
+.dashboard-map-image {
+  width: 100%;
+  height: 100%; /* Forzamos altura completa */
+  display: block;
+  object-fit: cover; /* Recorta la imagen si sobra, pero cubre todo el espacio sin deformar */
+  object-position: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
 
-/* Fallback */
+/* Fallback del mapa */
 .dashboard-map-fallback {
   width: 100%;
-  height: 240px;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(25,135,84,.10), rgba(13,110,253,.06));
-}
-.dashboard-map-fallback-inner {
-  text-align: center;
-  padding: 1rem 1.25rem;
-  border-radius: 12px;
-  background: rgba(255,255,255,.85);
-  border: 1px solid rgba(0,0,0,.08);
+  background-color: #e9ecef;
+  color: #6c757d;
 }
 
-/* Placeholder riego */
-.dashboard-etp-placeholder {
-  height: 240px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: linear-gradient(135deg, rgba(25, 135, 84, 0.08), rgba(13, 110, 253, 0.08));
-}
+/* =========================
+   AEMET Widget
+   ========================= */
 
-/* Admin panel */
-.dashboard-admin-panel {
-  background: rgba(25, 135, 84, 0.08);
-  border: 1px solid rgba(25, 135, 84, 0.25);
-}
-
-/* ✅ AEMET: dar altura suficiente y que no quede cortado */
 .dashboard-aemet {
-  height: 420px; /* subimos para que se vea completa en la mayoría de casos */
-  overflow: hidden;
+  width: 100%;
+  background: white;
+  border-radius: 12px;
+  min-height: 600px; 
 }
+
 .dashboard-aemet iframe {
   width: 100%;
   height: 100%;
   display: block;
+  border: 0;
 }
 
 /* =========================
-   Resumen rápido: scroll SOLO aquí
+   Resumen Rápido (Derecha)
    ========================= */
 
-.dashboard-summary {
-  height: 100%;
-}
-
 .dashboard-summary-header {
-  background: #198754;
-  color: #fff;
-  text-align: center;
-  font-weight: 800;
-  font-size: 1.4rem;
+  font-size: 1.1rem;
+  letter-spacing: 0.5px;
 }
 
-/* ✅ Scroll solo en el body de resumen */
-.dashboard-summary-scroll {
-  height: calc(100% - 62px); /* resta header */
-  overflow-y: auto;
-  padding: 0;
-}
-
-/* Items */
-.dashboard-summary-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-.dashboard-section { border-bottom: 1px solid rgba(0, 0, 0, 0.08); }
-
-.dashboard-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.75rem 1.25rem;
-  background: rgba(13, 110, 253, 0.04);
-  font-weight: 800;
-  color: #0d6efd;
-}
-
-.dashboard-section-header--success {
-  background: rgba(25, 135, 84, 0.06);
-  color: #198754;
-}
-
-.dashboard-section-body {
-  padding: 0.75rem 1.25rem 1rem 1.25rem;
-}
-
-.dashboard-recinto-block {
-  padding: 0.75rem 0;
-  border-top: 1px dashed rgba(0, 0, 0, 0.12);
-}
-
-.dashboard-recinto-block:first-child { border-top: 0; }
-
-.dashboard-recinto-title {
-  font-weight: 800;
-  font-size: 1.05rem;
-  margin-bottom: 0.25rem;
-}
-
-.dashboard-ops-list { display: grid; gap: 0.5rem; }
-
-.dashboard-op-item {
-  padding: 0.5rem 0.75rem;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.03);
-}
-
-.dashboard-op-resumen { font-size: 0.9rem; margin-top: 0.25rem; }
-
-.dashboard-map-image {
+.dashboard-divider {
+  height: 1px;
+  background-color: #dee2e6;
   width: 100%;
-  height: 240px;
-  object-fit: cover;
-  display: block;
+  margin: 1rem 0;
 }
 
-.dashboard-map-image--placeholder {
-  background: #e9ecef;
+.dashboard-divider--thick {
+  height: 4px;
+  background-color: #e9ecef;
+  margin: 0;
+}
+
+.last-no-border:last-child {
+  border-bottom: 0 !important;
+  padding-bottom: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Placeholder imagen riego */
+.placeholder-img-overlay {
+    background-size: cover;
+    background-position: center;
+}
+
+/* =========================
+   Ajustes Responsivos Extra
+   ========================= */
+
+/* Truncar texto en botones si es muy largo en móviles */
+.text-truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Ajustes para pantallas pequeñas */
+@media (max-width: 768px) {
+    .dashboard-map-frame {
+        height: 200px; /* Un poco más pequeño en móvil */
+    }
+    
+    .dashboard-welcome h1 {
+        font-size: 1.25rem; /* Título más pequeño */
+    }
+    
+    .dashboard-section-header {
+        flex-direction: column; /* Apilar título y botón */
+        align-items: flex-start !important;
+    }
+    
+    .dashboard-section-header button {
+        width: 100%;
+        margin-top: 0.5rem;
+    }
 }
