@@ -6,8 +6,10 @@ solicitudes de recintos.
 """
 
 from __future__ import annotations
+from fileinput import filename
 
-from flask import jsonify, request
+from flask import jsonify, request, send_from_directory
+from pathlib import Path
 from flask_login import login_required, current_user
 from sqlalchemy import text
 import matplotlib
@@ -917,11 +919,18 @@ def guardar_dibujos():
 
 
 
-def calcular_ndvi(geometry, tiff_path='../static/ndvi/ndvi2_latest_3857.tif'):
+def calcular_ndvi(geometry, tiff_path=None):
+    """
+    Calcula NDVI desde GeoTIFF georreferenciado
+    """
+
+    BASE_DIR = Path(__file__).resolve().parents[3]
+    if tiff_path is None:
+        tiff_path = BASE_DIR / "data" / "raw" / "ndvi_composite" / "ndvi_latest_3857.tif"
+    else:
+        tiff_path = Path(tiff_path) 
 
 
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    tiff_path = os.path.join(BASE_DIR, 'static', 'ndvi/ndvi2_latest_3857.tif')
     """
     Calcula NDVI desde GeoTIFF georreferenciado
     
@@ -1072,3 +1081,19 @@ def eliminar_dibujo(dibujo_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+    
+
+
+
+
+BASE_DIR = Path(__file__).resolve().parents[3]
+
+NDVI_DIR = Path(
+    os.getenv(
+        "NDVI_DIR",
+        str(BASE_DIR / "data" / "raw" / "ndvi_composite")
+    )
+)
+@api_bp.route("/ndvi/<path:filename>")
+def serve_ndvi(filename):
+    return send_from_directory(NDVI_DIR, filename)

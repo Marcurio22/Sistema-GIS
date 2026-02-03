@@ -41,7 +41,7 @@ def register():
         telefono = request.form.get('telefono')
 
         password_pattern = re.compile(
-            r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$'
+            r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.,#€])[A-Za-z\d@$!%*?&.,#€]{8,}$'
         )
         if not password_pattern.match(password):
             flash('La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula, un número y un carácter especial.', 'danger')

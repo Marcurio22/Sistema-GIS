@@ -160,7 +160,21 @@
     {# =========================== TAB 1: RECINTOS ASIGNADOS =========================== #}
     <div class="tab-pane fade {% if solicitudes_pendientes == 0 %}show active{% endif %}" id="recintos-panel"
       role="tabpanel" aria-labelledby="recintos-tab">
+      
       {% if recintos %}
+      <!-- Botones de exportación para recintos -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">Listado de Recintos</h5>
+        <div class="btn-group" role="group">
+          <button id="exportarRecintosCSV" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i>Exportar CSV
+          </button>
+          <button id="exportarRecintosPDF" class="btn btn-outline-danger btn-sm">
+            <i class="bi bi-file-earmark-pdf me-1"></i>Exportar PDF
+          </button>
+        </div>
+      </div>
+
       <div class="table-responsive">
         <table id="tablaUsuarios" class="table table-hover table-bordered align-middle">
           <thead class="table-light">
@@ -177,7 +191,13 @@
           <tbody>
             {% for recinto in recintos %}
             <tr onclick="window.location='{{ url_for("dashboard.detalle_recinto", id_recinto=recinto.id_recinto) }}'"
-              style="cursor:pointer;">
+              style="cursor:pointer;"
+              data-nombre="{{ recinto.nombre }}"
+              data-superficie="{{ '%.2f'|format(recinto.superficie_ha|float) }}"
+              data-propietario="{{ recinto.propietario.username if recinto.propietario else 'N/A' }}"
+              data-provincia="{{ recinto.provincia }}{% if recinto.nombre_provincia %} - {{ recinto.nombre_provincia }}{% endif %}"
+              data-municipio="{{ recinto.municipio }}{% if recinto.nombre_municipio %} - {{ recinto.nombre_municipio }}{% endif %}"
+              data-estado="{{ 'Activa' if recinto.activa else 'Inactiva' }}">
               <td>{{ recinto.nombre }}</td>
               <td>{{ "%.2f"|format(recinto.superficie_ha|float) }}</td>
               <td>
@@ -495,13 +515,21 @@ async function refrescarSolicitudes() {
 </script>
 
 {% block extra_js %}
+<!-- jsPDF para exportar PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
 <script>
   $(document).ready(function () {
     // DataTable para recintos
-    $('#tablaUsuarios').DataTable({
+    var tableRecintos = $('#tablaUsuarios').DataTable({
       language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
       pageLength: 25,
-      responsive: true
+      responsive: true,
+      columnDefs: [
+        { orderable: false, targets: -1 },
+        { searchable: false, targets: -1 }  // No buscar en columna Acciones
+      ]
     });
 
     // DataTable para solicitudes
@@ -518,6 +546,115 @@ async function refrescarSolicitudes() {
       pageLength: 50,
       responsive: true,
       order: [[0, 'desc']]
+    });
+
+    // ==================== EXPORTAR RECINTOS A CSV ====================
+    $('#exportarRecintosCSV').on('click', function () {
+      var rows = tableRecintos.rows({ search: 'applied' }).nodes();
+
+      if (rows.length === 0) {
+        alert('No hay recintos para exportar con los filtros actuales.');
+        return;
+      }
+
+      var csv = [];
+      csv.push('Nombre;Superficie (ha);Propietario;Provincia;Municipio;Estado');
+
+      $(rows).each(function() {
+        var $row = $(this);
+        
+        var nombre = $row.attr('data-nombre') || '';
+        var superficie = $row.attr('data-superficie') || '';
+        var propietario = $row.attr('data-propietario') || '';
+        var provincia = $row.attr('data-provincia') || '';
+        var municipio = $row.attr('data-municipio') || '';
+        var estado = $row.attr('data-estado') || '';
+
+        var rowData = [nombre, superficie, propietario, provincia, municipio, estado];
+
+        var escapedData = rowData.map(function(value) {
+          value = String(value).replace(/"/g, '""');
+          if (value.includes(';') || value.includes('"') || value.includes('\n')) {
+            return '"' + value + '"';
+          }
+          return value;
+        });
+
+        csv.push(escapedData.join(';'));
+      });
+
+      var csvContent = csv.join('\n');
+      var BOM = '\uFEFF';
+      csvContent = BOM + csvContent;
+
+      var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      var link = document.createElement('a');
+      
+      if (link.download !== undefined) {
+        var url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'recintos_' + new Date().toISOString().split('T')[0] + '.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    });
+
+    // ==================== EXPORTAR RECINTOS A PDF ====================
+    $('#exportarRecintosPDF').on('click', function () {
+      var rows = tableRecintos.rows({ search: 'applied' }).nodes();
+
+      if (rows.length === 0) {
+        alert('No hay recintos para exportar con los filtros actuales.');
+        return;
+      }
+
+      var dataPDF = [];
+      
+      $(rows).each(function() {
+        var $row = $(this);
+        
+        var nombre = $row.attr('data-nombre') || '';
+        var superficie = $row.attr('data-superficie') || '';
+        var propietario = $row.attr('data-propietario') || '';
+        var provincia = $row.attr('data-provincia') || '';
+        var municipio = $row.attr('data-municipio') || '';
+        var estado = $row.attr('data-estado') || '';
+
+        dataPDF.push([nombre, superficie, propietario, provincia, municipio, estado]);
+      });
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('landscape');
+
+      doc.setFontSize(18);
+      doc.text('Listado de Recintos', 14, 20);
+
+      doc.setFontSize(10);
+      doc.text('Generado el: ' + new Date().toLocaleString('es-ES'), 14, 28);
+
+      doc.autoTable({
+        head: [['Nombre', 'Superficie (ha)', 'Propietario', 'Provincia', 'Municipio', 'Estado']],
+        body: dataPDF,
+        startY: 35,
+        styles: { 
+          fontSize: 9,
+          cellPadding: 3
+        },
+        headStyles: { 
+          fillColor: [40, 167, 69],
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245]
+        },
+        margin: { top: 35, left: 14, right: 14 }
+      });
+
+      doc.save('recintos_' + new Date().toISOString().split('T')[0] + '.pdf');
     });
   });
 </script>

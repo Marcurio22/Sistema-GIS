@@ -458,7 +458,6 @@ class MunicipiosCodigosFinder:
         # Eliminar duplicados quedándonos con el primero de cada código
         self.df_municipios = self.df.drop_duplicates(subset='CODIGO', keep='first').set_index('CODIGO')
         
-        # Crear índice por provincia (eliminando duplicados)
         self.df_provincias = self.df[['Provincia', 'Nombre Provincia']].drop_duplicates().set_index('Provincia')
     
     def obtener_nombre_municipio(self, cod_provincia, cod_municipio):
@@ -483,8 +482,7 @@ class MunicipiosCodigosFinder:
             return None
         
     def obtener_nombre_provincia(self, cod_provincia):
-        """Obtiene el nombre de la provincia."""
-        cpro = str(cod_provincia).zfill(2)
+        cpro = str(cod_provincia)
         
         try:
             return self.df_provincias.loc[cpro, 'Nombre Provincia']

@@ -25,6 +25,7 @@
                     </h2>
                     <p class="text-muted mb-0">Administra y supervisa todos los usuarios del sistema</p>
                 </div>
+                
             </div>
         </div>
     </div>
@@ -86,9 +87,24 @@
     </div>
 
     <!-- Tabla de usuarios -->
-    <h5 class="m-3">
-        <i class="bi bi-table me-2"></i>Listado de Usuarios
-    </h5>
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="m-0">
+                    <i class="bi bi-table me-2"></i>Listado de Usuarios
+                </h5>
+                <!-- Botones de exportación -->
+                <div class="btn-group" role="group">
+                    <button id="exportarCSV" class="btn btn-outline-success btn-sm">
+                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Exportar CSV
+                    </button>
+                    <button id="exportarPDF" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-file-earmark-pdf me-1"></i>Exportar PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div class="row">
         <div class="col-12">
             <div class="table-responsive">
@@ -109,7 +125,13 @@
                         {% if usuarios %}
                         {% for usuario in usuarios %}
                         {% if usuario.id_usuario != 10 %}
-                        <tr>
+                        <tr data-id="{{ usuario.id_usuario }}"
+                            data-username="{{ usuario.username }}"
+                            data-email="{{ usuario.email if usuario.email else '' }}"
+                            data-telefono="{{ usuario.telefono if usuario.telefono else '' }}"
+                            data-rol="{{ usuario.rol }}"
+                            data-activo="{{ 'Activo' if usuario.activo else 'Inactivo' }}"
+                            data-fecha="{{ usuario.fecha_registro.strftime('%d/%m/%Y') if usuario.fecha_registro else '' }}">
                             <td class="px-3" data-order="{{ usuario.id_usuario }}">
                                 <span class="badge bg-secondary">#{{ usuario.id_usuario }}</span>
                             </td>
@@ -396,6 +418,10 @@
 </div>
 
 {% block extra_js %}
+<!-- jsPDF para exportar PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
 <script>
     // Inicializar DataTables
     $(document).ready(function () {
@@ -403,7 +429,7 @@
             $('#tablaUsuarios').DataTable().destroy();
         }
 
-        $('#tablaUsuarios').DataTable({
+        var table = $('#tablaUsuarios').DataTable({
             language: {
                 url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
             },
@@ -411,8 +437,152 @@
             pageLength: 25,
             responsive: true,
             columnDefs: [
-                { orderable: false, targets: -1 }
+                { orderable: false, targets: -1 },
+                { searchable: false, targets: -1 }  // No buscar en columna Acciones
             ]
+        });
+
+        // ==================== EXPORTAR A CSV ====================
+        $('#exportarCSV').on('click', function () {
+            // Obtener solo las filas visibles (filtradas)
+            var rows = table.rows({ search: 'applied' }).nodes();
+
+            // Verificar si hay datos
+            if (rows.length === 0) {
+                alert('No hay usuarios para exportar con los filtros actuales.');
+                return;
+            }
+
+            // Crear el contenido CSV
+            var csv = [];
+            
+            // Encabezados
+            csv.push('ID;Usuario;Email;Teléfono;Rol;Estado;Fecha Registro');
+
+            // Recorrer las filas filtradas usando los data-attributes
+            $(rows).each(function() {
+                var $row = $(this);
+                
+                // Extraer datos de los atributos data-*
+                var id = $row.attr('data-id') || '';
+                var username = $row.attr('data-username') || '';
+                var email = $row.attr('data-email') || '';
+                var telefono = $row.attr('data-telefono') || '';
+                var rol = $row.attr('data-rol') || '';
+                var activo = $row.attr('data-activo') || '';
+                var fecha = $row.attr('data-fecha') || '';
+
+                // Traducir rol a texto legible
+                var rolTexto = '';
+                if (rol === 'admin') rolTexto = 'Administrador';
+                else if (rol === 'superadmin') rolTexto = 'Superadmin';
+                else rolTexto = 'Usuario';
+
+                // Crear array con los datos
+                var rowData = [id, username, email, telefono, rolTexto, activo, fecha];
+
+                // Escapar valores que contengan punto y coma o comillas
+                var escapedData = rowData.map(function(value) {
+                    value = String(value).replace(/"/g, '""');
+                    if (value.includes(';') || value.includes('"') || value.includes('\n')) {
+                        return '"' + value + '"';
+                    }
+                    return value;
+                });
+
+                csv.push(escapedData.join(';'));
+            });
+
+            // Convertir a string con saltos de línea
+            var csvContent = csv.join('\n');
+
+            // Agregar BOM para que Excel reconozca UTF-8
+            var BOM = '\uFEFF';
+            csvContent = BOM + csvContent;
+
+            // Crear un Blob y descargar
+            var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            
+            if (link.download !== undefined) {
+                var url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'usuarios_' + new Date().toISOString().split('T')[0] + '.csv');
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }
+        });
+
+        // ==================== EXPORTAR A PDF ====================
+        $('#exportarPDF').on('click', function () {
+            // Obtener filas filtradas
+            var rows = table.rows({ search: 'applied' }).nodes();
+
+            if (rows.length === 0) {
+                alert('No hay usuarios para exportar con los filtros actuales.');
+                return;
+            }
+
+            // Preparar datos para el PDF
+            var dataPDF = [];
+            
+            $(rows).each(function() {
+                var $row = $(this);
+                
+                var id = $row.attr('data-id') || '';
+                var username = $row.attr('data-username') || '';
+                var email = $row.attr('data-email') || '';
+                var telefono = $row.attr('data-telefono') || '';
+                var rol = $row.attr('data-rol') || '';
+                var activo = $row.attr('data-activo') || '';
+                var fecha = $row.attr('data-fecha') || '';
+
+                // Traducir rol
+                var rolTexto = '';
+                if (rol === 'admin') rolTexto = 'Admin';
+                else if (rol === 'superadmin') rolTexto = 'Superadmin';
+                else rolTexto = 'Usuario';
+
+                dataPDF.push([id, username, email, telefono, rolTexto, activo, fecha]);
+            });
+
+            // Crear PDF usando jsPDF
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('landscape'); // Orientación horizontal
+
+            // Título
+            doc.setFontSize(18);
+            doc.text('Listado de Usuarios', 14, 20);
+
+            // Fecha de generación
+            doc.setFontSize(10);
+            doc.text('Generado el: ' + new Date().toLocaleString('es-ES'), 14, 28);
+
+            // Tabla con autoTable
+            doc.autoTable({
+                head: [['ID', 'Usuario', 'Email', 'Teléfono', 'Rol', 'Estado', 'Fecha Registro']],
+                body: dataPDF,
+                startY: 35,
+                styles: { 
+                    fontSize: 9,
+                    cellPadding: 3
+                },
+                headStyles: { 
+                    fillColor: [40, 167, 69],
+                    textColor: 255,
+                    fontStyle: 'bold'
+                },
+                alternateRowStyles: {
+                    fillColor: [245, 245, 245]
+                },
+                margin: { top: 35, left: 14, right: 14 }
+            });
+
+            // Descargar el PDF
+            doc.save('usuarios_' + new Date().toISOString().split('T')[0] + '.pdf');
         });
     });
 </script>
