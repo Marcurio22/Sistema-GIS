@@ -159,6 +159,7 @@ function renderOperacionesInline(container, recintoId, ops) {
         <div class="text-muted" style="font-size:12px">
           No hay operaciones registradas en este recinto.
         </div>
+        <div id="op-inline-form-slot" class="mt-2"></div>
       `;
     } else {
         body.innerHTML = `
