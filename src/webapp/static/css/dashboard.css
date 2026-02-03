@@ -2,14 +2,17 @@
    Dashboard - Layout Fluido
    ========================= */
 
+/* Habilitar scroll global y evitar bloqueos para Sticky */
 body {
   overflow-y: auto !important; 
   height: auto !important;
   background-color: #f8f9fa;
 }
 
+/* IMPORTANTE: Para que sticky funcione dentro, el padre NO debe tener overflow hidden */
 .dashboard-root {
   padding-bottom: 2rem;
+  overflow: visible !important; 
 }
 
 /* =========================
@@ -19,31 +22,45 @@ body {
 .dashboard-card {
   border: 0;
   transition: transform 0.2s;
-  /* Asegura que el contenido flex no desborde */
   min-width: 0; 
 }
 
 /* =========================
-   Ajustes Mapa y Overlay (Corrección Final)
+   MAPA: Ajustes de Relleno (Fix)
    ========================= */
 
+/* El contenedor flex que engloba la imagen */
 .dashboard-map-container {
-    width: 100%;
-    /* En móvil altura fija, en escritorio (flex) ocupará lo que sobre */
-    min-height: 250px; 
-    height: 100%;       
     position: relative;
     overflow: hidden;
-    display: flex;      /* Asegura que la imagen hijo se comporte bien */
+    display: flex; /* Flex para controlar el hijo (imagen) */
+    flex-direction: column;
+    
+    /* En pantallas grandes, esto obliga a usar todo el espacio vertical disponible */
+    flex-grow: 1; 
+    min-height: 0; 
 }
 
+/* La imagen en sí */
 .dashboard-map-image {
     width: 100%;
-    height: 100%;       /* Forza llenar el contenedor */
-    object-fit: cover;  /* Recorta lo que sobre, evita espacios blancos */
+    height: 100%;       /* Fuerza altura 100% del contenedor padre */
+    object-fit: cover;  /* CLAVE: Corta los bordes sobrantes para rellenar sin deformar */
     object-position: center;
     display: block;
-    flex: 1;            /* Asegura expansión en flexbox */
+    flex-grow: 1;       /* Asegura expansión */
+}
+
+/* Estado Vacío (Sin imagen) */
+.dashboard-map-fallback {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8f9fa;
+    color: #adb5bd;
+    min-height: 250px; /* Altura mínima estética */
 }
 
 /* =========================
@@ -54,18 +71,12 @@ body {
   width: 100%;
   background: white;
   border-radius: 12px;
-  min-height: 600px; 
-}
-
-.dashboard-aemet iframe {
-  width: 100%;
-  height: 100%;
-  display: block;
-  border: 0;
+  /* Altura automática, controlada por el iframe o contenido */
+  height: auto; 
 }
 
 /* =========================
-   Resumen Rápido (Derecha)
+   Resumen Rápido (Estilos)
    ========================= */
 
 .dashboard-summary-header {
@@ -92,44 +103,40 @@ body {
   margin-bottom: 0 !important;
 }
 
-/* Placeholder imagen riego */
 .placeholder-img-overlay {
     background-size: cover;
     background-position: center;
 }
 
 /* =========================
-   Resumen Rápido: Scroll Independiente
+   SCROLL STICKY (Fix Definitivo)
    ========================= */
-
-/* Solo en pantallas grandes (XL) donde está a la derecha */
-/* Solo en pantallas grandes (XL) */
+   
 @media (min-width: 1200px) {
     
-    /* Quitamos sticky de la columna (si lo tenías) y lo ponemos en la TARJETA */
+    /* 1. Quitamos sticky de la columna contenedora */
     .dashboard-col-sticky {
         position: static; 
         height: auto;
         overflow: visible;
     }
 
+    /* 2. Aplicamos sticky a la tarjeta */
     .dashboard-summary {
-        /* Fijamos la tarjeta a la ventana */
-        position: fixed; 
-        /* O alternativamente sticky si el padre lo permite */
+        position: -webkit-sticky;
         position: sticky;
-        top: 1.5rem; 
+        top: 1.5rem; /* Margen superior */
         
-        /* FORZAMOS ALTURA: Altura de ventana - margen superior (1.5rem) - margen inferior algo */
+        /* Altura fija: Ventana - margen superior - margen inferior */
         height: calc(100vh - 3rem) !important;
         
         display: flex;
         flex-direction: column;
-        overflow: hidden; 
+        overflow: hidden; /* Contiene el scroll interno */
         z-index: 100;
     }
 
-    /* El cuerpo hace scroll cuando el contenido excede el alto de la tarjeta */
+    /* 3. El cuerpo hace scroll interno */
     .dashboard-summary-scroll {
         flex: 1; 
         overflow-y: auto;
@@ -139,28 +146,45 @@ body {
         scrollbar-width: thin;
         scrollbar-color: #adb5bd #f8f9fa;
     }
+
+    /* Estilo scrollbar Chrome */
+    .dashboard-summary-scroll::-webkit-scrollbar {
+        width: 6px;
+    }
+    .dashboard-summary-scroll::-webkit-scrollbar-track {
+        background: #f8f9fa; 
+    }
+    .dashboard-summary-scroll::-webkit-scrollbar-thumb {
+        background-color: #adb5bd; 
+        border-radius: 10px; 
+    }
 }
 
 /* =========================
-   Ajustes Responsivos Extra
+   Ajustes Responsivos
    ========================= */
 
-/* Truncar texto en botones si es muy largo en móviles */
 .text-truncate {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-/* Ajustes para pantallas pequeñas */
+@media (max-width: 991px) {
+    /* En pantallas medianas/pequeñas, el mapa tiene altura fija */
+    .dashboard-map-container {
+        height: 250px; 
+        flex-grow: 0;
+    }
+}
+
 @media (max-width: 768px) {
-    
     .dashboard-welcome h1 {
-        font-size: 1.25rem; /* Título más pequeño */
+        font-size: 1.25rem;
     }
     
     .dashboard-section-header {
-        flex-direction: column; /* Apilar título y botón */
+        flex-direction: column;
         align-items: flex-start !important;
     }
     

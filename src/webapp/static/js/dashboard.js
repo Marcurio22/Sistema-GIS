@@ -30,17 +30,12 @@
   }
 
   function initSituacionMap() {
-    // 1. DEFINIR la variable 'el' ANTES de usarla (Soluciona el error ReferenceError)
-    const el = document.getElementById("dashboard-sit-map");
-
-    // 2. Comprobaciones de seguridad: si no existe el div, paramos.
     if (!el) return;
 
-    // 3. BLOQUEO: Si ya hay una imagen dentro (el mapa estático), NO cargamos Leaflet.
-    // Esto evita que el mapa interactivo se pinte encima de tu imagen nueva.
     if (el.querySelector('img')) return;
 
-    // 4. Si no hay imagen pero tampoco está cargado Leaflet, mostramos error.
+    if (el.querySelector('.dashboard-map-fallback')) return;
+
     if (typeof L === "undefined") {
       showFallbackPreview(el);
       return;

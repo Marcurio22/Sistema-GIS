@@ -30,6 +30,7 @@
             </div>
 
             <div class="row g-4 align-items-stretch">
+                
                 <div class="col-12 col-md-6 col-lg-5">
                     <div class="dashboard-card bg-white rounded-3 shadow-sm p-0 h-100 overflow-hidden d-flex flex-column">
                         
@@ -63,10 +64,10 @@
                             {% if minimap_img_url %}
                                 <img src="{{ minimap_img_url }}" alt="Vista satélite" class="dashboard-map-image">
                             {% else %}
-                                <div class="w-100 h-100 d-flex align-items-center justify-content-center text-muted p-4">
+                                <div class="dashboard-map-fallback">
                                     <div class="text-center">
                                         <i class="bi bi-camera-video-off fs-1 d-block mb-2 text-secondary opacity-25"></i>
-                                        <span>Vista no disponible</span>
+                                        <span>No hay parcela visualizada</span>
                                     </div>
                                 </div>
                             {% endif %}
@@ -81,11 +82,9 @@
                             <a href="{{ url_for('dashboard.visor') }}" class="btn btn-primary w-100 text-truncate">
                                 <i class="bi bi-map me-2"></i>Acceder al Mapa
                             </a>
-
                             <a href="{{ url_for('auth.mis_recintos') }}" class="btn btn-success w-100 text-truncate">
                                 <i class="bi bi-grid me-2"></i>Mis Recintos
                             </a>
-
                             <a class="btn btn-success disabled w-100 text-truncate" aria-disabled="true" tabindex="-1">
                                 <i class="bi bi-journal-text me-2"></i>Plan de Cultivo
                             </a>
@@ -138,17 +137,36 @@
 
             <div class="w-100 mt-2">
                 <p class="text-muted mb-2 text-center small">
-                    <i class="bi bi-info-circle me-1"></i> Mostrando el tiempo del municipio asociado a tus recintos
+                    <i class="bi bi-info-circle me-1"></i> 
+                    {% if url_widget %}
+                        Mostrando el tiempo de {{ nombre_municipio }} (Municipio de referencia)
+                    {% else %}
+                        Información meteorológica
+                    {% endif %}
                 </p>
-                <div class="dashboard-aemet card shadow-sm border-0 overflow-hidden">
-                    <iframe
-                        name="iframe_aemet"
-                        tabindex="0"
-                        src="{{ url_widget }}"
-                        frameborder="0"
-                        scrolling="no"
-                        style="width: 100%; min-height: 600px; display: block;">
-                    </iframe>
+
+                <div class="dashboard-aemet card shadow-sm border-0 overflow-auto">
+                    {% if url_widget %}
+                        <iframe
+                            name="iframe_aemet"
+                            tabindex="0"
+                            src="{{ url_widget }}"
+                            frameborder="0"
+                            scrolling="no"
+                            style="width: 100%; min-height: 329.5px; display: block;">
+                        </iframe>
+                    {% else %}
+                        <div class="d-flex flex-column align-items-center justify-content-center p-5 text-center bg-light" style="min-height: 200px;">
+                            <i class="bi bi-cloud-slash text-secondary mb-3" style="font-size: 3rem; opacity: 0.5;"></i>
+                            <h6 class="fw-bold text-secondary">Datos meteorológicos no disponibles</h6>
+                            <p class="text-muted small mb-0 max-w-md">
+                                Para ver la previsión del tiempo de la AEMET, necesitas registrar al menos una parcela o recinto en el sistema.
+                            </p>
+                            <a href="{{ url_for('auth.mis_recintos') }}" class="btn btn-sm btn-success mt-3">
+                                <i class="bi bi-plus-lg me-1"></i>Registrar Recinto
+                            </a>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
 
@@ -162,7 +180,6 @@
                 </div>
 
                 <div class="card-body p-0 dashboard-summary-scroll">
-                    
                     <div class="p-3">
                         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                             <div class="d-flex align-items-center gap-3">
@@ -208,7 +225,6 @@
                             </div>
                             <button class="btn btn-sm btn-outline-primary" disabled>Ver Detalle</button>
                         </div>
-
                         <div class="p-3">
                             <div class="text-muted small text-center py-3 bg-light rounded border border-dashed">
                                 <i class="bi bi-check-circle text-success mb-1 d-block" style="font-size: 1.5rem;"></i>
@@ -236,13 +252,10 @@
                             {% else %}
                             {% for r in operaciones_resumen %}
                             <div class="mb-3 border-bottom pb-3 last-no-border">
-                                
                                 <div class="d-flex justify-content-between align-items-start mb-2 gap-2">
-                                    
                                     <div class="fw-bold text-dark border-start border-3 border-success ps-2 text-truncate">
                                         {{ r.nombre }}
                                     </div>
-
                                     <a href="{{ url_for('dashboard.visor', recinto_id=r.id_recinto, capa='ndvi') }}" 
                                        class="btn btn-sm btn-outline-info py-0 px-2 flex-shrink-0" 
                                        title="Ver en el mapa"
