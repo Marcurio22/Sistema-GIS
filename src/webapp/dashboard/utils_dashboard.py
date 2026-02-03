@@ -482,7 +482,8 @@ class MunicipiosCodigosFinder:
             return None
         
     def obtener_nombre_provincia(self, cod_provincia):
-        cpro = str(cod_provincia)
+        cpro = str(cod_provincia).zfill(2)
+
         
         try:
             return self.df_provincias.loc[cpro, 'Nombre Provincia']
