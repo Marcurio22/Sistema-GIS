@@ -1,6 +1,6 @@
 from flask import Blueprint
 
-# ÚNICO blueprint de la API
+
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 galeria_bp = Blueprint('galeria', __name__, url_prefix='/api/galeria')
 

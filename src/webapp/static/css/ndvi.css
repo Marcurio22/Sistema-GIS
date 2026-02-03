@@ -96,8 +96,32 @@
   display: flex;
   gap: 8px;
   flex: 1;
-  overflow: hidden;
+  overflow-x: auto; /* Cambiado de hidden a auto */
+  overflow-y: hidden;
   align-items: flex-start;
+  scroll-behavior: smooth; /* Scroll suave */
+  -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
+  scrollbar-width: thin; /* Firefox - scrollbar delgada */
+  scrollbar-color: #198754 #f8f9fa; /* Firefox - color del scrollbar */
+}
+
+/* Estilo del scrollbar para Chrome/Safari */
+.carousel-images::-webkit-scrollbar {
+  height: 6px;
+}
+
+.carousel-images::-webkit-scrollbar-track {
+  background: #f8f9fa;
+  border-radius: 3px;
+}
+
+.carousel-images::-webkit-scrollbar-thumb {
+  background: #198754;
+  border-radius: 3px;
+}
+
+.carousel-images::-webkit-scrollbar-thumb:hover {
+  background: #157347;
 }
 
 .carousel-item {

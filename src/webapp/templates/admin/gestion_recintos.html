@@ -528,7 +528,7 @@ async function refrescarSolicitudes() {
       responsive: true,
       columnDefs: [
         { orderable: false, targets: -1 },
-        { searchable: false, targets: -1 }  // No buscar en columna Acciones
+        { searchable: false, targets: -1 }  
       ]
     });
 
@@ -537,7 +537,10 @@ async function refrescarSolicitudes() {
       language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
       pageLength: 25,
       responsive: true,
-      order: [[4, 'desc']]
+      order: [[4, 'desc']],
+      columnDefs: [
+        { searchable: false, targets: -1 }  
+      ]
     });
 
     // DataTable para logs

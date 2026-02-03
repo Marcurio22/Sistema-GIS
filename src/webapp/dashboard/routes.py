@@ -393,12 +393,12 @@ def visor():
         roi_bbox = [-4.6718708208, 41.7248613835,
                     -3.8314839480, 42.1274665349]
         
-    # Calcular bounds del NDVI (suponiendo que el NDVI cubre la misma área que la ROI)
-    ndvi_tif = os.path.join(current_app.static_folder, "ndvi", "ndvi_latest.tif")
+    project_root = Path(__file__).resolve().parents[3]  # 2 niveles arriba
+
+
+    ndvi_tif = os.path.join(project_root, "data", "raw", "ndvi_composite", "ndvi_latest_3857.tif")
     ndvi_bounds = leaflet_bounds_from_tif(ndvi_tif)
 
-
-    # Para saber el codigo del municipio - USAR codigo_recintos_ine para AEMET
     municipios_codigos_finder = MunicipiosCodigosFinder()
     codigo_municipio_ine = municipios_codigos_finder.codigo_recintos_ine(current_user.id_usuario)
 

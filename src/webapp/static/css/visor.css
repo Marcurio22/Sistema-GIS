@@ -1734,6 +1734,10 @@ svg.leaflet-zoom-animated {
   #cancelar-btn {
     display: none !important;
   }
+
+  #dibujos-toggle {
+    display: none !important;
+  }
 }
 
 /* Ajustar header del side-panel en móvil */

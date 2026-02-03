@@ -375,14 +375,23 @@ class NDVI {
                                     size: 12
                                 },
                                 displayColors: false,
-                                callbacks: {
-                                    title: function(context) {
-                                        return context[0].label;
-                                    },
-                                    label: function(context) {
-                                        return context.parsed.y.toFixed(2) + ' Veg. elevada';
-                                    }
+                               callbacks: {
+                                title: function(context) {
+                                    return context[0].label;
+                                },
+                                label: function(context) {
+                                    const valor = context.parsed.y;
+                                    let categoria = '';
+                                    
+                                    if (valor < 0.2) categoria = 'Suelo/Agua';
+                                    else if (valor < 0.4) categoria = 'Veg. baja';
+                                    else if (valor < 0.6) categoria = 'Veg. moderada';
+                                    else if (valor < 0.8) categoria = 'Veg. elevada';
+                                    else categoria = 'Veg. muy elevada';
+                                    
+                                    return `${valor.toFixed(2)} - ${categoria}`;
                                 }
+                            }
                             }
                         },
                         scales: {

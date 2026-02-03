@@ -256,14 +256,15 @@ class GaleriaImagenes {
   }
 
 renderizarGaleria() {
-    this.container.innerHTML = '';
-    
+    if (!this.container) return;
+
     // Actualizar contador de imágenes
     const countEl = document.getElementById('galeria-count');
     if (countEl) countEl.textContent = String(this.imagenes.length || 0);
-    
+
+    // Si no hay imágenes
     if (this.imagenes.length === 0) {
-      this.container.innerHTML = '<p class="text-muted">No hay imágenes en este recinto. </p>';
+      this.container.innerHTML = '<p class="text-muted">No hay imágenes en este recinto.</p>';
       return;
     }
 
@@ -271,99 +272,73 @@ renderizarGaleria() {
       ? this.imagenes 
       : this.imagenes.slice(0, this.maxVisibles);
 
+    const fragment = document.createDocumentFragment();
+
     imagenesAMostrar.forEach((imagen, localIndex) => {
-      const item = document.createElement('div');
-      item.className = 'galeria-item';
-      
-      // Encontrar el índice real en el array completo
-      const indiceReal = this.imagenes.findIndex(img => img.id === imagen.id);
-      
-      const coords = this.extraerCoordenadas(imagen.geom);
-      const coordsHTML = coords ? `<small class="d-block mt-1" style="color: #17a2b8; font-weight: 500;">${this.formatearCoordenadas(coords)}</small>` : '';
-      
-      item.innerHTML = `
-      <img src="${imagen.thumb}" alt="${imagen.titulo}" loading="lazy">
-      <div class="galeria-overlay">
-        <h4>${imagen.titulo}</h4>
-        <p>${imagen.descripcion || ''}</p>
-        ${coordsHTML}
-      </div>
-      <div class="galeria-actions">
-        <button class="galeria-action-btn edit" data-id="${imagen.id}" data-index="${indiceReal}" title="Editar">
-          <i class="bi bi-pencil-fill"></i>
-        </button>
-        <button class="galeria-action-btn delete" data-id="${imagen.id}" title="Eliminar">
-          <i class="bi bi-trash-fill"></i>
-        </button>
-      </div>
-    `;
+        const item = document.createElement('div');
+        item.className = 'galeria-item';
 
-      const imgElement = item.querySelector('img');
-      const overlayElement = item.querySelector('.galeria-overlay');
-      
-      // ✅ USAR LIGHTBOX MANAGER PARA ABRIR CON EL ÍNDICE REAL
-      imgElement.onclick = () => {
-        console.log(`Galería: Click en imagen. Local index: ${localIndex}, Índice real: ${indiceReal}`);
-        console.log(`Galería: Imagen clickeada:`, imagen.titulo);
-        if (window.lightboxManager) {
-          window.lightboxManager.open(indiceReal);
-        } else {
-          console.error('Galería: lightboxManager no disponible al hacer click');
-        }
-      };
-      
-      overlayElement.onclick = () => {
-        console.log(`Galería: Click en overlay. Local index: ${localIndex}, Índice real: ${indiceReal}`);
-        if (window.lightboxManager) {
-          window.lightboxManager.open(indiceReal);
-        }
-      };
+        const coords = this.extraerCoordenadas(imagen.geom);
+        const coordsHTML = coords ? `<small class="d-block mt-1" style="color: #17a2b8; font-weight: 500;">${this.formatearCoordenadas(coords)}</small>` : '';
 
-      const editBtn = item.querySelector('.edit');
-      editBtn.onclick = (e) => {
-        e.stopPropagation();
-        this.abrirModalEditar(imagen);
-      };
+        item.innerHTML = `
+            <img src="${imagen.thumb}" alt="${imagen.titulo}" loading="lazy" width="200" height="150">
+            <div class="galeria-overlay">
+                <h4>${imagen.titulo}</h4>
+                <p>${imagen.descripcion || ''}</p>
+                ${coordsHTML}
+            </div>
+            <div class="galeria-actions">
+                <button class="galeria-action-btn edit" data-id="${imagen.id}" data-index="${localIndex}" title="Editar">
+                    <i class="bi bi-pencil-fill"></i>
+                </button>
+                <button class="galeria-action-btn delete" data-id="${imagen.id}" title="Eliminar">
+                    <i class="bi bi-trash-fill"></i>
+                </button>
+            </div>
+        `;
 
-      const deleteBtn = item.querySelector('.delete');
-      deleteBtn.onclick = (e) => {
-        e.stopPropagation();
-        this.confirmarEliminar(imagen);
-      };
+        const imgElement = item.querySelector('img');
+        const overlayElement = item.querySelector('.galeria-overlay');
 
-      this.container.appendChild(item);
+        // Fade-in cuando se carga
+        imgElement.onload = () => imgElement.classList.add('loaded');
+
+        // Abrir lightbox
+        const indiceReal = this.imagenes.findIndex(img => img.id === imagen.id);
+        imgElement.onclick = () => window.lightboxManager?.open(indiceReal);
+        overlayElement.onclick = () => window.lightboxManager?.open(indiceReal);
+
+        // Editar y eliminar
+        const editBtn = item.querySelector('.edit');
+        editBtn.onclick = (e) => { e.stopPropagation(); this.abrirModalEditar(imagen); };
+        const deleteBtn = item.querySelector('.delete');
+        deleteBtn.onclick = (e) => { e.stopPropagation(); this.confirmarEliminar(imagen); };
+
+        fragment.appendChild(item);
     });
 
-    // Botón toggle
+    // Botón toggle "Ver todas / Mostrar menos"
     if (this.imagenes.length > this.maxVisibles) {
-      const toggleBtn = document.createElement('div');
-      toggleBtn.className = 'galeria-item galeria-ver-mas';
-      
-      if (this.mostrandoTodas) {
-        toggleBtn.innerHTML = `
-          <div class="ver-mas">
-            <span>▲</span>
-            <p>Mostrar menos</p>
-          </div>
-        `;
-        toggleBtn.onclick = () => {
-          this.contraerGaleria();
-        };
-      } else {
-        toggleBtn.innerHTML = `
-          <div class="ver-mas">
-            <span>+${this.imagenes.length - this.maxVisibles}</span>
-            <p>Ver todas</p>
-          </div>
-        `;
-        toggleBtn.onclick = () => {
-          this.expandirGaleria();
-        };
-      }
-      
-      this.container.appendChild(toggleBtn);
+        const toggleBtn = document.createElement('div');
+        toggleBtn.className = 'galeria-item galeria-ver-mas';
+
+        if (this.mostrandoTodas) {
+            toggleBtn.innerHTML = `<div class="ver-mas"><span>▲</span><p>Mostrar menos</p></div>`;
+            toggleBtn.onclick = () => this.contraerGaleria();
+        } else {
+            toggleBtn.innerHTML = `<div class="ver-mas"><span>+${this.imagenes.length - this.maxVisibles}</span><p>Ver todas</p></div>`;
+            toggleBtn.onclick = () => this.expandirGaleria();
+        }
+
+        fragment.appendChild(toggleBtn);
     }
-  }
+
+    // Limpiar container solo una vez y añadir todo
+    this.container.innerHTML = '';
+    this.container.appendChild(fragment);
+}
+
   
   expandirGaleria() {
     // Abrir overlay (lo maneja visor.html)
