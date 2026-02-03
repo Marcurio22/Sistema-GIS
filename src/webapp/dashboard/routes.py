@@ -270,18 +270,34 @@ def dashboard():
     
     operaciones_resumen.sort(key=lambda x: (-int(x["n_ops"]), (x["nombre"] or "").lower()))
 
+    # [NUEVO] Obtener nombres reales usando tu clase utils_dashboard.py
+    nombre_provincia = "Provincia"
+    nombre_municipio = "Municipio"
+    
+    # codigo_municipio viene como "PPMMM" (ej: 34023)
+    if codigo_municipio and len(codigo_municipio) == 5:
+        c_pro = codigo_municipio[:2]
+        c_mun = codigo_municipio[2:]
+        
+        # Usamos tus métodos existentes
+        nombre_provincia = municipios_finder.obtener_nombre_provincia(c_pro) or nombre_provincia
+        nombre_municipio = municipios_finder.obtener_nombre_municipio(c_pro, c_mun) or nombre_municipio
+
     return render_template(
-        'dashboard.html',
-        username=current_user.username,
-        url_widget=url_widget,
-        weather=weather,
-        start_view=start_view,
-        minimap_img_url=minimap_img_url,
-        recintos_count=recintos_count,
-        cultivo_principal=cultivo_principal,
-        operaciones_resumen=operaciones_resumen,
-        is_admin=getattr(current_user, "rol", None) in ["admin", "superadmin"],
-    )
+            'dashboard.html',
+            username=current_user.username,
+            url_widget=url_widget,
+            weather=weather,
+            codigo_municipio=codigo_municipio, 
+            nombre_provincia=nombre_provincia,
+            nombre_municipio=nombre_municipio,
+            start_view=start_view,
+            minimap_img_url=minimap_img_url,
+            recintos_count=recintos_count,
+            cultivo_principal=cultivo_principal,
+            operaciones_resumen=operaciones_resumen,
+            is_admin=getattr(current_user, "rol", None) in ["admin", "superadmin"],
+        )
 
 @dashboard_bp.route("/visor")
 @login_required

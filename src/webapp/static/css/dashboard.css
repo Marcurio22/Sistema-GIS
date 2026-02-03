@@ -24,41 +24,26 @@ body {
 }
 
 /* =========================
-   Minimapa y Ajuste de Imagen
+   Ajustes Mapa y Overlay (Corrección Final)
    ========================= */
 
-.dashboard-map-frame {
-  width: 100%;
-  height: 100%; 
-  min-height: 250px; 
-  
-  border-radius: 8px;
-  overflow: hidden;
-  background: #ffffff;
+.dashboard-map-container {
+    width: 100%;
+    /* En móvil altura fija, en escritorio (flex) ocupará lo que sobre */
+    min-height: 250px; 
+    height: 100%;       
+    position: relative;
+    overflow: hidden;
+    display: flex;      /* Asegura que la imagen hijo se comporte bien */
 }
 
 .dashboard-map-image {
-  width: 100%;
-  height: 100%;
-  display: block;
-  
-  object-fit: cover; 
-  object-position: center;
-  
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-/* Fallback del mapa */
-.dashboard-map-fallback {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #e9ecef;
-  color: #6c757d;
+    width: 100%;
+    height: 100%;       /* Forza llenar el contenedor */
+    object-fit: cover;  /* Recorta lo que sobre, evita espacios blancos */
+    object-position: center;
+    display: block;
+    flex: 1;            /* Asegura expansión en flexbox */
 }
 
 /* =========================
@@ -114,6 +99,49 @@ body {
 }
 
 /* =========================
+   Resumen Rápido: Scroll Independiente
+   ========================= */
+
+/* Solo en pantallas grandes (XL) donde está a la derecha */
+/* Solo en pantallas grandes (XL) */
+@media (min-width: 1200px) {
+    
+    /* Quitamos sticky de la columna (si lo tenías) y lo ponemos en la TARJETA */
+    .dashboard-col-sticky {
+        position: static; 
+        height: auto;
+        overflow: visible;
+    }
+
+    .dashboard-summary {
+        /* Fijamos la tarjeta a la ventana */
+        position: fixed; 
+        /* O alternativamente sticky si el padre lo permite */
+        position: sticky;
+        top: 1.5rem; 
+        
+        /* FORZAMOS ALTURA: Altura de ventana - margen superior (1.5rem) - margen inferior algo */
+        height: calc(100vh - 3rem) !important;
+        
+        display: flex;
+        flex-direction: column;
+        overflow: hidden; 
+        z-index: 100;
+    }
+
+    /* El cuerpo hace scroll cuando el contenido excede el alto de la tarjeta */
+    .dashboard-summary-scroll {
+        flex: 1; 
+        overflow-y: auto;
+        min-height: 0;
+        
+        /* Scrollbar fina */
+        scrollbar-width: thin;
+        scrollbar-color: #adb5bd #f8f9fa;
+    }
+}
+
+/* =========================
    Ajustes Responsivos Extra
    ========================= */
 
@@ -126,9 +154,6 @@ body {
 
 /* Ajustes para pantallas pequeñas */
 @media (max-width: 768px) {
-    .dashboard-map-frame {
-        height: 200px; /* Un poco más pequeño en móvil */
-    }
     
     .dashboard-welcome h1 {
         font-size: 1.25rem; /* Título más pequeño */

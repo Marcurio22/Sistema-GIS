@@ -30,19 +30,45 @@
             </div>
 
             <div class="row g-4 align-items-stretch">
-
-                <div class="col-12 col-lg-5">
-                    <div class="dashboard-card bg-white rounded-3 shadow-sm p-3 h-100">
-                        <div class="dashboard-map-frame border border-2 border-success position-relative">
-                                                        {% if minimap_img_url %}
-                            <img src="{{ minimap_img_url }}" alt="Vista satélite del municipio"
-                                class="dashboard-map-image">
-                            {% else %}
-                            <div class="dashboard-map-fallback">
-                                <div class="dashboard-map-fallback-inner">
-                                    <strong>Vista no disponible</strong>
+                <div class="col-12 col-md-6 col-lg-5">
+                    <div class="dashboard-card bg-white rounded-3 shadow-sm p-0 h-100 overflow-hidden d-flex flex-column">
+                        
+                        <div class="bg-success text-white p-3 flex-shrink-0">
+                            <div class="d-flex align-items-center gap-3">
+                                <i class="bi bi-geo-alt-fill fs-2"></i>
+                                <div style="line-height: 1.2;">
+                                    <h6 class="mb-1 fw-bold text-uppercase" style="font-size: 0.85rem; letter-spacing: 0.5px;">
+                                        {% if codigo_municipio and codigo_municipio|length == 5 %}
+                                            <span class="opacity-75">{{ codigo_municipio[:2] }}</span> - {{ nombre_provincia }}
+                                            <span class="mx-1 opacity-50">|</span> 
+                                            <span class="opacity-75">{{ codigo_municipio[2:] }}</span> - {{ nombre_municipio }}
+                                        {% else %}
+                                            UBICACIÓN PRINCIPAL
+                                        {% endif %}
+                                    </h6>
+                                    
+                                    {% if start_view and start_view.bbox %}
+                                    <div class="font-monospace opacity-75 small">
+                                        Lat: {{ "%.4f"|format((start_view.bbox[1] + start_view.bbox[3])/2) }}, 
+                                        Lon: {{ "%.4f"|format((start_view.bbox[0] + start_view.bbox[2])/2) }}
+                                    </div>
+                                    {% else %}
+                                    <div class="small opacity-75">Coordenadas no disponibles</div>
+                                    {% endif %}
                                 </div>
                             </div>
+                        </div>
+
+                        <div class="position-relative flex-grow-1 bg-light dashboard-map-container" id="dashboard-sit-map">
+                            {% if minimap_img_url %}
+                                <img src="{{ minimap_img_url }}" alt="Vista satélite" class="dashboard-map-image">
+                            {% else %}
+                                <div class="w-100 h-100 d-flex align-items-center justify-content-center text-muted p-4">
+                                    <div class="text-center">
+                                        <i class="bi bi-camera-video-off fs-1 d-block mb-2 text-secondary opacity-25"></i>
+                                        <span>Vista no disponible</span>
+                                    </div>
+                                </div>
                             {% endif %}
                         </div>
                     </div>
@@ -128,7 +154,7 @@
 
         </div>
 
-        <div class="col-12 col-xl-4">
+        <div class="col-12 col-xl-4 dashboard-col-sticky">
             <div class="dashboard-summary card shadow-sm border-0 h-100">
                 
                 <div class="card-header bg-success text-white py-3 text-center">
@@ -198,7 +224,7 @@
                             <div class="fw-bold d-flex align-items-center">
                                 <i class="fa-solid fa-chart-line me-2"></i>OPERACIONES
                             </div>
-                            <button class="btn btn-sm btn-outline-success" disabled>Plan Cultivo</button>
+                            <button class="btn btn-sm btn-outline-success" disabled>Plan de Cultivo</button>
                         </div>
 
                         <div class="p-3">
@@ -210,8 +236,20 @@
                             {% else %}
                             {% for r in operaciones_resumen %}
                             <div class="mb-3 border-bottom pb-3 last-no-border">
-                                <div class="fw-bold text-dark mb-2 border-start border-3 border-success ps-2 text-truncate">{{ r.nombre }}</div>
+                                
+                                <div class="d-flex justify-content-between align-items-start mb-2 gap-2">
+                                    
+                                    <div class="fw-bold text-dark border-start border-3 border-success ps-2 text-truncate">
+                                        {{ r.nombre }}
+                                    </div>
 
+                                    <a href="{{ url_for('dashboard.visor', recinto_id=r.id_recinto, capa='ndvi') }}" 
+                                       class="btn btn-sm btn-outline-info py-0 px-2 flex-shrink-0" 
+                                       title="Ver en el mapa"
+                                       style="font-size: 0.85rem;">
+                                        <i class="bi bi-map me-1"></i>Ver
+                                    </a>
+                                </div>
                                 {% if r.ops and r.ops|length > 0 %}
                                 <div class="d-flex flex-column gap-2">
                                     {% for op in r.ops %}
