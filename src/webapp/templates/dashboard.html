@@ -6,6 +6,41 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+
+<style>
+  /* Minimapa: SIEMPRE rellena el hueco */
+  #dashboard-sit-map{
+    position: relative !important;
+    overflow: hidden !important;
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+  }
+
+  #dashboard-sit-map > img.dashboard-map-image{
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    display: block !important;
+  }
+
+  #dashboard-sit-map > .dashboard-map-fallback{
+    position: absolute !important;
+    inset: 0 !important;
+  }
+
+  /* En pantallas pequeñas: tu comportamiento actual */
+  @media (max-width: 991px){
+    #dashboard-sit-map{
+      height: 250px !important;
+      min-height: 250px !important;
+      flex: 0 0 auto !important;
+    }
+  }
+</style>
+
 {% endblock %}
 
 {% block main_class %}container-fluid py-4{% endblock %}
@@ -31,8 +66,8 @@
 
             <div class="row g-4 align-items-stretch">
                 
-                <div class="col-12 col-md-6 col-lg-5">
-                    <div class="dashboard-card bg-white rounded-3 shadow-sm p-0 h-100 overflow-hidden d-flex flex-column">
+                <div class="col-12 col-md-6 col-lg-5 d-flex">
+                    <div class="dashboard-card dashboard-sit-card bg-white rounded-3 shadow-sm p-0 flex-fill overflow-hidden">
                         
                         <div class="bg-success text-white p-3 flex-shrink-0">
                             <div class="d-flex align-items-center gap-3">

@@ -26,41 +26,28 @@ body {
 }
 
 /* =========================
-   MAPA: Ajustes de Relleno (Fix)
+   MAPA: fill real (sin huecos)
    ========================= */
 
-/* El contenedor flex que engloba la imagen */
-.dashboard-map-container {
-    position: relative;
-    overflow: hidden;
-    display: flex; /* Flex para controlar el hijo (imagen) */
-    flex-direction: column;
-    
-    /* En pantallas grandes, esto obliga a usar todo el espacio vertical disponible */
-    flex-grow: 1; 
-    min-height: 0; 
+.dashboard-sit-card{
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr); /* header auto + mapa ocupa el resto */
+  height: 100% !important;
 }
 
-/* La imagen en sí */
-.dashboard-map-image {
-    width: 100%;
-    height: 100%;       /* Fuerza altura 100% del contenedor padre */
-    object-fit: cover;  /* CLAVE: Corta los bordes sobrantes para rellenar sin deformar */
-    object-position: center;
-    display: block;
-    flex-grow: 1;       /* Asegura expansión */
+.dashboard-sit-card #dashboard-sit-map{
+  min-height: 0 !important; /* clave para que 1fr funcione sin desbordes raros */
 }
 
-/* Estado Vacío (Sin imagen) */
-.dashboard-map-fallback {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background-color: #f8f9fa;
-    color: #adb5bd;
-    min-height: 250px; /* Altura mínima estética */
+/* Mantén tu imagen absoluta (esto ya lo tienes, pero lo dejo por claridad) */
+.dashboard-sit-card #dashboard-sit-map > img.dashboard-map-image{
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  display: block !important;
 }
 
 /* =========================

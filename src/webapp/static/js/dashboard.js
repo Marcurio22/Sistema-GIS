@@ -30,11 +30,11 @@
   }
 
   function initSituacionMap() {
+    const el = document.getElementById("dashboard-sit-map");
     if (!el) return;
 
-    if (el.querySelector('img')) return;
-
-    if (el.querySelector('.dashboard-map-fallback')) return;
+    if (el.querySelector("img")) return;
+    if (el.querySelector(".dashboard-map-fallback")) return;
 
     if (typeof L === "undefined") {
       showFallbackPreview(el);
