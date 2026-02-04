@@ -4,12 +4,13 @@ NDVI Temporal Composite con Planetary Computer
 ===============================================
 Genera un composite NDVI óptimo usando imágenes de los últimos 2-3 meses.
 
-CORRECCIONES v1.3:
+CORRECCIONES v1.4:
 - ✓ Weighted blend entre tiles (elimina bordes visibles)
 - ✓ Solo guarda imagen en BBDD, NO procesa índices_raster
 - ✓ Agua preservada correctamente (SCL=6)
 - ✓ PNG generado desde EPSG:3857 (cuadrado con el mapa)
-- ✓ Sistema de rotación corregido: mapa explícito, preserva _utm / _3857
+- ✓ Sistema de rotación simplificado: 1 latest + máximo 2 copias históricas
+- ✓ Eliminada lógica de versiones _v2, _v3, etc.
 
 Autor: Sistema GIS Mejorado
 Fecha: 2025
@@ -46,7 +47,7 @@ from pystac_client import Client
 import planetary_computer as pc
 
 
-print("[NDVI-TEMPORAL] Script de NDVI - COMPOSITE TEMPORAL ÓPTIMO v1.3")
+print("[NDVI-TEMPORAL] Script de NDVI - COMPOSITE TEMPORAL ÓPTIMO v1.4")
 print("="*70)
 
 load_dotenv()
@@ -586,7 +587,7 @@ def main():
         date_display = f"{START_DATE.strftime('%Y-%m-%d')} a {END_DATE.strftime('%Y-%m-%d')}"
         
         # ========================================================================
-        # SISTEMA DE ROTACIÓN: Renombrar "latest" anterior si existe
+        # SISTEMA DE ROTACIÓN: Mantener solo 1 latest + máximo 2 copias históricas
         # ========================================================================
         latest_json = ndvi_dir / "ndvi_latest.json"
         
@@ -626,10 +627,7 @@ def main():
                 
                 print(f"[ROTACIÓN] Renombrando archivos anteriores con fecha: {old_date_suffix}")
                 
-                # Mapa explícito: archivo actual → nombre rotado.
-                # Esto evita usar glob("ndvi_latest.*") que NO matchea
-                # ndvi_latest_utm.tif ni ndvi_latest_3857.tif (sus stems son
-                # ndvi_latest_utm y ndvi_latest_3857, no ndvi_latest).
+                # Mapa de rotación
                 rotation_map = {
                     "ndvi_latest_utm.tif":  f"ndvi_{old_date_suffix}_utm.tif",
                     "ndvi_latest_3857.tif": f"ndvi_{old_date_suffix}_3857.tif",
@@ -645,16 +643,6 @@ def main():
                     
                     new_path = ndvi_dir / new_name
                     
-                    # Si ya existe un archivo con ese nombre, añadir sufijo _v2, _v3, etc.
-                    if new_path.exists():
-                        stem = new_path.stem      # ej: ndvi_20250203_utm
-                        ext   = new_path.suffix   # ej: .tif
-                        counter = 2
-                        while new_path.exists():
-                            new_path = ndvi_dir / f"{stem}_v{counter}{ext}"
-                            counter += 1
-                        new_name = new_path.name
-                    
                     try:
                         old_file.rename(new_path)
                         print(f"[ROTACIÓN]   {old_name} → {new_name}")
@@ -663,13 +651,54 @@ def main():
                         print(f"[ROTACIÓN]   ✗ Error renombrando {old_name}: {e}")
                 
                 print(f"[ROTACIÓN] ✓ {renamed_count} archivo(s) renombrado(s)")
+                
+                # ====================================================================
+                # LIMPIEZA: Mantener solo las 2 copias históricas más recientes
+                # ====================================================================
+                print(f"\n[LIMPIEZA] Verificando archivos históricos...")
+                
+                # Buscar todos los archivos con fecha (excluyendo "latest")
+                historical_files = {}
+                for pattern in ["ndvi_*_utm.tif", "ndvi_*_3857.tif", "ndvi_*.png", "ndvi_*.json"]:
+                    for f in ndvi_dir.glob(pattern):
+                        if "latest" not in f.name:
+                            # Extraer fecha del nombre: ndvi_20250203_utm.tif -> 20250203
+                            parts = f.stem.split('_')
+                            if len(parts) >= 2 and parts[1].isdigit() and len(parts[1]) == 8:
+                                date_key = parts[1]
+                                if date_key not in historical_files:
+                                    historical_files[date_key] = []
+                                historical_files[date_key].append(f)
+                
+                # Si hay más de 2 fechas históricas, borrar la(s) más antigua(s)
+                if len(historical_files) > 2:
+                    print(f"[LIMPIEZA] Encontradas {len(historical_files)} versiones históricas (máximo: 2)")
+                    
+                    # Ordenar por fecha (más antigua primero)
+                    sorted_dates = sorted(historical_files.keys())
+                    
+                    # Borrar las más antiguas (todas excepto las últimas 2)
+                    dates_to_delete = sorted_dates[:-2]
+                    
+                    for date_to_delete in dates_to_delete:
+                        print(f"[LIMPIEZA] Borrando versión antigua: {date_to_delete}")
+                        for file_to_delete in historical_files[date_to_delete]:
+                            try:
+                                file_to_delete.unlink()
+                                print(f"[LIMPIEZA]   ✓ Borrado: {file_to_delete.name}")
+                            except Exception as e:
+                                print(f"[LIMPIEZA]   ✗ Error borrando {file_to_delete.name}: {e}")
+                    
+                    print(f"[LIMPIEZA] ✓ Limpieza completada - Se mantienen {len(sorted_dates[-2:])} versiones históricas")
+                else:
+                    print(f"[LIMPIEZA] ✓ {len(historical_files)} versión(es) histórica(s) - No requiere limpieza")
             
             except Exception as e:
                 print(f"[ROTACIÓN] ⚠ Error durante rotación: {e}")
                 print(f"[ROTACIÓN] Continuando con la generación del nuevo composite...")
         else:
             print(f"\n[ROTACIÓN] No se encontró set completo de archivos previos (primera ejecución o archivos incompletos)")
-            # Limpiar cualquier archivo "latest" suelto usando la lista explícita
+            # Limpiar cualquier archivo "latest" suelto
             for fname in ["ndvi_latest_utm.tif", "ndvi_latest_3857.tif", "ndvi_latest.png", "ndvi_latest.json"]:
                 stale = ndvi_dir / fname
                 if stale.exists():
@@ -734,7 +763,7 @@ def main():
             "date_display": date_display,
             "source": "Planetary Computer",
             "processing": {
-                "version": "Weighted Blend Composite v1.3",
+                "version": "Weighted Blend Composite v1.4",
                 "method": "weighted_average",
                 "blend_type": "smooth_transitions",
                 "dates_used": len(items_por_fecha),

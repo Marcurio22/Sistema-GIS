@@ -5,6 +5,7 @@ class NDVI {
         this.todosLosIndices = [];
         this.indiceActual = 0;
         this.imagenZoomActual = 0;
+        this.chartInstance = null; // ← Importante inicializar aquí
         this.init();
         this.setupDetallePanel();
     }
@@ -14,11 +15,10 @@ class NDVI {
     }
 
     normalizarRuta(ruta) {
-  if (!ruta) return '';
-  ruta = ruta.replace(/^webapp\//, '');
-  return ruta.startsWith('/') ? ruta : '/' + ruta;
-}
-
+        if (!ruta) return '';
+        ruta = ruta.replace(/^webapp\//, '');
+        return ruta.startsWith('/') ? ruta : '/' + ruta;
+    }
 
     setupDetallePanel() {
         const btnDetalle = document.getElementById('btn-detalle-ndvi');
@@ -51,8 +51,6 @@ class NDVI {
             });
         }
     }
-
-
 
     abrirDetallePanel() {
         const sidePanel = document.getElementById('side-panel');
@@ -157,11 +155,12 @@ class NDVI {
 
         <div class="side-divider"></div>
 
-        <!-- Gráfica de evolución -->
+        <!-- Gráfica de evolución SINCRONIZADA -->
         <div class="mb-3">
             <h5 class="mb-3">
                 <i class="bi bi-graph-up me-2"></i>
                 Evolución del NDVI
+                <span class="badge bg-success  ms-2" id="badge-rango-grafica"></span>
             </h5>
             <div id="ndvi-chart"></div>
         </div>`;
@@ -175,6 +174,7 @@ class NDVI {
                 if (this.indiceActual > 0) {
                     this.indiceActual = Math.max(0, this.indiceActual - 5);
                     this.actualizarCarousel();
+                    this.actualizarGrafica(); // ← SINCRONIZAR
                 }
             });
         }
@@ -186,6 +186,7 @@ class NDVI {
                 if (this.indiceActual + 5 < total) {
                     this.indiceActual = Math.min(total - 5, this.indiceActual + 5);
                     this.actualizarCarousel();
+                    this.actualizarGrafica(); // ← SINCRONIZAR
                 }
             });
         }
@@ -196,31 +197,31 @@ class NDVI {
     }
 
     agregarEventosZoom() {
-  const imagenes = document.querySelectorAll('.carousel-img');
+        const imagenes = document.querySelectorAll('.carousel-img');
 
-  imagenes.forEach((img, idx) => {
-    img.style.cursor = 'pointer';
-    img.onclick = () => {
-      const indiceGlobal = this.indiceActual + idx;
+        imagenes.forEach((img, idx) => {
+            img.style.cursor = 'pointer';
+            img.onclick = () => {
+                const indiceGlobal = this.indiceActual + idx;
 
-      const imagenesNDVI = this.todosLosIndices.map(i => ({
-        url: this.normalizarRuta(i.ruta_ndvi),
-        fecha: i.fecha_ndvi_formateada || 'N/A',
-        media: i.valor_medio.toFixed(4),
-        min: i.valor_min.toFixed(4),
-        max: i.valor_max.toFixed(4)
-      }));
+                const imagenesNDVI = this.todosLosIndices.map(i => ({
+                    url: this.normalizarRuta(i.ruta_ndvi),
+                    fecha: i.fecha_ndvi_formateada || 'N/A',
+                    media: i.valor_medio.toFixed(4),
+                    min: i.valor_min.toFixed(4),
+                    max: i.valor_max.toFixed(4)
+                }));
 
-      window.lightboxManager.updateImages(
-        imagenesNDVI,
-        this.recintoId,
-        'ndvi'
-      );
+                window.lightboxManager.updateImages(
+                    imagenesNDVI,
+                    this.recintoId,
+                    'ndvi'
+                );
 
-      window.lightboxManager.open(indiceGlobal);
-    };
-  });
-}
+                window.lightboxManager.open(indiceGlobal);
+            };
+        });
+    }
 
     renderizarImagenes() {
         const total = this.todosLosIndices.length;
@@ -294,169 +295,190 @@ class NDVI {
         }
     }
 
+    /**
+     * ✨ NUEVA FUNCIÓN: Actualizar solo la gráfica (sin hacer fetch)
+     */
+    actualizarGrafica() {
+        const container = document.getElementById('ndvi-chart');
+        if (!container) return;
+
+        // Obtener las 5 imágenes visibles actualmente
+        const inicio = this.indiceActual;
+        const fin = Math.min(inicio + 5, this.todosLosIndices.length);
+        const indicesVisibles = this.todosLosIndices.slice(inicio, fin);
+
+        if (indicesVisibles.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center">No hay datos para mostrar</p>';
+            return;
+        }
+
+        // Extraer fechas y valores
+        const fechas = indicesVisibles.map(i => i.fecha_ndvi_formateada || 'N/A');
+        const valores = indicesVisibles.map(i => i.valor_medio);
+
+        // Actualizar badge con el rango
+        const badgeRango = document.getElementById('badge-rango-grafica');
+        if (badgeRango) {
+            badgeRango.textContent = `${fechas[0]} - ${fechas[fechas.length - 1]}`;
+        }
+
+        // Asegurarse de que el canvas existe
+        if (!document.getElementById('ndvi-chart-canvas')) {
+            container.innerHTML = '<canvas id="ndvi-chart-canvas"></canvas>';
+        }
+
+        const ctx = document.getElementById('ndvi-chart-canvas').getContext('2d');
+
+        // Destruir gráfica anterior si existe
+        if (this.chartInstance) {
+            this.chartInstance.destroy();
+        }
+
+        // Crear nueva gráfica con los datos filtrados
+        this.chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: fechas,
+                datasets: [{
+                    label: 'Vegetación',
+                    data: valores,
+                    borderColor: '#4CAF50',
+                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#4CAF50',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {},
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        align: 'center',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 25,
+                            font: {
+                                size: 13,
+                                family: "'Inter', 'Segoe UI', sans-serif"
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        titleFont: {
+                            size: 13,
+                            weight: '600'
+                        },
+                        bodyFont: {
+                            size: 12
+                        },
+                        displayColors: false,
+                        callbacks: {
+                            title: function(context) {
+                                return context[0].label;
+                            },
+                            label: function(context) {
+                                const valor = context.parsed.y;
+                                let categoria = '';
+                                
+                                if (valor < 0.2) categoria = 'Sin vegetación';
+                                else if (valor < 0.4) categoria = 'Veg. baja';
+                                else if (valor < 0.6) categoria = 'Veg. moderada';
+                                else if (valor < 0.8) categoria = 'Veg. elevada';
+                                else categoria = 'Veg. muy elevada';
+                                
+                                return `${valor.toFixed(2)} - ${categoria}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: true,
+                            color: 'rgba(0, 0, 0, 0.05)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 12,
+                                family: "'Inter', 'Segoe UI', sans-serif"
+                            },
+                            color: '#666',
+                            maxRotation: 0,
+                            autoSkip: false // ← Mostrar TODAS las fechas (máx 5)
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: 1.0,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 12,
+                                family: "'Inter', 'Segoe UI', sans-serif"
+                            },
+                            color: '#666',
+                            stepSize: 0.1
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * 🔥 FUNCIÓN ORIGINAL: Renderizar gráfica por primera vez
+     */
     async renderizarGrafica() {
         const container = document.getElementById('ndvi-chart');
         if (!container) return;
 
         container.innerHTML = '<div class="text-center text-muted py-3"><div class="spinner-border spinner-border-sm text-success me-2" role="status"></div>Generando gráfica...</div>';
 
-        try {
-            const response = await fetch(`/api/grafica-ndvi/${this.recintoId}`);
-
-            if (!response.ok) {
-                throw new Error('Error de servidor');
-            }
-
-            const data = await response.json();
-
-            if (data.error) {
-                container.innerHTML = `<p class="text-danger small text-center">${data.error}</p>`;
-                return;
-            }
-
-            if (data.fechas && data.valores) {
-                container.innerHTML = '<canvas id="ndvi-chart-canvas"></canvas>';
-
-                const ctx = document.getElementById('ndvi-chart-canvas').getContext('2d');
-
-                if (this.chartInstance) {
-                    this.chartInstance.destroy();
-                }
-
-                this.chartInstance = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: data.fechas,
-                        datasets: [{
-                            label: 'Vegetación',
-                            data: data.valores,
-                            borderColor: '#4CAF50',
-                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                            borderWidth: 3,
-                            fill: true,
-                            tension: 0.4,
-                            pointRadius: 4,
-                            pointHoverRadius: 6,
-                            pointBackgroundColor: '#4CAF50',
-                            pointBorderColor: '#fff',
-                            pointBorderWidth: 2
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        layout: {},
-                        interaction: {
-                            intersect: false,
-                            mode: 'index'
-                        },
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top',
-                                align: 'center',
-                                labels: {
-                                    usePointStyle: true,
-                                    padding: 25,
-                                    font: {
-                                        size: 13,
-                                        family: "'Inter', 'Segoe UI', sans-serif"
-                                    }
-                                }
-                            },
-                            tooltip: {
-                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                                padding: 12,
-                                titleFont: {
-                                    size: 13,
-                                    weight: '600'
-                                },
-                                bodyFont: {
-                                    size: 12
-                                },
-                                displayColors: false,
-                               callbacks: {
-                                title: function(context) {
-                                    return context[0].label;
-                                },
-                                label: function(context) {
-                                    const valor = context.parsed.y;
-                                    let categoria = '';
-                                    
-                                    if (valor < 0.2) categoria = 'Suelo/Agua';
-                                    else if (valor < 0.4) categoria = 'Veg. baja';
-                                    else if (valor < 0.6) categoria = 'Veg. moderada';
-                                    else if (valor < 0.8) categoria = 'Veg. elevada';
-                                    else categoria = 'Veg. muy elevada';
-                                    
-                                    return `${valor.toFixed(2)} - ${categoria}`;
-                                }
-                            }
-                            }
-                        },
-                        scales: {
-                            x: {
-                                grid: {
-                                    display: true,
-                                    color: 'rgba(0, 0, 0, 0.05)',
-                                    drawBorder: false
-                                },
-                                ticks: {
-                                    font: {
-                                        size: 12,
-                                        family: "'Inter', 'Segoe UI', sans-serif"
-                                    },
-                                    color: '#666',
-                                    maxRotation: 0,
-                                    autoSkip: true,
-                                    maxTicksLimit: 8
-                                }
-                            },
-                            y: {
-                                beginAtZero: true,
-                                max: 1.0,
-                                grid: {
-                                    color: 'rgba(0, 0, 0, 0.05)',
-                                    drawBorder: false
-                                },
-                                ticks: {
-                                    font: {
-                                        size: 12,
-                                        family: "'Inter', 'Segoe UI', sans-serif"
-                                    },
-                                    color: '#666',
-                                    stepSize: 0.1
-                                }
-                            }
-                        }
-                    }
-                });
-
-            } else {
-                container.innerHTML = '<p class="text-muted text-center">No se pudieron generar los datos visuales.</p>';
-            }
-        } catch (error) {
-            console.error('Error al cargar gráfica:', error);
-            container.innerHTML = '<p class="text-danger text-center small">No se pudo cargar la gráfica.</p>';
+        // En lugar de hacer fetch, usar los datos que ya tenemos
+        if (!this.todosLosIndices || this.todosLosIndices.length === 0) {
+            container.innerHTML = '<p class="text-muted text-center">No hay datos disponibles</p>';
+            return;
         }
+
+        // Usar actualizarGrafica para renderizar
+        this.actualizarGrafica();
     }
 
     async setRecintoId(recintoId) {
-  this.recintoId = recintoId;
-  this.todosLosIndices = [];
-  this.indiceActual = 0;
+        this.recintoId = recintoId;
+        this.todosLosIndices = [];
+        this.indiceActual = 0;
 
-  // 🔥 Resetear lightbox si venimos de otro recinto
-  if (window.lightboxManager) {
-    window.lightboxManager.updateImages([], null);
-  }
+        // 🔥 Resetear lightbox si venimos de otro recinto
+        if (window.lightboxManager) {
+            window.lightboxManager.updateImages([], null);
+        }
 
-  if (this.panelDetalleAbierto) {
-    await this.cargarDetalleNDVI();
-  }
+        if (this.panelDetalleAbierto) {
+            await this.cargarDetalleNDVI();
+        }
 
-  await this.cargarYMostrar();
-}
+        await this.cargarYMostrar();
+    }
 
     async cargarYMostrar() {
         if (!this.recintoId) {
@@ -482,10 +504,10 @@ class NDVI {
             }
 
             // Normalizar orden: antiguo → reciente
-        this.todosLosIndices = [...indices].reverse();
+            this.todosLosIndices = [...indices].reverse();
 
-        // El más reciente es SIEMPRE el último
-        const ultimoIndice = this.todosLosIndices[this.todosLosIndices.length - 1];
+            // El más reciente es SIEMPRE el último
+            const ultimoIndice = this.todosLosIndices[this.todosLosIndices.length - 1];
 
             let rutaImagen = ultimoIndice.ruta_ndvi;
 
