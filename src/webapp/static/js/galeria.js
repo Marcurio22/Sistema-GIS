@@ -304,10 +304,20 @@ renderizarGaleria() {
         // Fade-in cuando se carga
         imgElement.onload = () => imgElement.classList.add('loaded');
 
-        // Abrir lightbox
+        // 🔥 SOLUCIÓN: Actualizar lightbox ANTES de abrirlo
         const indiceReal = this.imagenes.findIndex(img => img.id === imagen.id);
-        imgElement.onclick = () => window.lightboxManager?.open(indiceReal);
-        overlayElement.onclick = () => window.lightboxManager?.open(indiceReal);
+        
+        const abrirLightbox = () => {
+            // Asegurarse de que el lightbox tenga las imágenes de la galería
+            if (window.lightboxManager) {
+                console.log('🖼️ Actualizando lightbox con imágenes de GALERÍA antes de abrir');
+                window.lightboxManager.updateImages(this.imagenes, this.recintoId);
+                window.lightboxManager.open(indiceReal);
+            }
+        };
+        
+        imgElement.onclick = abrirLightbox;
+        overlayElement.onclick = abrirLightbox;
 
         // Editar y eliminar
         const editBtn = item.querySelector('.edit');
@@ -372,35 +382,74 @@ renderizarGaleria() {
     }
   }
 
-  abrirModalEditar(imagen) {
-    document.getElementById('editar-id-imagen').value = imagen.id;
-    document.getElementById('editar-titulo').value = imagen.titulo;
-    document.getElementById('editar-descripcion').value = imagen.descripcion || '';
-    document.getElementById('editar-preview').src = imagen.thumb;
+  async confirmarEliminar(imagen) {
+    const confirmar = await CustomDialog.confirm({
+      title: '¿Eliminar imagen?',
+      message: `¿Estás seguro de que quieres eliminar "${imagen.titulo}"?`,
+      confirmText: 'Eliminar',
+      cancelText: 'Cancelar',
+      type: 'danger'
+    });
 
-    const modal = new bootstrap.Modal(document.getElementById('modalEditar'));
-    modal.show();
+    if (!confirmar) return;
+
+    try {
+      const res = await fetch(`/api/galeria/eliminar/${imagen.id}`, {
+        method: 'DELETE'
+      });
+
+      if (!res.ok) {
+        throw new Error('Error al eliminar la imagen');
+      }
+
+      await this.cargarImagenes();
+      
+      NotificationSystem.show({
+        type: "success",
+        title: "Imagen eliminada",
+        message: `"${imagen.titulo}" ha sido eliminada correctamente`
+      });
+      
+    } catch (error) {
+      console.error(error);
+      
+      NotificationSystem.show({
+        type: "error",
+        title: "Error",
+        message: "No se pudo eliminar la imagen. Intenta de nuevo."
+      });
+    }
   }
 
   initEdicion() {
-    const form = document.getElementById('form-editar');
+    const form = document.getElementById('formEditarImagen');
+    if (!form) return;
+
     form.onsubmit = async (e) => {
       e.preventDefault();
 
-      const idImagen = document.getElementById('editar-id-imagen').value;
-      const titulo = document.getElementById('editar-titulo').value;
-      const descripcion = document.getElementById('editar-descripcion').value;
+      const imagenId = document.getElementById('editar-imagen-id').value;
+      const titulo = document.getElementById('editar-titulo').value.trim();
+      const descripcion = document.getElementById('editar-descripcion').value.trim();
+
+      if (!titulo) {
+        NotificationSystem.show({
+          type: "warning",
+          title: "Campo requerido",
+          message: "El título es obligatorio"
+        });
+        return;
+      }
 
       try {
-        const res = await fetch(`/api/galeria/editar/${idImagen}`, {
-          method: 'PATCH',
+        const res = await fetch(`/api/galeria/editar/${imagenId}`, {
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ titulo, descripcion })
         });
 
         if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
-          throw new Error(errorData.error || "Error al editar la imagen");
+          throw new Error('Error al actualizar la imagen');
         }
 
         await this.cargarImagenes();
@@ -411,108 +460,69 @@ renderizarGaleria() {
 
         NotificationSystem.show({
           type: "success",
-          title: "¡Imagen actualizada!",
-          message: `Los cambios en "${titulo}" se han guardado correctamente`
+          title: "Imagen actualizada",
+          message: `"${titulo}" ha sido actualizada correctamente`
         });
-
+        
       } catch (error) {
         console.error(error);
+        
         NotificationSystem.show({
           type: "error",
-          title: "Error al editar",
-          message: error.message || "No se pudo editar la imagen"
+          title: "Error",
+          message: "No se pudo actualizar la imagen. Intenta de nuevo."
         });
       }
     };
   }
 
-  async confirmarEliminar(imagen) {
-    // Usar el sistema de confirmación que ya tienes en visor.html
-    const ok = await AppConfirm.open({
-      title: "Eliminar imagen",
-      message: `¿Estás seguro de que deseas eliminar "${imagen.titulo}"? Esta acción no se puede deshacer.`,
-      okText: "Eliminar",
-      cancelText: "Cancelar",
-      okClass: "btn-danger"
-    });
+  abrirModalEditar(imagen) {
+    document.getElementById('editar-imagen-id').value = imagen.id;
+    document.getElementById('editar-titulo').value = imagen.titulo;
+    document.getElementById('editar-descripcion').value = imagen.descripcion || '';
 
-    if (!ok) return;
-
-    try {
-      const res = await fetch(`/api/galeria/eliminar/${imagen.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Error al eliminar la imagen");
-      }
-
-      await this.cargarImagenes();
-
-      NotificationSystem.show({
-        type: "success",
-        title: "Imagen eliminada",
-        message: `"${imagen.titulo}" ha sido eliminada correctamente`
-      });
-
-    } catch (error) {
-      console.error(error);
-      NotificationSystem.show({
-        type: "error",
-        title: "Error al eliminar",
-        message: error.message || "No se pudo eliminar la imagen"
-      });
-    }
+    const modalEl = document.getElementById('modalEditar');
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
   }
 
   initSubida() {
-    const form = document.getElementById('form-subida');
+    const form = document.getElementById('formSubirImagen');
+    if (!form) return;
+
     form.onsubmit = async (e) => {
       e.preventDefault();
 
       const fileInput = document.getElementById('imagen-file');
-      const titulo = document.getElementById('imagen-titulo').value;
-      const descripcion = document.getElementById('imagen-descripcion').value;
+      const titulo = document.getElementById('titulo').value.trim();
+      const descripcion = document.getElementById('descripcion').value.trim();
 
       if (!fileInput.files.length) {
         NotificationSystem.show({
           type: "warning",
-          title: "Falta imagen",
-          message: "Por favor, selecciona una imagen antes de continuar"
+          title: "Imagen requerida",
+          message: "Selecciona una imagen para subir"
         });
         return;
       }
 
-      const recintoId = this.recintoId || window.currentSideRecintoId;
-
-      if (!recintoId) {
+      if (!titulo) {
         NotificationSystem.show({
           type: "warning",
-          title: "Sin recinto",
-          message: "Abre un recinto antes de subir imágenes"
+          title: "Campo requerido",
+          message: "El título es obligatorio"
         });
         return;
       }
 
       const file = fileInput.files[0];
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-      
-      if (!allowedTypes.includes(file.type)) {
-        NotificationSystem.show({
-          type: "error",
-          title: "Archivo no válido",
-          message: "Solo se permiten imágenes (JPG, PNG, GIF, WEBP)"
-        });
-        return;
-      }
+      const recintoId = this.recintoId;
 
-      const maxSize = 12 * 1024 * 1024;
-      if (file.size > maxSize) {
+      if (!recintoId) {
         NotificationSystem.show({
           type: "error",
-          title: "Archivo muy grande",
-          message: "La imagen no puede superar los 12MB"
+          title: "Error",
+          message: "No hay recinto seleccionado. Selecciona un recinto primero."
         });
         return;
       }

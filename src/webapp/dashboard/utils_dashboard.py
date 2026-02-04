@@ -529,7 +529,6 @@ class MunicipiosCodigosFinder:
             f'?w=g4p111111111ohmffffffx4f86d9t95b6e9r1s8n2'
         )
 
-        print(f"URL AEMET construida: {url}")
         return url
 
     
@@ -551,7 +550,7 @@ class MunicipiosCodigosFinder:
         recintos = Recinto.query.filter_by(id_propietario=user_id).all()
         
         if not recintos:
-            MUNICIPIO_POR_DEFECTO = "34120"
+            MUNICIPIO_POR_DEFECTO = "34900"
             return MUNICIPIO_POR_DEFECTO
         
         # Contar recintos por municipio (asegurando formato correcto)
@@ -587,7 +586,7 @@ class MunicipiosCodigosFinder:
         codigo_normal = self.codigo_recintos(user_id)
         
         if codigo_normal is None:
-            MUNICIPIO_INE_POR_DEFECTO = "34120"  
+            MUNICIPIO_INE_POR_DEFECTO = "34900"  
             return MUNICIPIO_INE_POR_DEFECTO
         
         try:
