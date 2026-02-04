@@ -180,3 +180,24 @@ body {
         margin-top: 0.5rem;
     }
 }
+
+/* Base: que el iframe se comporte bien */
+.aemet-iframe{
+  width: 100%;
+  border: 0;
+  display: block;
+}
+
+/* Mobile / pantallas pequeñas: contenedor con scroll vertical */
+@media (max-width: 991px){
+  .dashboard-aemet{
+    max-height: 60vh;        /* ajusta si quieres: 50vh, 70vh… */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* scroll suave en iOS */
+  }
+
+  .dashboard-aemet .aemet-iframe{
+    height: 700px;           /* más alto que el contenedor => aparece scroll */
+    min-height: 700px;
+  }
+}
