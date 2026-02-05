@@ -222,6 +222,41 @@ def dashboard():
                 parts.append(tipo_f)
             base = " · ".join([p for p in parts if p])
             return f"{base}{(' — ' + obs) if obs else ''}".strip()
+        
+        if t == "FITOSANITARIO":
+            prods = d.get("productos")
+            if isinstance(prods, dict):
+                prods = [prods]
+            if not isinstance(prods, list):
+                prods = []
+
+            def _one(p):
+                prod = p.get("producto") or {}
+                label = (prod.get("label") or p.get("nombre") or "").strip()
+                code = (prod.get("codigo") or p.get("numero_registro") or "").strip()
+                dosis = p.get("dosis")
+                uni_obj = p.get("unidad") or {}
+                uni = (uni_obj.get("label") or uni_obj.get("codigo") or p.get("unidad") or "").strip()
+
+                head = label or "—"
+                if code and label:
+                    head = f"{label} ({code})"
+                elif code and not label:
+                    head = code
+
+                tail = ""
+                if dosis not in (None, ""):
+                    tail = f"{dosis} {uni}".strip()
+
+                return " · ".join([x for x in [head, tail] if x]).strip() or "—"
+
+            if not prods:
+                return (descripcion or "—").strip() or "—"
+
+            first = _one(prods[0])
+            more = f" +{len(prods)-1}" if len(prods) > 1 else ""
+            return f"{first}{more}".strip()
+
 
         if t == "OTRAS":
             cat = (d.get("catalogo") or "").strip()

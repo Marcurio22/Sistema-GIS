@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from flask import current_app
-from sqlalchemy import text
+from sqlalchemy import text, true
 from .. import db
 import requests
 import json
@@ -315,7 +315,12 @@ def catalogo_operaciones_list(
         WHERE catalogo = :cat
           AND (fecha_baja IS NULL OR fecha_baja > CURRENT_DATE)
           AND (:parent IS NULL OR codigo_padre = :parent)
-          AND (:q IS NULL OR nombre ILIKE :qpat)
+          AND (
+            :q IS NULL
+            OR nombre ILIKE :qpat
+            OR codigo ILIKE :qpat
+            OR COALESCE(descripcion,'') ILIKE :qpat
+            )
         ORDER BY
           CASE WHEN codigo ~ '^[0-9]+$' THEN codigo::int ELSE 999999 END,
           nombre
