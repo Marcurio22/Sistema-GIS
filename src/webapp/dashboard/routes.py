@@ -270,7 +270,7 @@ def dashboard():
     
     operaciones_resumen.sort(key=lambda x: (-int(x["n_ops"]), (x["nombre"] or "").lower()))
 
-    # [NUEVO] Obtener nombres reales usando tu clase utils_dashboard.py
+    # Obtener nombres reales usando tu clase utils_dashboard.py
     nombre_provincia = "Provincia"
     nombre_municipio = "Municipio"
     
@@ -282,6 +282,16 @@ def dashboard():
         # Usamos tus métodos existentes
         nombre_provincia = municipios_finder.obtener_nombre_provincia(c_pro) or nombre_provincia
         nombre_municipio = municipios_finder.obtener_nombre_municipio(c_pro, c_mun) or nombre_municipio
+
+    # Solicitudes pendientes (solo para admin)
+    pendientes = 0
+    if getattr(current_user, "rol", None) in ("admin", "superadmin"):
+        row = db.session.execute(text("""
+            SELECT COUNT(*) AS n
+            FROM public.solicitudes_recintos
+            WHERE estado = 'pendiente'
+        """)).mappings().first()
+        pendientes = int(row["n"]) if row and row.get("n") is not None else 0
 
     return render_template(
             'dashboard.html',
@@ -296,6 +306,7 @@ def dashboard():
             recintos_count=recintos_count,
             cultivo_principal=cultivo_principal,
             operaciones_resumen=operaciones_resumen,
+            admin_solicitudes_pendientes=pendientes,
             is_admin=getattr(current_user, "rol", None) in ["admin", "superadmin"],
         )
 

@@ -4,6 +4,9 @@ import pandas as pd
 import psycopg2
 from psycopg2.extras import execute_values
 
+from dotenv import load_dotenv
+load_dotenv()  # carga .env del directorio actual (o cercano)
+
 DATABASE_URL = os.environ.get("DATABASE_URL")  # ej: postgresql://user:pass@host:5432/dbname
 FUENTE = os.environ.get("CATALOGOS_FUENTE", "SIEX_CIRCULAR_PAC_4_2025")
 BASE_DIR = os.environ.get("CATALOGOS_DIR", ".")  # carpeta donde están los xlsx
@@ -47,6 +50,24 @@ FILES.update({
 
     # --- Cultivos (NORMAL obligatorio)
     "SISTEMA_CULTIVO": "Sistema de cultivo.xlsx",
+})
+
+FILES.update({
+    # --- Fitosanitarios (SIEX)
+    "FITOS_TIPO_MEDIDA": "Tipo de medida fitosanitaria.xlsx",
+    "FITOS_TIPO_PRODUCTO": "Tipo de producto fitosanitario.xlsx",
+    "FITOS_ESTADO_FENO": "Estado fenológico.xlsx",
+    "FITOS_MALAS_HIERBAS": "Malas hierbas.xlsx",
+    "FITOS_ENFERMEDADES": "Enfermedades.xlsx",
+    "FITOS_PLAGAS": "Artrópodos y gasterópodos.xlsx",
+    "FITOS_MEDIDA_PREV": "Medida preventiva _ cultural.xlsx",
+    "FITOS_REGULADORES_OTROS": "Reguladores de crecimiento, rodenticidas y otros.xlsx",
+    "FITOS_EFICACIA": "Eficacia del tratamiento.xlsx",
+    "FITOS_AUT_EXCEP": "Autorizaciones excepcionales del producto fitosanitario.xlsx",
+    "FITOS_JUSTIFICACION": "Justificación de la actuación.xlsx",
+
+    # --- Catálogo de productos fitosanitarios (typeahead)
+    "FITOS_PRODUCTOS": "Productos-05_02_2026.xlsx",
 })
 
 def _json_sanitize(obj):
@@ -250,65 +271,65 @@ def main():
             r.to_dict()
         )
     
-        # ==========================================================
-        # A.2) Catálogos para CULTIVOS (normal + avanzado)
-        # ==========================================================
+    # ==========================================================
+    # A.2) Catálogos para CULTIVOS (normal + avanzado)
+    # ==========================================================
 
-        # Sistema de cultivo (NORMAL, obligatorio en formulario)
-        df = read_xlsx("SISTEMA_CULTIVO")
-        for _, r in df.iterrows():
-            add_row(
-                rows, seen,
-                "SISTEMA_CULTIVO",
-                r.get("Código SIEX", ""),
-                "",
-                r.get("Sistema de cultivo", ""),
-                None,
-                norm_date(r.get("Fecha de baja")),
-                r.to_dict()
-            )
+    # Sistema de cultivo (NORMAL, obligatorio en formulario)
+    df = read_xlsx("SISTEMA_CULTIVO")
+    for _, r in df.iterrows():
+        add_row(
+            rows, seen,
+            "SISTEMA_CULTIVO",
+            r.get("Código SIEX", ""),
+            "",
+            r.get("Sistema de cultivo", ""),
+            None,
+            norm_date(r.get("Fecha de baja")),
+            r.to_dict()
+        )
 
-        # Tipo de labor (AVANZADO)
-        df = read_xlsx("TIPO_LABOR")
-        for _, r in df.iterrows():
-            add_row(
-                rows, seen,
-                "TIPO_LABOR",
-                r.get("Código SIEX", ""),
-                "",
-                r.get("Descripción", ""),
-                None,
-                norm_date(r.get("Fecha de baja")),
-                r.to_dict()
-            )
+    # Tipo de labor (AVANZADO)
+    df = read_xlsx("TIPO_LABOR")
+    for _, r in df.iterrows():
+        add_row(
+            rows, seen,
+            "TIPO_LABOR",
+            r.get("Código SIEX", ""),
+            "",
+            r.get("Descripción", ""),
+            None,
+            norm_date(r.get("Fecha de baja")),
+            r.to_dict()
+        )
 
-        # Procedencia del material vegetal (AVANZADO)
-        df = read_xlsx("MVR_PROCEDENCIA")
-        for _, r in df.iterrows():
-            add_row(
-                rows, seen,
-                "MVR_PROCEDENCIA",
-                r.get("Código SIEX", ""),
-                "",
-                r.get("Procedencia del material vegetal", ""),
-                None,
-                norm_date(r.get("Fecha de baja")),
-                r.to_dict()
-            )
+    # Procedencia del material vegetal (AVANZADO)
+    df = read_xlsx("MVR_PROCEDENCIA")
+    for _, r in df.iterrows():
+        add_row(
+            rows, seen,
+            "MVR_PROCEDENCIA",
+            r.get("Código SIEX", ""),
+            "",
+            r.get("Procedencia del material vegetal", ""),
+            None,
+            norm_date(r.get("Fecha de baja")),
+            r.to_dict()
+        )
 
-        # SENP - Superficies y elementos no productivos (AVANZADO)
-        df = read_xlsx("SENP")
-        for _, r in df.iterrows():
-            add_row(
-                rows, seen,
-                "SENP",
-                r.get("Código SIEX", ""),
-                "",
-                r.get("Tipo", ""),
-                (None if pd.isna(r.get("Observaciones")) else str(r.get("Observaciones")).strip()),
-                norm_date(r.get("Fecha de baja")),
-                r.to_dict()
-            )
+    # SENP - Superficies y elementos no productivos (AVANZADO)
+    df = read_xlsx("SENP")
+    for _, r in df.iterrows():
+        add_row(
+            rows, seen,
+            "SENP",
+            r.get("Código SIEX", ""),
+            "",
+            r.get("Tipo", ""),
+            (None if pd.isna(r.get("Observaciones")) else str(r.get("Observaciones")).strip()),
+            norm_date(r.get("Fecha de baja")),
+            r.to_dict()
+        )
 
 
     # ==========================================================
@@ -448,6 +469,83 @@ def main():
             None,
             r.to_dict()
         )
+
+    # ==========================================================
+    # F) FITOSANITARIOS (SIEX)
+    # ==========================================================
+    
+    def import_siex_catalog(cat_key, catalogo_name, col_nombre, col_desc=None, col_padre=None):
+        df_local = read_xlsx(cat_key)
+        for _, r in df_local.iterrows():
+            add_row(
+                rows, seen,
+                catalogo_name,
+                r.get("Código SIEX", ""),
+                (r.get(col_padre, "") if col_padre else ""),
+                r.get(col_nombre, ""),
+                (None if (not col_desc or pd.isna(r.get(col_desc))) else str(r.get(col_desc)).strip()),
+                norm_date(r.get("Fecha de baja")),
+                r.to_dict()
+            )
+
+    import_siex_catalog("FITOS_TIPO_MEDIDA", "FITOS_TIPO_MEDIDA", "Tipo de medida fitosanitaria")
+    import_siex_catalog("FITOS_TIPO_PRODUCTO", "FITOS_TIPO_PRODUCTO", "Tipo de producto fitosanitario")
+    import_siex_catalog("FITOS_ESTADO_FENO", "FITOS_ESTADO_FENO", "Estado fenológico")
+
+    # Catálogos con categoría
+    import_siex_catalog("FITOS_MALAS_HIERBAS", "FITOS_MALAS_HIERBAS", "Nombre científico", col_desc="Observaciones", col_padre="Categoría")
+    import_siex_catalog("FITOS_ENFERMEDADES", "FITOS_ENFERMEDADES", "Nombre científico", col_desc="Observaciones", col_padre="Categoría")
+    import_siex_catalog("FITOS_PLAGAS", "FITOS_PLAGAS", "Nombre científico", col_desc="Observaciones", col_padre="Categoría")
+    import_siex_catalog("FITOS_REGULADORES_OTROS", "FITOS_REGULADORES_OTROS", "Nombre científico / Denominación en inglés", col_desc="Observaciones", col_padre="Categoría")
+
+    import_siex_catalog("FITOS_MEDIDA_PREV", "FITOS_MEDIDA_PREV", "Medida", col_desc="Observaciones")
+    import_siex_catalog("FITOS_EFICACIA", "FITOS_EFICACIA", "Eficacia del tratamiento")
+    import_siex_catalog("FITOS_AUT_EXCEP", "FITOS_AUT_EXCEP", "Producto comercial", col_desc="Sustancia activa o formulado")
+    import_siex_catalog("FITOS_JUSTIFICACION", "FITOS_JUSTIFICACION", "Justificación de la actuación")
+
+    # ==========================================================
+    # G) FITOS_PRODUCTOS (typeahead)
+    # ==========================================================
+    df = read_xlsx("FITOS_PRODUCTOS")
+
+    def _pick_date(row):
+        # Prioridad: FechaCaducidad > FechaLimiteVenta
+        d1 = norm_date(row.get("FechaCaducidad"))
+        if d1:
+            return d1
+        d2 = norm_date(row.get("FechaLimiteVenta"))
+        if d2:
+            return d2
+        return None
+
+    for _, r in df.iterrows():
+        num_reg = r.get("NumRegistro", "")
+        nombre = r.get("Nombre", "")
+        titular = r.get("Titular", "")
+        fabricante = r.get("Fabricante", "")
+        formulado = r.get("Formulado", "")
+        estado = r.get("Estado", "")
+        obs = r.get("Observaciones", "")
+
+        parts = []
+        if _s(formulado): parts.append(_s(formulado))
+        if _s(titular): parts.append(f"Titular: {_s(titular)}")
+        if _s(fabricante): parts.append(f"Fabricante: {_s(fabricante)}")
+        if _s(estado): parts.append(f"Estado: {_s(estado)}")
+        if _s(obs): parts.append(f"Obs: {_s(obs)}")
+        desc = " · ".join(parts) if parts else None
+
+        add_row(
+            rows, seen,
+            "FITOS_PRODUCTOS",          # catalogo
+            num_reg,                  # codigo (NumRegistro)
+            "",                       # codigo_padre
+            nombre,                   # nombre
+            desc,                     # descripcion
+            _pick_date(r),            # fecha_baja (caducidad/limite venta si existe)
+            r.to_dict()               # extra (TODO: símbolos, seguridad, fechas, trámite...)
+        )
+
 
     # ==========================================================
     # Ejecutar UPSERT

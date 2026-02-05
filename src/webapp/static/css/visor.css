@@ -1174,6 +1174,12 @@
     opacity: .7;
   }
 
+  .op-badge-fitos{
+    background: #E6A8B3 !important;
+    color: #1a1a1a !important;
+  }
+
+
   /* ================================
    PANEL DE DIBUJOS
   ================================ */
