@@ -16,7 +16,7 @@
     <link rel="shortcut icon" href="/static/web_icon/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/static/web_icon/apple-touch-icon.png" />
     <link rel="manifest" href="/static/web_icon/site.webmanifest" />
-
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;800&display=swap" rel="stylesheet">
@@ -168,38 +168,41 @@
     </div>
 
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-success shadow-sm">
-        <div class="container-fluid d-flex align-items-center">
-            <!-- Botón del sidebar -->
-            <button class="btn btn-success me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar">
-                <i class="bi bi-list fs-4"></i>
-            </button>
+    <!-- Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-success shadow-sm">
+    <div class="container-fluid d-flex align-items-center flex-nowrap"> <!-- Añadir flex-nowrap -->
+        <!-- Botón del sidebar -->
+        <button class="btn btn-success me-2 flex-shrink-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar">
+            <i class="bi bi-list fs-4"></i>
+        </button>
 
-            <!-- Logo y nombre -->
-            <div class="d-flex align-items-center">
-                <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard.dashboard') }}">
-                <i class="bi bi-droplet-fill me-2 fs-4"></i>
-                <span class="fw-bold">Comunidad de Regantes</span>
+        <!-- Logo y nombre -->
+        <div class="d-flex align-items-center flex-shrink-0"> <!-- Añadir flex-shrink-0 -->
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard.dashboard') }}">
+            <i class="bi bi-droplet-fill me-2 fs-4"></i>
+            <span class="fw-bold d-none d-md-inline">Comunidad de Regantes</span> 
+            <span class="fw-bold d-inline d-md-none">C. Regantes</span> 
 
-                {% if current_user.is_authenticated %}
-                    <span class="ms-2 fw-normal opacity-75">-</span>
-                    <span class="ms-2 d-flex align-items-center text-white profile-link"
-                        data-href="{{ url_for('auth.perfil') }}"
-                        role="link"
-                        tabindex="0"
-                        style="cursor:pointer;">
-                    <i class="bi bi-person-circle me-2"></i>
-                    {{ current_user.username }}
-                    </span>
-                {% endif %}
-                </a>
-            </div>
-
-            <!-- Espaciador (mantener) -->
-            <div class="ms-auto"></div>
-            {% block navbar_extra %}{% endblock %}
+            {% if current_user.is_authenticated %}
+                <span class="ms-2 fw-normal opacity-75 d-inline">-</span>
+                <span class="ms-2 d-flex align-items-center text-white profile-link" 
+                    data-href="{{ url_for('auth.perfil') }}"
+                    role="link"
+                    tabindex="0"
+                    style="cursor:pointer;">
+                <i class="bi bi-person-circle me-2"></i>
+                {{ current_user.username }}
+                </span>
+            {% endif %}
+            </a>
         </div>
-    </nav>
+
+        <!-- Espaciador -->
+        <div class="flex-grow-1"></div> <!-- Cambiar ms-auto por flex-grow-1 -->
+        
+        {% block navbar_extra %}{% endblock %}
+    </div>
+</nav>
     <!-- Contenido principal -->
     <main class="{% block main_class %}container mt-5{% endblock %}">
         {% block content %}{% endblock %}
