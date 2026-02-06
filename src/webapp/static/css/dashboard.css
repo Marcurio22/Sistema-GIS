@@ -49,6 +49,25 @@ body {
   object-position: center !important;
   display: block !important;
 }
+/* NUEVO: Fallback centrado */
+.dashboard-map-fallback {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* NUEVO: Altura mínima del mapa en escritorio */
+@media (min-width: 992px) {
+  .dashboard-sit-card {
+    min-height: 500px; /* Ajusta este valor: 500px, 600px, 700px según prefieras */
+  }
+  
+  .dashboard-sit-card #dashboard-sit-map {
+    min-height: 450px; /* Un poco menos que la tarjeta para dejar espacio al header */
+  }
+}
 
 /* =========================
    AEMET Widget
@@ -201,6 +220,7 @@ body {
     min-height: 700px;
   }
 }
+
 
 /* Badge notificación admin en dashboard */
 .badge-count{

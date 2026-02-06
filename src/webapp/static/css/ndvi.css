@@ -94,15 +94,17 @@
 
 .carousel-images {
   display: flex;
+  justify-content: space-between; /* ← Distribuye las imágenes uniformemente */
   gap: 8px;
-  flex: 1;
-  overflow-x: auto; /* Cambiado de hidden a auto */
+  flex: 1; /* ← Vuelve a ocupar todo el espacio disponible */
+  overflow-x: auto;
   overflow-y: hidden;
   align-items: flex-start;
-  scroll-behavior: smooth; /* Scroll suave */
-  -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
-  scrollbar-width: thin; /* Firefox - scrollbar delgada */
-  scrollbar-color: #198754 #f8f9fa; /* Firefox - color del scrollbar */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #198754 #f8f9fa;
+  padding: 0 4px; /* ← Pequeño padding para que no queden pegadas a los bordes */
 }
 
 /* Estilo del scrollbar para Chrome/Safari */
@@ -166,7 +168,6 @@
   font-size: 0.65rem;
   color: #6c757d;
 }
-
 
 #ndvi-chart {
   min-height: 300px;
