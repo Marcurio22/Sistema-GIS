@@ -225,18 +225,50 @@ def dashboard():
         
         if t == "FITOSANITARIO":
             prods = d.get("productos")
+
+            if prods is None and d.get("producto") is not None:
+                prods = d.get("producto")
+
             if isinstance(prods, dict):
                 prods = [prods]
             if not isinstance(prods, list):
                 prods = []
 
+            def _s(v):
+                return ("" if v is None else str(v)).strip()
+
+            def _unit_text(u):
+                if isinstance(u, dict):
+                    return _s(u.get("label") or u.get("codigo"))
+                if isinstance(u, str):
+                    return u.strip()
+                return ""
+
             def _one(p):
-                prod = p.get("producto") or {}
-                label = (prod.get("label") or p.get("nombre") or "").strip()
-                code = (prod.get("codigo") or p.get("numero_registro") or "").strip()
+                if isinstance(p, str):
+                    return p.strip() or "—"
+                if not isinstance(p, dict):
+                    return "—"
+
+                prod = p.get("producto")
+                prod = prod if isinstance(prod, dict) else {}
+
+                label = _s(
+                    prod.get("label")
+                    or p.get("producto_nombre")
+                    or p.get("nombre")
+                    or p.get("formulado")
+                )
+
+                code = _s(
+                    prod.get("codigo")
+                    or p.get("producto_codigo")
+                    or p.get("num_registro")
+                    or p.get("numero_registro")
+                )
+
                 dosis = p.get("dosis")
-                uni_obj = p.get("unidad") or {}
-                uni = (uni_obj.get("label") or uni_obj.get("codigo") or p.get("unidad") or "").strip()
+                uni = _unit_text(p.get("unidad"))
 
                 head = label or "—"
                 if code and label:
@@ -248,15 +280,14 @@ def dashboard():
                 if dosis not in (None, ""):
                     tail = f"{dosis} {uni}".strip()
 
-                return " · ".join([x for x in [head, tail] if x]).strip() or "—"
+                return " · ".join([x for x in (head, tail) if x]).strip() or "—"
 
             if not prods:
                 return (descripcion or "—").strip() or "—"
 
             first = _one(prods[0])
-            more = f" +{len(prods)-1}" if len(prods) > 1 else ""
+            more = f" (+{len(prods)-1} más)" if len(prods) > 1 else ""
             return f"{first}{more}".strip()
-
 
         if t == "OTRAS":
             cat = (d.get("catalogo") or "").strip()

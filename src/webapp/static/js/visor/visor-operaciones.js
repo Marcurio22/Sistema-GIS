@@ -32,6 +32,11 @@ function closeOperacionesPanel() {
     panel.setAttribute("aria-hidden", "true");
 }
 
+// helper: string seguro (trim). Devuelve "" si null/undefined
+function _s(v) {
+  return (v === null || v === undefined) ? "" : String(v).trim();
+}
+
 document.getElementById("btn-volver-operaciones-historico")?.addEventListener("click", (e) => {
     e.preventDefault(); e.stopPropagation();
     closeOperacionesPanel();
@@ -82,7 +87,7 @@ function opBadgeClass(tipo) {
     const t = String(tipo || "").toUpperCase();
     if (t === "RIEGO") return "bg-info";
     if (t === "FERTILIZACION") return "bg-success";
-    if (t === "FITOSANITARIO") return "bg-warning text-dark";
+    if (t === "FITOSANITARIO") return "op-badge-fitos";
     if (t === "OTRAS") return "bg-secondary";
     return "bg-secondary";
 }
@@ -126,6 +131,20 @@ function opResumen(op) {
         const obs = d?.observaciones || "";
         const txtC = (cant != null && cant !== "") ? `${cant} ${uni}` : "—";
         return `${txtC}${prod ? " · " + prod : ""}${tipoF ? " · " + tipoF : ""}${obs ? " — " + obs : ""}`;
+    }
+
+    if (tipo === "FITOSANITARIO") {
+      const prods = Array.isArray(d?.productos) ? d.productos : (d?.producto ? [d.producto] : []);
+      if (!prods.length) return "—";
+      const p0 = prods[0] || {};
+      const nom = p0?.producto_nombre || p0?.nombre || "";
+      const reg = p0?.num_registro || p0?.producto_codigo || p0?.codigo || "";
+      const dosis = (p0?.dosis != null && p0?.dosis !== "") ? String(p0.dosis) : "";
+      const uni = p0?.unidad || "";
+      const doseTxt = (dosis && uni) ? `${dosis} ${uni}` : (dosis ? dosis : "");
+      const extraN = prods.length > 1 ? ` (+${prods.length - 1} más)` : "";
+      const nameTxt = (nom || reg) ? `${nom}${reg ? " (" + reg + ")" : ""}` : "Producto";
+      return `${nameTxt}${doseTxt ? " · " + doseTxt : ""}${extraN}`.trim();
     }
 
     if (tipo === "OTRAS") {
@@ -558,6 +577,16 @@ async function fetchCatalogoOps(catalogo, { parent = null, q = null, limit = 200
     return arr;
 }
 
+async function fetchCatalogoOpsItem(catalogo, codigo, parent = null) {
+  const cat = String(catalogo || "").toUpperCase();
+  const code = encodeURIComponent(String(codigo || ""));
+  const params = new URLSearchParams();
+  if (parent) params.set("parent", parent);
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  return fetchJson(`/api/catalogos/operaciones/${cat}/${code}${qs}`);
+}
+
+
 // --------------------------------
 // Catálogo SIEX: SISTEMA_CULTIVO
 // --------------------------------
@@ -735,6 +764,55 @@ function attachTypeaheadCatalog(inputEl, listEl, hiddenCodeEl, catalogo, { minCh
     }, 150));
 }
 
+function attachTypeaheadCatalogDatalist(inputEl, datalistEl, hiddenCodeEl, catalogo, { minChars = 1, limit = 30 } = {}) {
+  if (!inputEl || !datalistEl) return;
+
+  let timer = null;
+  let lastQ = "";
+
+  async function run(q) {
+    try {
+      const rows = await fetchCatalogoOps(catalogo, { q, limit });
+      if (lastQ !== q) return;
+
+      datalistEl.innerHTML = (rows || []).slice(0, limit).map(r => {
+        const label = String(r?.nombre || r?.codigo || "").trim();
+        const code = String(r?.codigo || "").trim();
+        // guardamos "label" y "code" en un formato parseable
+        return `<option value="${escapeHtml(label)}" data-code="${escapeHtml(code)}"></option>`;
+      }).join("");
+
+      // si el usuario ha escrito exactamente un nombre, intenta fijar el code
+      const exact = (rows || []).find(r => String(r?.nombre || "").trim().toLowerCase() === q.trim().toLowerCase());
+      if (exact && hiddenCodeEl) hiddenCodeEl.value = String(exact.codigo || "").trim();
+    } catch (e) {
+      console.warn("datalist typeahead error", e);
+    }
+  }
+
+  inputEl.addEventListener("input", () => {
+    const q = (inputEl.value || "").trim();
+    if (q.length < minChars) {
+      datalistEl.innerHTML = "";
+      if (hiddenCodeEl) hiddenCodeEl.value = "";
+      return;
+    }
+    lastQ = q;
+    clearTimeout(timer);
+    timer = setTimeout(() => run(q), 200);
+  });
+
+  // al salir: si no hay código, lo dejamos editable/manual
+  inputEl.addEventListener("blur", () => {
+    setTimeout(() => {
+      if (!hiddenCodeEl) return;
+      const code = (hiddenCodeEl.value || "").trim();
+      if (!code) return;
+    }, 50);
+  });
+}
+
+
 // ---------- FORM (inline y overlay) ----------
 function renderOperacionForm(container, { recintoId, op = null, mode = "actual", onDone = null, onCancel = null }) {
     if (!container) return;
@@ -762,6 +840,7 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
               <select id="op-tipo" class="form-select">
                 <option value="RIEGO">Riego</option>
                 <option value="FERTILIZACION">Fertilización</option>
+                <option value="FITOSANITARIO">Tratamiento fitosanitario</option>
                 <option value="OTRAS">Otras Operaciones</option>
               </select>
             </div>
@@ -801,22 +880,27 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
     descInp.value = op?.descripcion || "";
 
     function renderDetalle(tipo) {
-        const t = String(tipo || "").toUpperCase();
+      const t = String(tipo || "").toUpperCase();
 
-        if (t === "RIEGO") {
-            container.querySelector("#op-fecha-label").textContent = (t === "RIEGO") ? "Día *" : "Fecha *";
-            const fi = det?.fecha_inicio ? String(det.fecha_inicio).slice(0, 16) : "";
-            const ff = det?.fecha_fin ? String(det.fecha_fin).slice(0, 16) : "";
-            const vol = det?.volumen_m3 ?? "";
-            const sis = det?.sistema_riego?.codigo || "";
-            const procArr = normalizeProcedenciaAgua(det?.procedencia_agua);
-            const procCodes = procArr.map(x => x.codigo).filter(Boolean);
-            const metodo = det?.medicion?.metodo || "MANUAL";
-            const li = det?.medicion?.lectura_inicial_m3 ?? "";
-            const lf = det?.medicion?.lectura_final_m3 ?? "";
-            const obs = det?.observaciones || "";
+      const fechaLabelEl = container.querySelector("#op-fecha-label");
+      if (fechaLabelEl) fechaLabelEl.textContent = (t === "RIEGO") ? "Día *" : "Fecha *";
 
-            slot.innerHTML = `
+      // =========================
+      // RIEGO
+      // =========================
+      if (t === "RIEGO") {
+        const fi = det?.fecha_inicio ? String(det.fecha_inicio).slice(0, 16) : "";
+        const ff = det?.fecha_fin ? String(det.fecha_fin).slice(0, 16) : "";
+        const vol = det?.volumen_m3 ?? "";
+        const sis = det?.sistema_riego?.codigo || "";
+        const procArr = normalizeProcedenciaAgua(det?.procedencia_agua);
+        const procCodes = procArr.map(x => x.codigo).filter(Boolean);
+        const metodo = det?.medicion?.metodo || "MANUAL";
+        const li = det?.medicion?.lectura_inicial_m3 ?? "";
+        const lf = det?.medicion?.lectura_final_m3 ?? "";
+        const obs = det?.observaciones || "";
+
+        slot.innerHTML = `
           <div class="row g-2">
             <div class="col-12 col-md-6">
               <label class="form-label fw-bold">Inicio</label>
@@ -870,45 +954,49 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
           </div>
         `;
 
-            fillSelectFromCatalog(slot.querySelector("#riego-sis"), "RIEGO_SISTEMA", { selected: sis, placeholder: "Sistema..." });
-            (async () => {
-                const box = slot.querySelector("#riego-proc-box");
-                const list = await fetchCatalogoOps("RIEGO_PROCEDENCIA", { limit: 500 });
+        fillSelectFromCatalog(slot.querySelector("#riego-sis"), "RIEGO_SISTEMA", { selected: sis, placeholder: "Sistema..." });
 
-                const selectedCodes = new Set(procCodes);
+        (async () => {
+          const box = slot.querySelector("#riego-proc-box");
+          const list = await fetchCatalogoOps("RIEGO_PROCEDENCIA", { limit: 500 });
 
-                box.innerHTML = list.map(r => {
-                    const code = String(r.codigo ?? "").trim();
-                    const label = String(r.nombre ?? "").trim() || code;
-                    const checked = selectedCodes.has(code) ? "checked" : "";
-                    return `
+          const selectedCodes = new Set(procCodes);
+
+          box.innerHTML = (list || []).map(r => {
+            const code = String(r.codigo ?? "").trim();
+            const label = String(r.nombre ?? "").trim() || code;
+            const checked = selectedCodes.has(code) ? "checked" : "";
+            return `
               <label class="d-flex align-items-center gap-2 mb-1" style="font-size:13px">
                 <input class="form-check-input riego-proc-chk" type="checkbox" value="${escapeHtml(code)}" ${checked}>
                 <span>${escapeHtml(label)}</span>
               </label>
             `;
-                }).join("");
-            })();
+          }).join("");
+        })();
 
-            slot.querySelector("#riego-metodo").value = metodo;
+        slot.querySelector("#riego-metodo").value = metodo;
 
-            const fechaMain = container.querySelector("#op-fecha");
-            const fiEl = slot.querySelector("#riego-fi");
+        const fechaMain = container.querySelector("#op-fecha");
+        const fiEl = slot.querySelector("#riego-fi");
 
-            fiEl?.addEventListener("change", () => {
-                if (fiEl.value) fechaMain.value = fiEl.value.slice(0, 10);
-            });
+        fiEl?.addEventListener("change", () => {
+          if (fiEl.value) fechaMain.value = fiEl.value.slice(0, 10);
+        });
 
-            fechaMain?.addEventListener("change", () => {
-                if (!fiEl.value && fechaMain.value) {
-                    fiEl.value = `${fechaMain.value}T00:00`;
-                }
-            });
+        fechaMain?.addEventListener("change", () => {
+          if (!fiEl.value && fechaMain.value) {
+            fiEl.value = `${fechaMain.value}T00:00`;
+          }
+        });
 
-            return;
-        }
+        return;
+      }
 
-        // FERTILIZACION
+      // =========================
+      // FERTILIZACION
+      // =========================
+      if (t === "FERTILIZACION") {
         const tipoF = det?.tipo_fertilizacion?.codigo || "";
         const prodCode = det?.producto?.codigo || "";
         const prodLabel = det?.producto?.label || "";
@@ -919,118 +1007,363 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
         const obs = det?.observaciones || "";
 
         slot.innerHTML = `
-        <div class="row g-2">
+          <div class="row g-2">
 
-          <div class="col-12 col-md-4">
-            <label class="form-label fw-bold">Tipo fertilización *</label>
-            <select id="fer-tipo" class="form-select"></select>
-            <div class="form-text">Catálogo SIEX: FERT_TIPO</div>
-          </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-bold">Tipo fertilización *</label>
+              <select id="fer-tipo" class="form-select"></select>
+              <div class="form-text">Catálogo SIEX: FERT_TIPO</div>
+            </div>
 
-          <div class="col-12 col-md-4">
-            <label class="form-label fw-bold">Método aplicación</label>
-            <select id="fer-metodo" class="form-select"></select>
-            <div class="form-text">Catálogo SIEX: FERT_METODO</div>
-          </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-bold">Método aplicación</label>
+              <select id="fer-metodo" class="form-select"></select>
+              <div class="form-text">Catálogo SIEX: FERT_METODO</div>
+            </div>
 
-          <div class="col-12 col-md-4">
-            <label class="form-label fw-bold">Material</label>
-            <select id="fer-material" class="form-select"></select>
-            <div class="form-text">Catálogo SIEX: FERT_MATERIAL</div>
-          </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label fw-bold">Material</label>
+              <select id="fer-material" class="form-select"></select>
+              <div class="form-text">Catálogo SIEX: FERT_MATERIAL</div>
+            </div>
 
-          <div class="col-12 col-md-6 position-relative">
-            <label class="form-label fw-bold">Producto *</label>
-            <input id="fer-prod" class="form-control" type="text" placeholder="Escribe para buscar..." value="${escapeHtml(prodLabel)}">
-            <input id="fer-prod-code" type="hidden" value="${escapeHtml(prodCode)}">
-            <div id="fer-prod-list" class="list-group position-absolute w-100 d-none" style="z-index:1050; max-height:220px; overflow:auto;"></div>
-            <div class="form-text">Catálogo SIEX: FERT_PRODUCTO (búsqueda)</div>
-          </div>
+            <div class="col-12 col-md-6 position-relative">
+              <label class="form-label fw-bold">Producto *</label>
+              <input id="fer-prod" class="form-control" type="text" placeholder="Escribe para buscar..." value="${escapeHtml(prodLabel)}">
+              <input id="fer-prod-code" type="hidden" value="${escapeHtml(prodCode)}">
+              <div id="fer-prod-list" class="list-group position-absolute w-100 d-none" style="z-index:1050; max-height:220px; overflow:auto;"></div>
+              <div class="form-text">Catálogo SIEX: FERT_PRODUCTO (búsqueda)</div>
+            </div>
 
-          <div class="col-6 col-md-3">
-            <label class="form-label fw-bold">Cantidad *</label>
-            <input id="fer-cant" class="form-control" type="number" step="0.01" min="0" value="${escapeHtml(cant)}">
-          </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label fw-bold">Cantidad *</label>
+              <input id="fer-cant" class="form-control" type="number" step="0.01" min="0" value="${escapeHtml(cant)}">
+            </div>
 
-          <div class="col-6 col-md-3">
-            <label class="form-label fw-bold">Unidad</label>
-            <select id="fer-uni" class="form-select">
-              <option value="kg">kg</option>
-              <option value="t">t</option>
-              <option value="l">l</option>
-            </select>
-          </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label fw-bold">Unidad</label>
+              <select id="fer-uni" class="form-select">
+                <option value="kg">kg</option>
+                <option value="t">t</option>
+                <option value="l">l</option>
+              </select>
+            </div>
 
-          <div class="col-12">
-            <label class="form-label fw-bold">Observaciones</label>
-            <textarea id="fer-obs" class="form-control" rows="2" placeholder="(Opcional)">${escapeHtml(obs)}</textarea>
-          </div>
+            <div class="col-12">
+              <label class="form-label fw-bold">Observaciones</label>
+              <textarea id="fer-obs" class="form-control" rows="2" placeholder="(Opcional)">${escapeHtml(obs)}</textarea>
+            </div>
 
-          <div class="accordion mt-2" id="fert-adv-acc">
-            <div class="accordion-item">
-              <h2 class="accordion-header" id="fert-adv-h">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fert-adv-c">
-                  Avanzado (opcional)
-                </button>
-              </h2>
-              <div id="fert-adv-c" class="accordion-collapse collapse" data-bs-parent="#fert-adv-acc">
-                <div class="accordion-body">
-                  <div class="row g-2">
-                    <div class="col-12 col-md-4">
-                      <label class="form-label fw-bold">Macronutriente</label>
-                      <select id="fer-macro" class="form-select"></select>
-                    </div>
-                    <div class="col-12 col-md-4">
-                      <label class="form-label fw-bold">Micronutriente</label>
-                      <select id="fer-micro" class="form-select"></select>
-                    </div>
-                    <div class="col-12 col-md-4">
-                      <label class="form-label fw-bold">Metales pesados</label>
-                      <select id="fer-metales" class="form-select"></select>
-                    </div>
-                    <div class="col-12 col-md-6">
-                      <label class="form-label fw-bold">Tratamiento estiércoles</label>
-                      <select id="fer-estiercol" class="form-select"></select>
+            <div class="accordion mt-2" id="fert-adv-acc">
+              <div class="accordion-item">
+                <h2 class="accordion-header" id="fert-adv-h">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fert-adv-c">
+                    Avanzado (opcional)
+                  </button>
+                </h2>
+                <div id="fert-adv-c" class="accordion-collapse collapse" data-bs-parent="#fert-adv-acc">
+                  <div class="accordion-body">
+                    <div class="row g-2">
+                      <div class="col-12 col-md-4">
+                        <label class="form-label fw-bold">Macronutriente</label>
+                        <select id="fer-macro" class="form-select"></select>
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <label class="form-label fw-bold">Micronutriente</label>
+                        <select id="fer-micro" class="form-select"></select>
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <label class="form-label fw-bold">Metales pesados</label>
+                        <select id="fer-metales" class="form-select"></select>
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <label class="form-label fw-bold">Tratamiento estiércoles</label>
+                        <select id="fer-estiercol" class="form-select"></select>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
+
           </div>
+        `;
 
-        </div>
-      `;
-
-        // cargar selects
         fillSelectFromCatalog(slot.querySelector("#fer-tipo"), "FERT_TIPO", { selected: tipoF, placeholder: "Tipo..." });
         fillSelectFromCatalog(slot.querySelector("#fer-metodo"), "FERT_METODO", { selected: met, placeholder: "Método..." });
         fillSelectFromCatalog(slot.querySelector("#fer-material"), "FERT_MATERIAL", { selected: mat, placeholder: "Material..." });
+
         fillSelectFromCatalog(slot.querySelector("#fer-macro"), "FERT_MACRO", { selected: det?.composicion_opcional?.macro?.codigo || "", placeholder: "(Opcional)" });
         fillSelectFromCatalog(slot.querySelector("#fer-micro"), "FERT_MICRO", { selected: det?.composicion_opcional?.micro?.codigo || "", placeholder: "(Opcional)" });
         fillSelectFromCatalog(slot.querySelector("#fer-metales"), "FERT_METALES", { selected: det?.composicion_opcional?.metales?.codigo || "", placeholder: "(Opcional)" });
         fillSelectFromCatalog(slot.querySelector("#fer-estiercol"), "FERT_TRAT_ESTIERCOL", { selected: det?.tratamiento_estiercol?.codigo || "", placeholder: "(Opcional)" });
 
-
-        // typeahead producto
         attachTypeaheadCatalog(
-            slot.querySelector("#fer-prod"),
-            slot.querySelector("#fer-prod-list"),
-            slot.querySelector("#fer-prod-code"),
-            "FERT_PRODUCTO",
-            { minChars: 2, limit: 20 }
+          slot.querySelector("#fer-prod"),
+          slot.querySelector("#fer-prod-list"),
+          slot.querySelector("#fer-prod-code"),
+          "FERT_PRODUCTO",
+          { minChars: 2, limit: 20 }
         );
 
-        // defaults
         slot.querySelector("#fer-uni").value = uni;
 
-        // OTRAS
-        if (t === "OTRAS") {
-            // defaults
-            const cat = det?.catalogo || "";
-            const codigo = det?.codigo || "";
-            const parent = det?.parent || "";
+        return;
+      }
 
-            slot.innerHTML = `
+      // =========================
+      // FITOSANITARIO
+      // =========================
+      if (t === "FITOSANITARIO") {
+        const CAT_PRODUCTOS = "FITOS_PRODUCTOS";
+        const CAT_TIPO_PRODUCTO = "FITOS_TIPO_PRODUCTO";
+
+        const existing = Array.isArray(det?.productos)
+          ? det.productos
+          : (det?.producto ? [det.producto] : []);
+
+        slot.innerHTML = `
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="small text-muted">
+              Producto(s) aplicados. Si no encuentras tu producto, rellénalo a mano.
+            </div>
+            <button id="btn-fito-add" type="button" class="btn btn-outline-success btn-sm">
+              <i class="bi bi-plus-lg me-1"></i>Añadir producto
+            </button>
+          </div>
+
+          <div id="fito-products-wrap"></div>
+
+          <datalist id="fito-units">
+            <option value="L/ha"></option>
+            <option value="kg/ha"></option>
+            <option value="g/ha"></option>
+            <option value="mL/L"></option>
+            <option value="g/L"></option>
+            <option value="%"></option>
+          </datalist>
+        `;
+
+        const wrap = slot.querySelector("#fito-products-wrap");
+        const addBtn = slot.querySelector("#btn-fito-add");
+        let seq = 0;
+
+        function _setReadonly(el, ro) {
+          if (!el) return;
+          el.readOnly = !!ro;
+          el.classList.toggle("is-readonly", !!ro);
+        }
+
+        function updateRemoveButtons() {
+          const cards = wrap.querySelectorAll(".fito-product-card");
+          cards.forEach((c) => {
+            const btn = c.querySelector(".btn-fito-remove");
+            if (btn) btn.disabled = (cards.length <= 1);
+          });
+        }
+
+        async function applyCatalogToCard(card) {
+          const idx = card.dataset.idx;
+          const hidCode = card.querySelector(`#fito-prod-code-${idx}`);
+          const inputProd = card.querySelector(`#fito-prod-${idx}`);
+          const inpReg = card.querySelector(`#fito-reg-${idx}`);
+          const inpFormulado = card.querySelector(`#fito-formulado-${idx}`);
+          const metaEl = card.querySelector(`#fito-meta-${idx}`);
+          const hidExtra = card.querySelector(`#fito-extra-${idx}`);
+
+          const code = _s(hidCode?.value);
+          if (!code) {
+            _setReadonly(inpReg, false);
+            _setReadonly(inpFormulado, false);
+            if (metaEl) metaEl.textContent = "";
+            if (hidExtra) hidExtra.value = "";
+            return;
+          }
+
+          try {
+            const item = await fetchCatalogoOpsItem(CAT_PRODUCTOS, code);
+            const extra = item?.extra || {};
+
+            if (inpReg) {
+              inpReg.value = extra?.NumRegistro ?? extra?.["Nº Registro"] ?? code;
+              _setReadonly(inpReg, true);
+            }
+
+            if (inpFormulado) {
+              inpFormulado.value = extra?.Formulado ?? "";
+              _setReadonly(inpFormulado, true);
+            }
+
+            const parts = [];
+            if (_s(extra?.Titular)) parts.push(`Titular: ${_s(extra.Titular)}`);
+            if (_s(extra?.Fabricante)) parts.push(`Fabricante: ${_s(extra.Fabricante)}`);
+            if (_s(extra?.Estado)) parts.push(`Estado: ${_s(extra.Estado)}`);
+            if (metaEl) metaEl.textContent = parts.join(" · ");
+
+            if (hidExtra) {
+              try { hidExtra.value = JSON.stringify(extra); } catch (_) { hidExtra.value = ""; }
+            }
+
+            if (inputProd && !_s(inputProd.value) && item?.nombre) {
+              inputProd.value = item.nombre;
+            }
+          } catch (_) {}
+        }
+
+        function addProductCard(p = {}) {
+          const idx = ++seq;
+
+          const card = document.createElement("div");
+          card.className = "card fito-product-card mb-2";
+          card.dataset.idx = String(idx);
+
+          card.innerHTML = `
+            <div class="card-body p-2">
+              <div class="d-flex align-items-center">
+                <div class="fw-semibold">Producto</div>
+                <button type="button" class="btn btn-outline-danger btn-sm ms-auto btn-fito-remove" title="Quitar producto">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+
+              <div class="row g-2 mt-1">
+                <div class="col-12">
+                  <label class="form-label mb-1">Producto (nombre/nº registro/formulado) <span class="text-danger">*</span></label>
+                  <input id="fito-prod-${idx}" class="form-control" list="fito-prod-list-${idx}" placeholder="Buscar producto..." required>
+                  <datalist id="fito-prod-list-${idx}"></datalist>
+                  <input id="fito-prod-code-${idx}" type="hidden">
+                  <div class="small text-muted mt-1" id="fito-meta-${idx}"></div>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label mb-1">Tipo producto <span class="text-danger">*</span></label>
+                  <select id="fito-tipo-${idx}" class="form-select" required></select>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label mb-1">Número registro <span class="text-danger">*</span></label>
+                  <input id="fito-reg-${idx}" class="form-control" required>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label mb-1">Dosis <span class="text-danger">*</span></label>
+                  <input id="fito-dosis-${idx}" type="number" step="any" min="0" class="form-control" required>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label mb-1">Unidad <span class="text-danger">*</span></label>
+                  <input id="fito-unidad-${idx}" class="form-control" list="fito-units" required>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label mb-1">Materia activa o formulado (opcional)</label>
+                  <input id="fito-formulado-${idx}" class="form-control">
+                </div>
+
+                <input id="fito-extra-${idx}" type="hidden">
+              </div>
+            </div>
+          `;
+
+          wrap.appendChild(card);
+
+          const inputProd = card.querySelector(`#fito-prod-${idx}`);
+          const listEl = card.querySelector(`#fito-prod-list-${idx}`);
+          const hidCode = card.querySelector(`#fito-prod-code-${idx}`);
+          const selTipo = card.querySelector(`#fito-tipo-${idx}`);
+          const inpReg = card.querySelector(`#fito-reg-${idx}`);
+          const inpDosis = card.querySelector(`#fito-dosis-${idx}`);
+          const inpUnidad = card.querySelector(`#fito-unidad-${idx}`);
+          const inpFormulado = card.querySelector(`#fito-formulado-${idx}`);
+          const hidExtra = card.querySelector(`#fito-extra-${idx}`);
+
+          const tipo0 = p.tipo_producto_codigo ?? "";
+          fillSelectFromCatalog(selTipo, CAT_TIPO_PRODUCTO, {
+            selected: tipo0,
+            placeholder: "Selecciona..."
+          });
+
+          const nombre0 = p.producto_nombre ?? p.nombre ?? "";
+          const codigo0 = p.producto_codigo ?? p.codigo ?? "";
+          const reg0 = p.num_registro ?? (codigo0 || "");
+          const dosis0 = (p.dosis != null && p.dosis !== "") ? String(p.dosis) : "";
+          const uni0 = p.unidad ?? "";
+          const form0 = p.formulado ?? "";
+
+          if (inputProd) inputProd.value = nombre0;
+          if (hidCode) hidCode.value = codigo0;
+          if (selTipo && tipo0) selTipo.value = String(tipo0);
+          if (inpReg) inpReg.value = reg0;
+          if (inpDosis) inpDosis.value = dosis0;
+          if (inpUnidad) inpUnidad.value = uni0;
+          if (inpFormulado) inpFormulado.value = form0;
+
+          if (hidExtra && p.extra) {
+            try { hidExtra.value = JSON.stringify(p.extra); } catch (_) { hidExtra.value = ""; }
+          }
+
+          if (_s(codigo0)) {
+            _setReadonly(inpReg, true);
+            _setReadonly(inpFormulado, true);
+          }
+
+          attachTypeaheadCatalogDatalist(inputProd, listEl, hidCode, CAT_PRODUCTOS, { minChars: 1, limit: 30 });
+
+          if (inputProd) {
+            inputProd.addEventListener("change", () => applyCatalogToCard(card).catch(() => {}));
+            inputProd.addEventListener("blur", () => applyCatalogToCard(card).catch(() => {}));
+          }
+
+          const btnRemove = card.querySelector(".btn-fito-remove");
+          if (btnRemove) {
+            btnRemove.addEventListener("click", () => {
+              const cards = wrap.querySelectorAll(".fito-product-card");
+              if (cards.length <= 1) {
+                if (inputProd) inputProd.value = "";
+                if (hidCode) hidCode.value = "";
+                if (selTipo) selTipo.value = "";
+                if (inpReg) inpReg.value = "";
+                if (inpDosis) inpDosis.value = "";
+                if (inpUnidad) inpUnidad.value = "";
+                if (inpFormulado) inpFormulado.value = "";
+                if (hidExtra) hidExtra.value = "";
+                applyCatalogToCard(card).catch(() => {});
+              } else {
+                card.remove();
+                updateRemoveButtons();
+              }
+            });
+          }
+
+          if (_s(codigo0) && (!_s(hidExtra?.value) || !_s(inpFormulado?.value))) {
+            applyCatalogToCard(card).catch(() => {});
+          }
+
+          updateRemoveButtons();
+        }
+
+        if (existing.length) {
+          for (const p of existing) addProductCard(p || {});
+        } else {
+          addProductCard({});
+        }
+
+        if (addBtn) {
+          addBtn.addEventListener("click", () => addProductCard({}));
+        }
+
+        updateRemoveButtons();
+        return;
+      }
+
+      // =========================
+      // OTRAS
+      // =========================
+      if (t === "OTRAS") {
+        const cat = det?.catalogo || "";
+        const codigo = det?.codigo || "";
+
+        slot.innerHTML = `
           <div class="row g-2">
             <div class="col-12 col-md-4">
               <label class="form-label fw-bold">Catálogo *</label>
@@ -1056,32 +1389,33 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
           </div>
         `;
 
-            const catSel = slot.querySelector("#otras-cat");
-            const itemSel = slot.querySelector("#otras-item");
+        const catSel = slot.querySelector("#otras-cat");
+        const itemSel = slot.querySelector("#otras-item");
 
-            // set catálogo
-            catSel.value = cat;
+        catSel.value = cat;
 
-            function loadItems() {
-                const c = (catSel.value || "").trim();
-                if (!c) {
-                    itemSel.disabled = true;
-                    itemSel.innerHTML = `<option value="">Selecciona catálogo primero...</option>`;
-                    return;
-                }
-                itemSel.disabled = false;
-                fillSelectFromCatalog(itemSel, c, { selected: codigo, placeholder: "Selecciona..." });
-            }
-
-            catSel.addEventListener("change", () => {
-                itemSel.value = "";
-                loadItems();
-            });
-
-            loadItems();
+        function loadItems() {
+          const c = (catSel.value || "").trim();
+          if (!c) {
+            itemSel.disabled = true;
+            itemSel.innerHTML = `<option value="">Selecciona catálogo primero...</option>`;
             return;
+          }
+          itemSel.disabled = false;
+          fillSelectFromCatalog(itemSel, c, { selected: codigo, placeholder: "Selecciona..." });
         }
 
+        catSel.addEventListener("change", () => {
+          itemSel.value = "";
+          loadItems();
+        });
+
+        loadItems();
+        return;
+      }
+
+      // fallback
+      slot.innerHTML = "";
     }
 
     renderDetalle(tipoSel.value);
@@ -1219,6 +1553,59 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
             };
 
             payload.detalle.tratamiento_estiercol = pickOpt(estSel);
+        }
+
+        if (tipo === "FITOSANITARIO") {
+          const cards = Array.from(slot.querySelectorAll(".fito-product-card"));
+          if (!cards.length) {
+            msg.textContent = "Debes añadir al menos un producto fitosanitario.";
+            msg.className = "text-danger";
+            return;
+          }
+
+          const productos = [];
+          let i = 0;
+
+          for (const card of cards) {
+            i += 1;
+            const idx = card.dataset.idx;
+
+            const nombre = _s(card.querySelector(`#fito-prod-${idx}`)?.value);
+            const codigo = _s(card.querySelector(`#fito-prod-code-${idx}`)?.value);
+            const tipoProdCodigo = _s(card.querySelector(`#fito-tipo-${idx}`)?.value);
+            const tipoProdNombre = _s(card.querySelector(`#fito-tipo-${idx} option:checked`)?.textContent);
+            const numRegistro = _s(card.querySelector(`#fito-reg-${idx}`)?.value);
+            const formulado = _s(card.querySelector(`#fito-formulado-${idx}`)?.value);
+
+            const dosisRaw = _s(card.querySelector(`#fito-dosis-${idx}`)?.value).replace(",", ".");
+            const dosisNum = parseFloat(dosisRaw);
+            const unidad = _s(card.querySelector(`#fito-unidad-${idx}`)?.value);
+
+            if (!nombre) { msg.textContent = `Producto #${i}: debes indicar el producto.`; msg.className = "text-danger"; return; }
+            if (!tipoProdCodigo) { msg.textContent = `Producto #${i}: debes seleccionar el tipo de producto.`; msg.className = "text-danger"; return; }
+            if (!numRegistro) { msg.textContent = `Producto #${i}: debes indicar el número de registro.`; msg.className = "text-danger"; return; }
+            if (!dosisRaw || !Number.isFinite(dosisNum) || dosisNum <= 0) { msg.textContent = `Producto #${i}: dosis inválida.`; msg.className = "text-danger"; return; }
+            if (!unidad) { msg.textContent = `Producto #${i}: debes indicar la unidad.`; msg.className = "text-danger"; return; }
+            let extra = null;
+            try {
+              const s = _s(card.querySelector(`#fito-extra-${idx}`)?.value);
+              if (s) extra = JSON.parse(s);
+            } catch (_) {}
+
+            productos.push({
+              producto_codigo: codigo || null,
+              producto_nombre: nombre,
+              tipo_producto_codigo: tipoProdCodigo,
+              tipo_producto_nombre: tipoProdNombre,
+              num_registro: numRegistro,
+              dosis: dosisNum,
+              unidad: unidad,
+              formulado: formulado || null,
+              extra: extra,
+            });
+          }
+
+          payload.detalle = { productos };
         }
 
         if (tipo === "OTRAS") {
