@@ -153,7 +153,37 @@
       <div class="basemap-option-label">Suelos</div>
     </div>
 
+    <div class="basemap-option basemap-detail" data-detail="CyL2025">
+      <div class="basemap-thumb">
+        <img src="{{ url_for('static', filename='img/thumb_etp.png') }}" alt="MCSNCyL 2025" />
+      </div>
+      <div class="basemap-option-label">MCSNCyL<br>2025</div>
+    </div>
+
   </div>
+    
+  <!-- DETALLES ADICIONALES (Leyenda) -->
+  <div id="extra-details" style="margin-top:14px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+      <h6 style="margin:0;">Detalles adicionales</h6>
+    </div>
+
+    <!-- Leyenda MCSNCyL / CyL 2025 -->
+    <div id="legend-cyl2025" style="display:none; padding:10px; border-radius:10px; background:#f7f7f7;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
+        <div style="font-weight:700; color:#333;">Mapa de cultivos (CyL 2025)</div>
+        <button id="btn-legend-cyl2025-hide" type="button"
+                style="border:0;background:transparent;font-weight:700;color:#198754;cursor:pointer;">
+          Ocultar
+        </button>
+      </div>
+
+      <img id="legend-cyl2025-img"
+           alt="Leyenda MCSNCyL 2025"
+           style="max-width:100%;height:auto;border-radius:8px;background:white;padding:6px;display:block;">
+    </div>
+  </div>
+
   </div>
 </div>
 
@@ -1020,8 +1050,6 @@ async function aplicarVistaInicialUsuario() {
   map.createPane('sigpacPane');
   map.getPane('sigpacPane').style.zIndex = 400;
 
-
-
   map.createPane('misPane');
   map.getPane('misPane').style.zIndex = 450;
 
@@ -1033,6 +1061,9 @@ async function aplicarVistaInicialUsuario() {
 
   map.createPane("catastroPane");
   map.getPane("catastroPane").style.zIndex = 430;
+
+  map.createPane("cultivos2025");
+  map.getPane("cultivos2025").style.zIndex = 420;
 
 
 
@@ -1864,7 +1895,7 @@ async function abrirRecintoEnPanel(data) {
   }
 
   // -----------------------------------------
-  // Parcelas Catastro + Cultivos SIGPAC (WMS desde GeoServer)
+  // Parcelas Catastro + Cultivos SIGPAC + Suelos (WMS desde GeoServer)
   // -----------------------------------------
 
   // 1) URL WMS
@@ -2270,6 +2301,69 @@ async function abrirRecintoEnPanel(data) {
 });
 
   // -----------------------------------------
+  // CyL suelos y demás
+  // -----------------------------------------
+
+  // 1) Leyenda automática WMS
+  const CYL2025_WMS_LAYER = "gis_project:Cultivos_y_Ocupación_del_suelo_2025"; // el mismo que usas en CyL2025Layer
+
+  function showCyl2025Legend() {
+    const box = document.getElementById("legend-cyl2025");
+    const img = document.getElementById("legend-cyl2025-img");
+    if (!box || !img) return;
+
+    // Construir GetLegendGraphic contra TU GeoServer
+    const url =
+      GEOSERVER_WMS +
+      "?SERVICE=WMS" +
+      "&REQUEST=GetLegendGraphic" +
+      "&FORMAT=image/png" +
+      "&LAYER=" + encodeURIComponent(CYL2025_WMS_LAYER);
+
+    img.src = url;
+    box.style.display = "block";
+  }
+
+  function hideCyl2025Legend() {
+    const box = document.getElementById("legend-cyl2025");
+    const img = document.getElementById("legend-cyl2025-img");
+    if (box) box.style.display = "none";
+    if (img) img.removeAttribute("src");
+  }
+
+  // Botón “Ocultar” de la leyenda
+  document.addEventListener("click", (e) => {
+    if (e.target && e.target.id === "btn-legend-cyl2025-hide") {
+      hideCyl2025Legend();
+    }
+  });
+
+  
+  // CyL Cultivos
+  let CyLCultivosActivos = false;
+
+  // Capas WMS
+  const CyL2025Layer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:Cultivos_y_Ocupación_del_suelo_2025",
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    pane: "Cultivos2025pane",
+    maxZoom: 22,
+    interactive: false  // No capturar eventos de clic
+  });
+  // Cargar layer
+  function cargarCyL2025SiProcede() {
+    const z = map.getZoom();
+
+    if (!CyLCultivosActivos || z < ZOOM_RECINTOS) {
+        if (map.hasLayer(CyL2025Layer)) map.removeLayer(CyL2025Layer);
+        return;
+    }
+
+    if (!map.hasLayer(CyL2025Layer)) CyL2025Layer.addTo(map);
+}
+// -------------------
 
   // Función auxiliar para mensajes tipo bootstrap
   function mostrarErrorInline(msg) {
@@ -2619,6 +2713,27 @@ async function abrirRecintoEnPanel(data) {
       } else {
         suelosOption.classList.remove("active");
         if (map.hasLayer(suelosLayer)) map.removeLayer(suelosLayer);
+      }
+    });
+  }
+
+  // --- Toggle CyL 2025 ---
+  const CyL2025Option = document.querySelector(
+    '.basemap-option.basemap-detail[data-detail="CyL2025"]'
+  );
+
+  if (CyL2025Option) {
+    CyL2025Option.addEventListener("click", () => {
+      CyLCultivosActivos = !CyLCultivosActivos;
+
+      if (CyLCultivosActivos) {
+        CyL2025Option.classList.add("active");
+        cargarCyL2025SiProcede();
+        showCyl2025Legend();
+      } else {
+        CyL2025Option.classList.remove("active");
+        if (map.hasLayer(CyL2025Layer)) map.removeLayer(CyL2025Layer);
+        hideCyl2025Legend();
       }
     });
   }
