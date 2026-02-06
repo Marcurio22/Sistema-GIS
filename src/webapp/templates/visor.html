@@ -1063,7 +1063,7 @@ async function aplicarVistaInicialUsuario() {
   map.getPane("catastroPane").style.zIndex = 430;
 
   map.createPane("cultivos2025");
-  map.getPane("cultivos2025").style.zIndex = 420;
+  map.getPane("cultivos2025").style.zIndex = 300;
 
 
 
@@ -2305,36 +2305,70 @@ async function abrirRecintoEnPanel(data) {
   // -----------------------------------------
 
   // 1) Leyenda automática WMS
-  const CYL2025_WMS_LAYER = "gis_project:Cultivos_y_Ocupación_del_suelo_2025"; // el mismo que usas en CyL2025Layer
+  const CYL2025_WMS_LAYER = "gis_project:Cultivos_y_Ocupación_del_suelo_2025";
+  function buildCylLegendUrl() {
+    const params = new URLSearchParams({
+      SERVICE: "WMS",
+      REQUEST: "GetLegendGraphic",
+      VERSION: "1.1.1",
+      FORMAT: "image/png",
+      LAYER: CYL2025_WMS_LAYER,
+      TRANSPARENT: "true"
+    });
+
+    // cache-buster para que no se quede pillado
+    return `${GEOSERVER_WMS}?${params.toString()}&ts=${Date.now()}`;
+  }
 
   function showCyl2025Legend() {
     const box = document.getElementById("legend-cyl2025");
     const img = document.getElementById("legend-cyl2025-img");
+    const btn = document.getElementById("btn-legend-cyl2025-hide");
     if (!box || !img) return;
 
-    // Construir GetLegendGraphic contra TU GeoServer
-    const url =
-      GEOSERVER_WMS +
-      "?SERVICE=WMS" +
-      "&REQUEST=GetLegendGraphic" +
-      "&FORMAT=image/png" +
-      "&LAYER=" + encodeURIComponent(CYL2025_WMS_LAYER);
-
-    img.src = url;
     box.style.display = "block";
+    img.style.display = "block";
+    if (btn) btn.textContent = "Ocultar";
+
+    const url = buildCylLegendUrl();
+    img.src = url;
+
+    // si falla, lo verás claro en consola
+    img.onerror = () => console.error("❌ No se pudo cargar leyenda CyL2025:", url);
   }
 
   function hideCyl2025Legend() {
     const box = document.getElementById("legend-cyl2025");
     const img = document.getElementById("legend-cyl2025-img");
-    if (box) box.style.display = "none";
-    if (img) img.removeAttribute("src");
+    const btn = document.getElementById("btn-legend-cyl2025-hide");
+    if (!box || !img) return;
+
+    // NO ocultamos el contenedor, solo la imagen (para poder volver a mostrar)
+    img.style.display = "none";
+    if (btn) btn.textContent = "Mostrar";
+  }
+
+  function resetCyl2025Legend() {
+    const box = document.getElementById("legend-cyl2025");
+    const img = document.getElementById("legend-cyl2025-img");
+    const btn = document.getElementById("btn-legend-cyl2025-hide");
+    if (box) box.style.display = "none";  // capa apagada => ocultar todo
+    if (img) {
+      img.style.display = "block";
+      img.removeAttribute("src");
+    }
+    if (btn) btn.textContent = "Ocultar";
   }
 
   // Botón “Ocultar” de la leyenda
   document.addEventListener("click", (e) => {
     if (e.target && e.target.id === "btn-legend-cyl2025-hide") {
-      hideCyl2025Legend();
+      const img = document.getElementById("legend-cyl2025-img");
+      if (!img) return;
+
+      const visible = getComputedStyle(img).display !== "none";
+      if (visible) hideCyl2025Legend();
+      else showCyl2025Legend();
     }
   });
 
@@ -2348,7 +2382,7 @@ async function abrirRecintoEnPanel(data) {
     format: "image/png",
     transparent: true,
     tiled: true,
-    pane: "Cultivos2025pane",
+    pane: "cultivos2025",
     maxZoom: 22,
     interactive: false  // No capturar eventos de clic
   });
@@ -2733,7 +2767,7 @@ async function abrirRecintoEnPanel(data) {
       } else {
         CyL2025Option.classList.remove("active");
         if (map.hasLayer(CyL2025Layer)) map.removeLayer(CyL2025Layer);
-        hideCyl2025Legend();
+        resetCyl2025Legend();
       }
     });
   }
