@@ -3,7 +3,14 @@
 {% block title %}Visor SIG{% endblock %}
 
 {% block navbar_extra %}
-<div class="d-none d-md-flex align-items-center gap-3 bg-white rounded-3 px-3 py-2 shadow-sm">
+<!-- Versión móvil: solo temperatura -->
+<div class="d-flex d-md-none align-items-center gap-1 bg-white bg-opacity-10 rounded-3 px-2 py-1 flex-shrink-0">
+  <i class="bi bi-{{ weather.icono }} text-white" style="font-size: 1.1rem;"></i>
+  <span class="fw-bold text-white">{{ weather.temperatura }}°</span>
+</div>
+
+<!-- Versión desktop: completa -->
+<div class="d-none d-md-flex align-items-center gap-3 bg-white rounded-3 px-3 py-2 shadow-sm flex-shrink-0">
   <!-- Temperatura principal -->
   <div class="d-flex align-items-center">
     <i class="bi bi-{{ weather.icono }} {{ weather.color_icono }}" style="font-size: 1.5rem;"></i>
@@ -41,6 +48,7 @@
     <i class="bi bi-geo-alt-fill"></i> {{ weather.municipio }}
   </div>
 </div>
+
 <div id="notification-container"></div>
 <div id="lightbox" class="lightbox" style="display: none;">
   <span class="lightbox-close">&times;</span>
@@ -76,7 +84,7 @@
 </div>
 
 <!-- Panel de capas -->
-<div id="basemap-panel">
+<div id="basemap-panel" style="max-height: 85vh; overflow-y: auto;">
   <h6>Mapa Principal</h6>
   <div class="basemap-grid">
     <div class="basemap-option basemap-main active" data-layer="satellite">
@@ -137,7 +145,15 @@
         </div>
         <div class="basemap-option-label">Parcelas Catastro</div>
       </div>
+
+    <div class="basemap-option basemap-detail" data-detail="suelos">
+      <div class="basemap-thumb">
+          <img src="{{ url_for('static', filename='img/thumb_suelos.png') }}" alt="Suelos">
+      </div>
+      <div class="basemap-option-label">Suelos</div>
     </div>
+
+  </div>
   </div>
 </div>
 
@@ -877,7 +893,7 @@ async function restaurarEstadoMapa() {
     const estado = JSON.parse(estadoStr);
     
     // Verificar que no sea muy antiguo (opcional, 30 minutos)
-    const tiempoMaximo = 30 * 60 * 1000; // 30 minutos
+    const tiempoMaximo = 2 * 60 * 1000; // 30 minutos
     if (Date.now() - estado.timestamp > tiempoMaximo) {
       sessionStorage.removeItem('mapaEstado');
       return false;
@@ -997,8 +1013,14 @@ async function aplicarVistaInicialUsuario() {
   
 
   // --- Panes (orden de dibujo) ---
+
+  map.createPane('suelosPane');
+  map.getPane('suelosPane').style.zIndex = 390;
+
   map.createPane('sigpacPane');
   map.getPane('sigpacPane').style.zIndex = 400;
+
+
 
   map.createPane('misPane');
   map.getPane('misPane').style.zIndex = 450;
@@ -1011,6 +1033,8 @@ async function aplicarVistaInicialUsuario() {
 
   map.createPane("catastroPane");
   map.getPane("catastroPane").style.zIndex = 430;
+
+
 
   // --- Modo split (panel derecho vacío) ---
   let splitOpen = false;
@@ -1334,7 +1358,7 @@ if (btnDelete) {
     {
       attribution: "&copy; OpenStreetMap contributors",
       minZoom: 8,
-      maxZoom: 19,
+      maxZoom: 20,
     }
   ).addTo(map);
 
@@ -1343,7 +1367,7 @@ if (btnDelete) {
     {
       attribution: "Tiles &copy; Esri",
       minZoom: 8,
-      maxZoom: 19,
+      maxZoom: 20,
     }
   );
 
@@ -1469,8 +1493,31 @@ if (btnDelete) {
 
       layer.bindPopup(html);
 
-      // Marcar visualmente la selección
-      layer.on("click", function () {
+      // Marcar visualmente la selección - CON PRIORIDAD DE SUELOS
+      layer.on("click", async function (e) {
+        if (suelosActivos && map.getZoom() >= 13) {
+          const latlng = e.latlng;
+          try {
+            const r = await fetch(`/api/popup/suelos?lat=${latlng.lat}&lng=${latlng.lng}`);
+            const j = await r.json().catch(() => ({}));
+            if (j.ok && j.found) {
+              // HAY SUELO AQUÍ - Mostrar popup de suelo en lugar de recinto
+              highlightGeojson(j.data.geojson, "suelos");
+              console.log("✅ Suelo encontrado (click en recinto):", j.data);
+              L.popup({ maxWidth: 320, autoPan: true })
+                .setLatLng(latlng)
+                .setContent(buildSuelosPopup(j.data))
+                .openOn(map);
+              // Detener propagación para evitar que se abra popup de recinto
+              L.DomEvent.stopPropagation(e);
+              return;
+            }
+          } catch (err) {
+            console.error("Error verificando suelo:", err);
+          }
+        }
+        
+        // No hay suelo o suelos no activos - mostrar popup normal de recinto
         if (selectedRecintoLayer && selectedRecintoLayer !== layer) {
           selectedRecintoLayer.setStyle(RECINTO_STYLE_DEFAULT);
         }
@@ -1489,9 +1536,11 @@ if (btnDelete) {
 
   const CULTIVO_HL_STYLE = { color: "#0077ff", weight: 2, fillColor: "#0077ff", fillOpacity: 0.20 };
   const CATASTRO_HL_STYLE = { color: "#0077ff", weight: 2, fillColor: "#0077ff", fillOpacity: 0.20 };
+  const SUELOS_HL_STYLE = { color: "#FF8C00", weight: 3, fillColor: "#FFD700", fillOpacity: 0.8 };
 
   let cultivoHighlightLayer = null;
   let catastroHighlightLayer = null;
+  let suelosHighlightLayer = null;
 
   function clearCultivoHighlight() {
     if (cultivoHighlightLayer) {
@@ -1507,31 +1556,42 @@ if (btnDelete) {
     }
   }
 
+  function clearSuelosHighlight() {
+    if (suelosHighlightLayer) {
+      try { map.removeLayer(suelosHighlightLayer); } catch (_) {}
+      suelosHighlightLayer = null;
+    }
+  }
+
   function highlightGeojson(geojson, which) {
     // Limpiar highlights previos
     clearCultivoHighlight();
     clearCatastroHighlight();
+    clearSuelosHighlight();
 
     if (!geojson) return;
 
     // limpiar el otro highlight para evitar “doble selección”
-    if (which === "cultivo") clearCatastroHighlight();
-    if (which === "catastro") clearCultivoHighlight();
+    if (which === "cultivo") { clearCatastroHighlight(); clearSuelosHighlight(); }
+    if (which === "catastro") { clearCultivoHighlight(); clearSuelosHighlight(); }
+    if (which === "suelos") { clearCultivoHighlight(); clearCatastroHighlight(); }
 
     const layer = L.geoJSON(geojson, {
       pane: "wmsHighlightPane",
-      style: which === "cultivo" ? CULTIVO_HL_STYLE : CATASTRO_HL_STYLE
+      style: which === "cultivo" ? CULTIVO_HL_STYLE : (which === "catastro" ? CATASTRO_HL_STYLE : SUELOS_HL_STYLE)
     }).addTo(map);
 
     layer.bringToFront();
 
     if (which === "cultivo") cultivoHighlightLayer = layer;
-    else catastroHighlightLayer = layer;
+    else if (which === "catastro") catastroHighlightLayer = layer;
+    else if (which === "suelos") suelosHighlightLayer = layer;
   }
 
   map.on("popupclose", () => {
     clearCultivoHighlight();
     clearCatastroHighlight();
+    clearSuelosHighlight();
   });
 
   function openSigpacPopupForKey(key) {
@@ -1672,6 +1732,28 @@ async function abrirRecintoEnPanel(data) {
       layer.on("click", async function (e) {
         try { L.DomEvent.stop(e); } catch (_) {}
 
+        // ⭐ PRIORIDAD 1: Si suelos están activos, verificar primero si hay suelo
+        if (suelosActivos && map.getZoom() >= 13) {
+          const latlng = e.latlng;
+          try {
+            const r = await fetch(`/api/popup/suelos?lat=${latlng.lat}&lng=${latlng.lng}`);
+            const j = await r.json().catch(() => ({}));
+            if (j.ok && j.found) {
+              // HAY SUELO - Mostrar popup de suelo en lugar de abrir panel
+              highlightGeojson(j.data.geojson, "suelos");
+              console.log("✅ Suelo encontrado (click en mis recintos):", j.data);
+              L.popup({ maxWidth: 320, autoPan: true })
+                .setLatLng(latlng)
+                .setContent(buildSuelosPopup(j.data))
+                .openOn(map);
+              return; // No abrir panel de recinto
+            }
+          } catch (err) {
+            console.error("Error verificando suelo:", err);
+          }
+        }
+
+        // No hay suelo - abrir panel normal de mis recintos
         const id = feature?.properties?.id_recinto;
         if (!id) return;
 
@@ -1800,7 +1882,8 @@ async function abrirRecintoEnPanel(data) {
     transparent: true,
     tiled: true,
     pane: "catastroPane",
-    maxZoom: 22
+    maxZoom: 22,
+    interactive: false  // No capturar eventos de clic
   });
 
   const cultivosSigpacLayer = L.tileLayer.wms(GEOSERVER_WMS, {
@@ -1810,8 +1893,23 @@ async function abrirRecintoEnPanel(data) {
     transparent: true,
     tiled: true,
     pane: "cultivosSigpacPane",
-    maxZoom: 22
+    maxZoom: 22,
+    interactive: false  // No capturar eventos de clic
   });
+
+
+  const suelosLayer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "ne:PtosMuestrasSuelosCyL_Etrs89_H30",  
+    styles: "suelos",
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    pane: "suelosPane",
+    maxZoom: 20,
+    interactive: false  // No capturar eventos de clic, usamos el evento del mapa
+  });
+
+
 
   // 4) Sólo mostrar a partir de cierto zoom
   function cargarParcelasCatastroSiProcede() {
@@ -1831,6 +1929,19 @@ async function abrirRecintoEnPanel(data) {
     }
     if (!map.hasLayer(cultivosSigpacLayer)) cultivosSigpacLayer.addTo(map);
   }
+
+  let suelosActivos = false;
+  
+  function cargarSuelosSiProcede() {
+    const z = map.getZoom();
+
+    if (!suelosActivos || z < ZOOM_RECINTOS) {
+        if (map.hasLayer(suelosLayer)) map.removeLayer(suelosLayer);
+        return;
+    }
+
+    if (!map.hasLayer(suelosLayer)) suelosLayer.addTo(map);
+}
 
   // Funciones auxiliares para popups
   function fmt(v, fallback = "-") {
@@ -1885,43 +1996,278 @@ async function abrirRecintoEnPanel(data) {
     `;
   }
 
-  // 5) Handler click mapa para popups
+  function buildSuelosPopup(d) {
+    // Helper: buscar valor en múltiples variantes de nombre
+    const getField = (...keys) => {
+        for (const k of keys) {
+            const v = d[k];
+            // Considerar null, undefined y "" como "no hay valor"
+            if (v !== null && v !== undefined && v !== "") {
+                return v;
+            }
+        }
+        return null;
+    };
+    
+    // Helper: crear fila solo si hay valor
+    const makeRow = (label, value, unit = '') => {
+        if (value === null || value === undefined || value === "") return '';
+        return `<div><strong>${label}:</strong> ${value}${unit}</div>`;
+    };
+    
+    // Helper para crear fila con valor y descripción
+    const makeRowWithDesc = (label, value, desc, unit = '') => {
+        if (value === null || value === undefined || value === "") return '';
+        const descPart = desc ? ` <small>(${desc})</small>` : '';
+        return `
+          <div style="padding: 4px; background: white; border-radius: 3px; margin-bottom: 3px;">
+            ${label}: <strong>${value}${unit}</strong>${descPart}
+          </div>
+        `;
+    };
+    
+    // 🔍 Log detallado para debugging
+    console.log("📊 Datos suelo recibidos en buildSuelosPopup:", d);
+    console.log("📋 Campos disponibles:", Object.keys(d));
+    
+    // 🎯 Obtener todos los valores
+    // IMPORTANTE: Los nombres aquí deben coincidir con lo que devuelve el backend
+    // El backend devuelve los campos en snake_case (id_muestra, campana, etc.)
+    
+    const idMuestra = getField('id_muestra', 'ID_MUESTRA', 'idmuestra', 'IdMuestra', 'ID_Muestra');
+    const origen = getField('origen', 'Origen');
+    
+    // ✅ CRÍTICO: El backend devuelve 'campana' (sin tilde)
+    const campana = getField('campana', 'Campaña', 'Campana', 'campanya');
+    
+    const laboratori = getField('laboratori', 'Laboratori');
+    
+    const ph = getField('ph', 'pH', 'PH');
+    const acidez = getField('acidez_basi', 'AcidezBasi', 'Acidez_Basi', 'Acidez');
+    const ce = getField('conductivi', 'Conductivi', 'conductividad', 'CE');
+    
+    const moPorc = getField('mo_porc', 'MO_Porc', 'MO_%');
+    const materiaOrg = getField('materia_org', 'MateriaOrg', 'Materia_Org');
+    const arenaPorc = getField('arena_porc', 'Arena_Porc', 'Arena_%');
+    const limoPorc = getField('limo_porc', 'Limo_Porc', 'Limo_%');
+    const arcillaPorc = getField('arcilla_po', 'Arcilla_Po', 'arcilla_porc', 'Arcilla_%');
+    
+    const textura = getField('textura', 'Textura');
+    const textCalcu = getField('text_calcu', 'TextCalcu', 'Text_Calcu');
+    const grupoTextu = getField('grupo_textu', 'GrupoTextu', 'Grupo_Textu');
+    const valoracion = getField('valoracion', 'Valoracion');
+    
+    const pOlsenPpm = getField('p_olsen_pp', 'P_Olsen_pp', 'P_Olsen_ppm', 'p_olsen_ppm');
+    const pOlsen = getField('p_olsen', 'P_Olsen');
+    const potasioPpm = getField('potasio_pp', 'Potasio_pp', 'Potasio_ppm', 'potasio_ppm');
+    const potasio = getField('potasio', 'Potasio');
+    const nitrogeno = getField('nitrogeno_', 'Nitrogeno_', 'nitrogeno', 'N');
+    const calcioPpm = getField('calcio_ppm', 'Calcio_ppm', 'Ca_ppm');
+    const calcio = getField('calcio', 'Calcio');
+    const magnesioPpm = getField('magnesio_p', 'Magnesio_p', 'Magnesio_ppm', 'magnesio_ppm');
+    const magnesio = getField('magnesio', 'Magnesio');
+    
+    const coorX = getField('coor_x_etr', 'COOR_X_ETR', 'Coor_X_Etr', 'coor_x');
+    const coorY = getField('coor_y_etr', 'COOR_Y_ETR', 'Coor_Y_Etr', 'coor_y');
+    
+    // 🔍 Log de valores específicos para debugging
+    console.log("🎯 Valores extraídos:");
+    console.log(`   - ID Muestra: ${idMuestra}`);
+    console.log(`   - Campaña: ${campana}`);
+    console.log(`   - pH: ${ph}`);
+    console.log(`   - Origen: ${origen}`);
+    
+    // Construir HTML del popup
+    
+    // Información básica - SIEMPRE mostrar campaña
+    let infoBasicaHtml = '';
+    const rows = [
+        origen ? makeRow('Origen', origen) : '',
+        `<div><strong>Campaña:</strong> ${campana !== null && campana !== undefined && campana !== "" ? campana : 'N/A'}</div>`,
+        laboratori ? makeRow('Laboratorio', laboratori) : ''
+    ].filter(r => r).join('<br>');
+    
+    if (rows) {
+        infoBasicaHtml = `
+          <div style="background: #f8f9fa; padding: 8px; border-radius: 4px; margin-bottom: 8px;">
+            ${rows}
+          </div>
+        `;
+    }
+    
+    // pH y CE - SIEMPRE mostrar pH
+    let phCeHtml = '';
+    const phCeRows = [
+        `<div><strong>pH:</strong> ${ph !== null && ph !== undefined && ph !== "" ? ph : 'N/A'}${acidez ? ` <small>(${acidez})</small>` : ''}</div>`,
+        makeRow('CE', ce)
+    ].filter(r => r).join('');
+    
+    if (phCeRows) {
+        phCeHtml = `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px;">
+            ${phCeRows}
+          </div>
+        `;
+    }
+    
+    // Composición
+    let composicionHtml = '';
+    if (moPorc || arenaPorc || limoPorc || arcillaPorc || textura) {
+        const texturaGrid = [
+            moPorc ? `<div>M.O.: <strong>${moPorc}%</strong>${materiaOrg ? ` <small>(${materiaOrg})</small>` : ''}</div>` : '',
+            makeRow('Arena', arenaPorc, '%'),
+            makeRow('Limo', limoPorc, '%'),
+            makeRow('Arcilla', arcillaPorc, '%')
+        ].filter(r => r).join('');
+        
+        const texturaInfo = textura || textCalcu || grupoTextu || valoracion ? `
+          <div style="margin-top: 8px; padding: 6px; background: white; border-radius: 3px;">
+            ${textura ? `<strong>Textura:</strong> ${textura}<br>` : ''}
+            ${textCalcu || grupoTextu ? `<small style="color: #666;">${textCalcu || ''}${textCalcu && grupoTextu ? ' - ' : ''}${grupoTextu || ''}</small><br>` : ''}
+            ${valoracion ? `<small style="color: #999;">Valoración: ${valoracion}</small>` : ''}
+          </div>
+        ` : '';
+        
+        if (texturaGrid || texturaInfo) {
+            composicionHtml = `
+              <div style="background: #e7f3ff; padding: 8px; border-radius: 4px; margin-bottom: 8px;">
+                <strong style="color: #0066cc;">📊 Composición</strong>
+                ${texturaGrid ? `
+                  <div style="margin-top: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 0.85rem;">
+                    ${texturaGrid}
+                  </div>
+                ` : ''}
+                ${texturaInfo}
+              </div>
+            `;
+        }
+    }
+    
+    // Nutrientes
+    let nutrientesHtml = '';
+    const nutrientesRows = [
+        makeRowWithDesc('P (Olsen)', pOlsenPpm, pOlsen, ' ppm'),
+        makeRowWithDesc('Potasio', potasioPpm, potasio, ' ppm'),
+        nitrogeno ? `<div style="padding: 4px; background: white; border-radius: 3px; margin-bottom: 3px;">Nitrógeno: <strong>${nitrogeno}</strong></div>` : '',
+        makeRowWithDesc('Calcio', calcioPpm, calcio, ' ppm'),
+        makeRowWithDesc('Magnesio', magnesioPpm, magnesio, ' ppm')
+    ].filter(r => r).join('');
+    
+    if (nutrientesRows) {
+        nutrientesHtml = `
+          <div style="background: #f0f8e8; padding: 8px; border-radius: 4px; margin-bottom: 8px;">
+            <strong style="color: #2d8c2d;">🌱 Nutrientes</strong>
+            <div style="margin-top: 6px; font-size: 0.85rem;">
+              ${nutrientesRows}
+            </div>
+          </div>
+        `;
+    }
+    
+    // Coordenadas
+    let coordsHtml = '';
+    if (coorX && coorY) {
+        coordsHtml = `
+          <div style="font-size: 0.75rem; color: #999; text-align: center; margin-top: 6px;">
+            ${coorX}, ${coorY}
+          </div>
+        `;
+    }
+    
+    // Construir popup completo
+    return `
+      <div class="popup-recinto" style="min-width: 280px; max-width: 420px;">
+        <div class="popup-recinto-info" style="font-size: 0.9rem;">
+          <div style="font-weight: 800; margin-bottom: 10px; color: #8B4513; font-size: 1.1rem;">
+            <i class="bi bi-clipboard-data"></i> Muestra #${idMuestra !== null && idMuestra !== undefined && idMuestra !== "" ? idMuestra : 'Sin ID'}
+          </div>
+          
+          ${infoBasicaHtml}
+          ${phCeHtml}
+          ${phCeHtml ? '<hr style="margin: 8px 0; border-top: 2px solid #dee2e6;">' : ''}
+          ${composicionHtml}
+          ${nutrientesHtml}
+          ${coordsHtml}
+        </div>
+      </div>
+    `;
+}
+  // 5) Handler click mapa para popups - SUELOS TIENEN PRIORIDAD
   map.on("click", async (e) => {
-    // Evitar que un click sobre una geometría interactiva (recintos/mis recintos) dispare también esto
-    const t = e?.originalEvent?.target;
-    if (t && (t.classList?.contains("leaflet-interactive") || t.closest?.(".leaflet-interactive"))) return;
+  const t = e?.originalEvent?.target;
+  
+  // Zoom mínimo general
+  if (map.getZoom() < 13) return;
+
+  try {
+    // ⭐ PRIORIDAD ABSOLUTA: SUELOS (solo con zoom >= 15)
+    // CRÍTICO: Se verifica ANTES que cualquier otra capa, incluso elementos interactivos
+    if (suelosActivos && map.getZoom() >= 15) {
+      console.log("🔍 Verificando suelos en coordenadas:", e.latlng);
+      const r = await fetch(`/api/popup/suelos?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
+      const j = await r.json().catch(() => ({}));
+      
+      if (j.ok && j.found) {
+        highlightGeojson(j.data.geojson, "suelos");
+        console.log("✅ Suelo encontrado (prioridad máxima):", j.data);
+        abrirPopupHtml(e.latlng, buildSuelosPopup(j.data));
+        
+        // ✅ NUEVO: Detener la propagación del evento para evitar
+        // que otros listeners interfieran con el popup de suelos
+        if (e.originalEvent) {
+          e.originalEvent.stopPropagation();
+        }
+        
+        return; // Suelos tienen MÁXIMA prioridad - salimos aquí sin verificar otras capas
+      }
+      
+      // Si NO hay suelo, continuamos verificando otras capas
+      console.log("ℹ️ No se encontró suelo, verificando otras capas...");
+    }
+    
+    // ⚠️ IMPORTANTE: Solo llegamos aquí si NO había suelo activo o NO se encontró suelo
+    
+    // Si el click fue sobre un elemento interactivo Y no había suelo debajo, salir
+    // (esto permite que recintos, dibujos, etc. funcionen normalmente cuando NO hay suelos)
+    if (t && (t.classList?.contains("leaflet-interactive") || t.closest?.(".leaflet-interactive"))) {
+      console.log("ℹ️ Click en elemento interactivo (sin suelo debajo)");
+      return;
+    }
+    
+    // Resto de capas solo con zoom alto
     if (map.getZoom() < ZOOM_RECINTOS) return;
 
-    try {
-      // prioridad: si están ambos activos por error, mostramos el que esté activo (cultivos > catastro)
-      if (cultivosSigpacActivos) {
-        const r = await fetch(`/api/popup/cultivo-sigpac?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
-        const j = await r.json().catch(() => ({}));
-        if (j.ok && j.found) {
-          highlightGeojson(j.data.geojson, "cultivo"); 
-          abrirPopupHtml(e.latlng, buildCultivoPopup(j.data));
-          return;
-        }
+    // PRIORIDAD 2: Cultivos SIGPAC (solo si NO hubo suelo)
+    if (cultivosSigpacActivos) {
+      const r = await fetch(`/api/popup/cultivo-sigpac?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
+      const j = await r.json().catch(() => ({}));
+      if (j.ok && j.found) {
+        highlightGeojson(j.data.geojson, "cultivo"); 
+        abrirPopupHtml(e.latlng, buildCultivoPopup(j.data));
+        return;
       }
-
-      if (parcelasCatastroActivas) {
-        const r = await fetch(`/api/popup/catastro?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
-        const j = await r.json().catch(() => ({}));
-        if (j.ok && j.found) {
-          highlightGeojson(j.data.geojson, "catastro");
-          abrirPopupHtml(e.latlng, buildCatastroPopup(j.data));
-          return;
-        }
-      }
-
-      // si no hay nada debajo, cerramos popup y highlights
-      map.closePopup();
-      clearCultivoHighlight();
-      clearCatastroHighlight();
-    } catch (err) {
-      console.error("Error popup click:", err);
     }
-  });
+
+    // PRIORIDAD 3: Catastro (solo si NO hubo suelo ni cultivo)
+    if (parcelasCatastroActivas) {
+      const r = await fetch(`/api/popup/catastro?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
+      const j = await r.json().catch(() => ({}));
+      if (j.ok && j.found) {
+        highlightGeojson(j.data.geojson, "catastro");
+        abrirPopupHtml(e.latlng, buildCatastroPopup(j.data));
+        return;
+      }
+    }
+
+    // Si no hay nada debajo, cerramos popup y highlights
+    map.closePopup();
+    clearCultivoHighlight();
+    clearCatastroHighlight();
+    clearSuelosHighlight();
+  } catch (err) {
+    console.error("Error popup click:", err);
+  }
+});
 
   // -----------------------------------------
 
@@ -2100,11 +2446,35 @@ async function abrirRecintoEnPanel(data) {
   // -----------------------------------------
 
   map.on("zoomend", () => {
+    const currentZoom = map.getZoom();
+    
+    // Cerrar popups si el zoom es menor que el mínimo general
+    if (currentZoom < 13) {
+      map.closePopup();
+      clearCultivoHighlight();
+      clearCatastroHighlight();
+      clearSuelosHighlight();
+    }
+    
+    // Cerrar popup de suelos si el zoom es menor que 15
+    if (currentZoom < 15) {
+      clearSuelosHighlight();
+    }
+    
+    // Cerrar popups de cultivos, catastro y suelos si zoom < ZOOM_RECINTOS (15)
+    if (currentZoom < ZOOM_RECINTOS) {
+      map.closePopup();
+      clearCultivoHighlight();
+      clearCatastroHighlight();
+      clearSuelosHighlight();
+    }
+    
     actualizarMapaSegunZoom();
     cargarRecintosSiProcede();
     cargarMisRecintosSiProcede();
     cargarParcelasCatastroSiProcede();
     cargarCultivosSigpacSiProcede();
+    cargarSuelosSiProcede();
     if (splitOpen && currentSideRecintoId) {
     guardarEstadoMapa();
   }
@@ -2115,6 +2485,7 @@ async function abrirRecintoEnPanel(data) {
     cargarMisRecintosSiProcede();
     cargarParcelasCatastroSiProcede();
     cargarCultivosSigpacSiProcede();
+    cargarSuelosSiProcede();
   });
 
   actualizarMapaSegunZoom();
@@ -2122,6 +2493,7 @@ async function abrirRecintoEnPanel(data) {
   cargarMisRecintosSiProcede();
   cargarParcelasCatastroSiProcede();
   cargarCultivosSigpacSiProcede();
+  cargarSuelosSiProcede();
 
   // -----------------------------------------
   // 8) Lógica del panel y botones sincronizados
@@ -2232,6 +2604,25 @@ async function abrirRecintoEnPanel(data) {
     });
   }
 
+  // --- Toggle Suelos ---
+  const suelosOption = document.querySelector(
+    '.basemap-option.basemap-detail[data-detail="suelos"]'
+  );
+
+  if (suelosOption) {
+    suelosOption.addEventListener("click", () => {
+      suelosActivos = !suelosActivos;
+
+      if (suelosActivos) {
+        suelosOption.classList.add("active");
+        cargarSuelosSiProcede();
+      } else {
+        suelosOption.classList.remove("active");
+        if (map.hasLayer(suelosLayer)) map.removeLayer(suelosLayer);
+      }
+    });
+  }
+
   // Funciones para activar/desactivar detalles de los toggles
   function desactivarDetalle(key) {
     const opt = document.querySelector(`.basemap-option.basemap-detail[data-detail="${key}"]`);
@@ -2243,6 +2634,7 @@ async function abrirRecintoEnPanel(data) {
     // limpiar highlights WMS
     clearCultivoHighlight();
     clearCatastroHighlight();
+    clearSuelosHighlight();
 
     if (key === "sigpac") {
       recintosActivos = false;
@@ -2995,7 +3387,7 @@ async function cargarDibujosGuardados() {
         l.options.interactive = false; // Inicialmente no interactivo
         
         if (l.setStyle) {
-          l.setStyle({ className: 'dibujo-clickeable' });
+          l.setStyle({ className: 'dibujo-clickeable'});
         }
         
         // Añadir popup

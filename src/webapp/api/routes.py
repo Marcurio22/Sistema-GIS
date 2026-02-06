@@ -11,6 +11,7 @@ from fileinput import filename
 from flask import jsonify, request, send_from_directory
 from pathlib import Path
 from flask_login import login_required, current_user
+import requests
 from sqlalchemy import text
 import matplotlib
 matplotlib.use('Agg') # Vital para que no intente abrir ventanas en el servidor
@@ -395,6 +396,166 @@ def popup_catastro():
         return jsonify({"ok": True, "found": False})
 
     return jsonify({"ok": True, "found": True, "data": dict(row)})
+
+"""
+CORRECCIÓN PARA EL ENDPOINT /api/popup/suelos
+
+Reemplaza el endpoint popup_suelos() en tu archivo routes.py (líneas 408-537)
+con esta versión corregida.
+"""
+
+@api_bp.route('/popup/suelos')
+def popup_suelos():
+    """
+    Endpoint para obtener información de un punto de suelo al hacer click.
+    Devuelve datos con nombres de campos normalizados.
+    """
+    try:
+        lat = request.args.get('lat', type=float)
+        lng = request.args.get('lng', type=float)
+        
+        if lat is None or lng is None:
+            return jsonify({'ok': False, 'found': False, 'error': 'Coordenadas inválidas'})
+        
+        # URL de GeoServer
+        geoserver_url = "http://100.102.237.86:8080/geoserver/wms"
+        
+        # Parámetros para GetFeatureInfo
+        params = {
+            'SERVICE': 'WMS',
+            'VERSION': '1.1.1',
+            'REQUEST': 'GetFeatureInfo',
+            'LAYERS': 'ne:PtosMuestrasSuelosCyL_Etrs89_H30',
+            'QUERY_LAYERS': 'ne:PtosMuestrasSuelosCyL_Etrs89_H30',
+            'INFO_FORMAT': 'application/json',
+            'FEATURE_COUNT': 1,
+            'X': 50,
+            'Y': 50,
+            'SRS': 'EPSG:4326',
+            'WIDTH': 101,
+            'HEIGHT': 101,
+            'BBOX': f'{lng-0.001},{lat-0.001},{lng+0.001},{lat+0.001}'
+        }
+        
+        # Hacer la petición a GeoServer
+        response = requests.get(geoserver_url, params=params, timeout=10)
+        
+        if response.status_code != 200:
+            return jsonify({'ok': False, 'found': False, 'error': 'Error en GeoServer'})
+        
+        data = response.json()
+        features = data.get('features', [])
+        
+        if not features:
+            return jsonify({'ok': True, 'found': False})
+        
+        # Obtener el primer feature
+        feature = features[0]
+        properties = feature.get('properties', {})
+        geometry = feature.get('geometry', {})
+        
+        # 🔧 Log para ver qué campos vienen realmente de GeoServer
+        print("📋 Campos disponibles en GeoServer:", list(properties.keys()))
+        print("📊 Valores de campos clave:")
+        print(f"   - Campaña: {properties.get('Campaña')}")
+        print(f"   - pH: {properties.get('pH')}")
+        print(f"   - ID_MUESTRA: {properties.get('ID_MUESTRA')}")
+        
+        # Función auxiliar mejorada
+        def get_value(*keys):
+            """Busca el valor en diferentes variantes de nombres de campo"""
+            for key in keys:
+                value = properties.get(key)
+                # Importante: considerar "" (string vacío) como None
+                if value is not None and value != "":
+                    return value
+            return None
+        
+        # 🎯 MAPEO EXACTO según los nombres de columnas de tu base de datos
+        field_mapping = {
+            # Campos principales
+            'id_muestra': get_value('ID_MUESTRA', 'ID_Muestra', 'id_muestra'),
+            'origen': get_value('Origen', 'origen'),
+            
+            # ✅ CORRECCIÓN CRÍTICA: 'Campaña' con tilde (nombre exacto de la columna)
+            'campana': get_value('Campaña', 'Campanya', 'campana'),
+            
+            'laboratori': get_value('Laboratori', 'laboratori'),
+            
+            # pH y CE
+            'ph': get_value('pH', 'ph', 'PH'),
+            
+            # ✅ CORRECCIÓN: 'AcidezBasi' sin guión bajo
+            'acidez_basi': get_value('AcidezBasi', 'Acidez_Basi', 'acidez_basi'),
+            
+            'conductivi': get_value('Conductivi', 'conductividad', 'CE'),
+            
+            # Materia orgánica
+            'mo_porc': get_value('MO_Porc', 'mo_porc', 'MO_%'),
+            'materia_org': get_value('MateriaOrg', 'Materia_Org', 'materia_org'),
+            
+            # Textura
+            'arena_porc': get_value('Arena_Porc', 'arena_porc', 'Arena_%'),
+            'limo_porc': get_value('Limo_Porc', 'limo_porc', 'Limo_%'),
+            
+            # ✅ CORRECCIÓN: 'Arcilla_Po' (truncado, no 'Arcilla_Porc')
+            'arcilla_po': get_value('Arcilla_Po', 'Arcilla_Porc', 'arcilla_porc', 'Arcilla_%'),
+            
+            'textura': get_value('Textura', 'textura'),
+            'text_calcu': get_value('TextCalcu', 'Text_Calcu', 'text_calcu'),
+            'grupo_textu': get_value('GrupoTextu', 'Grupo_Textu', 'grupo_textu'),
+            'valoracion': get_value('Valoracion', 'valoracion'),
+            
+            # Nutrientes
+            'p_olsen_pp': get_value('P_Olsen_pp', 'P_Olsen_ppm', 'p_olsen_ppm', 'P_ppm'),
+            'p_olsen': get_value('P_Olsen', 'p_olsen', 'POlsen'),
+            'potasio_pp': get_value('Potasio_pp', 'Potasio_ppm', 'potasio_ppm', 'K_ppm'),
+            'potasio': get_value('Potasio', 'potasio'),
+            'nitrogeno_': get_value('Nitrogeno_', 'nitrogeno', 'N', 'Nitrogeno'),
+            'calcio_ppm': get_value('Calcio_ppm', 'calcio_ppm', 'Ca_ppm'),
+            'calcio': get_value('Calcio', 'calcio'),
+            'magnesio_p': get_value('Magnesio_p', 'Magnesio_ppm', 'magnesio_ppm', 'Mg_ppm'),
+            'magnesio': get_value('Magnesio', 'magnesio'),
+            
+            # Coordenadas - ✅ CORRECCIÓN: 'COOR_X_ETR' todo en mayúsculas
+            'coor_x_etr': get_value('COOR_X_ETR', 'Coor_X_Etr', 'coor_x', 'X_ETRS89'),
+            'coor_y_etr': get_value('COOR_Y_ETR', 'Coor_Y_Etr', 'coor_y', 'Y_ETRS89'),
+        }
+        
+        # Construir la respuesta con campos mapeados
+        resultado = {
+            'ok': True,
+            'found': True,
+            'data': {
+                **field_mapping,  # Campos mapeados
+                
+                # Geometría para el highlight
+                'geojson': {
+                    'type': 'FeatureCollection',
+                    'features': [{
+                        'type': 'Feature',
+                        'properties': field_mapping,
+                        'geometry': geometry
+                    }]
+                }
+            }
+        }
+        
+        # Log detallado para debugging
+        print(f"✅ Suelo encontrado en ({lat}, {lng})")
+        print(f"   📍 ID Muestra: {field_mapping.get('id_muestra')}")
+        print(f"   📅 Campaña: {field_mapping.get('campana')}")
+        print(f"   🧪 pH: {field_mapping.get('ph')}")
+        print(f"   🏢 Origen: {field_mapping.get('origen')}")
+        print(f"   🔬 Laboratorio: {field_mapping.get('laboratori')}")
+        
+        return jsonify(resultado)
+        
+    except Exception as e:
+        print(f"❌ Error en popup_suelos: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'ok': False, 'found': False, 'error': str(e)})
 
 # ---------------------------
 # Catálogos para el frontend
