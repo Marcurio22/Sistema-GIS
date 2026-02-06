@@ -240,3 +240,8 @@ body {
   z-index: 5;
   pointer-events: none;
 }
+
+.op-badge-fitos{
+  background: #eb64ac !important;
+  color: #ffffff !important;
+}

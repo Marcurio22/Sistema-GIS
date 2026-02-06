@@ -162,7 +162,7 @@ def dashboard():
         if t == "FERTILIZACION":
             return "bg-success"
         if t == "FITOSANITARIO":
-            return "bg-warning text-dark"
+            return "op-badge-fitos"
         if t == "OTRAS":
             return "bg-secondary"
         return "bg-secondary"
