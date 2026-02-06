@@ -1123,6 +1123,39 @@
     color: #ffffff !important;
   }
 
+  /* Dropdown tipo "cultivos": limpio, claro, con sombra y scroll */
+  .fito-typeahead {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 3000;
+    max-height: 280px;
+    overflow: auto;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,.12);
+    border-radius: 12px;
+    box-shadow: 0 12px 30px rgba(0,0,0,.12);
+  }
+
+  .fito-typeahead .list-group-item {
+    border: 0;
+    padding: .6rem .75rem;
+  }
+
+  .fito-typeahead .list-group-item:hover,
+  .fito-typeahead .list-group-item:focus {
+    background: rgba(25,135,84,.10); /* verdosito bootstrap success */
+  }
+
+  .fito-typeahead .fw-semibold {
+    font-size: .95rem;
+  }
+
+  .fito-typeahead .small {
+    font-size: .8rem;
+  }
+
   .op-date{
     font-size: .85rem;
   }

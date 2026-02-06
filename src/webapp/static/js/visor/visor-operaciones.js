@@ -749,6 +749,7 @@ function attachTypeaheadCatalog(inputEl, listEl, hiddenCodeEl, catalogo, { minCh
                         if (hiddenCodeEl) hiddenCodeEl.value = btn.dataset.code || "";
                         listEl.innerHTML = "";
                         listEl.classList.add("d-none");
+                        inputEl.dispatchEvent(new Event("change", { bubbles: true }));
                     });
                 });
 
@@ -1227,11 +1228,11 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
               </div>
 
               <div class="row g-2 mt-1">
-                <div class="col-12">
+                <div class="col-12 position-relative">
                   <label class="form-label mb-1">Producto (nombre/nº registro/formulado) <span class="text-danger">*</span></label>
-                  <input id="fito-prod-${idx}" class="form-control" list="fito-prod-list-${idx}" placeholder="Buscar producto..." required>
-                  <datalist id="fito-prod-list-${idx}"></datalist>
+                  <input id="fito-prod-${idx}" class="form-control" type="text" placeholder="Buscar producto..." autocomplete="off" required>
                   <input id="fito-prod-code-${idx}" type="hidden">
+                  <div id="fito-prod-list-${idx}" class="list-group fito-typeahead d-none"></div>
                   <div class="small text-muted mt-1" id="fito-meta-${idx}"></div>
                 </div>
 
@@ -1252,7 +1253,15 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
 
                 <div class="col-md-6">
                   <label class="form-label mb-1">Unidad <span class="text-danger">*</span></label>
-                  <input id="fito-unidad-${idx}" class="form-control" list="fito-units" required>
+                  <select id="fito-unidad-${idx}" class="form-select" required>
+                    <option value="" selected>Selecciona...</option>
+                    <option value="L/ha">L/ha</option>
+                    <option value="kg/ha">kg/ha</option>
+                    <option value="g/ha">g/ha</option>
+                    <option value="mL/L">mL/L</option>
+                    <option value="g/L">g/L</option>
+                    <option value="%">%</option>
+                  </select>
                 </div>
 
                 <div class="col-12">
@@ -1307,7 +1316,7 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
             _setReadonly(inpFormulado, true);
           }
 
-          attachTypeaheadCatalogDatalist(inputProd, listEl, hidCode, CAT_PRODUCTOS, { minChars: 1, limit: 30 });
+          attachTypeaheadCatalog(inputProd, listEl, hidCode, CAT_PRODUCTOS, { minChars: 1, limit: 30 });
 
           if (inputProd) {
             inputProd.addEventListener("change", () => applyCatalogToCard(card).catch(() => {}));
