@@ -68,6 +68,8 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/visor.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/galeria.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ndvi.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/legend.css') }}">
+<script src="{{ url_for('static', filename='js/legend_mcsncyl.js') }}"></script>
 <script src="{{ url_for('static', filename='js/lightbox-manager.js') }}"></script>
 <script src="{{ url_for('static', filename='js/galeria.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ndvi.js') }}"></script>
@@ -163,10 +165,14 @@
   </div>
     
   <!-- DETALLES ADICIONALES (Leyenda) -->
-  <div id="extra-details" style="margin-top:14px;">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-      <h6 style="margin:0;">Detalles adicionales</h6>
+  <div class="extra-details-card">
+    <div class="d-flex align-items-center justify-content-between">
+      <div class="fw-bold">Mapa de cultivos (CyL 2025)</div>
+      <button id="btnToggleMcsncylLegend" class="btn btn-link p-0 fw-bold">Mostrar</button>
     </div>
+
+    <div id="legend-mcsncyl-2025" class="d-none mt-2"></div>
+  </div>
 
     <!-- Leyenda MCSNCyL / CyL 2025 -->
     <div id="legend-cyl2025" style="display:none; padding:10px; border-radius:10px; background:#f7f7f7;">
@@ -3993,5 +3999,26 @@ dibujosGuardadosLayer.on('click', function(e) {
 </script>
 <script src="{{ url_for('static', filename='js/visor/visor-cultivos.js') }}"></script>
 <script src="{{ url_for('static', filename='js/visor/visor-operaciones.js') }}"></script>
+
+<script>
+(function () {
+  const btn = document.getElementById("btnToggleMcsncylLegend");
+  if (!btn) return;
+
+  let visible = false;
+
+  btn.addEventListener("click", async () => {
+    visible = !visible;
+
+    if (visible) {
+      btn.textContent = "Ocultar";
+      await window.MCSNCYL_LEGEND.show(2025, "legend-mcsncyl-2025");
+    } else {
+      btn.textContent = "Mostrar";
+      window.MCSNCYL_LEGEND.hide("legend-mcsncyl-2025");
+    }
+  });
+})();
+</script>
 
 {% endblock %}

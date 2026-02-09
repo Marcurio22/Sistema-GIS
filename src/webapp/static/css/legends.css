@@ -1,0 +1,38 @@
+.legend-title{
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.legend-loading,
+.legend-error{
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+
+.legend-grid{
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  max-height: 240px;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.legend-row{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.legend-swatch{
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid rgba(0,0,0,0.15);
+  flex: 0 0 auto;
+}
+
+.legend-label{
+  font-size: 0.95rem;
+  line-height: 1.1;
+}

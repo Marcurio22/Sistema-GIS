@@ -31,6 +31,7 @@ from rasterio.warp import transform_geom
 from .. import db
 from ..models import ImagenDibujada, IndicesRaster, Recinto, Solicitudrecinto, Variedad
 from webapp.dashboard.utils_dashboard import municipios_finder
+from webapp.utils.legend_loader import load_legend_from_csv
 
 from . import api_bp, legend_bp
 from .services import (
@@ -426,6 +427,29 @@ def geoserver_legend():
         status=r.status_code,
         content_type=r.headers.get("Content-Type", "image/png"),
     )
+
+@legend_bp.get("/api/legend/mcsncyl/<int:year>")
+def legend_mcsncyl(year: int):
+    """
+    Devuelve la leyenda del MCSNCyL desde un CSV (no depende de GeoServer).
+    """
+    base_webapp = Path(__file__).resolve().parents[1]
+    csv_path = base_webapp / "static" / "csv" / "legends" / f"mcsncyl_{year}.csv"
+
+    try:
+        payload = load_legend_from_csv(csv_path)
+        payload["year"] = year
+        return jsonify(payload)
+    except FileNotFoundError:
+        return jsonify({
+            "error": "legend_not_found",
+            "message": f"No existe {csv_path.name} en static/data/legends/"
+        }), 404
+    except Exception as e:
+        return jsonify({
+            "error": "legend_load_error",
+            "message": str(e)
+        }), 500
 
 @api_bp.route('/popup/suelos')
 def popup_suelos():
@@ -1374,3 +1398,4 @@ def comparar_ndvi():
             'success': False,
             'mensaje': f'Error al obtener los datos: {str(e)}'
         }), 500
+    
