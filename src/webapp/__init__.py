@@ -32,7 +32,7 @@ def create_app():
     from .auth import auth_bp
     from .admin import admin_bp 
     from .dashboard import dashboard_bp
-    from .api import api_bp
+    from .api import api_bp, legend_bp
     from .api.galeria import galeria_bp
 
 
@@ -42,6 +42,7 @@ def create_app():
     app.register_blueprint(admin_bp)
     app.register_blueprint(api_bp)
     app.register_blueprint(galeria_bp)
+    app.register_blueprint(legend_bp)
     
 
     return app
