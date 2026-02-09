@@ -32,6 +32,7 @@ def load_legend_from_csv(csv_path: str) -> Dict[str, Any]:
 
     items: List[Dict[str, Any]] = []
 
+
     # Tu CSV suele venir con separador ';' y BOM utf-8.
     # Usamos csv.Sniffer con fallback a ';'.
     with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
@@ -54,12 +55,15 @@ def load_legend_from_csv(csv_path: str) -> Dict[str, Any]:
             return ""
 
         for row in reader:
-            code_raw = pick(row, ["Cod\nCultivo", "Cod Cultivo", "CodCultivo", "COD", "code"])
-            label = pick(row, ["Descripción \ncultivo", "Descripción cultivo", "Descripcion cultivo", "label", "name"])
+            print("HEADERS:", reader.fieldnames)
+            code_raw = pick(row, ["Cod\nCultivo", "Cod Cultivo", "CodCultivo", "COD", "code", "Cod\r\nCultivo"])
+            label = pick(row, ["Descripción \ncultivo", "Descripción cultivo", "Descripcion cultivo", "label", "name", "Descripción \r\ncultivo"])
             r_raw = pick(row, ["R", "r", "Red"])
             g_raw = pick(row, ["G", "g", "Green"])
             b_raw = pick(row, ["B", "b", "Blue"])
 
+
+            print(f"Procesando fila: code='{code_raw}', label='{label}', R='{r_raw}', G='{g_raw}', B='{b_raw}'")
             code = _to_int(code_raw, default=-1)
             r = _to_int(r_raw, default=0)
             g = _to_int(g_raw, default=0)
@@ -79,7 +83,6 @@ def load_legend_from_csv(csv_path: str) -> Dict[str, Any]:
             })
 
     items.sort(key=lambda x: x["code"])
-
     return {
         "source": os.path.basename(csv_path),
         "count": len(items),
