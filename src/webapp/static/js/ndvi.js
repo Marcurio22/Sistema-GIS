@@ -211,7 +211,7 @@ class NDVI {
                     min: i.valor_min.toFixed(4),
                     max: i.valor_max.toFixed(4)
                 }));
-
+            
                 window.lightboxManager.updateImages(
                     imagenesNDVI,
                     this.recintoId,
@@ -255,7 +255,16 @@ class NDVI {
                     onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22110%22 height=%22110%22><rect width=%22110%22 height=%22110%22 fill=%22%23e9ecef%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%236c757d%22 font-size=%2212%22>Sin imagen</text></svg>'">
                 <div class="carousel-item-info">
                     <div class="fw-bold">${fecha}</div>
-                    <div class="text-muted" style="font-size: 0.75rem;">Media: ${indice.valor_medio.toFixed(4)}</div>
+                    <div class="text-muted" style="font-size: 0.75rem;">
+                        Media: ${indice.valor_medio.toFixed(4)}
+                    </div>
+                    <div class="text-muted" style="font-size: 0.75rem;">
+                         ${indice.valor_min.toFixed(4)} - ${indice.valor_max.toFixed(4)}
+                    </div>
+                    <div class="text-muted" style="font-size: 0.75rem;">
+                        Desv: ${indice.desviacion_std.toFixed(4)}
+                    </div>
+                    
                 </div>
             </div>`;
         }).join('');
@@ -392,6 +401,8 @@ class NDVI {
                                 return context[0].label;
                             },
                             label: function(context) {
+                                const idx = context.dataIndex;
+                                const indice = indicesVisibles[idx];
                                 const valor = context.parsed.y;
                                 let categoria = '';
                                 
@@ -401,7 +412,12 @@ class NDVI {
                                 else if (valor < 0.8) categoria = 'Veg. elevada';
                                 else categoria = 'Veg. muy elevada';
                                 
-                                return `${valor.toFixed(2)} - ${categoria}`;
+                                // ✨ AÑADIDO: Incluir desviación en el tooltip
+                                return [
+                                    `Media: ${valor.toFixed(4)} - ${categoria}`,
+                                    `Desv. Std: ${indice.desviacion_std.toFixed(4)}`,
+                                    `Rango: ${indice.valor_min.toFixed(4)} - ${indice.valor_max.toFixed(4)}`
+                                ];
                             }
                         }
                     }
@@ -533,6 +549,7 @@ class NDVI {
                         <span class="stat-label">Media</span>
                         <span class="stat-value">${ultimoIndice.valor_medio.toFixed(4)}</span>
                     </div>
+                    
                     <div class="stat-item">
                         <span class="stat-label">Mín</span>
                         <span class="stat-value">${ultimoIndice.valor_min.toFixed(4)}</span>
@@ -540,6 +557,10 @@ class NDVI {
                     <div class="stat-item">
                         <span class="stat-label">Máx</span>
                         <span class="stat-value">${ultimoIndice.valor_max.toFixed(4)}</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Desviación</span>
+                        <span class="stat-value">${ultimoIndice.desviacion_std.toFixed(4)}</span>
                     </div>
                 </div>
             </div>`;

@@ -1258,3 +1258,103 @@ NDVI_DIR = Path(
 @api_bp.route("/ndvi/<path:filename>")
 def serve_ndvi(filename):
     return send_from_directory(NDVI_DIR, filename)
+
+
+
+
+# COMPARAR
+
+@api_bp.route('/comparar-ndvi', methods=['POST'])
+@login_required
+def comparar_ndvi():
+    """
+    Endpoint para obtener datos de NDVI de múltiples recintos para comparación
+    """
+    try:
+        data = request.get_json()
+        recintos_ids = data.get('recintos', [])
+        
+        if not recintos_ids:
+            return jsonify({
+                'success': False,
+                'mensaje': 'No se proporcionaron recintos para comparar'
+            }), 400
+        
+        if len(recintos_ids) > 10:
+            return jsonify({
+                'success': False,
+                'mensaje': 'No se pueden comparar más de 10 recintos'
+            }), 400
+
+        
+        # Verificar que el usuario tiene acceso a todos los recintos
+        recintos = Recinto.query.filter(
+            Recinto.id_recinto.in_(recintos_ids),
+            Recinto.id_propietario == current_user.id_usuario
+        ).all()
+        
+        if len(recintos) != len(recintos_ids):
+            return jsonify({
+                'success': False,
+                'mensaje': 'Uno o más recintos no existen o no tienes acceso a ellos'
+            }), 403
+        
+        # Obtener datos de NDVI para cada recinto
+        resultado = {}
+
+        for recinto_id in recintos_ids:
+            # Consultar los índices NDVI del recinto ordenados por fecha
+            indices = IndicesRaster.query.filter(
+                IndicesRaster.id_recinto == recinto_id,
+                IndicesRaster.tipo_indice == 'NDVI',
+                IndicesRaster.fecha_ndvi.isnot(None)
+            ).order_by(IndicesRaster.fecha_ndvi.asc()).all()
+            
+            if indices:
+                mediciones = []
+                for indice in indices:
+                    # Extraer valores y convertir a float
+                    valor_medio = float(indice.valor_medio) if indice.valor_medio else 0
+                    valor_min = float(indice.valor_min) if indice.valor_min else 0
+                    valor_max = float(indice.valor_max) if indice.valor_max else 0
+                    
+                    # VALIDACIÓN: Corregir datos inconsistentes
+                    # Si el máximo es menor que el medio o el mínimo, hay error en BD
+                    if valor_max < valor_medio:
+                        print(f"⚠️ WARNING: Recinto {recinto_id}, fecha {indice.fecha_ndvi}: "
+                            f"valor_max ({valor_max}) < valor_medio ({valor_medio})")
+                        valor_max = valor_medio  # Corregir usando el medio como máximo
+                    
+                    if valor_min > valor_medio:
+                        print(f"⚠️ WARNING: Recinto {recinto_id}, fecha {indice.fecha_ndvi}: "
+                            f"valor_min ({valor_min}) > valor_medio ({valor_medio})")
+                        valor_min = valor_medio  # Corregir usando el medio como mínimo
+                    
+                    # Asegurar orden lógico: min <= medio <= max
+                    if valor_min > valor_max:
+                        valor_min, valor_max = valor_max, valor_min
+                    
+                    mediciones.append({
+                        'fecha_ndvi': indice.fecha_ndvi.strftime('%Y-%m-%d') if indice.fecha_ndvi else None,
+                        'valor_medio': valor_medio,
+                        'valor_min': valor_min,
+                        'valor_max': valor_max,
+                        'desviacion_std': float(indice.desviacion_std) if indice.desviacion_std else 0
+                    })
+                
+                resultado[str(recinto_id)] = {'mediciones': mediciones}
+            else:
+                resultado[str(recinto_id)] = {'mediciones': []}
+        return jsonify({
+            'success': True,
+            'datos': resultado
+        }), 200
+        
+    except Exception as e:
+        import traceback
+        print(f"Error en comparar_ndvi: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'mensaje': f'Error al obtener los datos: {str(e)}'
+        }), 500

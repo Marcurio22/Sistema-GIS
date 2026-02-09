@@ -111,21 +111,17 @@ updateImages(images, recintoId, tipo = 'galeria') {
     console.log(`LightboxManager: Total de imágenes disponibles: ${this.images.length}`);
     
     if (!this.images || this.images.length === 0) {
-      console.warn('LightboxManager: No hay imágenes para mostrar');
       return;
     }
 
     // Validar índice
     if (index < 0 || index >= this.images.length) {
-      console.warn(`LightboxManager: Índice ${index} fuera de rango (0-${this.images.length - 1}), usando 0`);
       index = 0;
     }
 
     this.currentImageIndex = index;
     this.isOpen = true;
     
-    console.log(`LightboxManager: Abriendo con currentImageIndex = ${this.currentImageIndex}`);
-    console.log(`LightboxManager: Imagen a mostrar:`, this.images[this.currentImageIndex]);
     
     this.render();
     
@@ -133,7 +129,6 @@ updateImages(images, recintoId, tipo = 'galeria') {
     this.lightbox.style.display = 'block';
     document.body.style.overflow = 'hidden';
 
-    console.log(`LightboxManager: Abierto en imagen ${index + 1}/${this.images.length}`);
   }
 
   /**
@@ -143,8 +138,7 @@ updateImages(images, recintoId, tipo = 'galeria') {
     this.isOpen = false;
     this.lightbox.style.display = 'none';
     document.body.style.overflow = '';
-    
-    console.log('LightboxManager: Cerrado');
+
   }
 
   /**
@@ -297,5 +291,5 @@ window.lightboxManager = null;
 // Inicializar cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', () => {
   window.lightboxManager = new LightboxManager();
-  console.log('LightboxManager: Inicializado correctamente');
+
 });

@@ -285,6 +285,7 @@ def listar_imagenes(recinto_id):
 @galeria_bp.route('/editar/<int:id_imagen>', methods=['PATCH'])
 def editar_imagen(id_imagen):
     try:
+        
         imagen = Galeria.query.get(id_imagen)
         
         if not imagen:
