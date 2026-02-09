@@ -2307,6 +2307,8 @@ async function abrirRecintoEnPanel(data) {
 
   // 1) Leyenda automática WMS
   const CYL2025_WMS_LAYER = "gis_project:Cultivos_y_Ocupación_del_suelo_2025";
+  const CYL2025_STYLE = "mcsncyl2025"; 
+
   function buildCylLegendUrl() {
     const params = new URLSearchParams({
       SERVICE: "WMS",
@@ -2314,28 +2316,49 @@ async function abrirRecintoEnPanel(data) {
       VERSION: "1.1.1",
       FORMAT: "image/png",
       LAYER: CYL2025_WMS_LAYER,
-      TRANSPARENT: "true"
+      STYLE: CYL2025_STYLE,
+      TRANSPARENT: "true",
+      WIDTH: "360",
+      HEIGHT: "600",
+
+      LEGEND_OPTIONS: "forceLabels:on;fontSize:12"
     });
 
-    // cache-buster para que no se quede pillado
+    if (CYL2025_STYLE) params.set("STYLE", CYL2025_STYLE);
+
     return `${GEOSERVER_WMS}?${params.toString()}&ts=${Date.now()}`;
   }
 
   function showCyl2025Legend() {
     const box = document.getElementById("legend-cyl2025");
     const img = document.getElementById("legend-cyl2025-img");
-    const btn = document.getElementById("btn-legend-cyl2025-hide");
     if (!box || !img) return;
 
-    box.style.display = "block";
-    img.style.display = "block";
-    if (btn) btn.textContent = "Ocultar";
+    const url =
+      GEOSERVER_WMS +
+      "?SERVICE=WMS" +
+      "&VERSION=1.1.1" +
+      "&REQUEST=GetLegendGraphic" +
+      "&FORMAT=image/png" +
+      "&LAYER=" + encodeURIComponent(CYL2025_WMS_LAYER) +
+      "&STYLE=" + encodeURIComponent(CYL2025_STYLE) +
+      "&LEGEND_OPTIONS=" + encodeURIComponent("forceLabels:on;fontAntiAliasing:true");
 
-    const url = buildCylLegendUrl();
+    img.onerror = () => {
+      console.error("No se pudo cargar la leyenda:", url);
+      NotificationSystem.show({
+        type: "warning",
+        title: "Leyenda no disponible",
+        message: "GeoServer no devolvió una leyenda válida para esta capa/estilo."
+      });
+    };
+
+    img.onload = () => {
+      box.style.display = "block";
+    };
+
     img.src = url;
-
-    // si falla, lo verás claro en consola
-    img.onerror = () => console.error("❌ No se pudo cargar leyenda CyL2025:", url);
+    box.style.display = "block";
   }
 
   function hideCyl2025Legend() {
@@ -2343,10 +2366,20 @@ async function abrirRecintoEnPanel(data) {
     const img = document.getElementById("legend-cyl2025-img");
     const btn = document.getElementById("btn-legend-cyl2025-hide");
     if (!box || !img) return;
-
-    // NO ocultamos el contenedor, solo la imagen (para poder volver a mostrar)
     img.style.display = "none";
     if (btn) btn.textContent = "Mostrar";
+  }
+
+  function resetCyl2025Legend() {
+    const box = document.getElementById("legend-cyl2025");
+    const img = document.getElementById("legend-cyl2025-img");
+    const btn = document.getElementById("btn-legend-cyl2025-hide");
+    if (box) box.style.display = "none";  // capa apagada => ocultar todo
+    if (img) {
+      img.style.display = "block";
+      img.removeAttribute("src");
+    }
+    if (btn) btn.textContent = "Ocultar";
   }
 
   function resetCyl2025Legend() {

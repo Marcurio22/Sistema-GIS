@@ -8,7 +8,7 @@ solicitudes de recintos.
 from __future__ import annotations
 from fileinput import filename
 
-from flask import jsonify, request, send_from_directory
+from flask import Response, jsonify, request, send_from_directory
 from pathlib import Path
 from flask_login import login_required, current_user
 import requests
@@ -32,7 +32,7 @@ from .. import db
 from ..models import ImagenDibujada, IndicesRaster, Recinto, Solicitudrecinto, Variedad
 from webapp.dashboard.utils_dashboard import municipios_finder
 
-from . import api_bp
+from . import api_bp, legend_bp
 from .services import (
     recintos_geojson,
     mis_recintos_geojson,
@@ -397,12 +397,35 @@ def popup_catastro():
 
     return jsonify({"ok": True, "found": True, "data": dict(row)})
 
-"""
-CORRECCIÓN PARA EL ENDPOINT /api/popup/suelos
 
-Reemplaza el endpoint popup_suelos() en tu archivo routes.py (líneas 408-537)
-con esta versión corregida.
-"""
+
+@legend_bp.get("/api/geoserver/legend")
+def geoserver_legend():
+    layer = request.args.get("layer")
+    style = request.args.get("style", "")
+
+    if not layer:
+        return {"error": "Missing layer"}, 400
+
+    GEOSERVER_WMS = "http://100.102.237.86:8080/geoserver/wms"
+
+    params = {
+        "SERVICE": "WMS",
+        "REQUEST": "GetLegendGraphic",
+        "VERSION": "1.1.1",
+        "FORMAT": "image/png",
+        "LAYER": layer,
+        "TRANSPARENT": "true",
+    }
+    if style:
+        params["STYLE"] = style
+
+    r = requests.get(GEOSERVER_WMS, params=params, timeout=20)
+    return Response(
+        r.content,
+        status=r.status_code,
+        content_type=r.headers.get("Content-Type", "image/png"),
+    )
 
 @api_bp.route('/popup/suelos')
 def popup_suelos():
@@ -454,7 +477,7 @@ def popup_suelos():
         properties = feature.get('properties', {})
         geometry = feature.get('geometry', {})
         
-        # 🔧 Log para ver qué campos vienen realmente de GeoServer
+        # Log para ver qué campos vienen realmente de GeoServer
         print("📋 Campos disponibles en GeoServer:", list(properties.keys()))
         print("📊 Valores de campos clave:")
         print(f"   - Campaña: {properties.get('Campaña')}")
@@ -471,21 +494,16 @@ def popup_suelos():
                     return value
             return None
         
-        # 🎯 MAPEO EXACTO según los nombres de columnas de tu base de datos
+        # MAPEO DE CAMPOS CON VARIANTES (incluye correcciones críticas detectadas)
         field_mapping = {
             # Campos principales
             'id_muestra': get_value('ID_MUESTRA', 'ID_Muestra', 'id_muestra'),
             'origen': get_value('Origen', 'origen'),
-            
-            # ✅ CORRECCIÓN CRÍTICA: 'Campaña' con tilde (nombre exacto de la columna)
             'campana': get_value('Campaña', 'Campanya', 'campana'),
-            
             'laboratori': get_value('Laboratori', 'laboratori'),
             
-            # pH y CE
             'ph': get_value('pH', 'ph', 'PH'),
             
-            # ✅ CORRECCIÓN: 'AcidezBasi' sin guión bajo
             'acidez_basi': get_value('AcidezBasi', 'Acidez_Basi', 'acidez_basi'),
             
             'conductivi': get_value('Conductivi', 'conductividad', 'CE'),
@@ -497,8 +515,6 @@ def popup_suelos():
             # Textura
             'arena_porc': get_value('Arena_Porc', 'arena_porc', 'Arena_%'),
             'limo_porc': get_value('Limo_Porc', 'limo_porc', 'Limo_%'),
-            
-            # ✅ CORRECCIÓN: 'Arcilla_Po' (truncado, no 'Arcilla_Porc')
             'arcilla_po': get_value('Arcilla_Po', 'Arcilla_Porc', 'arcilla_porc', 'Arcilla_%'),
             
             'textura': get_value('Textura', 'textura'),
@@ -517,7 +533,7 @@ def popup_suelos():
             'magnesio_p': get_value('Magnesio_p', 'Magnesio_ppm', 'magnesio_ppm', 'Mg_ppm'),
             'magnesio': get_value('Magnesio', 'magnesio'),
             
-            # Coordenadas - ✅ CORRECCIÓN: 'COOR_X_ETR' todo en mayúsculas
+            # Coordenadas
             'coor_x_etr': get_value('COOR_X_ETR', 'Coor_X_Etr', 'coor_x', 'X_ETRS89'),
             'coor_y_etr': get_value('COOR_Y_ETR', 'Coor_Y_Etr', 'coor_y', 'Y_ETRS89'),
         }
