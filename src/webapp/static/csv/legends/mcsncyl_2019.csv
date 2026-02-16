@@ -1,0 +1,38 @@
+COD;Cubierta;Land Cover class;R;G;B;
+2;Alfalfa;Alfalfa;11;64;214;
+3;Artificiales;Artificial surfaces;48;48;48;
+6;Colza;Rapeseed;255;255;0;
+7;Guisante;Green peas;0;226;43;
+8;Veza;Vetch;0;171;34;
+9;Roquedos;Rocky areas of bedrock, boulders and cobbles;97;55;0;
+11;Forrajeras;Forage crops;158;171;140;
+12;Olivar;Olive groves;196;168;173;
+13;Viñedo;Vineyard;214;0;89;
+14;Frutales;Fruit trees;229;102;255;
+15;Frutales Cascara;Nuts trees;124;18;150;
+16;Adormidera;Poppy;230;200;227;
+17;Horticolas;Horticultural crops;124;130;194;
+20;Suelo Desnudo;Bare soil;255;218;209;
+31;Trigo;Wheat;217;255;0;
+32;Cebada;Barley;255;255;190;
+33;Centeno;Rye;61;255;171;
+34;Avena;Oats;115;115;0;
+35;Otros cereales;Other cereals;255;0;197;
+45;Otras Leguminosas;Other leguminous;121;240;110;Other grain leguminous
+50;Girasol;Sunflower;190;210;255;
+51;Maiz;Maize;232;135;46;
+52;Patata;Potatoes;186;123;93;
+53;Remolacha;Beet;179;99;245;
+54;Garbanzos;Chick peas;121;240;110;Other grain leguminous
+55;Lentejas;Lentils;121;240;110;Other grain leguminous
+57;Alubias;Beans;121;240;110;Other grain leguminous
+58;Yeros;Ervil;121;240;110;Other grain leguminous
+85;Pastizal;Grassland;150;255;197;
+120;Coniferas;Coniferous trees;69;112;112;
+192;Chopos;Populus plantations ;64;99;0;
+201;Matorral;Scrub;0;179;137;
+203;Frondosas Caducifolias;Broad-leaved deciduous�trees;64;99;0;
+204;Frondosas Perennifolias;Broad-leaved evergreen�trees;148;120;125;
+243;Castaños;Castanea sativa;124;18;150;
+254;Parques;Parks;112;173;71;
+255;Lamina Agua;Bodies of water;115;223;255;

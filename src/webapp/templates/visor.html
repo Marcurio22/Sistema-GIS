@@ -57,6 +57,178 @@
   <button class="lightbox-prev" id="lightbox-prev">&#10094;</button>
   <button class="lightbox-next" id="lightbox-next">&#10095;</button>
 </div>
+
+<div id="modal-comparativa-campanias" class="modal-comparativa" style="display: none;">
+  <div class="modal-comparativa-content">
+    <!-- Header del Modal -->
+    <div class="modal-comparativa-header">
+      <h3>
+        <i class="bi bi-graph-up me-2"></i>
+        Comparativa de Campañas NDVI
+      </h3>
+      <button id="btn-cerrar-comparativa" class="btn-close-comparativa" title="Cerrar">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="comparativa-loading" class="text-center py-5">
+      <div class="spinner-border text-success" role="status">
+        <span class="visually-hidden">Cargando...</span>
+      </div>
+      <p class="mt-3 text-muted">Cargando datos de campañas...</p>
+    </div>
+
+    <!-- Contenido del Modal -->
+    <div id="comparativa-contenido" style="display: none;">
+      <!-- Descripción -->
+      <div class="comparativa-descripcion">
+        <p class="text-muted mb-4">
+          <i class="bi bi-info-circle me-1"></i>
+          Comparación de las últimas 3 campañas agrícolas (septiembre a septiembre)
+        </p>
+      </div>
+
+      <!-- Gráfica Unificada -->
+      <div class="comparativa-chart-container">
+        <canvas id="chart-campania-unificado"></canvas>
+      </div>
+
+      <!-- Contenedor de imágenes del día seleccionado -->
+      <div id="imagenes-dia-seleccionado" class="imagenes-dia-container" style="display: none;">
+        <div class="imagenes-header">
+          <h5>
+            <i class="bi bi-camera me-2"></i>
+            Imágenes del día <span id="fecha-seleccionada"></span> (± 10 días)
+          </h5>
+          <button id="btn-cerrar-imagenes" class="btn-cerrar-imagenes" title="Cerrar">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        <div class="imagenes-grid">
+          <!-- Imagen Campaña 1 -->
+          <div class="imagen-campania-box" id="imagen-box-1">
+            <div class="imagen-campania-header">
+              <span class="campania-label" id="imagen-label-1">Campaña 2025/2026</span>
+            </div>
+            <div class="imagen-container" id="imagen-container-1">
+              <div class="imagen-loading">
+                <div class="spinner-border spinner-border-sm text-success"></div>
+              </div>
+            </div>
+          </div>
+          <!-- Imagen Campaña 2 -->
+          <div class="imagen-campania-box" id="imagen-box-2">
+            <div class="imagen-campania-header">
+              <span class="campania-label" id="imagen-label-2">Campaña 2024/2025</span>
+            </div>
+            <div class="imagen-container" id="imagen-container-2">
+              <div class="imagen-loading">
+                <div class="spinner-border spinner-border-sm text-primary"></div>
+              </div>
+            </div>
+          </div>
+          <!-- Imagen Campaña 3 -->
+          <div class="imagen-campania-box" id="imagen-box-3">
+            <div class="imagen-campania-header">
+              <span class="campania-label" id="imagen-label-3">Campaña 2023/2024</span>
+            </div>
+            <div class="imagen-container" id="imagen-container-3">
+              <div class="imagen-loading">
+                <div class="spinner-border spinner-border-sm text-warning"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Estadísticas en columnas -->
+      <div class="comparativa-stats-grid">
+        <!-- Campaña 3 (Mas antigua) -->
+        
+        <div class="campania-stats-column">
+          <div class="campania-stats-header">
+            <h5 id="campania-3-titulo"></h5>
+            <span class="badge bg-secondary">Anterior</span>
+          </div>
+          <div class="campania-stats">
+            <div class="stat-item">
+              <span class="stat-label">Promedio:</span>
+              <span class="stat-value" id="campania-3-promedio">-</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Máximo:</span>
+              <span class="stat-value" id="campania-3-max">-</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Mínimo:</span>
+              <span class="stat-value" id="campania-3-min">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Campaña 2 -->
+        <div class="campania-stats-column">
+          <div class="campania-stats-header">
+            <h5 id="campania-2-titulo"></h5>
+            <span class="badge bg-secondary">Anterior</span>
+          </div>
+          <div class="campania-stats">
+            <div class="stat-item">
+              <span class="stat-label">Promedio:</span>
+              <span class="stat-value" id="campania-2-promedio">-</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Máximo:</span>
+              <span class="stat-value" id="campania-2-max">-</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Mínimo:</span>
+              <span class="stat-value" id="campania-2-min">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Campaña 3 -->
+        
+
+
+        <div class="campania-stats-column">
+          <div class="campania-stats-header">
+            <h5 id="campania-1-titulo"></h5>
+            <span class="badge bg-success">Actual</span>
+          </div>
+          <div class="campania-stats">
+            <div class="stat-item">
+              <span class="stat-label">Promedio:</span>
+              <span class="stat-value" id="campania-1-promedio">-</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Máximo:</span>
+              <span class="stat-value" id="campania-1-max">-</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Mínimo:</span>
+              <span class="stat-value" id="campania-1-min">-</span>
+            </div>
+          </div>
+        </div>
+
+
+      </div>
+    </div>
+
+    <!-- Mensaje de error -->
+    <div id="comparativa-error" class="alert alert-danger" style="display: none;">
+      <i class="bi bi-exclamation-triangle me-2"></i>
+      <span id="comparativa-error-mensaje"></span>
+    </div>
+  </div>
+</div>
+
+
+
+
 {% endblock %}
 
 {% block content %}
@@ -69,6 +241,8 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/galeria.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ndvi.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/legend.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/comparativa-ndvi.css') }}">
+<script src="{{ url_for('static', filename='js/comparativa-ndvi.js') }}"></script>
 <script src="{{ url_for('static', filename='js/legend_mcsncyl.js') }}"></script>
 <script src="{{ url_for('static', filename='js/lightbox-manager.js') }}"></script>
 <script src="{{ url_for('static', filename='js/galeria.js') }}"></script>
@@ -155,38 +329,41 @@
       <div class="basemap-option-label">Suelos</div>
     </div>
 
-    <div class="basemap-option basemap-detail" data-detail="CyL2025">
-      <div class="basemap-thumb">
-        <img src="{{ url_for('static', filename='img/thumb_etp.png') }}" alt="MCSNCyL 2025" />
-      </div>
-      <div class="basemap-option-label">MCSNCyL<br>2025</div>
-    </div>
-
   </div>
     
-  <!-- DETALLES ADICIONALES (Leyenda) -->
-  <div class="extra-details-card">
-    <div class="d-flex align-items-center justify-content-between">
-      <div class="fw-bold">Mapa de cultivos (CyL 2025)</div>
-      <button id="btnToggleMcsncylLegend" class="btn btn-link p-0 fw-bold">Mostrar</button>
+  <!-- DETALLES ADICIONALES - SECCIÓN PLEGABLE -->
+  <div style="margin-top: 20px; border-top: 1px solid #dee2e6; padding-top: 15px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px 0;" id="toggle-detalles-adicionales">
+      <h6 style="margin: 0; font-weight: 600;">
+        <i class="bi bi-info-circle me-2"></i>Detalles Adicionales
+      </h6>
+      <button class="btn btn-sm btn-outline-secondary" style="border: none; padding: 4px 8px;">
+        <i class="bi bi-chevron-down" id="icon-detalles-adicionales" style="font-size: 1.1rem; transition: transform 0.3s;"></i>
+      </button>
     </div>
-
-    <div id="legend-mcsncyl-2025" class="d-none mt-2"></div>
-  </div>
-
-    <!-- Leyenda MCSNCyL / CyL 2025 -->
-    <div id="legend-cyl2025" style="display:none; padding:10px; border-radius:10px; background:#f7f7f7;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">
-        <div style="font-weight:700; color:#333;">Mapa de cultivos (CyL 2025)</div>
-        <button id="btn-legend-cyl2025-hide" type="button"
-                style="border:0;background:transparent;font-weight:700;color:#198754;cursor:pointer;">
-          Ocultar
-        </button>
+    
+    <!-- Contenido de Detalles Adicionales (inicialmente oculto) -->
+    <div id="contenido-detalles-adicionales" style="display: none; margin-top: 10px;">
+      
+      <!-- MAPA DE CULTIVOS -->
+      <div style="margin-top: 10px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px 10px; background: #e9ecef; border-radius: 6px;" id="toggle-mapa-cultivos">
+          <span style="font-weight: 600; font-size: 0.95rem;">
+            <i class="bi bi-map me-2"></i>Mapa de Cultivos
+          </span>
+          <button class="btn btn-sm" style="border: none; padding: 2px 6px;">
+            <i class="bi bi-chevron-down" id="icon-mapa-cultivos" style="font-size: 1rem; transition: transform 0.3s;"></i>
+          </button>
+        </div>
+        
+        <!-- Contenedor de años (inicialmente oculto) -->
+        <div id="mapa-cultivos-panel" style="display: none; flex-direction: column; gap: 10px; margin-top: 10px; padding-left: 10px;">
+          <!-- Los años se generan dinámicamente aquí -->
+        </div>
       </div>
-
-      <img id="legend-cyl2025-img"
-           alt="Leyenda MCSNCyL 2025"
-           style="max-width:100%;height:auto;border-radius:8px;background:white;padding:6px;display:block;">
+      
+      <!-- Aquí puedes añadir más secciones adicionales en el futuro -->
+      
     </div>
   </div>
 
@@ -314,23 +491,30 @@
 
     <div class="side-divider"></div>
 
-    <!-- SECCIÓN NDVI -->
     <div class="side-section">
       <div class="side-section-head">
-        <div></div>
-    
+        <button id="btn-comparativa-ndvi"
+        type="button"
+        class="btn btn-outline-success btn-sm px-2 ">
+  <i class="bi bi-arrows-expand me-1"></i> Comparativa
+</button>
+
+
         <h2 class="side-section-title mb-4">
           <i class="fa-solid fa-leaf me-2" style="color:#198754"></i>
           <span class="side-section-label">NDVI</span>
         </h2>
-    
+
         <button id="btn-detalle-ndvi" type="button" class="btn btn-success btn-historico">
           Más detalle
         </button>
       </div>
-    
+
       <div id="ndvi-container"></div>
     </div>
+    
+
+   
 
     <div class="side-divider"></div>
 
@@ -475,7 +659,6 @@
 
 </aside>
 
-<!-- Modal confirmación -->
 <div id="app-confirm-backdrop" class="app-confirm-backdrop d-none" aria-hidden="true">
   <div class="app-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="app-confirm-title">
     <div class="app-confirm-header">
@@ -626,6 +809,11 @@
     </div>
   </div>
 </div>
+
+
+
+
+
 
 <!-- Script general -->
 <script>
@@ -1045,6 +1233,9 @@ async function aplicarVistaInicialUsuario() {
   });
 
   map.fitBounds(ROI_BOUNDS);
+  
+  // Hacer accesible globalmente
+  window.map = map;
 
 
   
@@ -1069,8 +1260,20 @@ async function aplicarVistaInicialUsuario() {
   map.createPane("catastroPane");
   map.getPane("catastroPane").style.zIndex = 430;
 
-  map.createPane("cultivos2025");
-  map.getPane("cultivos2025").style.zIndex = 300;
+  // ══════════════════════════════════════════════════════════════════
+  // 📌 CREACIÓN AUTOMÁTICA DE PANES PARA MAPA DE CULTIVOS
+  // ══════════════════════════════════════════════════════════════════
+  // ✅ Para añadir un nuevo año, solo tienes que modificar el array en el script al final
+  
+  // Configuración de años (se genera automáticamente desde cylYearsConfig)
+  const cultivosYears = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016' , '2015', '2014', '2013', '2012'];
+  let zIndexBase = 300;
+  
+  cultivosYears.forEach(year => {
+    const paneName = `cultivos${year}`;
+    map.createPane(paneName);
+    map.getPane(paneName).style.zIndex = zIndexBase--;
+  });
 
 
 
@@ -1456,7 +1659,8 @@ if (btnDelete) {
 
   const RECINTO_STYLE_DEFAULT = {
     color: "#ff8800",
-    weight: 1,
+    weight: 2,
+    fillOpacity: 0,
   };
 
   const RECINTO_STYLE_SELECTED = {
@@ -1572,8 +1776,8 @@ if (btnDelete) {
   map.createPane("wmsHighlightPane");
   map.getPane("wmsHighlightPane").style.zIndex = 650; // por encima de WMS
 
-  const CULTIVO_HL_STYLE = { color: "#0077ff", weight: 2, fillColor: "#0077ff", fillOpacity: 0.20 };
-  const CATASTRO_HL_STYLE = { color: "#0077ff", weight: 2, fillColor: "#0077ff", fillOpacity: 0.20 };
+  const CULTIVO_HL_STYLE = { color: "#0077ff", weight: 3, fillColor: "#0077ff", fillOpacity: 0.20 };
+  const CATASTRO_HL_STYLE = { color: "#0077ff", weight: 3, fillColor: "#0077ff", fillOpacity: 0.20 };
   const SUELOS_HL_STYLE = { color: "#FF8C00", weight: 3, fillColor: "#FFD700", fillOpacity: 0.8 };
 
   let cultivoHighlightLayer = null;
@@ -1675,44 +1879,127 @@ function actualizarNdviPanel() {
 }
 
 
-async function abrirRecintoEnPanel(data) {
-  if (!data || !data.id) return;
+  async function abrirRecintoEnPanel(data) {
+    if (!data || !data.id) return;
 
-  // Detectar qué paneles están abiertos ANTES de cambiar los datos
-  const ndviAbierto = actualizarNdviPanel();
-  const cultivosAbierto = document.getElementById("side-panel")?.classList.contains("cultivos-historico-open");
-  const operacionesAbierto = document.getElementById("side-panel")?.classList.contains("operaciones-open");
-  const galeriaAbierta = document.getElementById("side-panel")?.classList.contains("galeria-open");
+    // Detectar qué paneles están abiertos ANTES de cambiar los datos
+    const ndviAbierto = actualizarNdviPanel();
+    const cultivosAbierto = document.getElementById("side-panel")?.classList.contains("cultivos-historico-open");
+    const operacionesAbierto = document.getElementById("side-panel")?.classList.contains("operaciones-open");
+    const galeriaAbierta = document.getElementById("side-panel")?.classList.contains("galeria-open");
 
-  // abrir split
-  setSplitMode(true);
+    // abrir split
+    setSplitMode(true);
 
-  // setear id global
-  currentSideRecintoId = data.id;
+    // setear id global
+    currentSideRecintoId = data.id;
 
-  // pintar panel (esto actualizará automáticamente el contenido base y NDVI)
-  renderSidePanelFromProps(data);
+    // pintar panel (esto actualizará automáticamente el contenido base y NDVI)
+    renderSidePanelFromProps(data);
 
-  // Actualizar los paneles que estaban abiertos
-  setTimeout(() => {
-    if (cultivosAbierto) {
-      actualizarHistoricoCultivos();
+    // Actualizar los paneles que estaban abiertos
+    setTimeout(() => {
+      if (cultivosAbierto) {
+        actualizarHistoricoCultivos();
+      }
+      if (operacionesAbierto) {
+        actualizarHistoricoOperaciones();
+      }
+      if (galeriaAbierta) {
+        actualizarGaleria();
+      }
+      // El NDVI se actualiza automáticamente en renderSidePanelFromProps
+    }, 100);
+
+    // centrar y resaltar
+    // cambiar por resaltarrecintosinzoom ??
+    centrarEnRecinto(data);
+
+    // Guardar estado después de abrir
+    setTimeout(() => guardarEstadoMapa(), 300);
+  }
+  function resaltarRecintoSinZoom(data) {
+    if (!data) return;
+
+    // Limpiar cualquier resaltado previo
+    clearHighlight();
+
+    console.log('Resaltando recinto (sin zoom):', data);
+
+    try {
+      // Parsear el GeoJSON del recinto
+      const geojson = JSON.parse(data.geojson);
+
+      // Crear el FeatureCollection completo
+      const featureCollection = {
+        type: 'FeatureCollection',
+        features: [{
+          type: 'Feature',
+          geometry: geojson,
+          properties: {
+            id_recinto: data.id,
+            provincia: data.provincia,
+            municipio: data.municipio,
+            nombre_municipio: data.nombre_municipio,
+            nombre_provincia: data.nombre_provincia,
+            poligono: data.poligono,
+            parcela: data.parcela,
+            recinto: data.recinto,
+            nombre: data.nombre,
+            superficie_ha: data.superficie_ha,
+            propietario: data.propietario
+          }
+        }]
+      };
+
+      // Crear la geometría con Leaflet con estilo destacado
+      recintoResaltado = L.geoJSON(featureCollection, {
+        pane: 'highlightPane',
+        style: {
+          color: '#FF0000',
+          weight: 4,
+          fillColor: '#FF6B6B',
+          fillOpacity: 0.3,
+          dashArray: '10, 5'
+        }
+      }).addTo(map);
+      // asegurar arriba del todo
+      recintoResaltado.bringToFront();
+
+      // Crear contenido del popup
+      const popupContent = `
+      <div class="popup-recinto" style="min-width: 250px;">
+        <div class="popup-recinto-info" style="font-size: 0.9rem;">
+          <strong>Provincia:</strong> ${data.provincia} - ${data.nombre_provincia}<br>
+          <strong>Municipio:</strong> ${data.municipio} - ${data.nombre_municipio}<br>
+          <strong>Polígono:</strong> ${data.poligono}<br>
+          <strong>Parcela:</strong> ${data.parcela}<br>
+          <strong>Recinto:</strong> ${data.recinto}<br>
+          <strong>Superficie:</strong> ${data.superficie_ha.toFixed(2)} ha<br>
+          <strong>Propietario:</strong> ${data.propietario}
+        </div>
+      </div>
+    `;
+
+      // Añadir popup
+      recintoResaltado.bindPopup(popupContent, {
+        maxWidth: 300,
+        className: 'recinto-destacado-popup'
+      });
+
+      // Cerrar popup al hacer clic en el recinto rojo
+      recintoResaltado.eachLayer((lyr) => {
+        lyr.on('click', () => {
+          try { lyr.closePopup(); } catch (e) { }
+        });
+      });
+
+      // ⭐ NO HACER ZOOM - mantener la vista actual del mapa
+
+    } catch (error) {
+      console.error('Error al resaltar el recinto:', error);
     }
-    if (operacionesAbierto) {
-      actualizarHistoricoOperaciones();
-    }
-    if (galeriaAbierta) {
-      actualizarGaleria();
-    }
-    // El NDVI se actualiza automáticamente en renderSidePanelFromProps
-  }, 100);
-
-  // centrar y resaltar
-  centrarEnRecinto(data);
-  
-  // Guardar estado después de abrir
-  setTimeout(() => guardarEstadoMapa(), 300);
-}
+  }
 
   async function abrirRecintoDesdeVer(dataFlask) {
     if (!dataFlask || !dataFlask.id) return;
@@ -2241,26 +2528,22 @@ async function abrirRecintoEnPanel(data) {
     // ⭐ PRIORIDAD ABSOLUTA: SUELOS (solo con zoom >= 15)
     // CRÍTICO: Se verifica ANTES que cualquier otra capa, incluso elementos interactivos
     if (suelosActivos && map.getZoom() >= 15) {
-      console.log("🔍 Verificando suelos en coordenadas:", e.latlng);
       const r = await fetch(`/api/popup/suelos?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
       const j = await r.json().catch(() => ({}));
       
       if (j.ok && j.found) {
         highlightGeojson(j.data.geojson, "suelos");
-        console.log("✅ Suelo encontrado (prioridad máxima):", j.data);
         abrirPopupHtml(e.latlng, buildSuelosPopup(j.data));
         
-        // ✅ NUEVO: Detener la propagación del evento para evitar
-        // que otros listeners interfieran con el popup de suelos
+      
         if (e.originalEvent) {
           e.originalEvent.stopPropagation();
         }
         
-        return; // Suelos tienen MÁXIMA prioridad - salimos aquí sin verificar otras capas
+        return;
       }
       
-      // Si NO hay suelo, continuamos verificando otras capas
-      console.log("ℹ️ No se encontró suelo, verificando otras capas...");
+
     }
     
     // ⚠️ IMPORTANTE: Solo llegamos aquí si NO había suelo activo o NO se encontró suelo
@@ -2311,7 +2594,6 @@ async function abrirRecintoEnPanel(data) {
   // CyL suelos y demás
   // -----------------------------------------
 
-  // 1) Leyenda automática WMS
   const CYL2025_WMS_LAYER = "gis_project:Cultivos_y_Ocupación_del_suelo_2025";
   const CYL2025_STYLE = "mcsncyl2025"; 
 
@@ -2322,7 +2604,6 @@ async function abrirRecintoEnPanel(data) {
       VERSION: "1.1.1",
       FORMAT: "image/png",
       LAYER: CYL2025_WMS_LAYER,
-      STYLE: CYL2025_STYLE,
       TRANSPARENT: "true",
       WIDTH: "360",
       HEIGHT: "600",
@@ -2412,31 +2693,61 @@ async function abrirRecintoEnPanel(data) {
     }
   });
 
+
+  // Para añadir año modificar script
   
-  // CyL Cultivos
-  let CyLCultivosActivos = false;
-
-  // Capas WMS
-  const CyL2025Layer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:Cultivos_y_Ocupación_del_suelo_2025",
-    format: "image/png",
-    transparent: true,
-    tiled: true,
-    pane: "cultivos2025",
-    maxZoom: 22,
-    interactive: false  // No capturar eventos de clic
+  // Sistema de capas de cultivos por año (generado automáticamente)
+  const cylLayersData = {};
+  const cultivosYearsForLayers = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'];
+  
+  cultivosYearsForLayers.forEach(year => {
+    cylLayersData[year] = {
+      active: false,
+      layer: L.tileLayer.wms(GEOSERVER_WMS, {
+        layers: `gis_project:Cultivos_y_Ocupación_del_suelo_${year}`,
+        format: "image/png",
+        transparent: true,
+        tiled: true,
+        pane: `cultivos${year}`,
+        maxZoom: 22,
+        interactive: false
+      })
+    };
   });
-  // Cargar layer
-  function cargarCyL2025SiProcede() {
-    const z = map.getZoom();
 
-    if (!CyLCultivosActivos || z < ZOOM_RECINTOS) {
-        if (map.hasLayer(CyL2025Layer)) map.removeLayer(CyL2025Layer);
-        return;
+  // Hacer accesible globalmente para los botones de MCSNCyL
+  window.cylLayersData = cylLayersData;
+
+  function cargarCyLSiProcede(year) {
+    const z = map.getZoom();
+    const data = cylLayersData[year];
+    
+    if (!data || !data.active || z < ZOOM_RECINTOS) {
+      if (data && map.hasLayer(data.layer)) {
+        map.removeLayer(data.layer);
+      }
+      return;
     }
 
-    if (!map.hasLayer(CyL2025Layer)) CyL2025Layer.addTo(map);
-}
+    if (!map.hasLayer(data.layer)) {
+      data.layer.addTo(map);
+    }
+  }
+
+  // Hacer accesible globalmente para los botones de MCSNCyL
+  window.cargarCyLSiProcede = cargarCyLSiProcede;
+
+  function cargarTodasCyLSiProcede() {
+    Object.keys(cylLayersData).forEach(year => cargarCyLSiProcede(parseInt(year)));
+  }
+
+  // Compatibilidad con código existente
+  let CyLCultivosActivos = false;
+  const CyL2025Layer = cylLayersData[2025].layer;
+  function cargarCyL2025SiProcede() {
+    cargarCyLSiProcede(2025);
+  }
+
 // -------------------
 
   // Función auxiliar para mensajes tipo bootstrap
@@ -2643,6 +2954,7 @@ async function abrirRecintoEnPanel(data) {
     cargarParcelasCatastroSiProcede();
     cargarCultivosSigpacSiProcede();
     cargarSuelosSiProcede();
+    cargarTodasCyLSiProcede();
     if (splitOpen && currentSideRecintoId) {
     guardarEstadoMapa();
   }
@@ -2654,6 +2966,7 @@ async function abrirRecintoEnPanel(data) {
     cargarParcelasCatastroSiProcede();
     cargarCultivosSigpacSiProcede();
     cargarSuelosSiProcede();
+    cargarTodasCyLSiProcede();
   });
 
   actualizarMapaSegunZoom();
@@ -2662,6 +2975,7 @@ async function abrirRecintoEnPanel(data) {
   cargarParcelasCatastroSiProcede();
   cargarCultivosSigpacSiProcede();
   cargarSuelosSiProcede();
+  cargarTodasCyLSiProcede();
 
   // -----------------------------------------
   // 8) Lógica del panel y botones sincronizados
@@ -2791,26 +3105,32 @@ async function abrirRecintoEnPanel(data) {
     });
   }
 
-  // --- Toggle CyL 2025 ---
-  const CyL2025Option = document.querySelector(
-    '.basemap-option.basemap-detail[data-detail="CyL2025"]'
-  );
+  // --- Toggles para todos los años CyL ---
+  ['CyL2025', 'CyL2024', 'CyL2023'].forEach(detailKey => {
+    const year = parseInt(detailKey.replace('CyL', ''));
+    const cylOption = document.querySelector(`.basemap-option.basemap-detail[data-detail="${detailKey}"]`);
+    
+    if (cylOption) {
+      cylOption.addEventListener("click", () => {
+        const data = cylLayersData[year];
+        if (!data) return;
+        
+        data.active = !data.active;
 
-  if (CyL2025Option) {
-    CyL2025Option.addEventListener("click", () => {
-      CyLCultivosActivos = !CyLCultivosActivos;
-
-      if (CyLCultivosActivos) {
-        CyL2025Option.classList.add("active");
-        cargarCyL2025SiProcede();
-        showCyl2025Legend();
-      } else {
-        CyL2025Option.classList.remove("active");
-        if (map.hasLayer(CyL2025Layer)) map.removeLayer(CyL2025Layer);
-        resetCyl2025Legend();
-      }
-    });
-  }
+        if (data.active) {
+          cylOption.classList.add("active");
+          cargarCyLSiProcede(year);
+          if (year === 2025) showCyl2025Legend();
+        } else {
+          cylOption.classList.remove("active");
+          if (map.hasLayer(data.layer)) {
+            map.removeLayer(data.layer);
+          }
+          if (year === 2025) resetCyl2025Legend();
+        }
+      });
+    }
+  });
 
   // Funciones para activar/desactivar detalles de los toggles
   function desactivarDetalle(key) {
@@ -4002,23 +4322,124 @@ dibujosGuardadosLayer.on('click', function(e) {
 
 <script>
 (function () {
-  const btn = document.getElementById("btnToggleMcsncylLegend");
-  if (!btn) return;
+  // 👇 CONFIGURA AQUÍ LOS AÑOS (del más reciente al más antiguo)
+  const years = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016' , '2015', '2014', '2013', '2012'];
+  // ══════════════════════════════════════════════════════════════════
+  
+  const container = document.getElementById('mapa-cultivos-panel');
+  
+  if (!container) return;
 
-  let visible = false;
+  // Generar HTML para cada año
+  years.forEach(year => {
+    const div = document.createElement('div');
+    div.style.cssText = 'padding: 10px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;';
+    div.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <span style="font-weight: 600;">MCSNCyL ${year}</span>
+        <button class="btn btn-sm btn-outline-secondary" id="btn-mcsncyl-${year}" data-year="${year}" data-active="false" style="border: none; padding: 4px 8px;">
+          <i class="bi bi-eye-slash" style="font-size: 1.1rem;" title="Mostrar capa"></i>
+        </button>
+      </div>
+      <div id="legend-mcsncyl-${year}" class="d-none mt-2"></div>
+    `;
+    container.appendChild(div);
+  });
 
-  btn.addEventListener("click", async () => {
-    visible = !visible;
+  // Manejar eventos
+  let topZIndex = 300; // zIndex inicial para la primera capa activada
+  
+  years.forEach(year => {
+    const btn = document.getElementById(`btn-mcsncyl-${year}`);
+    if (!btn) return;
 
-    if (visible) {
-      btn.textContent = "Ocultar";
-      await window.MCSNCYL_LEGEND.show(2025, "legend-mcsncyl-2025");
-    } else {
-      btn.textContent = "Mostrar";
-      window.MCSNCYL_LEGEND.hide("legend-mcsncyl-2025");
-    }
+    btn.addEventListener("click", async () => {
+      const isActive = btn.getAttribute('data-active') === 'true';
+      const legendContainer = document.getElementById(`legend-mcsncyl-${year}`);
+
+      if (!isActive) {
+        // ACTIVAR capa
+        btn.setAttribute('data-active', 'true');
+        btn.classList.remove('btn-outline-secondary');
+        btn.classList.add('btn-primary');
+        btn.innerHTML = '<i class="bi bi-eye-fill" style="font-size: 1.1rem;" title="Ocultar capa"></i>';
+        
+        // Mostrar leyenda
+        if (legendContainer && window.MCSNCYL_LEGEND) {
+          legendContainer.classList.remove('d-none');
+          await window.MCSNCYL_LEGEND.show(parseInt(year), `legend-mcsncyl-${year}`);
+        }
+
+        // Activar la capa en cylLayersData
+        if (window.cylLayersData && window.cylLayersData[year]) {
+          window.cylLayersData[year].active = true;
+          
+          // Poner esta capa por encima de las demás 
+          topZIndex++;
+          const paneName = `cultivos${year}`;
+          const pane = map.getPane(paneName);
+          if (pane) {
+            pane.style.zIndex = topZIndex;
+          }
+          
+          // Cargar la capa en el mapa
+          cargarCyLSiProcede(parseInt(year));
+        }
+        
+      } else {
+        // DESACTIVAR capa
+        btn.setAttribute('data-active', 'false');
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-secondary');
+        btn.innerHTML = '<i class="bi bi-eye-slash" style="font-size: 1.1rem;"></i>';
+        
+        // Ocultar leyenda
+        if (legendContainer && window.MCSNCYL_LEGEND) {
+          legendContainer.classList.add('d-none');
+          window.MCSNCYL_LEGEND.hide(`legend-mcsncyl-${year}`);
+        }
+
+        // Desactivar la capa en cylLayersData
+        if (window.cylLayersData && window.cylLayersData[year]) {
+          window.cylLayersData[year].active = false;
+          
+          // Quitar la capa del mapa
+          cargarCyLSiProcede(parseInt(year));
+        }
+      }
+    });
   });
 })();
+
+
+
+// Toggle Detalles Adicionales
+document.getElementById('toggle-detalles-adicionales').addEventListener('click', function() {
+  const contenido = document.getElementById('contenido-detalles-adicionales');
+  const icono = document.getElementById('icon-detalles-adicionales');
+  
+  if (contenido.style.display === 'none' || contenido.style.display === '') {
+    contenido.style.display = 'block';
+    icono.style.transform = 'rotate(180deg)';
+  } else {
+    contenido.style.display = 'none';
+    icono.style.transform = 'rotate(0deg)';
+  }
+});
+
+// Toggle Mapa de Cultivos
+document.getElementById('toggle-mapa-cultivos').addEventListener('click', function() {
+  const panel = document.getElementById('mapa-cultivos-panel');
+  const icono = document.getElementById('icon-mapa-cultivos');
+  
+  if (panel.style.display === 'none' || panel.style.display === '') {
+    panel.style.display = 'flex';
+    icono.style.transform = 'rotate(180deg)';
+  } else {
+    panel.style.display = 'none';
+    icono.style.transform = 'rotate(0deg)';
+  }
+});
 </script>
 
 {% endblock %}

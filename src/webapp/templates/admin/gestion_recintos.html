@@ -279,9 +279,9 @@
                         </label>
                         <select name="propietario_id" class="form-select">
                           {% for usuario in usuarios %}
-                          <option value="{{ usuario.id_usuario }}" {% if recinto.propietario and
-                            recinto.propietario.id==usuario.id %}selected{% endif %}>{{ usuario.username }} ({{
-                            usuario.email }})</option>
+                          <option value="{{ usuario.id_usuario }}"
+                          {% if recinto.id_propietario == usuario.id_usuario %}selected{% endif %}>
+                            {{ usuario.username }} ({{ usuario.email }})
                           {% endfor %}
                         </select>
                         <div class="form-text">

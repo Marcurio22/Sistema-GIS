@@ -248,6 +248,7 @@ class IndicesRaster(db.Model):
             'id_recinto': self.id_recinto,
             'fecha_ndvi': self.fecha_ndvi.isoformat() if self.fecha_ndvi else None,
             'ruta_ndvi': self.ruta_ndvi,
+            
         }
     
 class ImagenDibujada(db.Model):

@@ -58,14 +58,25 @@
                 <strong>Superficie:</strong> {{ "%.2f"|format(recintos|sum(attribute='superficie_ha')) }} ha
             </div>
 
-            <!-- Botones de exportación para Mis Recintos -->
-            <div class="d-flex justify-content-end mb-3">
+            <!-- Botones de exportación y comparación -->
+            <div class="d-flex flex-column flex-md-row justify-content-between mb-3 gap-2">
+                <div class="d-flex flex-wrap gap-2">
+                    <button id="btnModoComparar" class="btn btn-success">
+                        <i class="bi bi-bar-chart-line me-1"></i>Comparar NDVI
+                    </button>
+                    <button id="btnCancelarComparar" class="btn btn-secondary d-none">
+                        <i class="bi bi-x-lg me-1"></i>Cancelar
+                    </button>
+                    <button id="btnVerComparacion" class="btn btn-success d-none">
+                        <i class="bi bi-graph-up me-1"></i>Ver Comparación (<span id="contadorSeleccionados">0</span>)
+                    </button>
+                </div>
                 <div class="btn-group" role="group">
                     <button id="exportarMisRecintosCSV" class="btn btn-outline-success btn-sm">
-                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Exportar CSV
+                        <i class="bi bi-file-earmark-spreadsheet me-1"></i><span class="d-none d-sm-inline">Exportar </span>CSV
                     </button>
                     <button id="exportarMisRecintosPDF" class="btn btn-outline-danger btn-sm">
-                        <i class="bi bi-file-earmark-pdf me-1"></i>Exportar PDF
+                        <i class="bi bi-file-earmark-pdf me-1"></i><span class="d-none d-sm-inline">Exportar </span>PDF
                     </button>
                 </div>
             </div>
@@ -74,6 +85,11 @@
                 <table id="tablaRecintos" class="table table-striped table-hover">
                     <thead class="table-dark">
                         <tr>
+                            <th class="col-seleccion d-none text-center" style="width: 50px;">
+                                <input type="checkbox" id="checkboxSelectAll" class="form-check-input"
+                                    style="width: 18px; height: 18px; cursor: pointer;"
+                                    title="Seleccionar/Deseleccionar todos">
+                            </th>
                             <th>Nombre</th>
                             <th>Provincia</th>
                             <th>Municipio</th>
@@ -85,16 +101,21 @@
                     </thead>
                     <tbody>
                         {% for recinto in recintos %}
-                        <tr data-nombre="{{ recinto.nombre }}"
-                            data-provincia="{{ recinto.nombre_provincia }}"
+                        <tr data-nombre="{{ recinto.nombre }}" data-provincia="{{ recinto.nombre_provincia }}"
                             data-municipio="{{ recinto.nombre_municipio }}"
                             data-sigpac="{{ recinto.provincia }}-{{ recinto.municipio }}-{{ recinto.poligono }}-{{ recinto.parcela }}"
                             data-superficie="{{ '%.2f'|format(recinto.superficie_ha) }}"
-                            data-estado="{{ 'Activa' if recinto.activa else 'Inactiva' }}">
+                            data-estado="{{ 'Activa' if recinto.activa else 'Inactiva' }}"
+                            data-recinto-id="{{ recinto.id_recinto }}">
+                            <td class="col-seleccion d-none text-center align-middle">
+                                <input class="form-check-input checkbox-comparar" type="checkbox"
+                                    value="{{ recinto.id_recinto }}" id="check_{{ recinto.id_recinto }}"
+                                    data-nombre="{{ recinto.nombre }}">
+                            </td>
                             <td><strong>{{ recinto.nombre }}</strong></td>
                             <td>{{ recinto.nombre_provincia }}</td>
                             <td>{{ recinto.nombre_municipio }}</td>
-                            <td><code>{{ recinto.provincia }}-{{ recinto.municipio }}-{{ recinto.poligono }}-{{ recinto.parcela }}</code>
+                            <td><code class="text-nowrap">{{ recinto.provincia }}-{{ recinto.municipio }}-{{ recinto.poligono }}-{{ recinto.parcela }}</code>
                             </td>
                             <td>{{ "%.2f"|format(recinto.superficie_ha) }}</td>
                             <td>
@@ -104,7 +125,7 @@
                                 <span class="badge bg-secondary">Inactiva</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="text-nowrap">
                                 <a href="{{ url_for('dashboard.visor', recinto_id=recinto.id_recinto, capa='ndvi') }}"
                                     class="btn btn-sm btn-info" title="Ver en el mapa">
                                     <i class="bi bi-map"></i> Ver
@@ -240,7 +261,7 @@
                         <tr>
                             <td><strong>{{ solicitud.recinto.nombre }}</strong></td>
                             <td>
-                                <code>{{ solicitud.recinto.provincia }}-{{ solicitud.recinto.municipio }}-{{ solicitud.recinto.poligono }}-{{ solicitud.recinto.parcela }}</code>
+                                <code class="text-nowrap">{{ solicitud.recinto.provincia }}-{{ solicitud.recinto.municipio }}-{{ solicitud.recinto.poligono }}-{{ solicitud.recinto.parcela }}</code>
                             </td>
                             <td>
                                 {{ solicitud.recinto.nombre_provincia }}<br>
@@ -266,7 +287,7 @@
                                 data-order="{{ solicitud.fecha_solicitud.strftime('%Y-%m-%d %H:%M:%S') if solicitud.fecha_solicitud else '' }}">
                                 {{ solicitud.fecha_solicitud.strftime('%d/%m/%Y %H:%M') }}
                             </td>
-                                <td>
+                            <td>
                                 {% if solicitud.tipo_solicitud == 'aceptacion' %}
                                 <span class="badge border border-success text-success">
                                     <i class="bi bi-check-lg"></i> Aceptación
@@ -276,7 +297,7 @@
                                     <i class="bi bi-x-lg"></i> Eliminación
                                 </span>
                                 {% endif %}
-                                </td>
+                            </td>
 
 
                             <td>
@@ -338,34 +359,1298 @@
     </div>
 </div>
 
+<!-- Modal de Comparación NDVI -->
+<div class="modal fade" id="modalComparacionNDVI" tabindex="-1" aria-labelledby="modalComparacionLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="modalComparacionLabel">
+                    <i class="bi bi-bar-chart-line"></i> Comparación de NDVI
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="loadingComparacion" class="text-center py-5">
+                    <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <p class="mt-3 text-success fw-bold">Cargando datos de NDVI...</p>
+                </div>
+
+                <div id="contenidoComparacion" class="d-none">
+                    <!-- Resumen de recintos seleccionados -->
+                    <div class="alert alert-success mb-4">
+                        <h6 class="mb-2"><i class="bi bi-check-circle"></i> Recintos seleccionados:</h6>
+                        <div id="listaRecintosSeleccionados"></div>
+                    </div>
+
+                    <!-- Gráfico de líneas -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-success text-white">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <h6 class="mb-0"><i class="bi bi-graph-up"></i> Evolución temporal del NDVI</h6>
+                                <div class="d-flex align-items-center gap-2 flex-wrap" id="navControls" style="display: none;">
+                                    <button type="button" class="btn btn-light btn-sm" id="btnPrev"
+                                        title="Período anterior">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </button>
+                                    <select class="form-select form-select-sm" id="selectRangoMeses" style="width: auto; min-width: 90px;">
+                                        <option value="3" selected>3 meses</option>
+                                        <option value="6">6 meses</option>
+                                        <option value="12">12 meses</option>
+                                    </select>
+                                    <span class="badge bg-light text-dark px-2 py-1" id="periodoActual" style="font-size: 0.75rem; white-space: nowrap;"></span>
+                                    <button type="button" class="btn btn-light btn-sm" id="btnNext"
+                                        title="Período siguiente">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="chartNDVI" height="80"></canvas>
+                            <div class="text-center mt-2">
+                                <small class="text-muted">
+                                    <i class="bi bi-hand-index"></i> Haz clic sobre el gráfico para ver los datos de una fecha específica
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabla comparativa -->
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <h6 class="mb-0"><i class="bi bi-table"></i> Estadísticas de la última medición</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover" id="tablaEstadisticasNDVI">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Recinto</th>
+                                            <th>Última fecha</th>
+                                            <th>NDVI medio</th>
+                                            <th>NDVI mín</th>
+                                            <th>NDVI máx</th>
+                                            <th>Desv. Est.</th>
+                                            <th>Nº mediciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tbodyEstadisticas">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="errorComparacion" class="alert alert-danger d-none">
+                    <i class="bi bi-exclamation-triangle"></i> <span id="mensajeError"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg"></i> Cerrar
+                </button>
+                <button type="button" class="btn btn-success" id="btnExportarComparacion">
+                    <i class="bi bi-download"></i> Exportar datos
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% block extra_js %}
+<!-- Chart.js para gráficos -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <!-- jsPDF para exportar PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 
+<style>
+    /* Estilos para evitar desplazamiento de la tabla */
+    .table-responsive {
+        overflow-x: visible !important;
+    }
+
+    #chartNDVI {
+        width: 100% !important;
+        height: 45vh !important;
+        max-height: 420px;
+    }
+
+    /* Ancho fijo para la columna de checkbox */
+    .col-seleccion {
+        width: 60px !important;
+        min-width: 60px !important;
+        max-width: 60px !important;
+        text-align: center !important;
+        padding: 8px 4px !important;
+    }
+
+    /* Checkbox más grande y centrado */
+    .checkbox-comparar {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+        margin: 0 auto;
+        display: block;
+    }
+
+    /* Asegurar que DataTables no redimensione extrañamente */
+    table.dataTable {
+        width: 100% !important;
+    }
+
+    table.dataTable thead th,
+    table.dataTable tbody td {
+        white-space: nowrap;
+    }
+
+    /* Animación suave al aparecer checkboxes */
+    .col-seleccion {
+        transition: all 0.2s ease-in-out;
+    }
+
+    #chartjs-tooltip {
+        pointer-events: auto !important;
+        /* Permitir interacción */
+    }
+
+    #chartjs-tooltip::-webkit-scrollbar {
+        width: 8px;
+        /* Un poco más ancho para mejor usabilidad */
+    }
+
+    #chartjs-tooltip::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+    }
+
+    #chartjs-tooltip::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.4);
+        /* Más visible */
+        border-radius: 4px;
+    }
+
+    #chartjs-tooltip::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.6);
+        /* Aún más visible al hover */
+    }
+
+    @media (max-width: 768px) {
+
+    #modalComparacionNDVI .modal-dialog {
+        margin: 0;
+        max-width: 100%;
+        height: 100%;
+    }
+
+    #modalComparacionNDVI .modal-content {
+        height: 100%;
+        border-radius: 0;
+    }
+
+    #modalComparacionNDVI .modal-body {
+        overflow-y: auto;
+        padding: 12px;
+    }
+
+    #chartNDVI {
+        height: 40vh !important;
+        max-height: none;
+    }
+
+    /* tabla stats en móvil */
+    #tablaEstadisticasNDVI {
+        font-size: 11px;
+    }
+
+    #tablaEstadisticasNDVI th,
+    #tablaEstadisticasNDVI td {
+        padding: 4px;
+        white-space: nowrap;
+    }
+
+    /* Mejoras para tablas en móvil */
+    .table-responsive {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    #tablaRecintos th,
+    #tablaRecintos td {
+        white-space: nowrap;
+        min-width: 100px;
+    }
+    
+    #tablaRecintos th:first-child,
+    #tablaRecintos td:first-child {
+        min-width: 50px;
+    }
+    
+    #tablaSolicitudes th,
+    #tablaSolicitudes td {
+        white-space: nowrap;
+        min-width: 100px;
+    }
+    
+    .btn-group {
+        width: 100%;
+    }
+    
+    .modal-xl {
+        max-width: 95%;
+        margin: 0.5rem auto;
+    }
+    
+    /* Controles de navegación en móvil */
+    #navControls {
+        width: 100%;
+        justify-content: center !important;
+        margin-top: 8px;
+    }
+    
+    #navControls .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    #navControls select {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    /* Card header más compacto */
+    #modalComparacionNDVI .card-header {
+        padding: 10px 12px;
+    }
+    
+    #modalComparacionNDVI .card-header h6 {
+        font-size: 0.9rem;
+    }
+}
+#modalComparacionNDVI .table-responsive {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch; /* scroll suave iOS */
+}
+
+/* Evita que rompa el layout */
+#tablaEstadisticasNDVI {
+    min-width: 650px; /* fuerza scroll en móvil */
+}
+
+
+    /* Bloquear scroll del body cuando modal está abierto */
+    body.modal-open {
+        overflow: hidden !important;
+    }
+
+    /* Estilos para tooltip fijo */
+    #tooltip-fijo-container {
+        animation: slideDown 0.3s ease-out;
+    }
+
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Cursor pointer en el canvas del gráfico */
+    #chartNDVI {
+        cursor: pointer;
+    }
+    
+    /* Texto de ayuda más pequeño en móviles */
+    @media (max-width: 576px) {
+        #chartNDVI + div small {
+            font-size: 0.7rem !important;
+        }
+    }
+
+    /* Responsive para tooltip fijo en móvil */
+    @media (max-width: 768px) {
+        #tooltip-fijo-container > div {
+            padding: 10px 12px !important;
+            font-size: 0.85rem;
+        }
+        
+        #tooltip-fijo-container > div > div:first-child {
+            font-size: 0.9rem !important;
+            margin-bottom: 10px !important;
+        }
+        
+        #tooltip-fijo-container > div > div:nth-child(2) {
+            grid-template-columns: 1fr !important;
+            gap: 8px !important;
+        }
+        
+        #tooltip-fijo-container > div > div:nth-child(2) > div {
+            padding: 6px 10px !important;
+            font-size: 0.75rem !important;
+        }
+        
+        #tooltip-fijo-container > div > div:nth-child(2) > div > div:first-child {
+            font-size: 0.7rem !important;
+        }
+        
+        #tooltip-fijo-container > div > div:nth-child(2) > div > div:last-child {
+            font-size: 0.7rem !important;
+        }
+        
+        #tooltip-fijo-container button {
+            width: 20px !important;
+            height: 20px !important;
+            font-size: 14px !important;
+            top: 6px !important;
+            right: 8px !important;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        #tooltip-fijo-container > div {
+            padding: 8px 10px !important;
+            font-size: 0.8rem;
+            border-radius: 8px !important;
+        }
+        
+        #tooltip-fijo-container > div > div:first-child {
+            font-size: 0.85rem !important;
+            margin-bottom: 8px !important;
+            padding-bottom: 6px !important;
+        }
+        
+        #tooltip-fijo-container > div > div:nth-child(2) {
+            gap: 6px !important;
+        }
+        
+        #tooltip-fijo-container > div > div:nth-child(2) > div {
+            padding: 5px 8px !important;
+            font-size: 0.7rem !important;
+        }
+        
+        #tooltip-fijo-container > div > div:nth-child(2) > div > span {
+            width: 10px !important;
+            height: 10px !important;
+            margin-right: 8px !important;
+        }
+    }
+</style>
+
 <script>
+    function mostrarMensajeFlash(mensaje, categoria = 'info') {
+        const alertHTML = `
+        <div class="alert alert-${categoria} alert-dismissible fade show" role="alert">
+            ${mensaje}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    `;
+
+        // Insertar donde están los mensajes flash originales
+        $('.container.mt-4 .row.mb-4').after(alertHTML);
+
+        // Auto-ocultar después de 5 segundos
+        setTimeout(function () {
+            $('.alert').first().alert('close');
+        }, 3000);
+    }
+
+    // Función global para cerrar el tooltip fijo
+    window.cerrarTooltipFijo = function() {
+        const tooltipContainer = document.getElementById('tooltip-fijo-container');
+        if (tooltipContainer) {
+            tooltipContainer.innerHTML = '';
+        }
+        
+        // Limpiar fecha seleccionada y actualizar gráfico
+        if (typeof fechaSeleccionada !== 'undefined') {
+            fechaSeleccionada = null;
+            if (chartNDVI) {
+                chartNDVI.update();
+            }
+        }
+    };
+
+    
+
+
+
     $(document).ready(function () {
-        // DataTable para recintos
+
+
+        if (typeof Chart === 'undefined') {
+            return;
+        }
+
+
+        let modoComparacion = false;
+        let recintosSeleccionados = [];
+        const MAX_RECINTOS = 10;
+        let chartNDVI = null;
+
+        // Variables para navegación del gráfico por meses
+        let offsetMeses = 0; // Cuántos meses retroceder desde la fecha más reciente
+        let mesesAMostrar = 3;
+        let datosCompletos = null; // Guardar todos los datos para navegación
+        let fechaMasReciente = null; // La fecha más reciente entre todos los recintos
+        let fechaSeleccionada = null; // Fecha actualmente seleccionada con clic
+
         var tableMisRecintos = $('#tablaRecintos').DataTable({
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
             pageLength: 25,
-            responsive: true,
-            order: [[0, 'asc']],
+            responsive: false,
+            scrollX: true,
+            autoWidth: false,
+            order: [[1, 'asc']],
             columnDefs: [
                 { orderable: false, targets: -1 },
-                { searchable: false, targets: -1 }  
-            ]
+                { searchable: false, targets: -1 },
+                { orderable: false, targets: 0, visible: false, className: 'col-seleccion' }
+            ],
+            drawCallback: function () {
+                // Este callback se ejecuta cada vez que DataTables redibuja (cambio de página, filtro, etc)
+                if (modoComparacion) {
+                    // Asegurar que la columna sigue visible
+                    $('.col-seleccion').removeClass('d-none');
+
+                    // Restaurar el estado de los checkboxes según recintosSeleccionados
+                    $('.checkbox-comparar').each(function () {
+                        const recintoId = $(this).val();
+                        const estaSeleccionado = recintosSeleccionados.some(r => r.id === recintoId);
+                        $(this).prop('checked', estaSeleccionado);
+                    });
+
+                    // Actualizar estado del checkbox "select all"
+                    actualizarCheckboxSelectAll();
+                }
+            }
         });
 
-        // DataTable para solicitudes (SIN CAMBIOS)
+        // DataTable para solicitudes
         $('#tablaSolicitudes').DataTable({
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
             pageLength: 25,
             responsive: true,
+            scrollX: true,
             order: [[5, 'desc']],
             columnDefs: [
                 { searchable: false, targets: -1 }
             ]
+        });
+
+        // ==================== MODO COMPARACIÓN ====================
+        $('#btnModoComparar').on('click', function () {
+            modoComparacion = true;
+            recintosSeleccionados = [];
+            actualizarUI();
+
+            // Mostrar columna de selección
+            tableMisRecintos.column(0).visible(true);
+            $('.col-seleccion').removeClass('d-none');
+
+            // Ajustar columnas sin redibujar toda la tabla
+            tableMisRecintos.columns.adjust();
+        });
+
+        $('#btnCancelarComparar').on('click', function () {
+            modoComparacion = false;
+            recintosSeleccionados = [];
+            $('.checkbox-comparar').prop('checked', false);
+            actualizarUI();
+
+            // Ocultar columna de selección
+            tableMisRecintos.column(0).visible(false);
+            $('.col-seleccion').addClass('d-none');
+
+            // Ajustar columnas sin redibujar toda la tabla
+            tableMisRecintos.columns.adjust();
+        });
+
+        // Control de checkboxes individuales
+        $(document).on('change', '.checkbox-comparar', function () {
+            const recintoId = $(this).val();
+            const recintoNombre = $(this).data('nombre');
+
+            if ($(this).is(':checked')) {
+                if (recintosSeleccionados.length >= MAX_RECINTOS) {
+                    $(this).prop('checked', false);
+                    mostrarMensajeFlash(`Solo puedes seleccionar un máximo de ${MAX_RECINTOS} recintos para comparar.`, 'warning');
+                    return;
+                }
+                recintosSeleccionados.push({
+                    id: recintoId,
+                    nombre: recintoNombre
+                });
+            } else {
+                recintosSeleccionados = recintosSeleccionados.filter(r => r.id !== recintoId);
+            }
+
+            actualizarUI();
+            actualizarCheckboxSelectAll();
+        });
+
+        // Checkbox "Seleccionar todos" en el header
+        $(document).on('change', '#checkboxSelectAll', function () {
+            const isChecked = $(this).is(':checked');
+
+            // Obtener todos los checkboxes visibles en la página actual
+            const checkboxesVisibles = $('.checkbox-comparar:visible');
+
+            if (isChecked) {
+                // Seleccionar todos los visibles que no estén ya seleccionados
+                checkboxesVisibles.each(function () {
+                    const recintoId = $(this).val();
+                    const recintoNombre = $(this).data('nombre');
+
+                    // Verificar si ya está seleccionado
+                    const yaSeleccionado = recintosSeleccionados.some(r => r.id === recintoId);
+
+                    if (!yaSeleccionado) {
+                        // Verificar límite
+                        if (recintosSeleccionados.length >= MAX_RECINTOS) {
+                            mostrarMensajeFlash(`Solo puedes seleccionar un máximo de ${MAX_RECINTOS} recintos para comparar.`, 'warning');
+                            return false; // Salir del each
+                        }
+
+                        recintosSeleccionados.push({
+                            id: recintoId,
+                            nombre: recintoNombre
+                        });
+                        $(this).prop('checked', true);
+                    }
+                });
+            } else {
+                // Deseleccionar todos los visibles
+                checkboxesVisibles.each(function () {
+                    const recintoId = $(this).val();
+                    recintosSeleccionados = recintosSeleccionados.filter(r => r.id !== recintoId);
+                    $(this).prop('checked', false);
+                });
+            }
+
+            actualizarUI();
+        });
+
+        // Actualizar estado del checkbox "select all"
+        function actualizarCheckboxSelectAll() {
+            const checkboxesVisibles = $('.checkbox-comparar:visible');
+            const totalVisibles = checkboxesVisibles.length;
+            const totalSeleccionadosVisibles = checkboxesVisibles.filter(':checked').length;
+
+            if (totalSeleccionadosVisibles === 0) {
+                $('#checkboxSelectAll').prop('checked', false);
+                $('#checkboxSelectAll').prop('indeterminate', false);
+            } else if (totalSeleccionadosVisibles === totalVisibles) {
+                $('#checkboxSelectAll').prop('checked', true);
+                $('#checkboxSelectAll').prop('indeterminate', false);
+            } else {
+                $('#checkboxSelectAll').prop('checked', false);
+                $('#checkboxSelectAll').prop('indeterminate', true);
+            }
+        }
+
+        function actualizarUI() {
+            if (modoComparacion) {
+                $('#btnModoComparar').addClass('d-none');
+                $('#btnCancelarComparar').removeClass('d-none');
+                $('#exportarMisRecintosCSV, #exportarMisRecintosPDF').prop('disabled', true);
+
+                if (recintosSeleccionados.length > 0) {
+                    $('#btnVerComparacion').removeClass('d-none');
+                    $('#contadorSeleccionados').text(recintosSeleccionados.length);
+                } else {
+                    $('#btnVerComparacion').addClass('d-none');
+                }
+            } else {
+                $('#btnModoComparar').removeClass('d-none');
+                $('#btnCancelarComparar').addClass('d-none');
+                $('#btnVerComparacion').addClass('d-none');
+                $('#exportarMisRecintosCSV, #exportarMisRecintosPDF').prop('disabled', false);
+            }
+        }
+
+        // Ver comparación
+        $('#btnVerComparacion').on('click', function () {
+            if (recintosSeleccionados.length === 0) {
+                mostrarMensajeFlash('Selecciona al menos un recinto para comparar.', 'warning');
+                return;
+            }
+
+            $('#modalComparacionNDVI').modal('show');
+            cargarDatosComparacion();
+        });
+
+        // Cargar datos de NDVI
+        function cargarDatosComparacion() {
+            $('#loadingComparacion').removeClass('d-none');
+            $('#contenidoComparacion').addClass('d-none');
+            $('#errorComparacion').addClass('d-none');
+
+            const ids = recintosSeleccionados.map(r => r.id);
+
+            $.ajax({
+                url: '/api/comparar-ndvi',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ recintos: ids }),
+                success: function (response) {
+                    $('#loadingComparacion').addClass('d-none');
+
+                    if (response.success && response.datos) {
+                        mostrarComparacion(response.datos);
+                        $('#contenidoComparacion').removeClass('d-none');
+                    } else {
+                        mostrarError(response.mensaje || 'No se pudieron cargar los datos');
+                    }
+                },
+                error: function (xhr, status, error) {
+                    $('#loadingComparacion').addClass('d-none');
+
+                    if (xhr.status === 404) {
+                        mostrarError('El endpoint /api/comparar-ndvi no está configurado. Por favor, añade el código del archivo api_comparar_ndvi.py a tu aplicación Flask.');
+                    } else {
+                        mostrarError('Error al cargar los datos: ' + (xhr.responseJSON?.mensaje || error));
+                    }
+                }
+            });
+        }
+
+        function mostrarComparacion(datos) {
+            // Guardar datos completos para navegación
+            datosCompletos = datos;
+
+            // Encontrar la fecha más reciente entre todos los recintos
+            fechaMasReciente = null;
+            Object.keys(datos).forEach((recintoId) => {
+                datos[recintoId].mediciones.forEach(m => {
+                    if (m.fecha_ndvi) {
+                        const fecha = new Date(m.fecha_ndvi);
+                        if (!fechaMasReciente || fecha > fechaMasReciente) {
+                            fechaMasReciente = fecha;
+                        }
+                    }
+                });
+            });
+
+            // Por defecto mostrar los últimos meses (offset = 0)
+            offsetMeses = 0;
+            mesesAMostrar = parseInt($('#selectRangoMeses').val());
+
+            // Mostrar lista de recintos
+            let listaHTML = '<div class="row">';
+            recintosSeleccionados.forEach((recinto, index) => {
+                const color = getColorPalette(index);
+                const numMediciones = datos[recinto.id]?.mediciones.filter(m => m.fecha_ndvi).length || 0;
+                listaHTML += `
+                    <div class="col-md-4 mb-2">
+                        <span class="badge" style="background-color: ${color}; color: white;">
+                            ${recinto.nombre} (${numMediciones} mediciones)
+                        </span>
+                    </div>
+                `;
+            });
+            listaHTML += '</div>';
+            $('#listaRecintosSeleccionados').html(listaHTML);
+
+            // Crear gráfico
+            actualizarGrafico();
+
+            // Crear tabla de estadísticas
+            crearTablaEstadisticas(datos);
+
+            // Mostrar controles de navegación
+            $('#navControls').show();
+            actualizarControlesNavegacion();
+        }
+
+        function actualizarGrafico() {
+            if (!datosCompletos || !fechaMasReciente) return;
+
+            const ctx = document.getElementById('chartNDVI').getContext('2d');
+
+            // Destruir gráfico anterior si existe
+            if (chartNDVI) {
+                chartNDVI.destroy();
+            }
+
+            // Calcular rango de fechas a mostrar
+            const fechaFin = new Date(fechaMasReciente);
+            fechaFin.setMonth(fechaFin.getMonth() - offsetMeses);
+
+            const fechaInicio = new Date(fechaFin);
+            fechaInicio.setMonth(fechaInicio.getMonth() - mesesAMostrar);
+
+            const datasets = [];
+            let minFechaVisible = Infinity;
+            let maxFechaVisible = -Infinity;
+
+            // Para cada recinto, filtrar mediciones dentro del rango de fechas + puntos de conexión
+            Object.keys(datosCompletos).forEach((recintoId, index) => {
+                const recintoData = datosCompletos[recintoId];
+                const recintoInfo = recintosSeleccionados.find(r => r.id == recintoId);
+                const color = getColorPalette(index);
+
+                // Ordenar todas las mediciones por fecha
+                const todasMediciones = recintoData.mediciones
+                    .filter(m => m.fecha_ndvi)
+                    .sort((a, b) => new Date(a.fecha_ndvi) - new Date(b.fecha_ndvi));
+
+                // Encontrar mediciones en el rango visible y puntos de conexión
+                const medicionesParaGrafico = [];
+                let puntoAnterior = null;
+                let puntoPosterior = null;
+
+                todasMediciones.forEach((m, idx) => {
+                    const fecha = new Date(m.fecha_ndvi);
+
+                    if (fecha >= fechaInicio && fecha <= fechaFin) {
+                        // Medición dentro del rango visible
+                        medicionesParaGrafico.push({
+                            ...m,
+                            esVisible: true
+                        });
+
+                        // Actualizar min/max de fechas visibles
+                        const timestamp = fecha.getTime();
+                        if (timestamp < minFechaVisible) minFechaVisible = timestamp;
+                        if (timestamp > maxFechaVisible) maxFechaVisible = timestamp;
+
+                        // Si es la primera medición visible y hay una anterior, guardarla
+                        if (medicionesParaGrafico.length === 1 && idx > 0) {
+                            puntoAnterior = todasMediciones[idx - 1];
+                        }
+                    } else if (fecha < fechaInicio) {
+                        // Actualizar punto anterior (queremos el más cercano al inicio)
+                        puntoAnterior = m;
+                    } else if (fecha > fechaFin && !puntoPosterior) {
+                        // Guardar el primer punto posterior
+                        puntoPosterior = m;
+                    }
+                });
+
+                // Construir array final: [anterior] + visibles + [posterior]
+                const medicionesFinales = [];
+                if (puntoAnterior) {
+                    medicionesFinales.push({ ...puntoAnterior, esVisible: false });
+                }
+                medicionesFinales.push(...medicionesParaGrafico);
+                if (puntoPosterior) {
+                    medicionesFinales.push({ ...puntoPosterior, esVisible: false });
+                }
+
+                // Convertir a puntos para el gráfico
+                const puntos = medicionesFinales.map(m => {
+                    return {
+                        x: new Date(m.fecha_ndvi).getTime(),
+                        y: m.valor_medio,
+                        fecha: m.fecha_ndvi,
+                        esVisible: m.esVisible !== false // true si es visible, false si es punto de conexión
+                    };
+                });
+
+                // Añadir dataset
+                datasets.push({
+                    label: recintoInfo.nombre,
+                    data: puntos,
+                    borderColor: color,
+                    backgroundColor: color + '33',
+                    borderWidth: 2,
+                    pointRadius: function (context) {
+                        // Solo mostrar puntos visibles
+                        return context.raw.esVisible ? 6 : 0;
+                    },
+                    pointHoverRadius: function (context) {
+                        return context.raw.esVisible ? 9 : 0;
+                    },
+                    pointBackgroundColor: color,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    tension: 0.3,
+                    fill: false,
+                    spanGaps: false
+                });
+            });
+
+            if (datasets.length === 0 || datasets.every(d => d.data.length === 0)) {
+                $('#chartNDVI').parent().html('<div class="alert alert-warning">No hay datos disponibles en este período.</div>');
+                return;
+            }
+
+            // Usar las fechas del rango visible como límites EXACTOS del eje X
+            const minConMargen = fechaInicio.getTime();
+            const maxConMargen = fechaFin.getTime();
+
+
+
+            const verticalLinesPlugin = {
+                id: 'verticalLinesPlugin',
+                afterDatasetsDraw(chart, args, pluginOptions) {
+                    const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+
+                    ctx.save();
+
+                    // Dibujar línea vertical solo en la fecha seleccionada
+                    if (fechaSeleccionada) {
+                        const fechaTimestamp = new Date(fechaSeleccionada).getTime();
+                        const xPos = x.getPixelForValue(fechaTimestamp);
+
+                        ctx.beginPath();
+                        ctx.moveTo(xPos, top);
+                        ctx.lineTo(xPos, bottom);
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+                        ctx.setLineDash([5, 5]);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+
+                    ctx.restore();
+                }
+            };
+
+
+            chartNDVI = new Chart(ctx, {
+                type: 'line',
+                data: { datasets: datasets },
+                plugins: [verticalLinesPlugin],
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: function(event, elements) {
+                        // Detectar clic en el gráfico
+                        const chart = chartNDVI;
+                        
+                        if (elements.length > 0) {
+                            // Clic en un punto específico
+                            const element = elements[0];
+                            const datasetIndex = element.datasetIndex;
+                            const dataIndex = element.index;
+                            const punto = chart.data.datasets[datasetIndex].data[dataIndex];
+                            
+                            if (punto.esVisible) {
+                                fechaSeleccionada = punto.fecha;
+                                mostrarTooltipFijo(fechaSeleccionada);
+                                chart.update();
+                            }
+                        } else {
+                            // Clic fuera de puntos - buscar fecha más cercana en el eje X
+                            const canvasPosition = Chart.helpers.getRelativePosition(event, chart);
+                            const xValue = chart.scales.x.getValueForPixel(canvasPosition.x);
+                            
+                            // Buscar la fecha visible más cercana
+                            let fechaMasCercana = null;
+                            let distanciaMinima = Infinity;
+                            
+                            chart.data.datasets.forEach(dataset => {
+                                dataset.data.forEach(punto => {
+                                    if (punto.esVisible) {
+                                        const distancia = Math.abs(punto.x - xValue);
+                                        if (distancia < distanciaMinima) {
+                                            distanciaMinima = distancia;
+                                            fechaMasCercana = punto.fecha;
+                                        }
+                                    }
+                                });
+                            });
+                            
+                            if (fechaMasCercana) {
+                                fechaSeleccionada = fechaMasCercana;
+                                mostrarTooltipFijo(fechaSeleccionada);
+                                chart.update();
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 15,
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        tooltip: {
+                            enabled: false  // Deshabilitar tooltip automático
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            min: minConMargen,
+                            max: maxConMargen,
+                            title: {
+                                display: true,
+                                text: 'Fecha',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(0,0,0,0.1)'
+                            },
+                            ticks: {
+                                maxTicksLimit: 8,
+                                callback: function (value) {
+                                    const fecha = new Date(value);
+                                    return formatearFechaCorta(fecha);
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Índice NDVI',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            beginAtZero: false,
+                            min: -0.2,
+                            max: 1,
+                            grid: {
+                                display: true,
+                                color: 'rgba(0,0,0,0.1)'
+                            },
+                            ticks: {
+                                callback: function (value) {
+                                    return value.toFixed(2);
+                                }
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    },
+                    onHover: function(event, elements) {
+                        // Cambiar cursor cuando está sobre un punto
+                        const chart = event.native.target;
+                        chart.style.cursor = elements.length > 0 ? 'pointer' : 'crosshair';
+                    }
+                }
+            });
+
+        }
+
+        // Función para mostrar tooltip fijo en la parte superior
+        function mostrarTooltipFijo(fechaActual) {
+            if (!fechaActual || !datosCompletos) return;
+
+            // Buscar o crear el contenedor del tooltip fijo
+            let tooltipContainer = document.getElementById('tooltip-fijo-container');
+            if (!tooltipContainer) {
+                tooltipContainer = document.createElement('div');
+                tooltipContainer.id = 'tooltip-fijo-container';
+                tooltipContainer.style.position = 'relative';
+                tooltipContainer.style.width = '100%';
+                tooltipContainer.style.marginBottom = '15px';
+                
+                // Insertar antes del canvas
+                const chartCard = document.querySelector('#chartNDVI').closest('.card-body');
+                chartCard.insertBefore(tooltipContainer, chartCard.firstChild);
+            }
+
+            const fechaFormateada = formatearFechaLarga(new Date(fechaActual));
+            let recintosEnFecha = [];
+
+            Object.keys(datosCompletos).forEach((recintoId, idx) => {
+                const recintoData = datosCompletos[recintoId];
+                const recintoInfo = recintosSeleccionados.find(r => r.id == recintoId);
+                const color = getColorPalette(idx);
+
+                const medicion = recintoData.mediciones.find(m => m.fecha_ndvi === fechaActual);
+
+                recintosEnFecha.push({
+                    label: recintoInfo.nombre,
+                    valor: medicion ? medicion.valor_medio : null,
+                    tieneDato: !!medicion,
+                    color: color
+                });
+            });
+
+            // Ordenar: primero los que tienen dato
+            recintosEnFecha.sort((a, b) => {
+                if (a.tieneDato && !b.tieneDato) return -1;
+                if (!a.tieneDato && b.tieneDato) return 1;
+                return 0;
+            });
+
+            // Crear HTML del tooltip
+            let html = `
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                            border-radius: 12px; 
+                            padding: 16px 20px; 
+                            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                            color: white;
+                            position: relative;">
+                    <button onclick="cerrarTooltipFijo()" 
+                            style="position: absolute; 
+                                   top: 8px; 
+                                   right: 12px; 
+                                   background: rgba(255,255,255,0.2); 
+                                   border: none; 
+                                   color: white; 
+                                   width: 24px; 
+                                   height: 24px; 
+                                   border-radius: 50%; 
+                                   cursor: pointer;
+                                   font-size: 16px;
+                                   line-height: 1;
+                                   display: flex;
+                                   align-items: center;
+                                   justify-content: center;
+                                   transition: all 0.2s;
+                                   z-index: 10;"
+                            onmouseover="this.style.background='rgba(255,255,255,0.3)'"
+                            onmouseout="this.style.background='rgba(255,255,255,0.2)'"
+                            ontouchstart="this.style.background='rgba(255,255,255,0.3)'"
+                            ontouchend="this.style.background='rgba(255,255,255,0.2)'">×</button>
+                    
+                    <div style="font-weight: bold; 
+                                font-size: 16px; 
+                                margin-bottom: 12px; 
+                                padding-bottom: 8px; 
+                                padding-right: 30px;
+                                border-bottom: 2px solid rgba(255,255,255,0.3);">
+                        📅 ${fechaFormateada}
+                    </div>
+                    
+                    <div style="display: grid; 
+                                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
+                                gap: 10px;">
+            `;
+
+            recintosEnFecha.forEach(recinto => {
+                const opacity = recinto.tieneDato ? '1' : '0.6';
+                const textoValor = recinto.tieneDato
+                    ? `<strong style="font-size: 15px;">NDVI: ${recinto.valor.toFixed(4)}</strong>`
+                    : '<span style="font-style: italic; opacity: 0.7;">Sin medición</span>';
+
+                html += `
+                    <div style="display: flex; 
+                                align-items: center; 
+                                padding: 8px 12px; 
+                                background: rgba(255,255,255,0.1); 
+                                border-radius: 8px;
+                                opacity: ${opacity};
+                                transition: all 0.2s;">
+                        <span style="display: inline-block; 
+                                     width: 14px; 
+                                     height: 14px; 
+                                     background-color: ${recinto.color}; 
+                                     border-radius: 50%; 
+                                     margin-right: 10px;
+                                     flex-shrink: 0;
+                                     box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-size: 13px; margin-bottom: 2px; font-weight: 500;">${recinto.label}</div>
+                            <div style="font-size: 12px;">${textoValor}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            tooltipContainer.innerHTML = html;
+        }
+
+        // Evento cuando se cierra el modal - CORRECCIÓN DEL BUG DE SELECCIÓN
+        $('#modalComparacionNDVI').on('hidden.bs.modal', function () {
+            // Limpiar tooltip fijo
+            const tooltipContainer = document.getElementById('tooltip-fijo-container');
+            if (tooltipContainer) {
+                tooltipContainer.innerHTML = '';
+            }
+            
+            // Limpiar fecha seleccionada
+            fechaSeleccionada = null;
+            
+            // Resetear el gráfico y restaurar el tamaño de los puntos
+            if (chartNDVI) {
+                // Restaurar pointRadius a su configuración original (función)
+                chartNDVI.data.datasets.forEach(function (dataset) {
+                    dataset.pointRadius = function (context) {
+                        return context.raw.esVisible ? 6 : 0;
+                    };
+                    dataset.pointHoverRadius = function (context) {
+                        return context.raw.esVisible ? 9 : 0;
+                    };
+                });
+                chartNDVI.update();
+            }
+        });
+
+
+        function actualizarControlesNavegacion() {
+            if (!fechaMasReciente) return;
+
+            // Calcular rango de fechas actual
+            const fechaFin = new Date(fechaMasReciente);
+            fechaFin.setMonth(fechaFin.getMonth() - offsetMeses);
+
+            const fechaInicio = new Date(fechaFin);
+            fechaInicio.setMonth(fechaInicio.getMonth() - mesesAMostrar);
+
+            // Formatear período
+            const mesInicio = fechaInicio.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
+            const mesFin = fechaFin.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
+            $('#periodoActual').text(`${mesInicio} - ${mesFin}`);
+
+            // Habilitar/deshabilitar botones
+            $('#btnNext').prop('disabled', offsetMeses === 0); // No hay período más reciente
+
+            // Verificar si hay datos más antiguos
+            let hayDatosAnteriores = false;
+            const fechaLimiteAnterior = new Date(fechaInicio);
+
+            Object.keys(datosCompletos).forEach((recintoId) => {
+                datosCompletos[recintoId].mediciones.forEach(m => {
+                    if (m.fecha_ndvi && new Date(m.fecha_ndvi) < fechaLimiteAnterior) {
+                        hayDatosAnteriores = true;
+                    }
+                });
+            });
+
+            $('#btnPrev').prop('disabled', !hayDatosAnteriores);
+        }
+
+        // Event listeners para navegación por meses
+        $(document).on('click', '#btnPrev', function () {
+            // Limpiar tooltip y selección
+            cerrarTooltipFijo();
+            
+            // Ir a meses más antiguos (aumentar offset)
+            offsetMeses += mesesAMostrar;
+            actualizarGrafico();
+            actualizarControlesNavegacion();
+        });
+
+        $(document).on('click', '#btnNext', function () {
+            // Limpiar tooltip y selección
+            cerrarTooltipFijo();
+            
+            // Ir a meses más recientes (disminuir offset)
+            if (offsetMeses > 0) {
+                offsetMeses = Math.max(0, offsetMeses - mesesAMostrar);
+                actualizarGrafico();
+                actualizarControlesNavegacion();
+            }
+        });
+
+        // Event listener para cambio de rango de meses
+        $(document).on('change', '#selectRangoMeses', function () {
+            // Limpiar tooltip y selección
+            cerrarTooltipFijo();
+            
+            mesesAMostrar = parseInt($(this).val());
+            offsetMeses = 0; // Resetear al período más reciente
+            actualizarGrafico();
+            actualizarControlesNavegacion();
+        });
+
+        function crearGraficoNDVI(datos) {
+            // Esta función ahora solo llama a actualizarGrafico por compatibilidad
+            actualizarGrafico();
+        }
+
+        function crearTablaEstadisticas(datos) {
+            let tbody = '';
+
+            Object.keys(datos).forEach((recintoId, index) => {
+                const recintoData = datos[recintoId];
+                const recintoInfo = recintosSeleccionados.find(r => r.id == recintoId);
+                const color = getColorPalette(index);
+
+                const ultimaMedicion = recintoData.mediciones[recintoData.mediciones.length - 1];
+
+                tbody += `
+                    <tr>
+                        <td>
+                            <span class="badge" style="background-color: ${color}; color: white;">
+                                ${recintoInfo.nombre}
+                            </span>
+                        </td>
+                        <td>${formatearFecha(ultimaMedicion.fecha_ndvi)}</td>
+                        <td><strong>${ultimaMedicion.valor_medio.toFixed(4)}</strong></td>
+                        <td>${ultimaMedicion.valor_min.toFixed(4)}</td>
+                        <td>${ultimaMedicion.valor_max.toFixed(4)}</td>
+                        <td>${ultimaMedicion.desviacion_std.toFixed(4)}</td>
+                        <td><span class="badge bg-secondary">${recintoData.mediciones.length}</span></td>
+                    </tr>
+                `;
+            });
+
+            $('#tbodyEstadisticas').html(tbody);
+        }
+
+        function mostrarError(mensaje) {
+            $('#mensajeError').text(mensaje);
+            $('#errorComparacion').removeClass('d-none');
+        }
+
+        function getColorPalette(index) {
+            const colors = [
+                '#e74c3c', // rojo
+                '#28a745', // verde
+                '#f1c40f', // amarillo
+                '#3498db', // azul
+                '#9b59b6', // morado
+                '#e67e22', // naranja
+                '#1abc9c', // cian
+                '#ff69b4', // rosa fuerte
+                '#34495e', // gris oscuro
+                '#8b4513'  // marrón
+            ];
+
+            return colors[index % colors.length];
+        }
+
+        function formatearFecha(fecha) {
+            const d = new Date(fecha);
+            const dia = String(d.getDate()).padStart(2, '0');
+            const mes = String(d.getMonth() + 1).padStart(2, '0');
+            const anio = d.getFullYear();
+            return `${dia}/${mes}/${anio}`;
+        }
+
+        function formatearFechaCorta(fecha) {
+            const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            const mes = meses[fecha.getMonth()];
+            const anio = fecha.getFullYear();
+            return `${mes} ${anio}`;
+        }
+
+        function formatearFechaLarga(fecha) {
+            const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+            const dia = fecha.getDate();
+            const mes = meses[fecha.getMonth()];
+            const anio = fecha.getFullYear();
+            return `${dia} de ${mes} de ${anio}`;
+        }
+
+        // Exportar comparación
+        $('#btnExportarComparacion').on('click', function () {
+            mostrarMensajeFlash('Función de exportación en desarrollo', 'info');
         });
 
         // ==================== EXPORTAR MIS RECINTOS A CSV ====================
@@ -373,16 +1658,16 @@
             var rows = tableMisRecintos.rows({ search: 'applied' }).nodes();
 
             if (rows.length === 0) {
-                alert('No hay recintos para exportar con los filtros actuales.');
+                mostrarMensajeFlash('No hay recintos para exportar con los filtros actuales.', 'warning');
                 return;
             }
 
             var csv = [];
             csv.push('Nombre;Provincia;Municipio;SIGPAC;Superficie (ha);Estado');
 
-            $(rows).each(function() {
+            $(rows).each(function () {
                 var $row = $(this);
-                
+
                 var nombre = $row.attr('data-nombre') || '';
                 var provincia = $row.attr('data-provincia') || '';
                 var municipio = $row.attr('data-municipio') || '';
@@ -392,7 +1677,7 @@
 
                 var rowData = [nombre, provincia, municipio, sigpac, superficie, estado];
 
-                var escapedData = rowData.map(function(value) {
+                var escapedData = rowData.map(function (value) {
                     value = String(value).replace(/"/g, '""');
                     if (value.includes(';') || value.includes('"') || value.includes('\n')) {
                         return '"' + value + '"';
@@ -409,7 +1694,7 @@
 
             var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             var link = document.createElement('a');
-            
+
             if (link.download !== undefined) {
                 var url = URL.createObjectURL(blob);
                 link.setAttribute('href', url);
@@ -427,15 +1712,15 @@
             var rows = tableMisRecintos.rows({ search: 'applied' }).nodes();
 
             if (rows.length === 0) {
-                alert('No hay recintos para exportar con los filtros actuales.');
+                mostrarMensajeFlash('No hay recintos para exportar con los filtros actuales.', 'warning');
                 return;
             }
 
             var dataPDF = [];
-            
-            $(rows).each(function() {
+
+            $(rows).each(function () {
                 var $row = $(this);
-                
+
                 var nombre = $row.attr('data-nombre') || '';
                 var provincia = $row.attr('data-provincia') || '';
                 var municipio = $row.attr('data-municipio') || '';
@@ -459,11 +1744,11 @@
                 head: [['Nombre', 'Provincia', 'Municipio', 'SIGPAC', 'Superficie (ha)', 'Estado']],
                 body: dataPDF,
                 startY: 35,
-                styles: { 
+                styles: {
                     fontSize: 9,
                     cellPadding: 3
                 },
-                headStyles: { 
+                headStyles: {
                     fillColor: [40, 167, 69],
                     textColor: 255,
                     fontStyle: 'bold'

@@ -1,0 +1,49 @@
+﻿"Cod Cultivo";"Descripción cultivo";R;G;B
+2;Alfalfa;11;64;214
+3;Artificiales;48;48;48
+4;Erial;255;190;190
+6;Colza;255;255;0
+7;Guisante;0;226;43
+8;Veza;0;171;34
+9;Roquedos;97;55;0
+10;Leñosos Abandonados;79;111;214
+11;Festuca;158;171;140
+12;Olivar;196;168;173
+13;Viñedo;214;0;89
+14;Manzanos;229;102;255
+15;Frutos Cascara;124;18;150
+16;Adormidera;230;200;227
+17;Horticolas;124;130;194
+19;Lavanda;22;174;204
+20;Suelo Desnudo;255;218;209
+31;Trigo;217;255;0
+32;Cebada;255;255;190
+33;Centeno;61;255;171
+34;Avena;115;115;0
+50;Girasol;190;210;255
+51;Maiz;232;135;46
+52;Patata;186;123;93
+53;Remolacha;179;99;245
+54;Garbanzos;121;240;110
+55;Lentejas;121;240;110
+56;Cártamo;201;54;0
+57;Alubias-Habas;121;240;110
+58;Yeros;121;240;110
+60;Zanahoria;52;70;153
+61;Ajo;124;130;194
+62;Cebolla;124;130;194
+63;Fresas;235;0;87
+64;Puerros;124;130;194
+67;Esparceta;158;171;140
+81;Fotovoltaicas;227;26;28
+85;Pastizal;150;255;197
+86;Prados siega;0;204;92
+120;Coniferas;69;112;112
+192;Chopos;64;99;0
+201;Matorral;0;179;137
+203;Frondosas Caducifolias;69;99;0
+204;Frondosas Perennifolias;148;120;125
+243;Castaños;124;18;150
+249;Dehesa;69;112;112
+250;Bajo Plástico;200;200;200
+255;Lamina Agua;115;223;255

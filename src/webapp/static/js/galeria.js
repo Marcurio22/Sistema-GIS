@@ -5,47 +5,65 @@ class GaleriaImagenes {
     this.maxVisibles = 5;
     this.mostrandoTodas = false;
     this.recintoId = null;
-    this.ultimaUbicacion = null; // Guardar última ubicación capturada
+    this.ultimaUbicacion = null;
+    this.gpsYaSolicitado = false;
+    this.archivoSeleccionado = false;
+    this._modalListenersConfigured = false;
     this.init();
   }
 
   init() {
     this.initSubida();
     this.initEdicion();
-    this.setupCameraOption(); // Nueva función para manejar la opción de cámara
-    this.setupModalListeners(); // Listener para resetear GPS al cerrar modal
+    this.setupCameraOption();
+    this.setupModalListeners();
     this.container.innerHTML = '<p class="text-muted">Selecciona un recinto para ver sus imágenes</p>';
   }
 
-  // Configurar listeners para el modal de subida
+  // ✅ Solo resetear al cerrar, NO pedir GPS al abrir
   setupModalListeners() {
     const modalSubida = document.getElementById('modalSubida');
-    if (modalSubida) {
-      modalSubida.addEventListener('hidden.bs.modal', () => {
-        console.log('🔄 Modal cerrado - reseteando GPS');
-        this.ultimaUbicacion = null;
-        
-        // Resetear indicador GPS
-        const gpsStatus = document.getElementById('gps-status');
-        if (gpsStatus) {
-          gpsStatus.classList.add('d-none');
-          gpsStatus.classList.remove('text-success', 'text-warning');
-        }
-      });
+    if (!modalSubida || this._modalListenersConfigured) return;
+    
+    modalSubida.addEventListener('hidden.bs.modal', () => {
+      this.resetearEstadoCompleto();
+    });
+
+    this._modalListenersConfigured = true;
+  }
+
+  resetearEstadoCompleto() {
+    this.ultimaUbicacion = null;
+    this.gpsYaSolicitado = false;
+    this.archivoSeleccionado = false;
+    
+    const gpsStatus = document.getElementById('gps-status');
+    if (gpsStatus) {
+      gpsStatus.classList.add('d-none');
+      gpsStatus.classList.remove('text-success', 'text-warning', 'text-info');
+      gpsStatus.innerHTML = '';
+    }
+    
+    const archivoSeleccionado = document.getElementById('archivo-seleccionado');
+    if (archivoSeleccionado) {
+      archivoSeleccionado.textContent = 'Ningún archivo seleccionado';
+      archivoSeleccionado.style.color = '';
+      archivoSeleccionado.style.fontWeight = '';
+    }
+    
+    const fileInput = document.getElementById('imagen-file');
+    if (fileInput) {
+      fileInput.value = '';
     }
   }
 
-  // Nueva función para detectar móvil y añadir botones de opción
   setupCameraOption() {
     const fileInput = document.getElementById('imagen-file');
-    const modalBody = fileInput.closest('.modal-body');
+    if (!fileInput) return;
     
-    // Solo en dispositivos móviles
     if (this.isMobile()) {
-      // Ocultar el input file original
       fileInput.style.display = 'none';
       
-      // Crear contenedor de botones
       const btnContainer = document.createElement('div');
       btnContainer.className = 'mb-3';
       btnContainer.innerHTML = `
@@ -59,134 +77,133 @@ class GaleriaImagenes {
           </button>
         </div>
         <small class="text-muted d-block mt-2" id="archivo-seleccionado">Ningún archivo seleccionado</small>
-        <small class="text-success d-none" id="gps-status"><i class="bi bi-geo-alt-fill"></i> GPS activado</small>
+        <small class="d-none mt-1 d-block" id="gps-status"></small>
       `;
       
-      // Insertar antes del input file original
       fileInput.parentNode.insertBefore(btnContainer, fileInput);
       
-      // Eventos de los botones SIN solicitud de GPS (se pedirá al subir)
-      document.getElementById('btn-elegir-archivo').addEventListener('click', () => {
+      // ✅ PEDIR GPS CUANDO HAGA CLIC EN GALERÍA
+      document.getElementById('btn-elegir-archivo').addEventListener('click', async () => {
+        await this.solicitarPermisoUbicacion(); // ← AQUÍ
         fileInput.removeAttribute('capture');
         fileInput.click();
       });
       
-      document.getElementById('btn-tomar-foto').addEventListener('click', () => {
+      // ✅ PEDIR GPS CUANDO HAGA CLIC EN TOMAR FOTO
+      document.getElementById('btn-tomar-foto').addEventListener('click', async () => {
+        await this.solicitarPermisoUbicacion(); // ← AQUÍ
         fileInput.setAttribute('capture', 'environment');
         fileInput.click();
       });
       
-      // Mostrar nombre del archivo seleccionado Y PEDIR GPS
-      fileInput.addEventListener('change', async (e) => {
+      fileInput.addEventListener('change', (e) => {
         const archivoSeleccionado = document.getElementById('archivo-seleccionado');
         if (e.target.files.length > 0) {
+          this.archivoSeleccionado = true;
           archivoSeleccionado.textContent = `📷 ${e.target.files[0].name}`;
           archivoSeleccionado.style.color = '#198754';
           archivoSeleccionado.style.fontWeight = '600';
-          
-          // 🔥 PEDIR GPS JUSTO DESPUÉS DE SELECCIONAR/TOMAR FOTO
-          console.log('📸 Archivo seleccionado, solicitando GPS...');
-          await this.solicitarPermisoUbicacion();
         } else {
+          this.archivoSeleccionado = false;
           archivoSeleccionado.textContent = 'Ningún archivo seleccionado';
           archivoSeleccionado.style.color = '';
           archivoSeleccionado.style.fontWeight = '';
         }
       });
     } else {
-      // Para dispositivos de escritorio, también pedir GPS al seleccionar archivo
-      fileInput.addEventListener('change', async (e) => {
-        if (e.target.files.length > 0) {
-          console.log('📸 Archivo seleccionado (escritorio), solicitando GPS...');
-          await this.solicitarPermisoUbicacion();
-        }
+      // ✅ En escritorio, pedir GPS cuando seleccione archivo
+      fileInput.addEventListener('click', async () => {
+        await this.solicitarPermisoUbicacion();
+      });
+      
+      fileInput.addEventListener('change', (e) => {
+        this.archivoSeleccionado = e.target.files.length > 0;
       });
     }
   }
 
-  // ✅ FUNCIÓN: Solicitar permiso de ubicación GPS
   async solicitarPermisoUbicacion() {
+    if (this.gpsYaSolicitado) {
+      return this.ultimaUbicacion;
+    }
+
     if (!navigator.geolocation) {
-      console.warn('⚠️ Geolocalización no disponible en este navegador');
+      this.gpsYaSolicitado = true;
       return null;
     }
 
     const gpsStatus = document.getElementById('gps-status');
+    this.gpsYaSolicitado = true;
     
-
+    if (gpsStatus) {
+      gpsStatus.classList.remove('d-none', 'text-success', 'text-warning');
+      gpsStatus.classList.add('text-info');
+      gpsStatus.innerHTML = '<i class="bi bi-geo-alt"></i> Obteniendo ubicación...';
+    }
     
     try {
       const position = await new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(
-          pos => {
-            resolve(pos);
-          },
-          error => {
-            reject(error);
-          },
+          pos => resolve(pos),
+          error => reject(error),
           {
             enableHighAccuracy: true,
-            timeout: 15000, // 15 segundos de timeout
-            maximumAge: 0   // No usar caché
+            timeout: 20000,
+            maximumAge: 0
           }
         );
       });
 
-      // ✅ ÉXITO - GPS capturado
-      console.log('✅ GPS capturado exitosamente:', position.coords.latitude, position.coords.longitude);
-      
-      // Guardar ubicación en la instancia
       this.ultimaUbicacion = {
         lat: position.coords.latitude,
         lon: position.coords.longitude,
+        accuracy: position.coords.accuracy,
         timestamp: Date.now()
       };
       
-      // Actualizar UI de éxito
       if (gpsStatus) {
         gpsStatus.classList.remove('d-none', 'text-warning', 'text-info');
         gpsStatus.classList.add('text-success');
-        gpsStatus.innerHTML = '<i class="bi bi-geo-alt-fill"></i> Ubicación capturada ✓';
+        gpsStatus.innerHTML = `<i class="bi bi-geo-alt-fill"></i> GPS capturado ✓ (±${Math.round(position.coords.accuracy)}m)`;
       }
       
-      return position;
+      return this.ultimaUbicacion;
 
     } catch (error) {
-     
-      
       this.ultimaUbicacion = null;
       
-      
-      // Solo mostrar notificación si el usuario denegó explícitamente
-      if (error.code === 1) { // PERMISSION_DENIED
-        console.log('🚫 Usuario denegó el permiso de ubicación');
-        // NO mostrar notificación aquí, solo en consola
-      } else if (error.code === 2) { // POSITION_UNAVAILABLE
-        console.log('📍 Ubicación no disponible (GPS desactivado o sin señal)');
-      } else if (error.code === 3) { // TIMEOUT
-        console.log('⏱️ Timeout al obtener ubicación');
+      if (gpsStatus) {
+        gpsStatus.classList.remove('d-none', 'text-success', 'text-info');
+        gpsStatus.classList.add('text-warning');
+        
+        switch (error.code) {
+          case 1:
+            gpsStatus.innerHTML = '<i class="bi bi-geo-alt"></i> Permiso GPS denegado';
+            break;
+          case 2:
+            gpsStatus.innerHTML = '<i class="bi bi-geo-alt"></i> GPS no disponible';
+            break;
+          case 3:
+            gpsStatus.innerHTML = '<i class="bi bi-geo-alt"></i> Timeout GPS';
+            break;
+          default:
+            gpsStatus.innerHTML = '<i class="bi bi-geo-alt"></i> Error GPS';
+        }
       }
       
       return null;
     }
   }
 
-
-  // Detectar si es móvil
   isMobile() {
-    // Detectar solo dispositivos móviles reales, no tablets ni PCs
     const userAgent = navigator.userAgent.toLowerCase();
     const isMobileDevice = /android|webos|iphone|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
-    const isSmallScreen = window.innerWidth <= 576; // Cambio de 768 a 576
-    
+    const isSmallScreen = window.innerWidth <= 576;
     return isMobileDevice && isSmallScreen;
   }
 
-  // Extraer coordenadas de geometría WKT (ej: "POINT(lon lat)")
   extraerCoordenadas(geom) {
     if (!geom) return null;
-    
-    // Si es string WKT: "POINT(-3.12345 42.67890)"
     const match = geom.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
     if (match) {
       return {
@@ -194,7 +211,6 @@ class GaleriaImagenes {
         lat: parseFloat(match[2])
       };
     }
-    
     return null;
   }
 
@@ -211,18 +227,14 @@ class GaleriaImagenes {
   async cargarImagenes() {
     if (!this.recintoId) {
       this.container.innerHTML = '<p class="text-muted">Selecciona un recinto para ver sus imágenes</p>';
-      
-      // Actualizar lightbox manager con array vacío
       if (window.lightboxManager) {
         window.lightboxManager.updateImages([], null);
       }
-      
       return;
     }
 
     try {
       this.container.innerHTML = '<p>Cargando imágenes...</p>';
-
       const response = await fetch(`/api/galeria/listar/${this.recintoId}`);
       
       if (!response.ok) {
@@ -231,15 +243,8 @@ class GaleriaImagenes {
 
       this.imagenes = await response.json();
       
-      console.log(`Galería: Cargadas ${this.imagenes.length} imágenes para recinto ${this.recintoId}`);
-      console.log('Galería: Primeras 3 imágenes:', this.imagenes.slice(0, 3).map(img => img.titulo));
-      
-      // ✅ ACTUALIZAR LIGHTBOX MANAGER CON LAS NUEVAS IMÁGENES
       if (window.lightboxManager) {
-        console.log('Galería: Actualizando lightboxManager...');
         window.lightboxManager.updateImages(this.imagenes, this.recintoId);
-      } else {
-        console.error('Galería: lightboxManager no está disponible!');
       }
       
       this.renderizarGaleria();
@@ -247,22 +252,18 @@ class GaleriaImagenes {
     } catch (error) {
       console.error(error);
       this.container.innerHTML = '<p class="text-danger">Error cargando imágenes</p>';
-      
-      // Limpiar lightbox manager en caso de error
       if (window.lightboxManager) {
         window.lightboxManager.updateImages([], null);
       }
     }
   }
 
-renderizarGaleria() {
+  renderizarGaleria() {
     if (!this.container) return;
 
-    // Actualizar contador de imágenes
     const countEl = document.getElementById('galeria-count');
     if (countEl) countEl.textContent = String(this.imagenes.length || 0);
 
-    // Si no hay imágenes
     if (this.imagenes.length === 0) {
       this.container.innerHTML = '<p class="text-muted">No hay imágenes en este recinto.</p>';
       return;
@@ -301,16 +302,12 @@ renderizarGaleria() {
         const imgElement = item.querySelector('img');
         const overlayElement = item.querySelector('.galeria-overlay');
 
-        // Fade-in cuando se carga
         imgElement.onload = () => imgElement.classList.add('loaded');
 
-        // 🔥 SOLUCIÓN: Actualizar lightbox ANTES de abrirlo
         const indiceReal = this.imagenes.findIndex(img => img.id === imagen.id);
         
         const abrirLightbox = () => {
-            // Asegurarse de que el lightbox tenga las imágenes de la galería
             if (window.lightboxManager) {
-                console.log('🖼️ Actualizando lightbox con imágenes de GALERÍA antes de abrir');
                 window.lightboxManager.updateImages(this.imagenes, this.recintoId);
                 window.lightboxManager.open(indiceReal);
             }
@@ -319,7 +316,6 @@ renderizarGaleria() {
         imgElement.onclick = abrirLightbox;
         overlayElement.onclick = abrirLightbox;
 
-        // Editar y eliminar
         const editBtn = item.querySelector('.edit');
         editBtn.onclick = (e) => { e.stopPropagation(); this.abrirModalEditar(imagen); };
         const deleteBtn = item.querySelector('.delete');
@@ -328,7 +324,6 @@ renderizarGaleria() {
         fragment.appendChild(item);
     });
 
-    // Botón toggle "Ver todas / Mostrar menos"
     if (this.imagenes.length > this.maxVisibles) {
         const toggleBtn = document.createElement('div');
         toggleBtn.className = 'galeria-item galeria-ver-mas';
@@ -344,38 +339,30 @@ renderizarGaleria() {
         fragment.appendChild(toggleBtn);
     }
 
-    // Limpiar container solo una vez y añadir todo
     this.container.innerHTML = '';
     this.container.appendChild(fragment);
-}
+  }
 
-  
   expandirGaleria() {
-    // Abrir overlay (lo maneja visor.html)
     if (typeof window.openGaleriaPanel === "function") {
       window.openGaleriaPanel();
     }
 
-    // En overlay mostramos todas
     this.mostrandoTodas = true;
     this.renderizarGaleria();
 
-    // Scroll arriba del overlay
     const overlay = document.getElementById("galeria-panel");
     if (overlay) overlay.scrollTop = 0;
   }
 
   contraerGaleria() {
-    // Volver al modo normal (panel general)
     this.mostrandoTodas = false;
     this.renderizarGaleria();
 
-    // Cerrar overlay y devolver el DOM a su sitio
     if (typeof window.closeGaleriaPanel === "function") {
       window.closeGaleriaPanel();
     }
 
-    // Scroll a la sección galería en el panel general
     const galeriaContainer = document.getElementById("galeria-imagenes");
     if (galeriaContainer) {
       galeriaContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -383,9 +370,9 @@ renderizarGaleria() {
   }
 
   async confirmarEliminar(imagen) {
-    const confirmar = await CustomDialog.confirm({
+    const confirmar = await AppConfirm.open({
       title: '¿Eliminar imagen?',
-      message: `¿Estás seguro de que quieres eliminar "${imagen.titulo}"?`,
+      message: `¿Estás seguro de que quieres eliminar la imagen "${imagen.titulo}"?`,
       confirmText: 'Eliminar',
       cancelText: 'Cancelar',
       type: 'danger'
@@ -412,7 +399,6 @@ renderizarGaleria() {
       
     } catch (error) {
       console.error(error);
-      
       NotificationSystem.show({
         type: "error",
         title: "Error",
@@ -422,7 +408,7 @@ renderizarGaleria() {
   }
 
   initEdicion() {
-    const form = document.getElementById('formEditarImagen');
+    const form = document.getElementById('form-editar');
     if (!form) return;
 
     form.onsubmit = async (e) => {
@@ -443,7 +429,7 @@ renderizarGaleria() {
 
       try {
         const res = await fetch(`/api/galeria/editar/${imagenId}`, {
-          method: 'PUT',
+          method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ titulo, descripcion })
         });
@@ -466,7 +452,6 @@ renderizarGaleria() {
         
       } catch (error) {
         console.error(error);
-        
         NotificationSystem.show({
           type: "error",
           title: "Error",
@@ -480,6 +465,7 @@ renderizarGaleria() {
     document.getElementById('editar-imagen-id').value = imagen.id;
     document.getElementById('editar-titulo').value = imagen.titulo;
     document.getElementById('editar-descripcion').value = imagen.descripcion || '';
+    document.getElementById('editar-preview').src = imagen.thumb;
 
     const modalEl = document.getElementById('modalEditar');
     const modal = new bootstrap.Modal(modalEl);
@@ -487,17 +473,17 @@ renderizarGaleria() {
   }
 
   initSubida() {
-    const form = document.getElementById('formSubirImagen');
+    const form = document.getElementById('form-subida');
     if (!form) return;
 
     form.onsubmit = async (e) => {
       e.preventDefault();
 
       const fileInput = document.getElementById('imagen-file');
-      const titulo = document.getElementById('titulo').value.trim();
-      const descripcion = document.getElementById('descripcion').value.trim();
+      const titulo = document.getElementById('imagen-titulo').value.trim();
+      const descripcion = document.getElementById('imagen-descripcion').value.trim();
 
-      if (!fileInput.files.length) {
+      if (!fileInput || !fileInput.files.length) {
         NotificationSystem.show({
           type: "warning",
           title: "Imagen requerida",
@@ -522,12 +508,11 @@ renderizarGaleria() {
         NotificationSystem.show({
           type: "error",
           title: "Error",
-          message: "No hay recinto seleccionado. Selecciona un recinto primero."
+          message: "No hay recinto seleccionado"
         });
         return;
       }
 
-      // ✅ INICIAR ANIMACIÓN DE SUBIDA
       const btnSubir = form.querySelector('button[type="submit"]');
       this.animarSubida(btnSubir, true);
 
@@ -537,13 +522,9 @@ renderizarGaleria() {
       formData.append('descripcion', descripcion);
       formData.append('recinto_id', recintoId);
 
-      // ✅ USAR UBICACIÓN GPS GUARDADA
       if (this.ultimaUbicacion) {
-        console.log('📍 Usando ubicación GPS guardada:', this.ultimaUbicacion);
-        formData.append('lat', this.ultimaUbicacion.lat);
-        formData.append('lon', this.ultimaUbicacion.lon);
-      } else {
-        console.warn('⚠️ No hay ubicación GPS disponible');
+        formData.append('lat', this.ultimaUbicacion.lat.toString());
+        formData.append('lon', this.ultimaUbicacion.lon.toString());
       }
 
       try {
@@ -558,7 +539,6 @@ renderizarGaleria() {
         }
 
         const nuevaImagen = await res.json();
-        
         await this.cargarImagenes();
 
         const modalEl = document.getElementById('modalSubida');
@@ -566,79 +546,47 @@ renderizarGaleria() {
         if (modal) modal.hide();
 
         form.reset();
-        
-        // Resetear ubicación GPS guardada para que pida una nueva la próxima vez
-        this.ultimaUbicacion = null;
-        
-        // Resetear el mensaje de archivo seleccionado si existe
-        const archivoSeleccionado = document.getElementById('archivo-seleccionado');
-        if (archivoSeleccionado) {
-          archivoSeleccionado.textContent = 'Ningún archivo seleccionado';
-          archivoSeleccionado.style.color = '';
-          archivoSeleccionado.style.fontWeight = '';
-        }
-        
-        // Resetear indicador GPS
-        const gpsStatus = document.getElementById('gps-status');
-        if (gpsStatus) {
-          gpsStatus.classList.add('d-none');
-          gpsStatus.classList.remove('text-success', 'text-warning');
-        }
-        
-        // ✅ DETENER ANIMACIÓN
+        this.resetearEstadoCompleto();
         this.animarSubida(btnSubir, false);
         
         NotificationSystem.show({
           type: "success",
           title: "¡Imagen subida!",
-          message: `"${titulo}" se ha añadido correctamente a la galería`
+          message: `"${titulo}" añadida correctamente${nuevaImagen.tiene_ubicacion ? ' con GPS ✓' : ''}`
         });
         
       } catch (error) {
         console.error(error);
-        
-        // ✅ DETENER ANIMACIÓN EN CASO DE ERROR
         this.animarSubida(btnSubir, false);
-        
-        // Resetear ubicación GPS en caso de error
-        this.ultimaUbicacion = null;
-        
         NotificationSystem.show({
           type: "error",
           title: "Error al subir",
-          message: error.message || "No se pudo subir la imagen. Intenta de nuevo."
+          message: error.message || "No se pudo subir la imagen"
         });
       }
     };
   }
 
-  // ✅ FUNCIÓN DE ANIMACIÓN MEJORADA Y MÁS BONITA
   animarSubida(boton, activar) {
     if (!boton) return;
 
     if (activar) {
-      // Guardar contenido original
       boton.setAttribute('data-original-html', boton.innerHTML);
       boton.setAttribute('data-original-class', boton.className);
       boton.disabled = true;
-      
-      // Cambiar estilo del botón
       boton.style.position = 'relative';
       boton.style.overflow = 'hidden';
       
-      // Crear contenedor de la animación
       const container = document.createElement('div');
       container.style.display = 'flex';
       container.style.alignItems = 'center';
       container.style.justifyContent = 'center';
       container.style.gap = '8px';
       
-      // Crear spinner con puntos animados
       const spinnerContainer = document.createElement('div');
       spinnerContainer.style.display = 'flex';
       spinnerContainer.style.gap = '4px';
       
-      // Crear 3 puntos que se animan
       for (let i = 0; i < 3; i++) {
         const dot = document.createElement('div');
         dot.style.width = '8px';
@@ -649,12 +597,10 @@ renderizarGaleria() {
         spinnerContainer.appendChild(dot);
       }
       
-      // Crear texto
       const texto = document.createElement('span');
       texto.textContent = 'Subiendo imagen';
       texto.style.fontWeight = '500';
       
-      // Añadir puntos animados al texto
       let puntosCount = 0;
       const puntosInterval = setInterval(() => {
         puntosCount = (puntosCount + 1) % 4;
@@ -666,11 +612,9 @@ renderizarGaleria() {
       container.appendChild(spinnerContainer);
       container.appendChild(texto);
       
-      // Actualizar botón
       boton.innerHTML = '';
       boton.appendChild(container);
       
-      // Añadir animación de onda de fondo
       const wave = document.createElement('div');
       wave.style.position = 'absolute';
       wave.style.top = '0';
@@ -685,7 +629,6 @@ renderizarGaleria() {
       container.style.position = 'relative';
       container.style.zIndex = '1';
       
-      // Animar la onda
       let waveWidth = 0;
       let waveDirection = 1;
       const waveInterval = setInterval(() => {
@@ -702,7 +645,6 @@ renderizarGaleria() {
       
       boton.setAttribute('data-wave-interval', waveInterval);
       
-      // Añadir estilos de animación bounce si no existen
       if (!document.getElementById('bounce-animation-style')) {
         const style = document.createElement('style');
         style.id = 'bounce-animation-style';
@@ -716,20 +658,17 @@ renderizarGaleria() {
       }
       
     } else {
-      // Detener todas las animaciones
       const puntosInterval = boton.getAttribute('data-puntos-interval');
       const waveInterval = boton.getAttribute('data-wave-interval');
       
       if (puntosInterval) clearInterval(parseInt(puntosInterval));
       if (waveInterval) clearInterval(parseInt(waveInterval));
       
-      // Restaurar botón con animación de éxito
       const originalClass = boton.getAttribute('data-original-class');
       const originalHtml = boton.getAttribute('data-original-html');
       
       if (originalClass) boton.className = originalClass;
       
-      // Mostrar checkmark brevemente antes de restaurar
       boton.innerHTML = '<span style="font-size: 20px;">✓</span> ¡Listo!';
       boton.style.backgroundColor = '#28a745';
       boton.style.borderColor = '#28a745';

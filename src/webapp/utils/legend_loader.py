@@ -53,24 +53,37 @@ def load_legend_from_csv(csv_path: str) -> Dict[str, Any]:
                 if k in row and row[k] is not None:
                     return str(row[k]).strip()
             return ""
-
         for row in reader:
-            print("HEADERS:", reader.fieldnames)
-            code_raw = pick(row, ["Cod\nCultivo", "Cod Cultivo", "CodCultivo", "COD", "code", "Cod\r\nCultivo"])
-            label = pick(row, ["Descripción \ncultivo", "Descripción cultivo", "Descripcion cultivo", "label", "name", "Descripción \r\ncultivo"])
-            r_raw = pick(row, ["R", "r", "Red"])
-            g_raw = pick(row, ["G", "g", "Green"])
-            b_raw = pick(row, ["B", "b", "Blue"])
+            normalized = {
+                str(k).replace("\n", " ").replace("\r", " ").strip().lower(): v
+                for k, v in row.items()
+            }
 
+            def pick_norm(keys: List[str]) -> str:
+                for k in keys:
+                    if k in normalized and normalized[k] is not None:
+                        return str(normalized[k]).strip()
+                return ""
 
-            print(f"Procesando fila: code='{code_raw}', label='{label}', R='{r_raw}', G='{g_raw}', B='{b_raw}'")
+            code_raw = pick_norm([
+                "cod cultivo", "codcultivo", "cod", "code"
+            ])
+
+            label = pick_norm([
+                "descripción cultivo", "descripcion cultivo",
+                "cubierta", "label", "name"
+            ])
+
+            r_raw = pick_norm(["r", "red"])
+            g_raw = pick_norm(["g", "green"])
+            b_raw = pick_norm(["b", "blue"])
+
             code = _to_int(code_raw, default=-1)
             r = _to_int(r_raw, default=0)
             g = _to_int(g_raw, default=0)
             b = _to_int(b_raw, default=0)
 
             if code == -1 or not label:
-                # Saltamos filas incompletas
                 continue
 
             items.append({
@@ -81,6 +94,7 @@ def load_legend_from_csv(csv_path: str) -> Dict[str, Any]:
                 "b": b,
                 "hex": _rgb_to_hex(r, g, b),
             })
+
 
     items.sort(key=lambda x: x["code"])
     return {

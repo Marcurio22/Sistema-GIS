@@ -786,6 +786,15 @@
     font-size: 0.85rem;
   }
 
+
+  .side-section-head #btn-comparativa-ndvi{
+  grid-column: 1;
+  justify-self: start;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
   .cultivo-grid{
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

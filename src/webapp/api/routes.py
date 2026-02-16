@@ -12,12 +12,13 @@ from flask import Response, jsonify, request, send_from_directory
 from pathlib import Path
 from flask_login import login_required, current_user
 import requests
-from sqlalchemy import text
+
+from sqlalchemy import text, and_, func
 import matplotlib
-matplotlib.use('Agg') # Vital para que no intente abrir ventanas en el servidor
+matplotlib.use('Agg') # que no intente abrir ventanas en el servidor
 
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from shapely.geometry import shape, mapping
 from rasterio.mask import mask as rio_mask
 from decimal import Decimal
@@ -56,10 +57,6 @@ from .services import (
     _sistema_cultivo_obj,
     visor_start_view_usuario
 )
-
-
-
-
 
 @api_bp.get("/recintos")
 def recintos():
@@ -1399,3 +1396,160 @@ def comparar_ndvi():
             'mensaje': f'Error al obtener los datos: {str(e)}'
         }), 500
     
+
+
+@api_bp.route('/comparativa-campanias/<int:id_recinto>', methods=['GET'])
+def comparativa_campanias(id_recinto):
+    """
+    Obtiene datos NDVI de 3 campañas para un recinto específico
+    Campañas van de septiembre a septiembre
+    """
+    try:
+        # Año actual
+        current_year = datetime.now().year
+        
+        # Definir rangos de campañas (septiembre a septiembre)
+        campanias = [
+            {
+                'nombre': f'{current_year - 1}/{current_year}',  # 2025/2026
+                'inicio': datetime(current_year - 1, 9, 1),
+                'fin': datetime(current_year, 8, 31, 23, 59, 59),
+                'year': current_year
+            },
+            {
+                'nombre': f'{current_year - 2}/{current_year - 1}',  # 2024/2025
+                'inicio': datetime(current_year - 2, 9, 1),
+                'fin': datetime(current_year - 1, 8, 31, 23, 59, 59),
+                'year': current_year - 1
+            },
+            {
+                'nombre': f'{current_year - 3}/{current_year - 2}',  # 2023/2024
+                'inicio': datetime(current_year - 3, 9, 1),
+                'fin': datetime(current_year - 2, 8, 31, 23, 59, 59),
+                'year': current_year - 2
+            }
+        ]
+        
+        resultado = []
+        
+        for campania in campanias:
+            # Consultar datos NDVI para este recinto en el rango de fechas
+            indices = IndicesRaster.query.filter(
+                and_(
+                    IndicesRaster.id_recinto == id_recinto,
+                    IndicesRaster.tipo_indice == 'NDVI',
+                    IndicesRaster.fecha_ndvi >= campania['inicio'],
+                    IndicesRaster.fecha_ndvi <= campania['fin']
+                )
+            ).order_by(IndicesRaster.fecha_ndvi.asc()).all()
+            
+            # Formatear datos para la gráfica
+            datos_campania = {
+                'nombre': campania['nombre'],
+                'year': campania['year'],
+                'datos': [
+                    {
+                        'fecha': indice.fecha_ndvi.strftime('%Y-%m-%d'),
+                        'valor_medio': float(indice.valor_medio) if indice.valor_medio else 0,
+                        'valor_min': float(indice.valor_min) if indice.valor_min else 0,
+                        'valor_max': float(indice.valor_max) if indice.valor_max else 0
+                    }
+                    for indice in indices
+                ]
+            }
+            
+            resultado.append(datos_campania)
+        
+        return jsonify({
+            'success': True,
+            'campanias': resultado
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+    
+
+
+@api_bp.route('/buscar-imagen-ndvi/<int:recinto_id>', methods=['GET'])
+def buscar_imagen_ndvi(recinto_id):
+    """
+    Busca la imagen NDVI más cercana a una fecha objetivo dentro de un rango de campaña
+    """
+    try:
+        fecha_str = request.args.get('fecha')
+        margen = 10  # Días antes y después de la fecha objetivo
+        campania_inicio_str = request.args.get('campania_inicio')
+        campania_fin_str = request.args.get('campania_fin')
+        
+        if not fecha_str:
+            return jsonify({
+                'success': False,
+                'error': 'Falta el parámetro fecha'
+            }), 400
+        
+        # Convertir fecha objetivo a datetime para PostgreSQL
+        fecha_objetivo = datetime.strptime(fecha_str, '%Y-%m-%d')
+        
+        # Calcular rango de búsqueda
+        fecha_min = fecha_objetivo - timedelta(days=margen)
+        fecha_max = fecha_objetivo + timedelta(days=margen)
+        
+        # Si se proporcionan fechas de campaña, restringir a ese rango
+        if campania_inicio_str and campania_fin_str:
+            campania_inicio = datetime.strptime(campania_inicio_str, '%Y-%m-%d')
+            campania_fin = datetime.strptime(campania_fin_str, '%Y-%m-%d')
+            
+            # El rango de búsqueda debe estar dentro de la campaña
+            fecha_min = max(fecha_min, campania_inicio)
+            fecha_max = min(fecha_max, campania_fin)
+        
+        # Buscar la imagen más cercana - CORREGIDO para PostgreSQL
+        # Usamos cast y la diferencia de fechas directamente
+        imagen = IndicesRaster.query.filter(
+            and_(
+                IndicesRaster.id_recinto == recinto_id,
+                IndicesRaster.tipo_indice == 'NDVI',
+                IndicesRaster.fecha_ndvi >= fecha_min.date(),
+                IndicesRaster.fecha_ndvi <= fecha_max.date(),
+                IndicesRaster.ruta_ndvi.isnot(None)
+            )
+        ).order_by(
+            func.abs(
+                func.cast(IndicesRaster.fecha_ndvi, db.Date) - func.cast(fecha_objetivo.date(), db.Date)
+            )
+        ).first()
+        
+        if not imagen:
+            return jsonify({
+                'success': False,
+                'error': f'No se encontró imagen NDVI en el rango especificado'
+            }), 404
+        
+        return jsonify({
+            'success': True,
+            'imagen': {
+                'id': imagen.id_indice,
+                'fecha_ndvi': imagen.fecha_ndvi.strftime('%Y-%m-%d'),
+                'ruta_ndvi': imagen.ruta_ndvi,
+                'valor_medio': float(imagen.valor_medio) if imagen.valor_medio else 0.0,
+                'valor_min': float(imagen.valor_min) if imagen.valor_min else 0.0,
+                'valor_max': float(imagen.valor_max) if imagen.valor_max else 0.0
+            }
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': f'Formato de fecha inválido: {str(e)}'
+        }), 400
+    except Exception as e:
+        print(f"Error en buscar_imagen_ndvi: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
