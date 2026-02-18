@@ -292,7 +292,7 @@
     </div>
   </div>
 
-  <h6>Nivel de Detalle</h6>
+  <h6>Capas temáticas</h6>
   <div class="basemap-grid">
     <div class="basemap-option basemap-detail active" data-detail="mis">
       <div class="basemap-thumb">
@@ -322,16 +322,202 @@
         <div class="basemap-option-label">Parcelas Catastro</div>
       </div>
 
-    <div class="basemap-option basemap-detail" data-detail="suelos">
-      <div class="basemap-thumb">
-          <img src="{{ url_for('static', filename='img/thumb_suelos.png') }}" alt="Suelos">
-      </div>
-      <div class="basemap-option-label">Suelos</div>
-    </div>
-
   </div>
+
+  <details style="border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; margin-top: 15px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+    <summary style="cursor: pointer; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; padding: 4px 0;">
+      <span>Información de Suelos</span>
+      <i class="bi bi-chevron-down" style="margin-left: auto; font-size: 0.8rem; transition: transform 0.2s;"></i>
+    </summary>
     
-  <!-- DETALLES ADICIONALES - SECCIÓN PLEGABLE -->
+    <div style="margin-top: 15px;">
+      <ul style="list-style: none; padding: 0; margin: 0;">
+        <li style="margin-bottom: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" class="soil-checkbox-label">
+            <input type="checkbox" data-detail="capacidadCampo" style="cursor: pointer; width: 18px; height: 18px;">
+            <span style="font-size: 0.9rem; flex: 1;">Capacidad de Campo</span>
+          </label>
+        </li>
+        <li style="margin-bottom: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" class="soil-checkbox-label">
+            <input type="checkbox" data-detail="capacidadRetencion" style="cursor: pointer; width: 18px; height: 18px;">
+            <span style="font-size: 0.9rem; flex: 1;">Capacidad de Retención de Agua</span>
+          </label>
+        </li>
+        <li style="margin-bottom: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" class="soil-checkbox-label">
+            <input type="checkbox" data-detail="clasificacionTextural" style="cursor: pointer; width: 18px; height: 18px;">
+            <span style="font-size: 0.9rem; flex: 1;">Clasificación Textural</span>
+          </label>
+        </li>
+        <li style="margin-bottom: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" class="soil-checkbox-label">
+            <input type="checkbox" data-detail="contenidoArcilla" style="cursor: pointer; width: 18px; height: 18px;">
+            <span style="font-size: 0.9rem; flex: 1;">Contenido de Arcilla</span>
+          </label>
+        </li>
+        <li style="margin-bottom: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" class="soil-checkbox-label">
+            <input type="checkbox" data-detail="contenidoArena" style="cursor: pointer; width: 18px; height: 18px;">
+            <span style="font-size: 0.9rem; flex: 1;">Contenido de Arena</span>
+          </label>
+        </li>
+        <li style="margin-bottom: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" class="soil-checkbox-label">
+            <input type="checkbox" data-detail="contenidoLimo" style="cursor: pointer; width: 18px; height: 18px;">
+            <span style="font-size: 0.9rem; flex: 1;">Contenido de Limo</span>
+          </label>
+        </li>
+        <li style="margin-bottom: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" class="soil-checkbox-label">
+            <input type="checkbox" data-detail="materiaOrganica" style="cursor: pointer; width: 18px; height: 18px;">
+            <span style="font-size: 0.9rem; flex: 1;">Contenido de Materia Orgánica</span>
+          </label>
+        </li>
+        <li style="margin-bottom: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" class="soil-checkbox-label">
+            <input type="checkbox" data-detail="nitrogeno" style="cursor: pointer; width: 18px; height: 18px;">
+            <span style="font-size: 0.9rem; flex: 1;">Nitrógeno Total (mg/kg)</span>
+          </label>
+        </li>
+        <li style="margin-bottom: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" class="soil-checkbox-label">
+            <input type="checkbox" data-detail="fosforoOlsen" style="cursor: pointer; width: 18px; height: 18px;">
+            <span style="font-size: 0.9rem; flex: 1;">Fósforo Olsen (ppm)</span>
+          </label>
+        </li>
+        <li style="margin-bottom: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s; border: 1px solid #e0e0e0;" class="soil-checkbox-label">
+            <input type="checkbox" data-detail="humedadSaturacion" style="cursor: pointer; width: 18px; height: 18px;">
+            <span style="font-size: 0.9rem; flex: 1;">Humedad de Saturación</span>
+          </label>
+        </li>
+      </ul>
+    </div>
+    
+    <!-- Contenedor de leyendas de suelos -->
+    <div id="leyendas-suelos-container" style="margin-top: 20px; padding: 15px; background: white; border-radius: 8px; display: none; border: 2px dashed #dee2e6;">
+      <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e9ecef;">
+        <h6 style="font-size: 0.95rem; margin: 0; font-weight: 600; color: #495057;">Leyendas Activas</h6>
+      </div>
+      <div id="leyenda-capacidadCampo" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #2196F3; border-radius: 4px;">
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
+          Capacidad de Campo
+        </strong>
+        <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Capacidad de Campo">
+      </div>
+      <div id="leyenda-capacidadRetencion" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #03A9F4; border-radius: 4px;">
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
+          Capacidad de Retención de Agua
+        </strong>
+        <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Capacidad Retención">
+      </div>
+      <div id="leyenda-clasificacionTextural" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #795548; border-radius: 4px;">
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
+          Clasificación Textural
+        </strong>
+        <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Clasificación Textural">
+      </div>
+      <div id="leyenda-contenidoArcilla" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #8D6E63; border-radius: 4px;">
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
+          Contenido de Arcilla
+        </strong>
+        <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Arcilla">
+      </div>
+      <div id="leyenda-contenidoArena" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #FFC107; border-radius: 4px;">
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
+          Contenido de Arena
+        </strong>
+        <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Arena">
+      </div>
+      <div id="leyenda-contenidoLimo" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #CDDC39; border-radius: 4px;">
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
+          Contenido de Limo
+        </strong>
+        <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Limo">
+      </div>
+      <div id="leyenda-materiaOrganica" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #4CAF50; border-radius: 4px;">
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
+          Materia Orgánica
+        </strong>
+        <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Materia Orgánica">
+      </div>
+      <div id="leyenda-nitrogeno" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #FF5722; border-radius: 4px;">
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
+          Nitrógeno Total
+        </strong>
+        <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Nitrógeno">
+      </div>
+      <div id="leyenda-fosforoOlsen" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #9C27B0; border-radius: 4px;">
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
+          Fósforo Olsen
+        </strong>
+        <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Fósforo">
+      </div>
+      <div id="leyenda-humedadSaturacion" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #00BCD4; border-radius: 4px;">
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
+          Humedad de Saturación
+        </strong>
+        <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Humedad">
+      </div>
+    </div>
+  </details>
+  
+  <style>
+    /* Hover effect para checkboxes de suelos */
+    .soil-checkbox-label:hover {
+      background: #f8f9fa !important;
+      border-color: #198754 !important;
+      transform: translateX(3px);
+    }
+    
+    /* Borde verde para la última capa activada */
+    .soil-checkbox-label.active-layer {
+      border-color: #198754 !important;
+      border-width: 2px !important;
+      background: #f0f9f4 !important;
+    }
+    
+    /* Animación del chevron en details */
+    details[open] summary i.bi-chevron-down {
+      transform: rotate(180deg);
+    }
+    
+    /* Estilo del scrollbar para el contenedor de leyendas si es muy largo */
+    #leyendas-suelos-container {
+      max-height: 500px;
+      overflow-y: auto;
+    }
+    
+    #leyendas-suelos-container::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    #leyendas-suelos-container::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    
+    #leyendas-suelos-container::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 10px;
+    }
+    
+    #leyendas-suelos-container::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+  </style>
+
+
+  <!-- De momento borrar, lo dejo por si acaso
+      <div class="basemap-option basemap-detail" data-detail="suelos">
+        <div class="basemap-thumb">
+            <img src="{{ url_for('static', filename='img/thumb_suelos.png') }}" alt="Suelos">
+        </div>
+        <div class="basemap-option-label">Suelos</div>
+      </div>
+      -->
+    
   <div style="margin-top: 20px; border-top: 1px solid #dee2e6; padding-top: 15px;">
     <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px 0;" id="toggle-detalles-adicionales">
       <h6 style="margin: 0; font-weight: 600;">
@@ -356,14 +542,10 @@
           </button>
         </div>
         
-        <!-- Contenedor de años (inicialmente oculto) -->
         <div id="mapa-cultivos-panel" style="display: none; flex-direction: column; gap: 10px; margin-top: 10px; padding-left: 10px;">
-          <!-- Los años se generan dinámicamente aquí -->
         </div>
       </div>
-      
-      <!-- Aquí puedes añadir más secciones adicionales en el futuro -->
-      
+            
     </div>
   </div>
 
@@ -386,7 +568,7 @@
   <button id="poligono-btn" class="hidden" title="Dibujar Polígono">
     <i class="bi bi-pentagon"></i>
   </button>
-  <button id="editar-btn" title="Editar">
+  <button id="editar-btn"  title="Dibujar (disponible con zoom ≥15)">
     <i class="bi bi-pencil-fill"></i>
   </button>
   <button id="aceptar-btn" class="hidden" title="Aceptar">
@@ -815,280 +997,9 @@
 
 
 
-<!-- Script general -->
+<!-- Utilidades globales: notificaciones, confirmación, modal eliminación -->
+<script src="{{ url_for('static', filename='js/visor/visor-utils.js') }}"></script>
 <script>
-  const NotificationSystem = {
-    container: null,
-    initialized: false,
-
-    init() {
-      if (this.initialized) return;
-
-      this.container = document.getElementById('notification-container');
-
-      if (!this.container) {
-        // Crear el contenedor si no existe
-        this.container = document.createElement('div');
-        this.container.id = 'notification-container';
-        document.body.appendChild(this.container);
-      
-      } else {
-      }
-      this.initialized = true;
-    },
-
-    show({ type = 'info', title, message, duration = 5000 }) {
-      // Inicializar si no está listo
-      if (!this.initialized) {
-        this.init();
-      }
-
-      if (!this.container) {
-        alert(`${title}\n${message}`);
-        return;
-      }
-
-      const notification = document.createElement('div');
-      notification.className = `notification ${type}`;
-
-      const icons = {
-        success: '✓',
-        error: '✕',
-        warning: '⚠',
-        info: 'i'
-      };
-
-      notification.innerHTML = `
-        <div class="notification-icon">${icons[type]}</div>
-        <div class="notification-content">
-          <div class="notification-title">${this.escapeHtml(title)}</div>
-          <div class="notification-message">${this.escapeHtml(message)}</div>
-        </div>
-        <button class="notification-close" aria-label="Cerrar">×</button>
-        <div class="notification-progress"></div>
-      `;
-
-      // Evento de cierre
-      const closeBtn = notification.querySelector('.notification-close');
-      closeBtn.addEventListener('click', () => this.close(closeBtn));
-
-      this.container.appendChild(notification);
-
-      // Auto-cierre
-      if (duration > 0) {
-        setTimeout(() => {
-          this.close(closeBtn);
-        }, duration);
-      }
-    },
-
-    close(button) {
-      const notification = button.closest('.notification');
-      if (!notification) return;
-
-      notification.classList.add('removing');
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.remove();
-        }
-      }, 300);
-    },
-
-    escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-  };
-
-  // Función para establecer la variable CSS con la altura de la navbar
-  function setNavbarHeightVar() {
-    const candidates = [
-      'nav.navbar.fixed-top',
-      'nav.navbar.sticky-top',
-      '.navbar.fixed-top',
-      '.navbar.sticky-top',
-      'header.fixed-top',
-      'header.sticky-top',
-      'nav'
-    ];
-
-    let el = null;
-    for (const sel of candidates) {
-      const found = document.querySelector(sel);
-      if (!found) continue;
-
-      const cs = window.getComputedStyle(found);
-      const pos = cs.position;
-      if (pos === 'fixed' || pos === 'sticky') {
-        el = found;
-        break;
-      }
-    }
-
-    let h = 65;
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      h = Math.round(rect.bottom);
-    }
-
-    if (h < 40 || h > 120) h = 65;
-    document.documentElement.style.setProperty('--navbar-h', `${h}px`);
-  }
-
-  // calcular al cargar
-  setNavbarHeightVar();
-  // recalcular por si cambia (responsive)
-  window.addEventListener("resize", setNavbarHeightVar);
-
-  const AppConfirm = (() => {
-    let backdrop, titleEl, textEl, btnOk, btnCancel;
-    let resolveFn = null;
-    let escHandler = null;
-
-    function ensure() {
-      if (backdrop) return;
-      backdrop = document.getElementById("app-confirm-backdrop");
-      titleEl = document.getElementById("app-confirm-title");
-      textEl = document.getElementById("app-confirm-text");
-      btnOk = document.getElementById("app-confirm-ok");
-      btnCancel = document.getElementById("app-confirm-cancel");
-
-      // No cerrar al clicar fuera
-      backdrop.addEventListener("click", (e) => {
-        if (e.target === backdrop) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      });
-
-      btnCancel.addEventListener("click", () => close(false));
-      btnOk.addEventListener("click", () => close(true));
-    }
-
-    function open({ title, message, okText = "Aceptar", cancelText = "Cancelar", okClass = "btn-danger" }) {
-      ensure();
-
-      titleEl.textContent = title || "Confirmación";
-      textEl.textContent = message || "";
-      btnOk.textContent = okText;
-      btnCancel.textContent = cancelText;
-
-      btnOk.className = `btn ${okClass}`;
-
-      backdrop.classList.remove("d-none");
-      backdrop.setAttribute("aria-hidden", "false");
-      document.body.style.overflow = "hidden";
-
-      // No cerrar con ESC
-      escHandler = (e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      };
-      document.addEventListener("keydown", escHandler, true);
-
-      return new Promise((resolve) => {
-        resolveFn = resolve;
-        setTimeout(() => btnOk.focus(), 0);
-      });
-    }
-
-    function close(result) {
-      if (!backdrop) return;
-
-      backdrop.classList.add("d-none");
-      backdrop.setAttribute("aria-hidden", "true");
-      document.body.style.overflow = "";
-
-      if (escHandler) {
-        document.removeEventListener("keydown", escHandler, true);
-        escHandler = null;
-      }
-
-      const r = resolveFn;
-      resolveFn = null;
-      r?.(!!result);
-    }
-
-    return { open };
-  })();
-
-  function openMotivoEliminacionModal() {
-  return new Promise((resolve) => {
-    const modalEl = document.getElementById("motivoEliminacionModal");
-    const inputEl = document.getElementById("motivoEliminacionInput");
-    const btnOk = document.getElementById("btnConfirmarMotivoEliminacion");
-
-    if (!modalEl || !inputEl || !btnOk) {
-      console.error("Faltan elementos del modal de motivo de eliminación");
-      resolve(null);
-      return;
-    }
-
-    // Bootstrap modal instance
-    const modal = bootstrap.Modal.getOrCreateInstance(modalEl, {
-      backdrop: "static", // no cerrar clic fuera
-      keyboard: false     // no cerrar con ESC
-    });
-
-    // Estado inicial
-    inputEl.value = "";
-    inputEl.classList.remove("is-invalid");
-
-    let settled = false;
-
-    const cleanup = () => {
-      btnOk.removeEventListener("click", onOk);
-      modalEl.removeEventListener("hidden.bs.modal", onHidden);
-      inputEl.removeEventListener("keydown", onKeyDown);
-    };
-
-    const finish = (val) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      resolve(val);
-    };
-
-    const onOk = () => {
-      const motivo = (inputEl.value || "").trim();
-
-      if (!motivo) {
-        inputEl.classList.add("is-invalid");
-        inputEl.focus();
-        return;
-      }
-
-      modal.hide();
-      finish(motivo);
-    };
-
-    // Si se cierra por cancelar (btn-close o btn-secondary), devolver null
-    const onHidden = () => {
-      if (!settled) finish(null);
-    };
-
-    // Enter envía (Shift+Enter hace salto de línea)
-    const onKeyDown = (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        btnOk.click();
-      }
-    };
-
-    btnOk.addEventListener("click", onOk);
-    modalEl.addEventListener("hidden.bs.modal", onHidden);
-    inputEl.addEventListener("keydown", onKeyDown);
-
-    modal.show();
-
-    // foco al mostrar
-    setTimeout(() => inputEl.focus(), 150);
-  });
-}
-
   // -----------------------------------------
   // DOM Content Loaded
   // -----------------------------------------
@@ -1241,33 +1152,80 @@ async function aplicarVistaInicialUsuario() {
   
 
   // --- Panes (orden de dibujo) ---
+  // Orden de capas de abajo hacia arriba:
+  // 1. NDVI overlay (z-index ~200 por defecto)
+  // 2. Capas WMS de suelos y catastro (500-549)
+  // 3. Mapas de cultivos CyL (550-599)
+  // 4. Cultivos SigPac (600)
+  // 5. Recintos SigPac (700)
+  // 6. Mis Recintos (800)
+  // 7. Highlights (900)
 
   map.createPane('suelosPane');
-  map.getPane('suelosPane').style.zIndex = 390;
+  map.getPane('suelosPane').style.zIndex = 200;
 
+  // Recintos y Mis Recintos - SIEMPRE ARRIBA DE TODO
   map.createPane('sigpacPane');
-  map.getPane('sigpacPane').style.zIndex = 400;
+  map.getPane('sigpacPane').style.zIndex = 700;
 
   map.createPane('misPane');
-  map.getPane('misPane').style.zIndex = 450;
+  map.getPane('misPane').style.zIndex = 800;
 
   map.createPane('highlightPane');
-  map.getPane('highlightPane').style.zIndex = 650;
+  map.getPane('highlightPane').style.zIndex = 900;
+  
+  // ✅ ASEGURAR QUE LOS POPUPS ESTÉN SIEMPRE POR ENCIMA DE TODO
+  map.getPane('popupPane').style.zIndex = 1000;
+  map.getPane('tooltipPane').style.zIndex = 1001;
 
   map.createPane("cultivosSigpacPane");
-  map.getPane("cultivosSigpacPane").style.zIndex = 440;
+  map.getPane("cultivosSigpacPane").style.zIndex = 600;
+
+  // Panes de suelos: z-index base 200
+  // Siempre por DEBAJO de catastro (510), cultivos CyL (590+),
+  // cultivosSigpac (600), recintos (700) y mis recintos (800).
+  map.createPane("capacidadCampoPane");
+  map.getPane("capacidadCampoPane").style.zIndex = 200;
+  
+  map.createPane("capacidadRetencionPane");
+  map.getPane("capacidadRetencionPane").style.zIndex = 200;
+  
+  map.createPane("clasificacionTexturalPane");
+  map.getPane("clasificacionTexturalPane").style.zIndex = 200;
+  
+  map.createPane("contenidoArcillaPane");
+  map.getPane("contenidoArcillaPane").style.zIndex = 200;
+  
+  map.createPane("contenidoArenaPane");
+  map.getPane("contenidoArenaPane").style.zIndex = 200;
+  
+  map.createPane("contenidoLimoPane");
+  map.getPane("contenidoLimoPane").style.zIndex = 200;
+  
+  map.createPane("materiaOrganicaPane");
+  map.getPane("materiaOrganicaPane").style.zIndex = 200;
+  
+  map.createPane("nitrogenoPane");
+  map.getPane("nitrogenoPane").style.zIndex = 200;
+  
+  map.createPane("fosforoOlsenPane");
+  map.getPane("fosforoOlsenPane").style.zIndex = 200;
+  
+  map.createPane("humedadSaturacionPane");
+  map.getPane("humedadSaturacionPane").style.zIndex = 200;
 
   map.createPane("catastroPane");
-  map.getPane("catastroPane").style.zIndex = 430;
+  map.getPane("catastroPane").style.zIndex = 510;
 
   // ══════════════════════════════════════════════════════════════════
-  // 📌 CREACIÓN AUTOMÁTICA DE PANES PARA MAPA DE CULTIVOS
+  // CREACIÓN AUTOMÁTICA DE PANES PARA MAPA DE CULTIVOS
   // ══════════════════════════════════════════════════════════════════
-  // ✅ Para añadir un nuevo año, solo tienes que modificar el array en el script al final
+  // Para añadir nuevo año, meter el año en cultivosYears, en principio ya no hay mas?
   
   // Configuración de años (se genera automáticamente desde cylYearsConfig)
   const cultivosYears = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016' , '2015', '2014', '2013', '2012'];
-  let zIndexBase = 300;
+  // z-index base: 550+ para que estén sobre capas de suelos (500) pero bajo recintos (700+)
+  let zIndexBase = 590;
   
   cultivosYears.forEach(year => {
     const paneName = `cultivos${year}`;
@@ -1737,6 +1695,14 @@ if (btnDelete) {
 
       // Marcar visualmente la selección - CON PRIORIDAD DE SUELOS
       layer.on("click", async function (e) {
+        // ✅ SI ESTAMOS EN MODO DIBUJO, NO HACER NADA
+        if (typeof rectangleDrawer !== 'undefined' && rectangleDrawer && rectangleDrawer._enabled) {
+          return;
+        }
+        if (typeof polygonDrawer !== 'undefined' && polygonDrawer && polygonDrawer._enabled) {
+          return;
+        }
+        
         if (suelosActivos && map.getZoom() >= 13) {
           const latlng = e.latlng;
           try {
@@ -2055,6 +2021,9 @@ function actualizarNdviPanel() {
     style: () => MIS_RECINTO_STYLE,
     onEachFeature: function (feature, layer) {
       layer.on("click", async function (e) {
+        // ✅ SI ESTAMOS EN MODO DIBUJO, NO HACER NADA
+        if (modoEdicion) return;
+        
         try { L.DomEvent.stop(e); } catch (_) {}
 
         // ⭐ PRIORIDAD 1: Si suelos están activos, verificar primero si hay suelo
@@ -2208,7 +2177,7 @@ function actualizarNdviPanel() {
     tiled: true,
     pane: "catastroPane",
     maxZoom: 22,
-    interactive: false  // No capturar eventos de clic
+    interactive: false 
   });
 
   const cultivosSigpacLayer = L.tileLayer.wms(GEOSERVER_WMS, {
@@ -2219,10 +2188,124 @@ function actualizarNdviPanel() {
     tiled: true,
     pane: "cultivosSigpacPane",
     maxZoom: 22,
-    interactive: false  // No capturar eventos de clic
+    interactive: false  // No capturar eventos de cli
   });
 
 
+  const capacidadCampoLayer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:Capacidad_de_campo", 
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    pane: "capacidadCampoPane",
+    minZoom: 8,
+    maxZoom: 22,
+    interactive: false  
+  });
+
+  const capacidadRetencionLayer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:Capacidad_retencion_agua", 
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    pane: "capacidadRetencionPane",
+    minZoom: 8,
+    maxZoom: 22,
+    interactive: false  
+  });
+
+  const clasificacionTexturalLayer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:Clasificacion_textural", 
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    pane: "clasificacionTexturalPane",
+    minZoom: 8,
+    maxZoom: 22,
+    interactive: false  
+  });
+
+  const contenidoArcillaLayer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:Contenido_arcilla", 
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    pane: "contenidoArcillaPane",
+    minZoom: 8,
+    maxZoom: 22,
+    interactive: false  
+  });
+
+  const contenidoArenaLayer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:Contenido_arena", 
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    pane: "contenidoArenaPane",
+    minZoom: 8,
+    maxZoom: 22,
+    interactive: false  
+  });
+
+  const contenidoLimoLayer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:Contenido_lima", 
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    pane: "contenidoLimoPane",
+    minZoom: 8,
+    maxZoom: 22,
+    interactive: false  
+  });
+
+  const materiaOrganicaLayer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:Contenido_materia_organica", 
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    pane: "materiaOrganicaPane",
+    minZoom: 8,
+    maxZoom: 22,
+    interactive: false  
+  });
+
+  const nitrogenoLayer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:Contenido_nitratos_agua", 
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    pane: "nitrogenoPane",
+    minZoom: 8,
+    maxZoom: 22,
+    interactive: false  
+  });
+
+  const fosforoOlsenLayer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:Nivel_fosforo", 
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    pane: "fosforoOlsenPane",
+    minZoom: 8,
+    maxZoom: 22,
+    interactive: false  
+  });
+
+  const humedadSaturacionLayer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:Humedad_de_saturacion", 
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    pane: "humedadSaturacionPane",
+    minZoom: 8,
+    maxZoom: 22,
+    interactive: false  
+  });
+
+
+  
+
+  // Ahora esta quitado, no se usa ( ni creo que se use nunca, borrar?)
   const suelosLayer = L.tileLayer.wms(GEOSERVER_WMS, {
     layers: "ne:PtosMuestrasSuelosCyL_Etrs89_H30",  
     styles: "suelos",
@@ -2231,8 +2314,24 @@ function actualizarNdviPanel() {
     tiled: true,
     pane: "suelosPane",
     maxZoom: 20,
-    interactive: false  // No capturar eventos de clic, usamos el evento del mapa
+    interactive: false 
   });
+
+
+
+  // Leyendas suelos
+  const leyendaCapacidadCampo = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Capacidad_de_campo`;
+  const leyendaCapacidadRetencionAgua = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Capacidad_retencion_agua`;
+  const leyendaClasificacionTextural = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Clasificacion_textural`;
+  const leyendaContenidoArcilla = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Contenido_arcilla`;
+  const leyendaContenidoArena = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Contenido_arena`;
+  const leyendaContenidoLimo = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Contenido_lima`;
+  const leyendaContenidoMateriaOrganica = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Contenido_materia_organica`;
+  const leyendaContenidoNitrogeno = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Contenido_nitratos_agua`;
+  const leyendaFosforo = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Nivel_fosforo`;
+  const leyendaHumedadSaturacion = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Humedad_de_saturacion`;
+
+
 
 
 
@@ -2267,6 +2366,113 @@ function actualizarNdviPanel() {
 
     if (!map.hasLayer(suelosLayer)) suelosLayer.addTo(map);
 }
+
+  // === NUEVAS CAPAS DE SUELOS CON SISTEMA DE ACTIVACIÓN ===
+  let capasActivasSuelos = {
+    capacidadCampo: false,
+    capacidadRetencion: false,
+    clasificacionTextural: false,
+    contenidoArcilla: false,
+    contenidoArena: false,
+    contenidoLimo: false,
+    materiaOrganica: false,
+    nitrogeno: false,
+    fosforoOlsen: false,
+    humedadSaturacion: false
+  };
+
+  const capasMapeoSuelos = {
+    capacidadCampo: { layer: capacidadCampoLayer, leyenda: leyendaCapacidadCampo, pane: 'capacidadCampoPane' },
+    capacidadRetencion: { layer: capacidadRetencionLayer, leyenda: leyendaCapacidadRetencionAgua, pane: 'capacidadRetencionPane' },
+    clasificacionTextural: { layer: clasificacionTexturalLayer, leyenda: leyendaClasificacionTextural, pane: 'clasificacionTexturalPane' },
+    contenidoArcilla: { layer: contenidoArcillaLayer, leyenda: leyendaContenidoArcilla, pane: 'contenidoArcillaPane' },
+    contenidoArena: { layer: contenidoArenaLayer, leyenda: leyendaContenidoArena, pane: 'contenidoArenaPane' },
+    contenidoLimo: { layer: contenidoLimoLayer, leyenda: leyendaContenidoLimo, pane: 'contenidoLimoPane' },
+    materiaOrganica: { layer: materiaOrganicaLayer, leyenda: leyendaContenidoMateriaOrganica, pane: 'materiaOrganicaPane' },
+    nitrogeno: { layer: nitrogenoLayer, leyenda: leyendaContenidoNitrogeno, pane: 'nitrogenoPane' },
+    fosforoOlsen: { layer: fosforoOlsenLayer, leyenda: leyendaFosforo, pane: 'fosforoOlsenPane' },
+    humedadSaturacion: { layer: humedadSaturacionLayer, leyenda: leyendaHumedadSaturacion, pane: 'humedadSaturacionPane' }
+  };
+
+  // z-index dinámico de suelos: empieza en 200, sube hasta ~210
+  // siempre por debajo de catastro (510) y cultivos (590+)
+  let currentMaxZIndex = 200;
+
+  function cargarCapaSueloSiProcede(capaNombre) {
+    const z = map.getZoom();
+    const capaData = capasMapeoSuelos[capaNombre];
+    
+    if (!capaData || !capasActivasSuelos[capaNombre]) {
+      if (capaData && map.hasLayer(capaData.layer)) {
+        map.removeLayer(capaData.layer);
+      }
+      return;
+    }
+
+    if (!map.hasLayer(capaData.layer)) {
+      capaData.layer.addTo(map);
+    }
+  }
+
+  function mostrarLeyendaSuelo(capaNombre) {
+    const capaData = capasMapeoSuelos[capaNombre];
+    if (!capaData) return;
+
+    const leyendaDiv = document.getElementById(`leyenda-${capaNombre}`);
+    const leyendasContainer = document.getElementById('leyendas-suelos-container');
+    
+    if (leyendaDiv && leyendasContainer) {
+      const img = leyendaDiv.querySelector('.leyenda-img');
+      if (img) {
+        img.src = capaData.leyenda;
+      }
+      leyendaDiv.style.display = 'block';
+      leyendasContainer.style.display = 'block';
+      
+      // ✅ MOVER LA LEYENDA AL PRINCIPIO (después del header "Leyendas Activas")
+      // El header es el primer div hijo del contenedor
+      const header = leyendasContainer.firstElementChild;
+      if (header) {
+        // Insertar justo después del header (la leyenda se mueve automáticamente)
+        header.after(leyendaDiv);
+      }
+    }
+  }
+
+  function ocultarLeyendaSuelo(capaNombre) {
+    const leyendaDiv = document.getElementById(`leyenda-${capaNombre}`);
+    if (leyendaDiv) {
+      leyendaDiv.style.display = 'none';
+      
+      // Ocultar contenedor si no hay leyendas activas
+      const todasOcultas = Object.keys(capasActivasSuelos).every(key => !capasActivasSuelos[key]);
+      if (todasOcultas) {
+        const leyendasContainer = document.getElementById('leyendas-suelos-container');
+        if (leyendasContainer) {
+          leyendasContainer.style.display = 'none';
+        }
+      }
+    }
+  }
+
+  function ponerCapaArriba(capaNombre) {
+    const capaData = capasMapeoSuelos[capaNombre];
+    if (!capaData || !capaData.pane) return;
+    
+    // Incrementar el z-index máximo y asignarlo a esta capa
+    currentMaxZIndex++;
+    const pane = map.getPane(capaData.pane);
+    if (pane) {
+      pane.style.zIndex = currentMaxZIndex;
+    }
+  }
+
+  function cargarTodasCapasSuelosSiProcede() {
+    Object.keys(capasActivasSuelos).forEach(capaNombre => {
+      cargarCapaSueloSiProcede(capaNombre);
+    });
+  }
+
 
   // Funciones auxiliares para popups
   function fmt(v, fallback = "-") {
@@ -2887,6 +3093,9 @@ function actualizarNdviPanel() {
   // -----------------------------------------
   // 6) Actualizar mapa según zoom
   // -----------------------------------------
+  // Declarado aquí (antes de actualizarMapaSegunZoom) para evitar ReferenceError con let
+  let modoEdicion = false;
+
   function actualizarMapaSegunZoom() {
     const z = map.getZoom();
     const activeHighLayer = getActiveHighLayer();
@@ -2905,6 +3114,12 @@ function actualizarNdviPanel() {
       if (activeHighLayer && !map.hasLayer(activeHighLayer)) {
         activeHighLayer.addTo(map);
       }
+
+      // Mostrar botón de dibujo solo cuando los recintos son visibles
+      if (!modoEdicion) {
+  const editBtn = document.getElementById('editar-btn');
+  if (editBtn) editBtn.disabled = false;
+}
     } else {
       Object.values(highZoomLayers).forEach((layer) => {
         if (layer && map.hasLayer(layer)) {
@@ -2917,6 +3132,16 @@ function actualizarNdviPanel() {
       }
 
       recintosLayer.clearLayers();
+
+      // Ocultar botón de dibujo cuando no hay recintos visibles
+      const editBtn = document.getElementById('editar-btn');
+if (editBtn) editBtn.disabled = true;
+
+      // Si estaba en modo edición, cancelar automáticamente
+      if (modoEdicion) {
+        const cancelarBtn = document.getElementById('cancelar-btn');
+        if (cancelarBtn) cancelarBtn.click();
+      }
     }
   }
 
@@ -2954,6 +3179,7 @@ function actualizarNdviPanel() {
     cargarParcelasCatastroSiProcede();
     cargarCultivosSigpacSiProcede();
     cargarSuelosSiProcede();
+    cargarTodasCapasSuelosSiProcede();
     cargarTodasCyLSiProcede();
     if (splitOpen && currentSideRecintoId) {
     guardarEstadoMapa();
@@ -2966,6 +3192,7 @@ function actualizarNdviPanel() {
     cargarParcelasCatastroSiProcede();
     cargarCultivosSigpacSiProcede();
     cargarSuelosSiProcede();
+    cargarTodasCapasSuelosSiProcede();
     cargarTodasCyLSiProcede();
   });
 
@@ -2975,6 +3202,7 @@ function actualizarNdviPanel() {
   cargarParcelasCatastroSiProcede();
   cargarCultivosSigpacSiProcede();
   cargarSuelosSiProcede();
+  cargarTodasCapasSuelosSiProcede();
   cargarTodasCyLSiProcede();
 
   // -----------------------------------------
@@ -3130,6 +3358,62 @@ function actualizarNdviPanel() {
         }
       });
     }
+  });
+
+  // === EVENT LISTENERS PARA CAPAS DE SUELOS ===
+  // Historial de activación: el último elemento es la capa más recientemente activada
+  const historialActivacionSuelos = [];
+
+  document.querySelectorAll('input[type="checkbox"][data-detail]').forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+      const capaNombre = this.dataset.detail;
+      
+      if (!capasMapeoSuelos[capaNombre]) return;
+      
+      capasActivasSuelos[capaNombre] = this.checked;
+      
+      if (this.checked) {
+        // Quitar borde verde de todas las otras capas
+        document.querySelectorAll('.soil-checkbox-label').forEach(label => {
+          label.classList.remove('active-layer');
+        });
+        
+        // Agregar borde verde a esta capa (la última activada)
+        this.closest('.soil-checkbox-label').classList.add('active-layer');
+        
+        // Registrar en el historial (evitar duplicados)
+        const idx = historialActivacionSuelos.indexOf(capaNombre);
+        if (idx !== -1) historialActivacionSuelos.splice(idx, 1);
+        historialActivacionSuelos.push(capaNombre);
+        
+        // Poner la capa arriba en el orden de z-index
+        ponerCapaArriba(capaNombre);
+        cargarCapaSueloSiProcede(capaNombre);
+        mostrarLeyendaSuelo(capaNombre);
+      } else {
+        // Quitar borde verde al desactivar
+        this.closest('.soil-checkbox-label').classList.remove('active-layer');
+        
+        // Eliminar del historial
+        const idx = historialActivacionSuelos.indexOf(capaNombre);
+        if (idx !== -1) historialActivacionSuelos.splice(idx, 1);
+        
+        const capaData = capasMapeoSuelos[capaNombre];
+        if (capaData && map.hasLayer(capaData.layer)) {
+          map.removeLayer(capaData.layer);
+        }
+        ocultarLeyendaSuelo(capaNombre);
+        
+        // ✅ ASIGNAR BORDE VERDE A LA CAPA ACTIVADA MÁS RECIENTEMENTE
+        if (historialActivacionSuelos.length > 0) {
+          const ultimaCapaActiva = historialActivacionSuelos[historialActivacionSuelos.length - 1];
+          const checkboxUltima = document.querySelector(`input[data-detail="${ultimaCapaActiva}"]`);
+          if (checkboxUltima) {
+            checkboxUltima.closest('.soil-checkbox-label').classList.add('active-layer');
+          }
+        }
+      }
+    });
   });
 
   // Funciones para activar/desactivar detalles de los toggles
@@ -3445,17 +3729,28 @@ if (recintoData) {
  let rectangleDrawer = null;
   let polygonDrawer = null;
   let dibujosTemporales = [];
-  let modoEdicion = false;
 
-  // Función para deshabilitar/habilitar interacción con recintos
+  // Función para deshabilitar/habilitar interacción con recintos durante el dibujo.
+  // Usar pointer-events: none en los panes garantiza que Leaflet.Draw recibe
+  // todos los clicks del mapa sin que los polígonos de recintos los intercepten.
   function toggleInteraccionRecintos(enabled) {
+    const sigpacP = map.getPane('sigpacPane');
+    const misP    = map.getPane('misPane');
+
     if (enabled) {
-      // Reactivar popups
+      // Restaurar z-index originales
+      if (sigpacP) sigpacP.style.zIndex = '700';
+      if (misP)    misP.style.zIndex    = '800';
+      // Restaurar popups de recintos SIGPAC
       recintosLayer.eachLayer(layer => {
         if (layer._popup) layer.bindPopup(layer._popup);
       });
     } else {
-      // Desactivar popups
+      // Bajar z-index por debajo del overlayPane de Leaflet.Draw (400)
+      // para que los paths SVG no intercepten los clicks del dibujador
+      if (sigpacP) sigpacP.style.zIndex = '200';
+      if (misP)    misP.style.zIndex    = '200';
+      // Desactivar popups de recintos SIGPAC
       recintosLayer.eachLayer(layer => layer.unbindPopup());
     }
   }
@@ -4318,128 +4613,12 @@ dibujosGuardadosLayer.on('click', function(e) {
   });
 </script>
 <script src="{{ url_for('static', filename='js/visor/visor-cultivos.js') }}"></script>
+
 <script src="{{ url_for('static', filename='js/visor/visor-operaciones.js') }}"></script>
 
-<script>
-(function () {
-  // 👇 CONFIGURA AQUÍ LOS AÑOS (del más reciente al más antiguo)
-  const years = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016' , '2015', '2014', '2013', '2012'];
-  // ══════════════════════════════════════════════════════════════════
-  
-  const container = document.getElementById('mapa-cultivos-panel');
-  
-  if (!container) return;
-
-  // Generar HTML para cada año
-  years.forEach(year => {
-    const div = document.createElement('div');
-    div.style.cssText = 'padding: 10px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;';
-    div.innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-        <span style="font-weight: 600;">MCSNCyL ${year}</span>
-        <button class="btn btn-sm btn-outline-secondary" id="btn-mcsncyl-${year}" data-year="${year}" data-active="false" style="border: none; padding: 4px 8px;">
-          <i class="bi bi-eye-slash" style="font-size: 1.1rem;" title="Mostrar capa"></i>
-        </button>
-      </div>
-      <div id="legend-mcsncyl-${year}" class="d-none mt-2"></div>
-    `;
-    container.appendChild(div);
-  });
-
-  // Manejar eventos
-  let topZIndex = 300; // zIndex inicial para la primera capa activada
-  
-  years.forEach(year => {
-    const btn = document.getElementById(`btn-mcsncyl-${year}`);
-    if (!btn) return;
-
-    btn.addEventListener("click", async () => {
-      const isActive = btn.getAttribute('data-active') === 'true';
-      const legendContainer = document.getElementById(`legend-mcsncyl-${year}`);
-
-      if (!isActive) {
-        // ACTIVAR capa
-        btn.setAttribute('data-active', 'true');
-        btn.classList.remove('btn-outline-secondary');
-        btn.classList.add('btn-primary');
-        btn.innerHTML = '<i class="bi bi-eye-fill" style="font-size: 1.1rem;" title="Ocultar capa"></i>';
-        
-        // Mostrar leyenda
-        if (legendContainer && window.MCSNCYL_LEGEND) {
-          legendContainer.classList.remove('d-none');
-          await window.MCSNCYL_LEGEND.show(parseInt(year), `legend-mcsncyl-${year}`);
-        }
-
-        // Activar la capa en cylLayersData
-        if (window.cylLayersData && window.cylLayersData[year]) {
-          window.cylLayersData[year].active = true;
-          
-          // Poner esta capa por encima de las demás 
-          topZIndex++;
-          const paneName = `cultivos${year}`;
-          const pane = map.getPane(paneName);
-          if (pane) {
-            pane.style.zIndex = topZIndex;
-          }
-          
-          // Cargar la capa en el mapa
-          cargarCyLSiProcede(parseInt(year));
-        }
-        
-      } else {
-        // DESACTIVAR capa
-        btn.setAttribute('data-active', 'false');
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-outline-secondary');
-        btn.innerHTML = '<i class="bi bi-eye-slash" style="font-size: 1.1rem;"></i>';
-        
-        // Ocultar leyenda
-        if (legendContainer && window.MCSNCYL_LEGEND) {
-          legendContainer.classList.add('d-none');
-          window.MCSNCYL_LEGEND.hide(`legend-mcsncyl-${year}`);
-        }
-
-        // Desactivar la capa en cylLayersData
-        if (window.cylLayersData && window.cylLayersData[year]) {
-          window.cylLayersData[year].active = false;
-          
-          // Quitar la capa del mapa
-          cargarCyLSiProcede(parseInt(year));
-        }
-      }
-    });
-  });
-})();
 
 
+<script src="{{ url_for('static', filename='js/visor/visor-panel.js') }}"></script>
 
-// Toggle Detalles Adicionales
-document.getElementById('toggle-detalles-adicionales').addEventListener('click', function() {
-  const contenido = document.getElementById('contenido-detalles-adicionales');
-  const icono = document.getElementById('icon-detalles-adicionales');
-  
-  if (contenido.style.display === 'none' || contenido.style.display === '') {
-    contenido.style.display = 'block';
-    icono.style.transform = 'rotate(180deg)';
-  } else {
-    contenido.style.display = 'none';
-    icono.style.transform = 'rotate(0deg)';
-  }
-});
-
-// Toggle Mapa de Cultivos
-document.getElementById('toggle-mapa-cultivos').addEventListener('click', function() {
-  const panel = document.getElementById('mapa-cultivos-panel');
-  const icono = document.getElementById('icon-mapa-cultivos');
-  
-  if (panel.style.display === 'none' || panel.style.display === '') {
-    panel.style.display = 'flex';
-    icono.style.transform = 'rotate(180deg)';
-  } else {
-    panel.style.display = 'none';
-    icono.style.transform = 'rotate(0deg)';
-  }
-});
-</script>
 
 {% endblock %}
