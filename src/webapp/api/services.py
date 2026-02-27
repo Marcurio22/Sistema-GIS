@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from flask import current_app
-from sqlalchemy import text, true
+from sqlalchemy import text
 from .. import db
 import requests
 import json
@@ -24,6 +24,7 @@ def recintos_geojson(bbox_str: str | None) -> dict:
         raise ValueError(f"Formato de bbox no válido: {bbox_str!r}")
 
     cfg = current_app.config
+    # .env supongo
     wfs_url = cfg.get("GEOSERVER_WFS_URL", "http://100.102.237.86:8080/geoserver/wfs")
     type_name = cfg.get("GEOSERVER_RECINTOS_TYPENAME", "gis_project:recintos_con_propietario")
     gs_user = cfg.get("GEOSERVER_USER")
@@ -184,9 +185,7 @@ def mis_recinto_detalle(id_recinto: int, user_id: int) -> dict:
         "centroid_lng": float(row["centroid_lng"]) if row["centroid_lng"] is not None else None
     }
 
-# ---------------------------
 # Visor: vista inicial por usuario
-# ---------------------------
 
 def visor_start_view_usuario(user_id: int) -> dict | None:
     """Calcula la vista inicial recomendada para el visor del usuario.
@@ -269,9 +268,7 @@ def visor_start_view_usuario(user_id: int) -> dict | None:
         "zoom_sugerido": 13,
     }
 
-# ---------------------------
 # Catálogos
-# ---------------------------
 
 def catalogo_usos_sigpac() -> list[dict]:
     sql = text("""
@@ -362,9 +359,7 @@ def catalogo_operaciones_item(
 
     return dict(row) if row else None
 
-# ---------------------------
 # Helpers sistema_cultivo
-# ---------------------------
 def _extract_sistema_cultivo_codigo(data: dict) -> str | None:
     """
     Acepta:
@@ -762,9 +757,7 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     merged["sistema_cultivo_codigo"] = _extract_sistema_cultivo_codigo(merged)
     merged["avanzado"] = _normalize_avanzado(merged.get("avanzado")) or {}
 
-    # ============================================
-    # NUEVA LÓGICA: Crear variedad si es nueva
-    # ============================================
+    # Crear variedad si es nueva
     variedad_nombre = merged.get("variedad", "").strip() if merged.get("variedad") else None
     cod_producto = merged.get("cod_producto")
     
@@ -896,7 +889,7 @@ def delete_cultivo_by_id(id_cultivo: int, user_id: int) -> bool:
     if not row:
         return False
 
-    # --- BLOQUEO: no permitir borrar el cultivo actual desde /cultivos/<id> ---
+    # no permitir borrar el cultivo actual desde /cultivos/<id> ---
     cur = get_cultivo_recinto(row["id_recinto"])
     if cur and int(cur["id_cultivo"]) == int(id_cultivo):
         raise ValueError("No puedes borrar el cultivo actual desde el histórico. Hazlo desde la página principal del cultivo.")
@@ -995,9 +988,7 @@ def patch_cultivo_by_id(id_cultivo: int, user_id: int, data: dict) -> dict:
 
     return get_cultivo_by_id(id_cultivo, user_id)
 
-# ---------------------------
 # Operaciones
-# ---------------------------
 def _parse_date_iso(v) -> date | None:
     if not v:
         return None
@@ -1193,7 +1184,6 @@ def patch_operacion_by_id(id_operacion: int, user_id: int, payload: dict) -> dic
     })
 
     db.session.commit()
-
     row = db.session.execute(text("""
         SELECT
             o.id_operacion, o.id_recinto, t.codigo AS tipo, o.fecha, o.descripcion, o.detalle, o.meta, o.created_at, o.updated_at

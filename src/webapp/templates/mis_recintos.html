@@ -410,7 +410,10 @@
                             </div>
                         </div>
                         <div class="card-body">
-                            <canvas id="chartNDVI" height="80"></canvas>
+                           <div id="tooltip-fijo-container"></div>
+                            <div id="chartNDVI-wrapper">
+                                <canvas id="chartNDVI"></canvas>
+                            </div>
                             <div class="text-center mt-2">
                                 <small class="text-muted">
                                     <i class="bi bi-hand-index"></i> Haz clic sobre el gráfico para ver los datos de una fecha específica
@@ -442,8 +445,7 @@
                                     </tbody>
                                 </table>
                             </div>
-                        </div>
-                    </div>
+                     </div>
                 </div>
 
                 <div id="errorComparacion" class="alert alert-danger d-none">
@@ -454,9 +456,24 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                     <i class="bi bi-x-lg"></i> Cerrar
                 </button>
-                <button type="button" class="btn btn-success" id="btnExportarComparacion">
-                    <i class="bi bi-download"></i> Exportar datos
-                </button>
+                <!-- CAMBIO: botón exportar reemplazado por dropdown -->
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-download"></i> Exportar
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item" href="#" id="exportarNDVI_Grafico">
+                                <i class="bi bi-image text-primary me-2"></i>Exportar gráfico (PNG)
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="#" id="exportarNDVI_Excel">
+                                <i class="bi bi-file-earmark-excel text-success me-2"></i>Exportar datos (Excel)
+                            </a>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
@@ -465,9 +482,13 @@
 {% block extra_js %}
 <!-- Chart.js para gráficos -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<!-- Adapter de fechas para Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <!-- jsPDF para exportar PDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<!-- SheetJS para exportar Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
     /* Estilos para evitar desplazamiento de la tabla */
@@ -679,68 +700,8 @@
     /* Responsive para tooltip fijo en móvil */
     @media (max-width: 768px) {
         #tooltip-fijo-container > div {
-            padding: 10px 12px !important;
-            font-size: 0.85rem;
-        }
-        
-        #tooltip-fijo-container > div > div:first-child {
-            font-size: 0.9rem !important;
-            margin-bottom: 10px !important;
-        }
-        
-        #tooltip-fijo-container > div > div:nth-child(2) {
-            grid-template-columns: 1fr !important;
-            gap: 8px !important;
-        }
-        
-        #tooltip-fijo-container > div > div:nth-child(2) > div {
-            padding: 6px 10px !important;
-            font-size: 0.75rem !important;
-        }
-        
-        #tooltip-fijo-container > div > div:nth-child(2) > div > div:first-child {
-            font-size: 0.7rem !important;
-        }
-        
-        #tooltip-fijo-container > div > div:nth-child(2) > div > div:last-child {
-            font-size: 0.7rem !important;
-        }
-        
-        #tooltip-fijo-container button {
-            width: 20px !important;
-            height: 20px !important;
-            font-size: 14px !important;
-            top: 6px !important;
-            right: 8px !important;
-        }
-    }
-    
-    @media (max-width: 576px) {
-        #tooltip-fijo-container > div {
-            padding: 8px 10px !important;
+            padding: 8px 12px !important;
             font-size: 0.8rem;
-            border-radius: 8px !important;
-        }
-        
-        #tooltip-fijo-container > div > div:first-child {
-            font-size: 0.85rem !important;
-            margin-bottom: 8px !important;
-            padding-bottom: 6px !important;
-        }
-        
-        #tooltip-fijo-container > div > div:nth-child(2) {
-            gap: 6px !important;
-        }
-        
-        #tooltip-fijo-container > div > div:nth-child(2) > div {
-            padding: 5px 8px !important;
-            font-size: 0.7rem !important;
-        }
-        
-        #tooltip-fijo-container > div > div:nth-child(2) > div > span {
-            width: 10px !important;
-            height: 10px !important;
-            margin-right: 8px !important;
         }
     }
 </style>
@@ -763,21 +724,7 @@
         }, 3000);
     }
 
-    // Función global para cerrar el tooltip fijo
-    window.cerrarTooltipFijo = function() {
-        const tooltipContainer = document.getElementById('tooltip-fijo-container');
-        if (tooltipContainer) {
-            tooltipContainer.innerHTML = '';
-        }
-        
-        // Limpiar fecha seleccionada y actualizar gráfico
-        if (typeof fechaSeleccionada !== 'undefined') {
-            fechaSeleccionada = null;
-            if (chartNDVI) {
-                chartNDVI.update();
-            }
-        }
-    };
+    
 
     
 
@@ -785,6 +732,12 @@
 
     $(document).ready(function () {
 
+        window.cerrarTooltipFijo = function() {
+    const tooltipContainer = document.getElementById('tooltip-fijo-container');
+    if (tooltipContainer) tooltipContainer.innerHTML = '';
+    fechaSeleccionada = null;
+    if (chartNDVI) chartNDVI.update();
+};
 
         if (typeof Chart === 'undefined') {
             return;
@@ -1032,7 +985,7 @@
             Object.keys(datos).forEach((recintoId) => {
                 datos[recintoId].mediciones.forEach(m => {
                     if (m.fecha_ndvi) {
-                        const fecha = new Date(m.fecha_ndvi);
+                        const fecha = new Date(m.fecha_ndvi + 'T12:00:00');
                         if (!fechaMasReciente || fecha > fechaMasReciente) {
                             fechaMasReciente = fecha;
                         }
@@ -1071,6 +1024,36 @@
             actualizarControlesNavegacion();
         }
 
+        // Helper: resta N meses a una fecha operando siempre en UTC
+        function restarMesesUTC(fecha, meses) {
+            const d = new Date(fecha);
+            const anio = d.getUTCFullYear();
+            const mes  = d.getUTCMonth() - meses;
+            const dia  = d.getUTCDate();
+            return new Date(Date.UTC(anio, mes, dia));
+        }
+
+        // Calcula el rango visible sin solapamientos entre períodos.
+        // Cuando navegamos atrás, el límite superior (fechaFin) es 1 día antes
+        // del inicio del período siguiente, evitando que la misma fecha aparezca
+        // en dos ventanas distintas.
+        function calcularRangoVisible() {
+            let fechaFin;
+            if (offsetMeses === 0) {
+                fechaFin = new Date(Date.UTC(
+                    fechaMasReciente.getUTCFullYear(),
+                    fechaMasReciente.getUTCMonth(),
+                    fechaMasReciente.getUTCDate()
+                ));
+           } else {
+                // Retroceder offsetMeses desde la fecha más reciente, luego -1 día para no solapar
+                const fechaFinBase = restarMesesUTC(fechaMasReciente, offsetMeses);
+                fechaFin = new Date(fechaFinBase.getTime() - 86400000);
+            }
+            const fechaInicio = restarMesesUTC(fechaFin, mesesAMostrar);
+            return { fechaInicio, fechaFin };
+        }
+
         function actualizarGrafico() {
             if (!datosCompletos || !fechaMasReciente) return;
 
@@ -1081,16 +1064,10 @@
                 chartNDVI.destroy();
             }
 
-            // Calcular rango de fechas a mostrar
-            const fechaFin = new Date(fechaMasReciente);
-            fechaFin.setMonth(fechaFin.getMonth() - offsetMeses);
-
-            const fechaInicio = new Date(fechaFin);
-            fechaInicio.setMonth(fechaInicio.getMonth() - mesesAMostrar);
+            // Calcular rango de fechas a mostrar (sin solapamiento entre períodos)
+            const { fechaInicio, fechaFin } = calcularRangoVisible();
 
             const datasets = [];
-            let minFechaVisible = Infinity;
-            let maxFechaVisible = -Infinity;
 
             // Para cada recinto, filtrar mediciones dentro del rango de fechas + puntos de conexión
             Object.keys(datosCompletos).forEach((recintoId, index) => {
@@ -1101,7 +1078,7 @@
                 // Ordenar todas las mediciones por fecha
                 const todasMediciones = recintoData.mediciones
                     .filter(m => m.fecha_ndvi)
-                    .sort((a, b) => new Date(a.fecha_ndvi) - new Date(b.fecha_ndvi));
+                    .sort((a, b) => new Date(a.fecha_ndvi + 'T00:00:00Z') - new Date(b.fecha_ndvi + 'T00:00:00Z'));
 
                 // Encontrar mediciones en el rango visible y puntos de conexión
                 const medicionesParaGrafico = [];
@@ -1109,7 +1086,7 @@
                 let puntoPosterior = null;
 
                 todasMediciones.forEach((m, idx) => {
-                    const fecha = new Date(m.fecha_ndvi);
+                    const fecha = new Date(m.fecha_ndvi + 'T00:00:00Z');
 
                     if (fecha >= fechaInicio && fecha <= fechaFin) {
                         // Medición dentro del rango visible
@@ -1117,11 +1094,6 @@
                             ...m,
                             esVisible: true
                         });
-
-                        // Actualizar min/max de fechas visibles
-                        const timestamp = fecha.getTime();
-                        if (timestamp < minFechaVisible) minFechaVisible = timestamp;
-                        if (timestamp > maxFechaVisible) maxFechaVisible = timestamp;
 
                         // Si es la primera medición visible y hay una anterior, guardarla
                         if (medicionesParaGrafico.length === 1 && idx > 0) {
@@ -1148,11 +1120,15 @@
 
                 // Convertir a puntos para el gráfico
                 const puntos = medicionesFinales.map(m => {
+                    // Parsear la fecha como hora local (igual que hace el adaptador date-fns)
+                    // para que getPixelForValue reciba el mismo timestamp que usó Chart.js al dibujar
+                    const ts = new Date(m.fecha_ndvi).getTime();
                     return {
-                        x: new Date(m.fecha_ndvi).getTime(),
+                        x: ts,
                         y: m.valor_medio,
                         fecha: m.fecha_ndvi,
-                        esVisible: m.esVisible !== false // true si es visible, false si es punto de conexión
+                        ts: ts,
+                        esVisible: m.esVisible !== false
                     };
                 });
 
@@ -1184,34 +1160,67 @@
                 return;
             }
 
-            // Usar las fechas del rango visible como límites EXACTOS del eje X
-            const minConMargen = fechaInicio.getTime();
-            const maxConMargen = fechaFin.getTime();
-
 
 
             const verticalLinesPlugin = {
                 id: 'verticalLinesPlugin',
-                afterDatasetsDraw(chart, args, pluginOptions) {
+                afterDatasetsDraw(chart) {
                     const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+                    if (!fechaSeleccionada) return;
 
                     ctx.save();
+                    // Usar el mismo timestamp que está almacenado en los puntos del dataset
+                    const ts = new Date(fechaSeleccionada).getTime();
+                    const xPos = x.getPixelForValue(ts);
+                    if (!xPos || isNaN(xPos)) { ctx.restore(); return; }
 
-                    // Dibujar línea vertical solo en la fecha seleccionada
-                    if (fechaSeleccionada) {
-                        const fechaTimestamp = new Date(fechaSeleccionada).getTime();
-                        const xPos = x.getPixelForValue(fechaTimestamp);
+                    ctx.beginPath();
+                    ctx.moveTo(xPos, top);
+                    ctx.lineTo(xPos, bottom);
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = 'rgba(40,40,40,0.55)';
+                    ctx.setLineDash([6, 4]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.restore();
+                }
+            };
 
-                        ctx.beginPath();
-                        ctx.moveTo(xPos, top);
-                        ctx.lineTo(xPos, bottom);
-                        ctx.lineWidth = 2;
-                        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-                        ctx.setLineDash([5, 5]);
-                        ctx.stroke();
-                        ctx.setLineDash([]);
-                    }
-
+            // Plugin: barra de color NDVI vertical a la derecha del área del gráfico
+            const ndviBandsPlugin = {
+                id: 'ndviBandsPlugin',
+                afterDraw(chart) {
+                    const { ctx, chartArea: { left, top, bottom }, scales: { y } } = chart;
+                    // Paleta NDVI completa incluyendo negro para < -0.2
+                    const bands = [
+                        { min: -0.3, max: -0.2, color: '#000000' },
+                        { min: -0.2, max:  0.0, color: '#a50026' },
+                        { min:  0.0, max:  0.1, color: '#d73027' },
+                        { min:  0.1, max:  0.2, color: '#f46d43' },
+                        { min:  0.2, max:  0.3, color: '#fdae61' },
+                        { min:  0.3, max:  0.4, color: '#fee08b' },
+                        { min:  0.4, max:  0.5, color: '#ffffbf' },
+                        { min:  0.5, max:  0.6, color: '#d9ef8b' },
+                        { min:  0.6, max:  0.7, color: '#a6d96a' },
+                        { min:  0.7, max:  0.8, color: '#66bd63' },
+                        { min:  0.8, max:  0.9, color: '#1a9850' },
+                        { min:  0.9, max:  1.0, color: '#006837' },
+                    ];
+                    const barWidth = 10;
+                    const barX = left - 54; // barra a la IZQUIERDA del área del gráfico
+                    ctx.save();
+                    bands.forEach(band => {
+                        const yTop    = Math.max(y.getPixelForValue(band.max), top);
+                        const yBottom = Math.min(y.getPixelForValue(band.min), bottom);
+                        if (yBottom > yTop) {
+                            ctx.fillStyle = band.color;
+                            ctx.fillRect(barX, yTop, barWidth, yBottom - yTop);
+                        }
+                    });
+                    // Borde sutil
+                    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+                    ctx.lineWidth = 0.5;
+                    ctx.strokeRect(barX, top, barWidth, bottom - top);
                     ctx.restore();
                 }
             };
@@ -1220,10 +1229,13 @@
             chartNDVI = new Chart(ctx, {
                 type: 'line',
                 data: { datasets: datasets },
-                plugins: [verticalLinesPlugin],
+                plugins: [ndviBandsPlugin, verticalLinesPlugin],
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    layout: {
+    padding: { left: 50, right: 8 }
+},
                     onClick: function(event, elements) {
                         // Detectar clic en el gráfico
                         const chart = chartNDVI;
@@ -1252,7 +1264,7 @@
                             chart.data.datasets.forEach(dataset => {
                                 dataset.data.forEach(punto => {
                                     if (punto.esVisible) {
-                                        const distancia = Math.abs(punto.x - xValue);
+                                        const distancia = Math.abs(new Date(punto.x).getTime() - xValue);
                                         if (distancia < distanciaMinima) {
                                             distanciaMinima = distancia;
                                             fechaMasCercana = punto.fecha;
@@ -1286,37 +1298,39 @@
                     },
                     scales: {
                         x: {
-                            type: 'linear',
-                            min: minConMargen,
-                            max: maxConMargen,
+                            type: 'time',
+                            min: new Date(fechaInicio.toISOString().split('T')[0]).getTime(),
+                            max: new Date(fechaFin.toISOString().split('T')[0]).getTime(),
+                            time: {
+                                unit: 'month',
+                                tooltipFormat: 'dd/MM/yyyy',
+                                displayFormats: {
+                                    month: 'MMM yyyy'
+                                }
+                            },
                             title: {
                                 display: true,
                                 text: 'Fecha',
-                                font: {
-                                    size: 14,
-                                    weight: 'bold'
-                                }
+                                font: { size: 14, weight: 'bold' }
                             },
-                            grid: {
-                                display: true,
-                                color: 'rgba(0,0,0,0.1)'
-                            },
+                            grid: { display: true, color: 'rgba(0,0,0,0.1)' },
                             ticks: {
-                                maxTicksLimit: 8,
-                                callback: function (value) {
-                                    const fecha = new Date(value);
-                                    return formatearFechaCorta(fecha);
-                                }
+                                autoSkip: true,
+                                maxTicksLimit: mesesAMostrar <= 3 ? 6 : mesesAMostrar <= 6 ? 7 : 13
                             }
                         },
                         y: {
                             title: {
-                                display: true,
-                                text: 'Índice NDVI',
-                                font: {
-                                    size: 14,
-                                    weight: 'bold'
-                                }
+                            display: true,
+                            text: 'Índice NDVI',
+                            align: 'center',    
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            },
+                            padding: {     
+                                bottom: 20
+                            }
                             },
                             beginAtZero: false,
                             min: -0.2,
@@ -1352,20 +1366,9 @@
             if (!fechaActual || !datosCompletos) return;
 
             // Buscar o crear el contenedor del tooltip fijo
-            let tooltipContainer = document.getElementById('tooltip-fijo-container');
-            if (!tooltipContainer) {
-                tooltipContainer = document.createElement('div');
-                tooltipContainer.id = 'tooltip-fijo-container';
-                tooltipContainer.style.position = 'relative';
-                tooltipContainer.style.width = '100%';
-                tooltipContainer.style.marginBottom = '15px';
-                
-                // Insertar antes del canvas
-                const chartCard = document.querySelector('#chartNDVI').closest('.card-body');
-                chartCard.insertBefore(tooltipContainer, chartCard.firstChild);
-            }
+            const tooltipContainer = document.getElementById('tooltip-fijo-container');
 
-            const fechaFormateada = formatearFechaLarga(new Date(fechaActual));
+            const fechaFormateada = formatearFechaLarga(new Date(fechaActual + 'T00:00:00Z'));
             let recintosEnFecha = [];
 
             Object.keys(datosCompletos).forEach((recintoId, idx) => {
@@ -1390,85 +1393,77 @@
                 return 0;
             });
 
-            // Crear HTML del tooltip
-            let html = `
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                            border-radius: 12px; 
-                            padding: 16px 20px; 
-                            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-                            color: white;
-                            position: relative;">
-                    <button onclick="cerrarTooltipFijo()" 
-                            style="position: absolute; 
-                                   top: 8px; 
-                                   right: 12px; 
-                                   background: rgba(255,255,255,0.2); 
-                                   border: none; 
-                                   color: white; 
-                                   width: 24px; 
-                                   height: 24px; 
-                                   border-radius: 50%; 
-                                   cursor: pointer;
-                                   font-size: 16px;
-                                   line-height: 1;
-                                   display: flex;
-                                   align-items: center;
-                                   justify-content: center;
-                                   transition: all 0.2s;
-                                   z-index: 10;"
-                            onmouseover="this.style.background='rgba(255,255,255,0.3)'"
-                            onmouseout="this.style.background='rgba(255,255,255,0.2)'"
-                            ontouchstart="this.style.background='rgba(255,255,255,0.3)'"
-                            ontouchend="this.style.background='rgba(255,255,255,0.2)'">×</button>
-                    
-                    <div style="font-weight: bold; 
-                                font-size: 16px; 
-                                margin-bottom: 12px; 
-                                padding-bottom: 8px; 
-                                padding-right: 30px;
-                                border-bottom: 2px solid rgba(255,255,255,0.3);">
-                        📅 ${fechaFormateada}
-                    </div>
-                    
-                    <div style="display: grid; 
-                                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); 
-                                gap: 10px;">
-            `;
+            // Devuelve el color NDVI para un valor
+            function getNdviBandColor(valor) {
+                if (valor === null || valor === undefined) return '#888';
+                const bands = [
+                    { min: -0.2, max:  0.0, color: '#a50026' },
+                    { min:  0.0, max:  0.1, color: '#d73027' },
+                    { min:  0.1, max:  0.2, color: '#f46d43' },
+                    { min:  0.2, max:  0.3, color: '#fdae61' },
+                    { min:  0.3, max:  0.4, color: '#fee08b' },
+                    { min:  0.4, max:  0.5, color: '#ffffbf' },
+                    { min:  0.5, max:  0.6, color: '#d9ef8b' },
+                    { min:  0.6, max:  0.7, color: '#a6d96a' },
+                    { min:  0.7, max:  0.8, color: '#66bd63' },
+                    { min:  0.8, max:  0.9, color: '#1a9850' },
+                    { min:  0.9, max:  1.0, color: '#006837' },
+                ];
+                for (let i = bands.length - 1; i >= 0; i--) {
+                    if (valor >= bands[i].min) return bands[i].color;
+                }
+                return '#000000';
+            }
 
-            recintosEnFecha.forEach(recinto => {
-                const opacity = recinto.tieneDato ? '1' : '0.6';
-                const textoValor = recinto.tieneDato
-                    ? `<strong style="font-size: 15px;">NDVI: ${recinto.valor.toFixed(4)}</strong>`
-                    : '<span style="font-style: italic; opacity: 0.7;">Sin medición</span>';
+            // Colores claros que necesitan texto oscuro
+            const NDVI_LIGHT_COLORS = ['#ffffbf','#fee08b','#fdae61','#d9ef8b','#f46d43'];
 
-                html += `
-                    <div style="display: flex; 
-                                align-items: center; 
-                                padding: 8px 12px; 
-                                background: rgba(255,255,255,0.1); 
-                                border-radius: 8px;
-                                opacity: ${opacity};
-                                transition: all 0.2s;">
-                        <span style="display: inline-block; 
-                                     width: 14px; 
-                                     height: 14px; 
-                                     background-color: ${recinto.color}; 
-                                     border-radius: 50%; 
-                                     margin-right: 10px;
-                                     flex-shrink: 0;
-                                     box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
-                        <div style="flex: 1; min-width: 0;">
-                            <div style="font-size: 13px; margin-bottom: 2px; font-weight: 500;">${recinto.label}</div>
-                            <div style="font-size: 12px;">${textoValor}</div>
+            // Items del grid (4-5 por fila)
+            const gridItems = recintosEnFecha.map(r => {
+                const ndviColor = r.tieneDato ? getNdviBandColor(r.valor) : '#ccc';
+                const textColor = r.tieneDato && NDVI_LIGHT_COLORS.includes(ndviColor) ? '#555' : ndviColor;
+                const valStr = r.tieneDato ? r.valor.toFixed(4) : '—';
+                const valColor = r.tieneDato ? textColor : '#ccc';
+                return `
+                    <div style="display:grid;grid-template-columns:auto 1fr auto;align-items:center;
+                                column-gap:8px;padding:6px 10px;
+                                border-radius:6px;border:1px solid #e5e5e5;
+                                background:${r.tieneDato ? '#fff' : '#f8f8f8'};
+                                opacity:${r.tieneDato ? '1' : '0.45'};
+                                flex:1 1 calc(20% - 6px);min-width:140px;">
+                        <span style="width:10px;height:10px;border-radius:50%;
+                                     background:${r.color};display:block;flex-shrink:0;"></span>
+                        <span style="font-size:0.78rem;color:#555;font-weight:500;
+                                     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                              title="${r.label}">${r.label}</span>
+                        <span style="font-weight:700;font-size:0.85rem;color:${valColor};
+                                     white-space:nowrap;text-align:right;">${valStr}</span>
+                    </div>`;
+            }).join('');
+
+            // HTML del tooltip
+            const html = `
+                <div style="background:#fff;border:1.5px solid #b2dfcc;border-radius:10px;
+                            box-shadow:0 4px 16px rgba(0,0,0,0.09);overflow:hidden;">
+                    <div style="background:linear-gradient(135deg,#1b6b3a 0%,#38a169 100%);
+                                padding:8px 14px;display:flex;align-items:center;justify-content:space-between;">
+                        <div style="display:flex;align-items:center;gap:7px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="white" viewBox="0 0 16 16">
+                                <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+                            </svg>
+                            <span style="color:#fff;font-weight:700;font-size:0.88rem;">${fechaFormateada}</span>
                         </div>
+                        <button onclick="cerrarTooltipFijo()"
+                                style="background:rgba(255,255,255,0.18);border:none;color:#fff;border-radius:50%;
+                                       width:22px;height:22px;cursor:pointer;font-size:14px;line-height:1;
+                                       display:flex;align-items:center;justify-content:center;transition:background .2s;"
+                                onmouseover="this.style.background='rgba(255,255,255,0.38)'"
+                                onmouseout="this.style.background='rgba(255,255,255,0.18)'">×</button>
                     </div>
-                `;
-            });
-
-            html += `
+                    <div style="padding:8px 10px;display:flex;flex-wrap:wrap;gap:5px;">
+                        ${gridItems}
                     </div>
-                </div>
-            `;
+                </div>`;
 
             tooltipContainer.innerHTML = html;
         }
@@ -1503,16 +1498,12 @@
         function actualizarControlesNavegacion() {
             if (!fechaMasReciente) return;
 
-            // Calcular rango de fechas actual
-            const fechaFin = new Date(fechaMasReciente);
-            fechaFin.setMonth(fechaFin.getMonth() - offsetMeses);
-
-            const fechaInicio = new Date(fechaFin);
-            fechaInicio.setMonth(fechaInicio.getMonth() - mesesAMostrar);
+            // Calcular rango de fechas actual (sin solapamiento)
+            const { fechaInicio, fechaFin } = calcularRangoVisible();
 
             // Formatear período
-            const mesInicio = fechaInicio.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
-            const mesFin = fechaFin.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
+            const mesInicio = new Date(fechaInicio).toLocaleDateString('es-ES', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+            const mesFin = new Date(fechaFin).toLocaleDateString('es-ES', { month: 'short', year: 'numeric', timeZone: 'UTC' });
             $('#periodoActual').text(`${mesInicio} - ${mesFin}`);
 
             // Habilitar/deshabilitar botones
@@ -1524,7 +1515,7 @@
 
             Object.keys(datosCompletos).forEach((recintoId) => {
                 datosCompletos[recintoId].mediciones.forEach(m => {
-                    if (m.fecha_ndvi && new Date(m.fecha_ndvi) < fechaLimiteAnterior) {
+                    if (m.fecha_ndvi && new Date(m.fecha_ndvi + 'T00:00:00Z') < fechaLimiteAnterior) {
                         hayDatosAnteriores = true;
                     }
                 });
@@ -1625,32 +1616,130 @@
         }
 
         function formatearFecha(fecha) {
-            const d = new Date(fecha);
-            const dia = String(d.getDate()).padStart(2, '0');
-            const mes = String(d.getMonth() + 1).padStart(2, '0');
-            const anio = d.getFullYear();
+            const d = new Date(fecha + 'T00:00:00Z');
+            const dia = String(d.getUTCDate()).padStart(2, '0');
+            const mes = String(d.getUTCMonth() + 1).padStart(2, '0');
+            const anio = d.getUTCFullYear();
             return `${dia}/${mes}/${anio}`;
         }
 
         function formatearFechaCorta(fecha) {
             const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-            const mes = meses[fecha.getMonth()];
-            const anio = fecha.getFullYear();
+            const mes = meses[fecha.getUTCMonth()];
+            const anio = fecha.getUTCFullYear();
             return `${mes} ${anio}`;
         }
 
         function formatearFechaLarga(fecha) {
             const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
                 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-            const dia = fecha.getDate();
-            const mes = meses[fecha.getMonth()];
-            const anio = fecha.getFullYear();
+            const dia = fecha.getUTCDate();
+            const mes = meses[fecha.getUTCMonth()];
+            const anio = fecha.getUTCFullYear();
             return `${dia} de ${mes} de ${anio}`;
         }
 
-        // Exportar comparación
-        $('#btnExportarComparacion').on('click', function () {
-            mostrarMensajeFlash('Función de exportación en desarrollo', 'info');
+        // ==================== EXPORTAR GRÁFICO PNG ====================
+        $(document).on('click', '#exportarNDVI_Grafico', function(e) {
+            e.preventDefault();
+            if (!chartNDVI) {
+                mostrarMensajeFlash('No hay gráfico para exportar.', 'warning');
+                return;
+            }
+
+            var canvas = document.getElementById('chartNDVI');
+
+            // Canvas temporal con fondo blanco
+            var tempCanvas = document.createElement('canvas');
+            tempCanvas.width  = canvas.width;
+            tempCanvas.height = canvas.height;
+            var tempCtx = tempCanvas.getContext('2d');
+            tempCtx.fillStyle = '#ffffff';
+            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+            tempCtx.drawImage(canvas, 0, 0);
+
+            var link = document.createElement('a');
+            link.href     = tempCanvas.toDataURL('image/png');
+            link.download = 'grafico_ndvi_' + new Date().toISOString().split('T')[0] + '.png';
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            mostrarMensajeFlash('Gráfico exportado correctamente.', 'success');
+        });
+
+        // ==================== EXPORTAR DATOS EXCEL ====================
+        $(document).on('click', '#exportarNDVI_Excel', function(e) {
+            e.preventDefault();
+            if (!datosCompletos || Object.keys(datosCompletos).length === 0) {
+                mostrarMensajeFlash('No hay datos para exportar.', 'warning');
+                return;
+            }
+
+            var fecha = new Date().toISOString().split('T')[0];
+            var wb   = XLSX.utils.book_new();
+
+            // ── Hoja 1: Mediciones ──────────────────────────────────
+            var filas = [['Recinto', 'Fecha', 'NDVI Medio', 'NDVI Mínimo', 'NDVI Máximo', 'Desv. Estándar']];
+
+            Object.keys(datosCompletos).forEach(function(recintoId) {
+                var recintoInfo = recintosSeleccionados.find(r => r.id == recintoId);
+                var nombre = recintoInfo ? recintoInfo.nombre : 'Recinto ' + recintoId;
+                datosCompletos[recintoId].mediciones.forEach(function(m) {
+                    if (!m.fecha_ndvi) return;
+                    filas.push([
+                        nombre,
+                        formatearFecha(m.fecha_ndvi),
+                        parseFloat(m.valor_medio.toFixed(4)),
+                        parseFloat(m.valor_min.toFixed(4)),
+                        parseFloat(m.valor_max.toFixed(4)),
+                        parseFloat(m.desviacion_std.toFixed(4))
+                    ]);
+                });
+            });
+
+            var ws1 = XLSX.utils.aoa_to_sheet(filas);
+            ws1['!cols'] = [
+                { wch: 28 }, { wch: 13 }, { wch: 13 },
+                { wch: 13 }, { wch: 13 }, { wch: 16 }
+            ];
+            ws1['!freeze'] = { xSplit: 0, ySplit: 1 };
+            XLSX.utils.book_append_sheet(wb, ws1, 'Mediciones NDVI');
+
+            // ── Hoja 2: Resumen por recinto ─────────────────────────
+            var resumen = [['Recinto', 'Nº Mediciones', 'NDVI Medio (último)', 'NDVI Mín (último)', 'NDVI Máx (último)', 'Desv. Est. (último)', 'NDVI Medio Global']];
+
+            Object.keys(datosCompletos).forEach(function(recintoId) {
+                var recintoInfo = recintosSeleccionados.find(r => r.id == recintoId);
+                var nombre = recintoInfo ? recintoInfo.nombre : 'Recinto ' + recintoId;
+                var meds   = datosCompletos[recintoId].mediciones.filter(m => m.fecha_ndvi);
+                if (meds.length === 0) return;
+
+                var ultima      = meds[meds.length - 1];
+                var mediaGlobal = meds.reduce((sum, m) => sum + m.valor_medio, 0) / meds.length;
+
+                resumen.push([
+                    nombre,
+                    meds.length,
+                    parseFloat(ultima.valor_medio.toFixed(4)),
+                    parseFloat(ultima.valor_min.toFixed(4)),
+                    parseFloat(ultima.valor_max.toFixed(4)),
+                    parseFloat(ultima.desviacion_std.toFixed(4)),
+                    parseFloat(mediaGlobal.toFixed(4))
+                ]);
+            });
+
+            var ws2 = XLSX.utils.aoa_to_sheet(resumen);
+            ws2['!cols'] = [
+                { wch: 28 }, { wch: 14 }, { wch: 20 },
+                { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 18 }
+            ];
+            ws2['!freeze'] = { xSplit: 0, ySplit: 1 };
+            XLSX.utils.book_append_sheet(wb, ws2, 'Resumen por Recinto');
+
+            XLSX.writeFile(wb, 'comparacion_ndvi_' + fecha + '.xlsx');
+            mostrarMensajeFlash('Excel exportado correctamente.', 'success');
         });
 
         // ==================== EXPORTAR MIS RECINTOS A CSV ====================

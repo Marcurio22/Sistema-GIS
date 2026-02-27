@@ -20,7 +20,7 @@ formatter = logging.Formatter('%(levelname)s - %(message)s')
 db_handler.setFormatter(formatter)
 logger.addHandler(db_handler)
 
-# Decorador para verificar que el usuario es admin o superadmin
+
 def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -33,7 +33,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# Decorador para verificar que el usuario es superadmin
+# verificar que es superadmin
 def superadmin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -53,9 +53,9 @@ def superadmin_required(f):
 def gestion_usuarios():
     
     usuarios = User.query.order_by(
-        User.rol.asc(),       # Admins primero (asumiendo que 'admin' > 'user')
-        User.activo.desc(),    # Activos antes que inactivos
-        User.id_usuario        # Por último por ID ascendente
+        User.rol.asc(),       
+        User.activo.desc(),    
+        User.id_usuario        
     ).all()
     
     return render_template('admin/gestion_usuario.html', usuarios=usuarios)
@@ -214,11 +214,9 @@ def aprobar_solicitud_recinto(id_solicitud):
     usuario_solicitante = User.query.get(solicitud.id_usuario)
     tipo = (solicitud.tipo_solicitud or "aceptacion").strip().lower()
 
-    # =========================
-    # RAMA: ELIMINACIÓN
-    # =========================
+    # ELIMINACIÓN
     if tipo == "eliminacion":
-        # Motivo SOLO aplica a eliminación (si lo quieres exigir)
+        # Motivo SOLO aplica a eliminación 
         motivo = (getattr(solicitud, "motivo_solicitud", None) or "").strip()
         if not motivo:
             flash("No se puede aprobar una eliminación sin motivo. Falta el motivo en la solicitud.", "danger")
@@ -250,7 +248,6 @@ def aprobar_solicitud_recinto(id_solicitud):
 
         db.session.commit()
 
-        # Notificación
         if usuario_solicitante and usuario_solicitante.email and usuario_solicitante.notificaciones_activas:
             numero_recinto = f"{recinto.provincia}-{recinto.municipio}-{recinto.poligono}-{recinto.parcela}"
             direccion_recinto = f"Provincia: {recinto.provincia}, Municipio: {recinto.municipio}, Polígono: {recinto.poligono}, Parcela: {recinto.parcela}"
@@ -272,9 +269,6 @@ def aprobar_solicitud_recinto(id_solicitud):
         flash("Recinto liberado correctamente. El propietario ha sido eliminado.", "success")
         return redirect(url_for("admin.gestion_recintos"))
 
-    # =========================
-    # RAMA: ACEPTACIÓN
-    # =========================
     # Si ya tiene propietario distinto, rechazo automático
     if recinto.id_propietario is not None and recinto.id_propietario != solicitud.id_usuario:
         solicitud.estado = "rechazada"
@@ -309,7 +303,6 @@ def aprobar_solicitud_recinto(id_solicitud):
             direccion_recinto=direccion_recinto
         )
 
-    # IMPORTANTE: aquí NO hay motivo
     logger.info(
         f'Admin {current_user.username} aprobó solicitud de ACEPTACIÓN {id_solicitud} '
         f'del usuario {usuario_solicitante.username if usuario_solicitante else "desconocido"} '
@@ -379,11 +372,11 @@ def rechazar_solicitud_recinto(id_solicitud):
 @admin_required
 def editar_usuario():
     try:
-        # Obtener datos del formulario
         id_usuario = request.form.get('id_usuario')
         nuevo_username = request.form.get('username', '').strip()
         nuevo_email = request.form.get('email', '').strip()
         nuevo_telefono = request.form.get('telefono', '').strip()
+        nueva_contraseña = request.form.get('password', '').strip()
         nuevo_rol = request.form.get('rol')
         nuevo_activo = 'activo' in request.form
         
@@ -421,23 +414,21 @@ def editar_usuario():
                     extra={'tipo_operacion': 'EDICION_USUARIO', 'modulo': 'ADMIN'}
                 )
                 return redirect(url_for('admin.gestion_usuarios'))
+        if nueva_contraseña:
+            usuario.set_password(nueva_contraseña)
         
-        # Actualizar los datos del usuario
         usuario.username = nuevo_username
         usuario.email = nuevo_email
         usuario.telefono = telefono_normalizado
         usuario.rol = nuevo_rol
         usuario.activo = nuevo_activo
-        
-        # Guardar cambios en la base de datos
         db.session.commit()
         
-        # Registrar el cambio en logs
         logger.info(
             f'Administrador editó el usuario {usuario.username} (ID: {id_usuario})',
             extra={'tipo_operacion': 'EDICION_USUARIO', 'modulo': 'ADMIN'}
         )
-        
+
         flash('Usuario actualizado correctamente', 'success')
         
     except Exception as e:
@@ -567,10 +558,10 @@ def obtener_variedades_ajax():
             else:
                 query = query.order_by(Variedad.id_variedad.desc())
         
-        # Paginación
+        # paginación
         variedades = query.offset(start).limit(length).all()
         
-        # Total de registros sin filtrar
+        # total de registros sin filtrar
         records_total = Variedad.query.count()
         
         # Formatear datos

@@ -1845,3 +1845,47 @@ svg.leaflet-zoom-animated {
     gap: 0 !important;
   }
 } 
+
+
+/* Hover effect para checkboxes de suelos */
+    .soil-checkbox-label:hover {
+      background: #f8f9fa !important;
+      border-color: #198754 !important;
+      transform: translateX(3px);
+    }
+    
+    /* Borde verde para la última capa activada */
+    .soil-checkbox-label.active-layer {
+      border-color: #198754 !important;
+      border-width: 2px !important;
+      background: #f0f9f4 !important;
+    }
+    
+    /* Animación del chevron en details */
+    details[open] summary i.bi-chevron-down {
+      transform: rotate(180deg);
+    }
+    
+    /* Estilo del scrollbar para el contenedor de leyendas si es muy largo */
+    #leyendas-suelos-container {
+      max-height: 500px;
+      overflow-y: auto;
+    }
+    
+    #leyendas-suelos-container::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    #leyendas-suelos-container::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    
+    #leyendas-suelos-container::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 10px;
+    }
+    
+    #leyendas-suelos-container::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }

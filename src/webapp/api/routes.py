@@ -22,15 +22,16 @@ from datetime import date, datetime, timedelta, timezone
 from shapely.geometry import shape, mapping
 from rasterio.mask import mask as rio_mask
 from decimal import Decimal
-from geoalchemy2.shape import from_shape
+from geoalchemy2.shape import from_shape, to_shape
 import os
+
 
 import numpy as np
 import rasterio
 from rasterio.warp import transform_geom
 
 from .. import db
-from ..models import ImagenDibujada, IndicesRaster, Recinto, Solicitudrecinto, Variedad
+from ..models import ImagenDibujada, IndicesRaster, Recinto, Solicitudrecinto, Variedad, Estacion, DatosDiarios
 from webapp.dashboard.utils_dashboard import municipios_finder
 from webapp.utils.legend_loader import load_legend_from_csv
 
@@ -198,7 +199,6 @@ def actualizar_activa(recinto_id: int):
     if activa is None:
         return jsonify({"ok": False, "error": "Campo 'activa' requerido"}), 400
 
-    # Normaliza (por si llega "true"/"false")
     if isinstance(activa, str):
         activa = activa.strip().lower() in ("1", "true", "t", "yes", "y", "si", "sí")
 
@@ -405,6 +405,8 @@ def geoserver_legend():
     if not layer:
         return {"error": "Missing layer"}, 400
 
+
+    # .env supongo
     GEOSERVER_WMS = "http://100.102.237.86:8080/geoserver/wms"
 
     params = {
@@ -449,6 +451,7 @@ def legend_mcsncyl(year: int):
         }), 500
 
 @api_bp.route('/popup/suelos')
+@login_required
 def popup_suelos():
     """
     Endpoint para obtener información de un punto de suelo al hacer click.
@@ -461,7 +464,7 @@ def popup_suelos():
         if lat is None or lng is None:
             return jsonify({'ok': False, 'found': False, 'error': 'Coordenadas inválidas'})
         
-        # URL de GeoServer
+        # URL de GeoServer, .env supongo
         geoserver_url = "http://100.102.237.86:8080/geoserver/wms"
         
         # Parámetros para GetFeatureInfo
@@ -594,9 +597,7 @@ def popup_suelos():
         traceback.print_exc()
         return jsonify({'ok': False, 'found': False, 'error': str(e)})
 
-# ---------------------------
 # Catálogos para el frontend
-# ---------------------------
 
 @api_bp.get("/catalogos/usos-sigpac")
 @login_required
@@ -630,9 +631,9 @@ def api_catalogo_productos_fega_filtrado(uso_sigpac):
     rows = db.session.execute(sql, {"uso": uso_sigpac}).mappings().all()
     return jsonify([{"codigo": int(r["codigo"]), "descripcion": r["descripcion"]} for r in rows])
 
-# ---------------------------
+
+
 # Catálogos Operaciones (SIEX)
-# ---------------------------
 
 @api_bp.get("/catalogos/operaciones/<string:catalogo>")
 @login_required
@@ -660,9 +661,7 @@ def api_catalogo_operaciones_item(catalogo, codigo):
         return jsonify({"error": "Error interno en /api/catalogos/operaciones/<catalogo>/<codigo>"}), 500
 
 
-# ---------------------------
 # Cultivos por recinto
-# ---------------------------
 
 @api_bp.get("/mis-recinto/<int:recinto_id>/cultivo")
 @login_required
@@ -864,9 +863,7 @@ def buscar_variedades():
         print(f"Error buscando variedades: {str(e)}")
         return jsonify([]), 500
 
-# ---------------------------
 # Operaciones por recinto
-# ---------------------------
 
 @api_bp.get("/mis-recinto/<int:recinto_id>/operaciones")
 @login_required
@@ -957,6 +954,7 @@ def api_delete_operacion(id_operacion: int):
 
 
 @api_bp.route('/indices-raster', methods=['GET'])
+@login_required
 def get_indices_raster():
     """
     Obtiene los índices raster filtrados por id_recinto y tipo_indice
@@ -999,6 +997,7 @@ def get_indices_raster():
 
 
 @api_bp.route('/indices-raster/<int:id_indice>', methods=['GET'])
+@login_required
 def get_indice_by_id(id_indice):
     """
     Obtiene un índice raster específico por su ID
@@ -1018,6 +1017,7 @@ def get_indice_by_id(id_indice):
 
 
 @api_bp.route('/grafica-ndvi/<int:recinto_id>', methods=['GET'])
+@login_required
 def grafica_ndvi(recinto_id):
     try:
         indices = IndicesRaster.query.filter_by(
@@ -1285,7 +1285,7 @@ def eliminar_dibujo(dibujo_id):
 
 
 BASE_DIR = Path(__file__).resolve().parents[3]
-
+# *** esto del env solo, quitar lo de x defecto supongo
 NDVI_DIR = Path(
     os.getenv(
         "NDVI_DIR",
@@ -1300,7 +1300,6 @@ def serve_ndvi(filename):
 
 
 # COMPARAR
-
 @api_bp.route('/comparar-ndvi', methods=['POST'])
 @login_required
 def comparar_ndvi():
@@ -1399,6 +1398,7 @@ def comparar_ndvi():
 
 
 @api_bp.route('/comparativa-campanias/<int:id_recinto>', methods=['GET'])
+@login_required
 def comparativa_campanias(id_recinto):
     """
     Obtiene datos NDVI de 3 campañas para un recinto específico
@@ -1474,6 +1474,7 @@ def comparativa_campanias(id_recinto):
 
 
 @api_bp.route('/buscar-imagen-ndvi/<int:recinto_id>', methods=['GET'])
+@login_required
 def buscar_imagen_ndvi(recinto_id):
     """
     Busca la imagen NDVI más cercana a una fecha objetivo dentro de un rango de campaña
@@ -1553,3 +1554,92 @@ def buscar_imagen_ndvi(recinto_id):
             'success': False,
             'error': str(e)
         }), 500
+    
+
+@api_bp.route('/estaciones')
+@login_required
+def api_estaciones():
+    estaciones = Estacion.query.all()
+    features = []
+    for e in estaciones:
+        if e.geom:
+            punto = to_shape(e.geom)
+            features.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [punto.x, punto.y]
+                },
+                "properties": {
+                    "id": e.id,              # ← PK interna, nueva
+                    "idestacion": e.idestacion,
+                    "nombre": e.nombre,
+                    "codigo": e.codigo,
+                    "altitud": e.altitud,
+                    "idprovincia": e.idprovincia
+                }
+            })
+    return jsonify({"type": "FeatureCollection", "features": features})
+
+
+@api_bp.route('/estaciones/<int:estacion_id>/fechas')
+@login_required
+def api_estacion_fechas(estacion_id):
+    fechas = db.session.query(DatosDiarios.fecha)\
+        .filter(
+            DatosDiarios.estacion_id == estacion_id,
+            DatosDiarios.fecha < date.today()
+        )\
+        .order_by(DatosDiarios.fecha.desc())\
+        .all()
+    return jsonify([f[0].isoformat() for f in fechas])
+
+
+@api_bp.route('/estaciones/<int:estacion_id>/datos/<fecha>')
+@login_required
+def api_estacion_datos(estacion_id, fecha):
+    try:
+        fecha_dt = datetime.strptime(fecha, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({"error": "Fecha inválida"}), 400
+
+    d = DatosDiarios.query.filter_by(estacion_id=estacion_id, fecha=fecha_dt).first()
+    if not d:
+        return jsonify({"error": "Sin datos"}), 404
+
+    return jsonify({
+        "fecha":           d.fecha.isoformat(),
+        "tempmax":         d.tempmax,
+        "tempmin":         d.tempmin,
+        "tempmedia":       d.tempmedia,
+        "tempd":           d.tempd,
+        "hormintempmax":   d.hormintempmax,
+        "hormintempmin":   d.hormintempmin,
+        "humedadmax":      d.humedadmax,
+        "humedadmin":      d.humedadmin,
+        "humedadmedia":    d.humedadmedia,
+        "humedadd":        d.humedadd,
+        "horminhummax":    d.horminhummax,
+        "horminhummin":    d.horminhummin,
+        "velviento":       d.velviento,
+        "velvientomax":    d.velvientomax,
+        "dirviento":       d.dirviento,
+        "dirvientovelmax": d.dirvientovelmax,
+        "recorrido":       d.recorrido,
+        "horminvelmax":    d.horminvelmax,
+        "vd":              d.vd,
+        "vn":              d.vn,
+        "precipitacion":   d.precipitacion,
+        "radiacion":       d.radiacion,
+        "rmax":            d.rmax,
+        "rn":              d.rn,
+        "n":               d.n,
+        "etbc":            d.etbc,
+        "etharg":          d.etharg,
+        "etpmon":          d.etpmon,
+        "etrad":           d.etrad,
+        "pebc":            d.pebc,
+        "peharg":          d.peharg,
+        "pepmon":          d.pepmon,
+        "perad":           d.perad,
+    })

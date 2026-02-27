@@ -89,9 +89,9 @@ def descargar_todo_sigpac_recintos(bbox, limit=10000) -> gpd.GeoDataFrame:
     return gdf_all
 
 
-# ---------------------------------------------------
+
 # 3) Guardar backup local ROTATORIO (solo 2 últimos)
-# ---------------------------------------------------
+
 def guardar_backup_rotatorio(gdf_recintos: gpd.GeoDataFrame, out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = date.today().isoformat()

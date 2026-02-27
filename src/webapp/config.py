@@ -33,7 +33,7 @@ class Config:
 
     AEMET_API_KEY = os.getenv("AEMET_API_KEY")
 
-    # --- Nueva configuración para GeoServer / WFS ---
+    # cambiar por lo del server
     GEOSERVER_WFS_URL = os.getenv("GEOSERVER_WFS_URL", "http://100.102.237.86:8080/geoserver/wfs")
     GEOSERVER_USER = os.getenv("GEOSERVER_USER")
     GEOSERVER_PASSWORD = os.getenv("GEOSERVER_PASSWORD")
@@ -48,4 +48,6 @@ class Config:
     MAIL_USERNAME = os.getenv("MAIL_USERNAME", "your_username")
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "your_password")
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER")
+
+    INFORIEGO_API_KEY = os.getenv("INFORIEGO_API_KEY")
     

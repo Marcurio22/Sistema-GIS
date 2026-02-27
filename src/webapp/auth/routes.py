@@ -92,7 +92,7 @@ def register():
                                        email=email, 
                                        telefono=telefono)
 
-        # Crear el usuario si todo es válido
+        # crear el usuario si todo es válido
         new_user = User(username=username, email=email, telefono=telefono_normalizado)
         new_user.set_password(password)
         db.session.add(new_user)
@@ -171,6 +171,8 @@ def perfil():
         LogsSistema.tipo_operacion == 'ACCESO'
     ).order_by(desc(LogsSistema.fecha_hora)).first()
 
+
+    
     return render_template('perfil.html', user=current_user, ultimo_acceso=ultimo_log.fecha_hora if ultimo_log else None)
 
 

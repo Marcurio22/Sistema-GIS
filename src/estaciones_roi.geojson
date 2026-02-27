@@ -1,0 +1,56 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.29981229495362,
+          42.039484159866255
+        ]
+      },
+      "properties": {
+        "idprovincia": 34,
+        "idestacion": "1",
+        "nombre": "Torquemada",
+        "codigo": "P01",
+        "altitud": 868
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.508325175493933,
+          41.95210645129683
+        ]
+      },
+      "properties": {
+        "idprovincia": 34,
+        "idestacion": "2",
+        "nombre": "Villamuriel de Cerrato",
+        "codigo": "P02",
+        "altitud": 750
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.091023878670126,
+          41.75397618798355
+        ]
+      },
+      "properties": {
+        "idprovincia": 47,
+        "idestacion": "5",
+        "nombre": "Encinas de Esgueva",
+        "codigo": "VA05",
+        "altitud": 816
+      }
+    }
+  ]
+}

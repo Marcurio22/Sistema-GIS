@@ -282,3 +282,143 @@ class ImagenDibujada(db.Model):
                 'area_m2': float(self.area_m2) if self.area_m2 else None,
                 'fecha_creacion': self.fecha_creacion.isoformat() if self.fecha_creacion else None
             }
+        
+
+
+class Estacion(db.Model):
+    __tablename__ = "estaciones"
+
+    id = db.Column(db.Integer, primary_key=True)
+    idestacion = db.Column(db.String(10), nullable=False)
+    idprovincia = db.Column(db.Integer, nullable=False)
+    nombre = db.Column(db.String(100), nullable=False)
+    codigo = db.Column(db.String(20), nullable=False)
+    altitud = db.Column(db.Float, nullable=True)
+    geom = db.Column(Geometry("POINT", srid=4326), nullable=True)
+
+    datos_diarios = db.relationship('DatosDiarios', back_populates='estacion', cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f'< {self.nombre} ({self.codigo})>'
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "idestacion": self.idestacion,
+            "idprovincia": self.idprovincia,
+            "nombre": self.nombre,
+            "codigo": self.codigo,
+            "altitud": self.altitud
+        }
+
+
+class DatosDiarios(db.Model):
+    __tablename__ = "datos_diarios"
+
+    id = db.Column(db.Integer, primary_key=True)
+    estacion_id = db.Column(db.Integer, db.ForeignKey("estaciones.id"), nullable=False)
+    fecha = db.Column(db.Date, nullable=False)
+    año = db.Column(db.Integer, nullable=True)
+    dia = db.Column(db.Integer, nullable=True)
+    provincia = db.Column(db.Integer, nullable=True)
+
+    # Temperatura
+    tempmax = db.Column(db.Float, nullable=True)
+    tempmin = db.Column(db.Float, nullable=True)
+    tempmedia = db.Column(db.Float, nullable=True)
+    tempd = db.Column(db.Float, nullable=True)
+    hormintempmax = db.Column(db.Integer, nullable=True)
+    hormintempmin = db.Column(db.Integer, nullable=True)
+
+    # Humedad
+    humedadmax = db.Column(db.Float, nullable=True)
+    humedadmin = db.Column(db.Float, nullable=True)
+    humedadmedia = db.Column(db.Float, nullable=True)
+    humedadd = db.Column(db.Float, nullable=True)
+    horminhummax = db.Column(db.Integer, nullable=True)
+    horminhummin = db.Column(db.Integer, nullable=True)
+
+    # Viento
+    velviento = db.Column(db.Float, nullable=True)
+    velvientomax = db.Column(db.Float, nullable=True)
+    dirviento = db.Column(db.Float, nullable=True)
+    dirvientovelmax = db.Column(db.Float, nullable=True)
+    recorrido = db.Column(db.Float, nullable=True)
+    horminvelmax = db.Column(db.Integer, nullable=True)
+
+    # Precipitación y radiación
+    precipitacion = db.Column(db.Float, nullable=True)
+    radiacion = db.Column(db.Float, nullable=True)
+    rmax = db.Column(db.Float, nullable=True)
+    rn = db.Column(db.Float, nullable=True)
+    n = db.Column(db.Float, nullable=True)
+    vd = db.Column(db.Float, nullable=True)
+    vn = db.Column(db.Float, nullable=True)
+
+    # Evapotranspiración
+    etbc = db.Column(db.Float, nullable=True)
+    etharg = db.Column(db.Float, nullable=True)
+    etpmon = db.Column(db.Float, nullable=True)
+    etrad = db.Column(db.Float, nullable=True)
+    pebc = db.Column(db.Float, nullable=True)
+    peharg = db.Column(db.Float, nullable=True)
+    pepmon = db.Column(db.Float, nullable=True)
+    perad = db.Column(db.Float, nullable=True)
+
+    # Extras
+    id_inforiego = db.Column(db.Integer, nullable=True)
+    id_aux = db.Column(db.Integer, nullable=True)
+
+    estacion = db.relationship('Estacion', back_populates='datos_diarios')
+
+    __table_args__ = (
+        db.UniqueConstraint('estacion_id', 'fecha', name='uq_estacion_fecha'),
+    )
+
+    def __repr__(self):
+        return f'<DatosDiarios {self.estacion_id} - {self.fecha}>'
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "estacion_id": self.estacion_id,
+            "fecha": self.fecha.isoformat() if self.fecha else None,
+            "año": self.año,
+            "dia": self.dia,
+            "provincia": self.provincia,
+            "tempmax": self.tempmax,
+            "tempmin": self.tempmin,
+            "tempmedia": self.tempmedia,
+            "tempd": self.tempd,
+            "hormintempmax": self.hormintempmax,
+            "hormintempmin": self.hormintempmin,
+            "humedadmax": self.humedadmax,
+            "humedadmin": self.humedadmin,
+            "humedadmedia": self.humedadmedia,
+            "humedadd": self.humedadd,
+            "horminhummax": self.horminhummax,
+            "horminhummin": self.horminhummin,
+            "velviento": self.velviento,
+            "velvientomax": self.velvientomax,
+            "dirviento": self.dirviento,
+            "dirvientovelmax": self.dirvientovelmax,
+            "recorrido": self.recorrido,
+            "horminvelmax": self.horminvelmax,
+            "precipitacion": self.precipitacion,
+            "radiacion": self.radiacion,
+            "rmax": self.rmax,
+            "rn": self.rn,
+            "n": self.n,
+            "vd": self.vd,
+            "vn": self.vn,
+            "etbc": self.etbc,
+            "etharg": self.etharg,
+            "etpmon": self.etpmon,
+            "etrad": self.etrad,
+            "pebc": self.pebc,
+            "peharg": self.peharg,
+            "pepmon": self.pepmon,
+            "perad": self.perad,
+            "id_inforiego": self.id_inforiego,
+            "id_aux": self.id_aux
+        }

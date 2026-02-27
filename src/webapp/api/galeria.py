@@ -17,9 +17,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 MAX_FILE_SIZE = 12 * 1024 * 1024
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
-# ============================================================================
 # FUNCIONES AUXILIARES
-# ============================================================================
+
 
 def allowed_file(filename):
     """Valida extensión del archivo"""
@@ -41,7 +40,7 @@ def convertir_a_grados(coordenada):
 def extraer_gps_y_fecha(ruta_imagen):
     """
     Extrae GPS y fecha de la foto
-    Retorna: dict con 'latitud', 'longitud', 'fecha_foto'
+    dvuelve: dict con 'latitud', 'longitud', 'fecha_foto'
     """
     print(f"🔍 Iniciando extracción de metadatos de: {ruta_imagen}")
     
@@ -118,15 +117,12 @@ def extraer_gps_y_fecha(ruta_imagen):
 def crear_wkt_point(longitud, latitud):
     """
     Crea un punto en formato WKT para PostGIS
-    IMPORTANTE: PostGIS usa (longitud, latitud)
     """
     if longitud is None or latitud is None:
         return None
     return f'SRID=4326;POINT({longitud} {latitud})'
 
-# ============================================================================
 # RUTAS
-# ============================================================================
 
 @galeria_bp.route('/subir', methods=['POST'])
 def subir_imagen():
@@ -349,81 +345,3 @@ def eliminar_imagen(id_imagen):
     
 
 
-@galeria_bp.route('/debug-exif', methods=['POST'])
-def debug_exif():
-    """Ruta para ver TODOS los metadatos EXIF de una imagen"""
-    archivo = request.files.get('imagen')
-    
-    if not archivo:
-        return jsonify({"error": "No se envió imagen"}), 400
-    
-    try:
-        temp_path = os.path.join(UPLOAD_FOLDER, 'temp_debug.jpg')
-        archivo.save(temp_path)
-        
-        print("=" * 80)
-        print("🔍 ANÁLISIS COMPLETO DE EXIF")
-        print("=" * 80)
-        
-        with Image.open(temp_path) as imagen:
-            exif_data = imagen._getexif()
-            
-            if not exif_data:
-                resultado = {
-                    "tiene_exif": False,
-                    "formato": imagen.format,
-                    "tamaño": imagen.size,
-                    "modo": imagen.mode
-                }
-                print("❌ NO HAY DATOS EXIF")
-                return jsonify(resultado), 200
-            
-            print(f"✅ EXIF encontrado: {len(exif_data)} tags")
-            
-            # Mostrar TODOS los tags
-            todos_tags = {}
-            tiene_gps = False
-            
-            for tag, value in exif_data.items():
-                tag_name = TAGS.get(tag, f"Unknown_{tag}")
-                
-                print(f"\n📌 Tag: {tag_name} (ID: {tag})")
-                
-                # GPSInfo es especial
-                if tag_name == 'GPSInfo':
-                    tiene_gps = True
-                    print("  🗺️ INFORMACIÓN GPS ENCONTRADA:")
-                    gps_readable = {}
-                    
-                    for gps_tag in value:
-                        gps_tag_name = GPSTAGS.get(gps_tag, f"Unknown_GPS_{gps_tag}")
-                        gps_value = value[gps_tag]
-                        
-                        print(f"    - {gps_tag_name}: {gps_value}")
-                        gps_readable[gps_tag_name] = str(gps_value)
-                    
-                    todos_tags['GPSInfo'] = gps_readable
-                else:
-                    print(f"  Valor: {str(value)[:200]}")
-                    todos_tags[tag_name] = str(value)[:200]
-            
-            print("\n" + "=" * 80)
-            
-            resultado = {
-                "tiene_exif": True,
-                "total_tags": len(todos_tags),
-                "tiene_gps": tiene_gps,
-                "tags": todos_tags
-            }
-            
-            return jsonify(resultado), 200
-        
-    except Exception as e:
-        print(f"❌ ERROR: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        # Limpiar archivo temporal
-        if os.path.exists(temp_path):
-            os.remove(temp_path)

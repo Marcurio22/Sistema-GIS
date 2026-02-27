@@ -1,6 +1,3 @@
-// ==========================================================
-// Cultivos (UI del panel derecho)
-// Requiere endpoints (a implementar en backend):
 //   GET    /api/catalogos/usos-sigpac
 //   GET    /api/catalogos/productos-fega
 //   GET    /api/mis-recinto/<id>/cultivo            -> 404 si no hay
@@ -134,7 +131,7 @@ async function renderCultivosForRecinto(recintoId) {
     try {
         const cultivo = await getCultivoRecinto(recintoId);
 
-        // ✅ Caso normal: no hay cultivo
+        // caso normal: no hay cultivo
         if (!cultivo) {
             renderCultivoEmpty(container, recintoId, usos, productos);
             return;
@@ -207,7 +204,7 @@ window.openGaleriaPanel = function openGaleriaPanel() {
     const historico = document.getElementById("cultivos-historico-panel");
     if (!sp || !overlay || !body || !gal || !historico) return;
 
-    // Cierra histórico si estuviera abierto
+    // cierra histórico si estuviera abierto
     closeHistoricoPanel?.();
 
     // Mover galería dentro del overlay (evita duplicados / pisadas)
@@ -1032,7 +1029,7 @@ function renderCultivoView(container, recintoId, cultivo, usos, productos) {
         </div>
 `;
 
-    // --- Observaciones: render “texto normal” ---
+    //  Observaciones: render “texto normal” ---
     const obsView = container.querySelector("#obs-view");
     const obsEdit = container.querySelector("#obs-edit");
     const viewActions = container.querySelector("#obs-view-actions");
@@ -1116,7 +1113,7 @@ function renderCultivoView(container, recintoId, cultivo, usos, productos) {
         }
     });
 
-    // Editar cultivo
+    // editar cultivo
     container.querySelector("#btn-edit-cultivo").addEventListener("click", async () => {
         try {
             const cultivoFresh = await getCultivoRecinto(recintoId);
@@ -1479,7 +1476,7 @@ function renderCultivoForm(container, args) {
                 suggestionsList.style.display = "none";
                 suggestionsList.innerHTML = "";
             }
-        }, 200); // Debounce de 200ms
+        }, 200);
     }, { signal });
 
     // Click en una sugerencia
@@ -1520,7 +1517,6 @@ function renderCultivoForm(container, args) {
     const ssUsoEl = container.querySelector("#ss-uso");
     const ssProdEl = container.querySelector("#ss-prod");
 
-    // --- SISTEMA_CULTIVO (obligatorio) ---
     const sisCultSel = container.querySelector("#cultivo-sistema");
 
     const sisCultSelected =
@@ -1630,7 +1626,7 @@ function renderCultivoForm(container, args) {
     tipoRegSel.addEventListener("change", syncTipoRegistroUi, { signal });
     syncTipoRegistroUi();
 
-    // -------- Avanzado (opcional) --------
+    // avanzado (opcional)
     function pickObjFromSelect(sel) {
         if (!sel) return null;
 
@@ -1666,7 +1662,6 @@ function renderCultivoForm(container, args) {
     const advProcMv = container.querySelector("#adv-proc-mv");
     const advSenp = container.querySelector("#adv-senp");
 
-    // selected codes
     const advAproveSel = adv?.aprovechamiento?.codigo || "";
     const advCobSel = adv?.tipo_cobertura_suelo?.codigo || "";
     const advDestSel = adv?.destino_cultivo?.codigo || "";
@@ -1853,7 +1848,6 @@ function renderCultivoForm(container, args) {
             return;
         }
 
-        // --- Validación campaña vs fecha (error custom) ---
         if (tipo_registro === "CAMPANA") {
             if (!campana) {
                 msg.textContent = "Selecciona un año de campaña.";
@@ -1910,7 +1904,7 @@ function renderCultivoForm(container, args) {
         }
         payload.fecha_cosecha_estimada = toISODate(fechaCosechaEst);
 
-        // Construir Avanzado (opcional)
+        // Construir Avanzado 
         const aAprove = pickObjFromSelect(advAprove);
         const aCob = pickObjFromSelect(advCob);
         const aDest = pickObjFromSelect(advDest);
@@ -1959,9 +1953,7 @@ function renderCultivoForm(container, args) {
 
         payload.avanzado = normalizeAvanzado(avanzadoRaw);
 
-        // -------------------------
         // ENDPOINT SEGÚN MODO
-        // -------------------------
         let url, method;
 
         if (mode === "historico_add") {
@@ -2000,9 +1992,7 @@ function renderCultivoForm(container, args) {
                 renderCultivosForRecinto(recintoId);
             }
 
-            // -------------------------
             // POST-ACCIÓN SEGÚN MODO
-            // -------------------------
             if (mode === "historico_add" || mode === "historico_edit") {
                 // volver al overlay y refrescar histórico
                 if (typeof onDone === "function") onDone();

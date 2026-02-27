@@ -1,0 +1,1031 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.7653697406881514,
+          40.99679514323351
+        ]
+      },
+      "properties": {
+        "idprovincia": 5,
+        "idestacion": "1",
+        "nombre": "Nava de Arévalo",
+        "codigo": "AV01",
+        "altitud": 921,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.904610332382762,
+          40.597377165515425
+        ]
+      },
+      "properties": {
+        "idprovincia": 5,
+        "idestacion": "101",
+        "nombre": "Muñogalindo",
+        "codigo": "AV101",
+        "altitud": 1128,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.534758138190645,
+          40.39714667879672
+        ]
+      },
+      "properties": {
+        "idprovincia": 5,
+        "idestacion": "102",
+        "nombre": "Losar del Barco",
+        "codigo": "AV102",
+        "altitud": 1027,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.22032948048953,
+          42.987760766413864
+        ]
+      },
+      "properties": {
+        "idprovincia": 9,
+        "idestacion": "101",
+        "nombre": "Valle de Losa",
+        "codigo": "BU101",
+        "altitud": 635,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.690237125730972,
+          42.719371163294824
+        ]
+      },
+      "properties": {
+        "idprovincia": 9,
+        "idestacion": "102",
+        "nombre": "Condado de Treviño",
+        "codigo": "BU102",
+        "altitud": 551,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.081121560433878,
+          42.72378949036328
+        ]
+      },
+      "properties": {
+        "idprovincia": 9,
+        "idestacion": "2",
+        "nombre": "Valle de Valdelucio",
+        "codigo": "BU02",
+        "altitud": 975,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7633841684697344,
+          41.98654278550913
+        ]
+      },
+      "properties": {
+        "idprovincia": 9,
+        "idestacion": "3",
+        "nombre": "Lerma",
+        "codigo": "BU03",
+        "altitud": 840,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.814246067351815,
+          42.353145885512404
+        ]
+      },
+      "properties": {
+        "idprovincia": 9,
+        "idestacion": "4",
+        "nombre": "Tardajos",
+        "codigo": "BU04",
+        "altitud": 770,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.5725176090184094,
+          41.62838231936742
+        ]
+      },
+      "properties": {
+        "idprovincia": 9,
+        "idestacion": "5",
+        "nombre": "Vadocondes",
+        "codigo": "BU05",
+        "altitud": 870,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.1077465783054374,
+          42.684050049027014
+        ]
+      },
+      "properties": {
+        "idprovincia": 9,
+        "idestacion": "7",
+        "nombre": "Santa Gadea del Cid",
+        "codigo": "BU07",
+        "altitud": 520,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.733040036142632,
+          42.550376496503794
+        ]
+      },
+      "properties": {
+        "idprovincia": 24,
+        "idestacion": "1",
+        "nombre": "Carracedelo",
+        "codigo": "LE01",
+        "altitud": 467,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.446341154638736,
+          42.5122067753017
+        ]
+      },
+      "properties": {
+        "idprovincia": 24,
+        "idestacion": "2",
+        "nombre": "Mansilla mayor",
+        "codigo": "LE02",
+        "altitud": 791,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.5107710084108925,
+          42.378330926758395
+        ]
+      },
+      "properties": {
+        "idprovincia": 24,
+        "idestacion": "3",
+        "nombre": "Cubillas de los Oteros",
+        "codigo": "LE03",
+        "altitud": 777,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.731147611259932,
+          42.26439586986017
+        ]
+      },
+      "properties": {
+        "idprovincia": 24,
+        "idestacion": "4",
+        "nombre": "Zotes del Páramo",
+        "codigo": "LE04",
+        "altitud": 779,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.861757298759544,
+          42.20074056341689
+        ]
+      },
+      "properties": {
+        "idprovincia": 24,
+        "idestacion": "5",
+        "nombre": "Quintana del Marco",
+        "codigo": "LE05",
+        "altitud": 750,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.882633391671421,
+          42.463179682471626
+        ]
+      },
+      "properties": {
+        "idprovincia": 24,
+        "idestacion": "6",
+        "nombre": "Hospital de Orbigo",
+        "codigo": "LE06",
+        "altitud": 835,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.800278340411125,
+          42.438600513772556
+        ]
+      },
+      "properties": {
+        "idprovincia": 24,
+        "idestacion": "7",
+        "nombre": "Bustillo del Páramo",
+        "codigo": "LE07",
+        "altitud": 874,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.006089377184634,
+          42.369055660580536
+        ]
+      },
+      "properties": {
+        "idprovincia": 24,
+        "idestacion": "8",
+        "nombre": "Sahagún",
+        "codigo": "LE08",
+        "altitud": 856,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.345005897182342,
+          42.453162051168086
+        ]
+      },
+      "properties": {
+        "idprovincia": 24,
+        "idestacion": "9",
+        "nombre": "Santas Martas",
+        "codigo": "LE09",
+        "altitud": 885,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.29981229495362,
+          42.039484159866255
+        ]
+      },
+      "properties": {
+        "idprovincia": 34,
+        "idestacion": "1",
+        "nombre": "Torquemada",
+        "codigo": "P01",
+        "altitud": 868,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.558249355278696,
+          42.57581232596983
+        ]
+      },
+      "properties": {
+        "idprovincia": 34,
+        "idestacion": "101",
+        "nombre": "Villaeles de Valdavia",
+        "codigo": "P101",
+        "altitud": 881,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.497392314355744,
+          42.480451472744235
+        ]
+      },
+      "properties": {
+        "idprovincia": 34,
+        "idestacion": "102",
+        "nombre": "BARCENA DE CAMPOS",
+        "codigo": "P102",
+        "altitud": 854,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.418257362194757,
+          42.42414358427897
+        ]
+      },
+      "properties": {
+        "idprovincia": 34,
+        "idestacion": "103",
+        "nombre": "ABIA DE LAS TORRES",
+        "codigo": "P103",
+        "altitud": 822,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.28179726388201,
+          42.79246700728736
+        ]
+      },
+      "properties": {
+        "idprovincia": 34,
+        "idestacion": "104",
+        "nombre": "LOMILLA DE AGUILAR",
+        "codigo": "P105",
+        "altitud": 905,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.508325175493933,
+          41.95210645129683
+        ]
+      },
+      "properties": {
+        "idprovincia": 34,
+        "idestacion": "2",
+        "nombre": "Villamuriel de Cerrato",
+        "codigo": "P02",
+        "altitud": 750,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.767471960077011,
+          42.090185118195855
+        ]
+      },
+      "properties": {
+        "idprovincia": 34,
+        "idestacion": "3",
+        "nombre": "Fuentes de Nava",
+        "codigo": "P03",
+        "altitud": 744,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.598262468694526,
+          42.25560855378906
+        ]
+      },
+      "properties": {
+        "idprovincia": 34,
+        "idestacion": "4",
+        "nombre": "Villoldo",
+        "codigo": "P04",
+        "altitud": 817,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.310839029233686,
+          42.548497555785254
+        ]
+      },
+      "properties": {
+        "idprovincia": 34,
+        "idestacion": "6",
+        "nombre": "Herrera de Pisuerga",
+        "codigo": "P06",
+        "altitud": 821,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.776367273761104,
+          42.52545540292029
+        ]
+      },
+      "properties": {
+        "idprovincia": 34,
+        "idestacion": "7",
+        "nombre": "Villaluenga de la Vega",
+        "codigo": "P07",
+        "altitud": 927,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.30044504787955,
+          42.33553260805504
+        ]
+      },
+      "properties": {
+        "idprovincia": 34,
+        "idestacion": "8",
+        "nombre": "Lantadilla",
+        "codigo": "P08",
+        "altitud": 798,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.492317395909995,
+          40.61808648325928
+        ]
+      },
+      "properties": {
+        "idprovincia": 37,
+        "idestacion": "1",
+        "nombre": "Ciudad Rodrigo",
+        "codigo": "SA01",
+        "altitud": 635,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.393133049916098,
+          41.0472832492346
+        ]
+      },
+      "properties": {
+        "idprovincia": 37,
+        "idestacion": "101",
+        "nombre": "Arabayona",
+        "codigo": "SA101",
+        "altitud": 850,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.525297909139641,
+          40.76877256132373
+        ]
+      },
+      "properties": {
+        "idprovincia": 37,
+        "idestacion": "102",
+        "nombre": "Ejeme",
+        "codigo": "SA102",
+        "altitud": 812,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.49281888981672,
+          41.00405479471435
+        ]
+      },
+      "properties": {
+        "idprovincia": 37,
+        "idestacion": "3",
+        "nombre": "Aldearrubia",
+        "codigo": "SA03",
+        "altitud": 815,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.299154593191482,
+          41.28715614956826
+        ]
+      },
+      "properties": {
+        "idprovincia": 40,
+        "idestacion": "1",
+        "nombre": "Gomezserracín",
+        "codigo": "SG01",
+        "altitud": 870,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.486387587396815,
+          41.14060507298999
+        ]
+      },
+      "properties": {
+        "idprovincia": 40,
+        "idestacion": "2",
+        "nombre": "Nava de la Asunción",
+        "codigo": "SG02",
+        "altitud": 822,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.5559956938790402,
+          41.482938777516125
+        ]
+      },
+      "properties": {
+        "idprovincia": 42,
+        "idestacion": "1",
+        "nombre": "Almazán",
+        "codigo": "SO01",
+        "altitud": 943,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.081289572006465,
+          41.743228680970084
+        ]
+      },
+      "properties": {
+        "idprovincia": 42,
+        "idestacion": "101",
+        "nombre": "Hinojosa del Campo",
+        "codigo": "SO101",
+        "altitud": 1043,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.220112002197686,
+          41.535418295995534
+        ]
+      },
+      "properties": {
+        "idprovincia": 42,
+        "idestacion": "2",
+        "nombre": "San Esteban de Gormaz",
+        "codigo": "SO02",
+        "altitud": 855,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.433696397709092,
+          41.84335647222796
+        ]
+      },
+      "properties": {
+        "idprovincia": 42,
+        "idestacion": "3",
+        "nombre": "Fuentecantos",
+        "codigo": "SO03",
+        "altitud": 1063,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.300396195799354,
+          42.17201243082182
+        ]
+      },
+      "properties": {
+        "idprovincia": 47,
+        "idestacion": "1",
+        "nombre": "Mayorga",
+        "codigo": "VA01",
+        "altitud": 748,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.740199148678162,
+          41.62579099504421
+        ]
+      },
+      "properties": {
+        "idprovincia": 47,
+        "idestacion": "101",
+        "nombre": "Finca Zamadueñas",
+        "codigo": "VA101",
+        "altitud": 714,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.904350293672025,
+          41.31965850175239
+        ]
+      },
+      "properties": {
+        "idprovincia": 47,
+        "idestacion": "102",
+        "nombre": "Medina del Campo",
+        "codigo": "VA102",
+        "altitud": 724,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.98143899029533,
+          41.40580196488508
+        ]
+      },
+      "properties": {
+        "idprovincia": 47,
+        "idestacion": "103",
+        "nombre": "Rueda",
+        "codigo": "VA103",
+        "altitud": 700,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.030485016003416,
+          42.10076353836902
+        ]
+      },
+      "properties": {
+        "idprovincia": 47,
+        "idestacion": "104",
+        "nombre": "VillalÃ³n de Campos",
+        "codigo": "VA104",
+        "altitud": 770,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.26713020935765,
+          41.21907672746733
+        ]
+      },
+      "properties": {
+        "idprovincia": 47,
+        "idestacion": "2",
+        "nombre": "Torrecilla de la Orden",
+        "codigo": "VA02",
+        "altitud": 793,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.717243234608978,
+          41.29235987019979
+        ]
+      },
+      "properties": {
+        "idprovincia": 47,
+        "idestacion": "3",
+        "nombre": "Olmedo",
+        "codigo": "VA03",
+        "altitud": 750,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.091023878670126,
+          41.75397618798355
+        ]
+      },
+      "properties": {
+        "idprovincia": 47,
+        "idestacion": "5",
+        "nombre": "Encinas de Esgueva",
+        "codigo": "VA05",
+        "altitud": 816,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.989021048885398,
+          41.50946125374017
+        ]
+      },
+      "properties": {
+        "idprovincia": 47,
+        "idestacion": "6",
+        "nombre": "Tordesillas",
+        "codigo": "VA06",
+        "altitud": 658,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.283555928632124,
+          41.66233641892019
+        ]
+      },
+      "properties": {
+        "idprovincia": 47,
+        "idestacion": "7",
+        "nombre": "Valbuena de Duero",
+        "codigo": "VA07",
+        "altitud": 756,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.029763401667849,
+          41.888906614695024
+        ]
+      },
+      "properties": {
+        "idprovincia": 47,
+        "idestacion": "8",
+        "nombre": "Medina de Rioseco",
+        "codigo": "VA08",
+        "altitud": 739,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.8212703909960375,
+          42.01403670962751
+        ]
+      },
+      "properties": {
+        "idprovincia": 49,
+        "idestacion": "1",
+        "nombre": "Colinas de Trasmonte",
+        "codigo": "ZA01",
+        "altitud": 709,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.669805977936692,
+          41.49658589399671
+        ]
+      },
+      "properties": {
+        "idprovincia": 49,
+        "idestacion": "2",
+        "nombre": "Villaralbo",
+        "codigo": "ZA02",
+        "altitud": 659,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.40641052627587,
+          41.82497286315811
+        ]
+      },
+      "properties": {
+        "idprovincia": 49,
+        "idestacion": "4",
+        "nombre": "Villalpando",
+        "codigo": "ZA04",
+        "altitud": 701,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.907349595630203,
+          41.779875489041224
+        ]
+      },
+      "properties": {
+        "idprovincia": 49,
+        "idestacion": "5",
+        "nombre": "Pozuelo de Tábara",
+        "codigo": "ZA05",
+        "altitud": 714,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.644290204483728,
+          41.93508702223605
+        ]
+      },
+      "properties": {
+        "idprovincia": 49,
+        "idestacion": "6",
+        "nombre": "Barcial del Barco",
+        "codigo": "ZA06",
+        "altitud": 738,
+        "activa": true
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.469824276406642,
+          41.48870348133982
+        ]
+      },
+      "properties": {
+        "idprovincia": 49,
+        "idestacion": "8",
+        "nombre": "Toro",
+        "codigo": "ZA08",
+        "altitud": 623,
+        "activa": true
+      }
+    }
+  ]
+}

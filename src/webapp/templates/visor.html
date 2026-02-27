@@ -142,7 +142,7 @@
         </div>
       </div>
 
-      <!-- Estadísticas en columnas -->
+      <!-- Estadísticas en columnas, cambiadas de orden para que vayan de mas antiguo a mas reciente -->
       <div class="comparativa-stats-grid">
         <!-- Campaña 3 (Mas antigua) -->
         
@@ -322,6 +322,21 @@
         <div class="basemap-option-label">Parcelas Catastro</div>
       </div>
 
+    <div class="basemap-option basemap-detail active" data-detail="estaciones">
+      <div class="basemap-thumb" style="position:relative; overflow:hidden;">
+        <img src="{{ url_for('static', filename='img/thumb_satellite.png') }}" alt="" />
+        <div
+          style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px;">
+          <span
+            style="font-size:0.65rem; font-weight:700; color:white; text-shadow:0 1px 4px rgba(0,0,0,0.9); text-transform:uppercase; letter-spacing:0.05em; text-align:center; line-height:1.2;">Estaciones</span>
+          <div
+            style="width:14px; height:14px; border-radius:50%; background:#0d6efd; border:2.5px solid white; box-shadow:0 1px 6px rgba(0,0,0,0.6);">
+          </div>
+        </div>
+      </div>
+      <div class="basemap-option-label">Estaciones</div>
+    </div>
+
   </div>
 
   <details style="border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; margin-top: 15px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
@@ -463,53 +478,8 @@
     </div>
   </details>
   
-  <style>
-    /* Hover effect para checkboxes de suelos */
-    .soil-checkbox-label:hover {
-      background: #f8f9fa !important;
-      border-color: #198754 !important;
-      transform: translateX(3px);
-    }
-    
-    /* Borde verde para la última capa activada */
-    .soil-checkbox-label.active-layer {
-      border-color: #198754 !important;
-      border-width: 2px !important;
-      background: #f0f9f4 !important;
-    }
-    
-    /* Animación del chevron en details */
-    details[open] summary i.bi-chevron-down {
-      transform: rotate(180deg);
-    }
-    
-    /* Estilo del scrollbar para el contenedor de leyendas si es muy largo */
-    #leyendas-suelos-container {
-      max-height: 500px;
-      overflow-y: auto;
-    }
-    
-    #leyendas-suelos-container::-webkit-scrollbar {
-      width: 6px;
-    }
-    
-    #leyendas-suelos-container::-webkit-scrollbar-track {
-      background: #f1f1f1;
-      border-radius: 10px;
-    }
-    
-    #leyendas-suelos-container::-webkit-scrollbar-thumb {
-      background: #888;
-      border-radius: 10px;
-    }
-    
-    #leyendas-suelos-container::-webkit-scrollbar-thumb:hover {
-      background: #555;
-    }
-  </style>
 
-
-  <!-- De momento borrar, lo dejo por si acaso
+  <!-- De momento no se usa, lo dejo por si acaso
       <div class="basemap-option basemap-detail" data-detail="suelos">
         <div class="basemap-thumb">
             <img src="{{ url_for('static', filename='img/thumb_suelos.png') }}" alt="Suelos">
@@ -553,12 +523,13 @@
 </div>
 
 
-<!-- Botón de filtros -->
+<!-- Botón de filtros de momento no se uso asi que lo oculto
 <div id="filtro-container">
   <button id="filtro-toggle" title="Filtros">
     <i class="bi bi-funnel-fill"></i>
   </button>
 </div>
+-->
 
 <!-- Botón de dibujar -->
 <div id="editar-container">
@@ -1000,9 +971,7 @@
 <!-- Utilidades globales: notificaciones, confirmación, modal eliminación -->
 <script src="{{ url_for('static', filename='js/visor/visor-utils.js') }}"></script>
 <script>
-  // -----------------------------------------
-  // DOM Content Loaded
-  // -----------------------------------------
+  
   document.addEventListener("DOMContentLoaded", function () {
     function guardarEstadoMapa() {
   const estado = {
@@ -1028,8 +997,8 @@ async function restaurarEstadoMapa() {
     
     const estado = JSON.parse(estadoStr);
     
-    // Verificar que no sea muy antiguo (opcional, 30 minutos)
-    const tiempoMaximo = 2 * 60 * 1000; // 30 minutos
+    // Verificar que no sea muy antiguo 
+    const tiempoMaximo = 2 * 60 * 1000; // 2 minutos, subir?
     if (Date.now() - estado.timestamp > tiempoMaximo) {
       sessionStorage.removeItem('mapaEstado');
       return false;
@@ -1073,7 +1042,7 @@ async function restaurarEstadoMapa() {
 }
 
 // Vista inicial recomendada: centrar en el municipio donde el usuario tiene MÁS "mis recintos"
-// - Si no hay datos (o el usuario es admin), devuelve false y se mantiene el fallback actual.
+// - Si no hay datos (o el usuario es admin), devuelve false y se mantiene el fallback actual, igual para los admins tambien? no lo se 
 async function aplicarVistaInicialUsuario() {
   try {
     const resp = await fetch('/api/visor-start-view', { credentials: 'same-origin' });
@@ -1113,9 +1082,7 @@ async function aplicarVistaInicialUsuario() {
   const CURRENT_USER_ID = {{ current_user.id_usuario if current_user.is_authenticated else 'null' }};
   NotificationSystem.init();
 
-  // -----------------------------------------
-  // 1) ROI desde Flask
-  // -----------------------------------------
+  // roi desde flask
   const roiBbox = [
     {{ roi_bbox[0] }},
     {{ roi_bbox[1] }},
@@ -1134,9 +1101,7 @@ async function aplicarVistaInicialUsuario() {
 
   const ZOOM_RECINTOS = 15;
 
-  // -----------------------------------------
-  // 2) Crear mapa
-  // -----------------------------------------
+  // Crear mapa
   const map = L.map("map", {
     maxBounds: ROI_BOUNDS,
     maxBoundsViscosity: 1.0,
@@ -1150,21 +1115,13 @@ async function aplicarVistaInicialUsuario() {
 
 
   
-
-  // --- Panes (orden de dibujo) ---
-  // Orden de capas de abajo hacia arriba:
-  // 1. NDVI overlay (z-index ~200 por defecto)
-  // 2. Capas WMS de suelos y catastro (500-549)
-  // 3. Mapas de cultivos CyL (550-599)
-  // 4. Cultivos SigPac (600)
-  // 5. Recintos SigPac (700)
-  // 6. Mis Recintos (800)
-  // 7. Highlights (900)
+  // los zindex, funciona sorprendentemente
+  map.createPane('ndviPane');
+  map.getPane('ndviPane').style.zIndex = 180; 
 
   map.createPane('suelosPane');
   map.getPane('suelosPane').style.zIndex = 200;
 
-  // Recintos y Mis Recintos - SIEMPRE ARRIBA DE TODO
   map.createPane('sigpacPane');
   map.getPane('sigpacPane').style.zIndex = 700;
 
@@ -1174,16 +1131,15 @@ async function aplicarVistaInicialUsuario() {
   map.createPane('highlightPane');
   map.getPane('highlightPane').style.zIndex = 900;
   
-  // ✅ ASEGURAR QUE LOS POPUPS ESTÉN SIEMPRE POR ENCIMA DE TODO
   map.getPane('popupPane').style.zIndex = 1000;
   map.getPane('tooltipPane').style.zIndex = 1001;
 
   map.createPane("cultivosSigpacPane");
   map.getPane("cultivosSigpacPane").style.zIndex = 600;
 
-  // Panes de suelos: z-index base 200
-  // Siempre por DEBAJO de catastro (510), cultivos CyL (590+),
-  // cultivosSigpac (600), recintos (700) y mis recintos (800).
+  map.createPane('estacionesPane');
+  map.getPane('estacionesPane').style.zIndex = 1100;
+
   map.createPane("capacidadCampoPane");
   map.getPane("capacidadCampoPane").style.zIndex = 200;
   
@@ -1192,7 +1148,7 @@ async function aplicarVistaInicialUsuario() {
   
   map.createPane("clasificacionTexturalPane");
   map.getPane("clasificacionTexturalPane").style.zIndex = 200;
-  
+    
   map.createPane("contenidoArcillaPane");
   map.getPane("contenidoArcillaPane").style.zIndex = 200;
   
@@ -1217,14 +1173,13 @@ async function aplicarVistaInicialUsuario() {
   map.createPane("catastroPane");
   map.getPane("catastroPane").style.zIndex = 510;
 
-  // ══════════════════════════════════════════════════════════════════
   // CREACIÓN AUTOMÁTICA DE PANES PARA MAPA DE CULTIVOS
-  // ══════════════════════════════════════════════════════════════════
+
   // Para añadir nuevo año, meter el año en cultivosYears, en principio ya no hay mas?
   
-  // Configuración de años (se genera automáticamente desde cylYearsConfig)
+  // Configuración de años (se genera automáticamente desde cylYearsConfig),
   const cultivosYears = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016' , '2015', '2014', '2013', '2012'];
-  // z-index base: 550+ para que estén sobre capas de suelos (500) pero bajo recintos (700+)
+  
   let zIndexBase = 590;
   
   cultivosYears.forEach(year => {
@@ -1254,7 +1209,7 @@ async function aplicarVistaInicialUsuario() {
     try { map.invalidateSize(); } catch (e) {}
   }, 280);
   
-  // NUEVO: Guardar estado cuando se abre/cierra el panel
+  // guardar estado, esto funciona regular
   if (splitOpen && currentSideRecintoId) {
     guardarEstadoMapa();
   } else {
@@ -1285,7 +1240,7 @@ async function aplicarVistaInicialUsuario() {
       // 3) cerrar panel
       closeHistoricoPanel();
       closeOperacionesPanel();
-      // closeGaleriaPanel?.();   //REVISAR
+      // closeGaleriaPanel?.();   
       setSplitMode(false);
 
       // reset id actual
@@ -1293,11 +1248,9 @@ async function aplicarVistaInicialUsuario() {
     });
   }
 
-  // ============================
-  // EDITAR NOMBRE (lápiz)
-  // Enter o blur => guardar
+  // editar nombre
+  // Enter o blur => guardar, igual tendira que tener un boton pero w/e
   // Escape => cancelar
-  // ============================
 
   let currentSideRecintoId = null;
   let originalTitleText = "";
@@ -1486,7 +1439,6 @@ if (btnDelete) {
 }
 
 // Función auxiliar para mostrar mensajes de éxito
-// --------------------------------
 
   async function guardarNombreRecinto(nombre) {
     if (!currentSideRecintoId) return;
@@ -1549,14 +1501,13 @@ if (btnDelete) {
       });
     }
 
-  // -----------------------------------------
   // 3) Capas base
-  // -----------------------------------------
+
   const baseOSM = L.tileLayer(
     "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     {
       attribution: "&copy; OpenStreetMap contributors",
-      minZoom: 8,
+      minZoom: 7,
       maxZoom: 20,
     }
   ).addTo(map);
@@ -1565,7 +1516,7 @@ if (btnDelete) {
     "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     {
       attribution: "Tiles &copy; Esri",
-      minZoom: 8,
+      minZoom: 7,
       maxZoom: 20,
     }
   );
@@ -1579,8 +1530,8 @@ if (btnDelete) {
   const baseNdvi = L.imageOverlay(
     `/api/ndvi/ndvi_latest.png?v={{ ndvi_version }}`,
     NDVI_BOUNDS,
-    { opacity: 1.0, className: "ndvi-overlay", interactive: false }
-  );
+    { opacity: 1.0, className: "ndvi-overlay", interactive: false, pane: 'ndviPane' }
+);
 
   const highZoomLayers = {
     satellite: baseSat,
@@ -1611,9 +1562,9 @@ if (btnDelete) {
     return highZoomLayers[activeHighLayerKey];
   }
 
-  // -----------------------------------------
   // 4) Capa de recintos
-  // -----------------------------------------
+
+  // fill opacity para rellenar o no, con 0 solo borde, weight para el grosor del borde
 
   const RECINTO_STYLE_DEFAULT = {
     color: "#ff8800",
@@ -1695,7 +1646,7 @@ if (btnDelete) {
 
       // Marcar visualmente la selección - CON PRIORIDAD DE SUELOS
       layer.on("click", async function (e) {
-        // ✅ SI ESTAMOS EN MODO DIBUJO, NO HACER NADA
+        // modo dibujo no hacer na de na, 
         if (typeof rectangleDrawer !== 'undefined' && rectangleDrawer && rectangleDrawer._enabled) {
           return;
         }
@@ -1709,7 +1660,6 @@ if (btnDelete) {
             const r = await fetch(`/api/popup/suelos?lat=${latlng.lat}&lng=${latlng.lng}`);
             const j = await r.json().catch(() => ({}));
             if (j.ok && j.found) {
-              // HAY SUELO AQUÍ - Mostrar popup de suelo en lugar de recinto
               highlightGeojson(j.data.geojson, "suelos");
               console.log("✅ Suelo encontrado (click en recinto):", j.data);
               L.popup({ maxWidth: 320, autoPan: true })
@@ -1735,12 +1685,11 @@ if (btnDelete) {
       });
     },
   }).addTo(map);
+  window.recintosLayer = recintosLayer;
 
-  // ============================
   // Highlight para WMS (Cultivos/Catastro)
-  // ============================
   map.createPane("wmsHighlightPane");
-  map.getPane("wmsHighlightPane").style.zIndex = 650; // por encima de WMS
+  map.getPane("wmsHighlightPane").style.zIndex = 650; 
 
   const CULTIVO_HL_STYLE = { color: "#0077ff", weight: 3, fillColor: "#0077ff", fillOpacity: 0.20 };
   const CATASTRO_HL_STYLE = { color: "#0077ff", weight: 3, fillColor: "#0077ff", fillOpacity: 0.20 };
@@ -1839,7 +1788,7 @@ function actualizarNdviPanel() {
   if (window.ndviManager && window.ndviManager.panelDetalleAbierto) {
     // El panel está abierto, se actualizará automáticamente cuando
     // se llame a setRecintoId en renderSidePanelFromProps
-    return true; // Indica que el panel estaba abierto
+    return true; // panel esta abierto
   }
   return false;
 }
@@ -1848,7 +1797,6 @@ function actualizarNdviPanel() {
   async function abrirRecintoEnPanel(data) {
     if (!data || !data.id) return;
 
-    // Detectar qué paneles están abiertos ANTES de cambiar los datos
     const ndviAbierto = actualizarNdviPanel();
     const cultivosAbierto = document.getElementById("side-panel")?.classList.contains("cultivos-historico-open");
     const operacionesAbierto = document.getElementById("side-panel")?.classList.contains("operaciones-open");
@@ -1878,7 +1826,7 @@ function actualizarNdviPanel() {
     }, 100);
 
     // centrar y resaltar
-    // cambiar por resaltarrecintosinzoom ??
+    // *** cambiar por resaltarrecintosinzoom ??
     centrarEnRecinto(data);
 
     // Guardar estado después de abrir
@@ -1960,13 +1908,13 @@ function actualizarNdviPanel() {
         });
       });
 
-      // ⭐ NO HACER ZOOM - mantener la vista actual del mapa
 
     } catch (error) {
       console.error('Error al resaltar el recinto:', error);
     }
   }
 
+  // esto esta medio raro hecho creo
   async function abrirRecintoDesdeVer(dataFlask) {
     if (!dataFlask || !dataFlask.id) return;
 
@@ -2021,12 +1969,14 @@ function actualizarNdviPanel() {
     style: () => MIS_RECINTO_STYLE,
     onEachFeature: function (feature, layer) {
       layer.on("click", async function (e) {
-        // ✅ SI ESTAMOS EN MODO DIBUJO, NO HACER NADA
+        // modo dibujo, no hacer na de na
         if (modoEdicion) return;
+
+       
         
         try { L.DomEvent.stop(e); } catch (_) {}
 
-        // ⭐ PRIORIDAD 1: Si suelos están activos, verificar primero si hay suelo
+        // PRIORIDAD 1: Si suelos están activos, verificar primero si hay suelo
         if (suelosActivos && map.getZoom() >= 13) {
           const latlng = e.latlng;
           try {
@@ -2114,7 +2064,7 @@ function actualizarNdviPanel() {
     .catch((err) => console.error("Error al cargar mis recintos:", err));
 }
 
-  // *** Recintos activos por defecto ***
+  // recintos activos por defecto 
   let recintosActivos = true;
   let recintosRequestToken = 0;
 
@@ -2157,11 +2107,9 @@ function actualizarNdviPanel() {
       });
   }
 
-  // -----------------------------------------
   // Parcelas Catastro + Cultivos SIGPAC + Suelos (WMS desde GeoServer)
-  // -----------------------------------------
 
-  // 1) URL WMS
+  // 1) URL WMS, coger del .env supongo y cambiarla
   const GEOSERVER_WMS = "http://100.102.237.86:8080/geoserver/wms";
 
   // 2) Flags de visibilidad
@@ -2335,7 +2283,7 @@ function actualizarNdviPanel() {
 
 
 
-  // 4) Sólo mostrar a partir de cierto zoom
+  // solo mostrar a partir de cierto zoom
   function cargarParcelasCatastroSiProcede() {
     const z = map.getZoom();
     if (!parcelasCatastroActivas || z < ZOOM_RECINTOS) {
@@ -2367,7 +2315,7 @@ function actualizarNdviPanel() {
     if (!map.hasLayer(suelosLayer)) suelosLayer.addTo(map);
 }
 
-  // === NUEVAS CAPAS DE SUELOS CON SISTEMA DE ACTIVACIÓN ===
+  // nuevas capas de suelos
   let capasActivasSuelos = {
     capacidadCampo: false,
     capacidadRetencion: false,
@@ -2395,7 +2343,6 @@ function actualizarNdviPanel() {
   };
 
   // z-index dinámico de suelos: empieza en 200, sube hasta ~210
-  // siempre por debajo de catastro (510) y cultivos (590+)
   let currentMaxZIndex = 200;
 
   function cargarCapaSueloSiProcede(capaNombre) {
@@ -2429,7 +2376,7 @@ function actualizarNdviPanel() {
       leyendaDiv.style.display = 'block';
       leyendasContainer.style.display = 'block';
       
-      // ✅ MOVER LA LEYENDA AL PRINCIPIO (después del header "Leyendas Activas")
+      // MOVER LA LEYENDA AL PRINCIPIO (después del header "Leyendas Activas")
       // El header es el primer div hijo del contenedor
       const header = leyendasContainer.firstElementChild;
       if (header) {
@@ -2540,13 +2487,13 @@ function actualizarNdviPanel() {
         return null;
     };
     
-    // Helper: crear fila solo si hay valor
+    // helper: crear fila solo si hay valor
     const makeRow = (label, value, unit = '') => {
         if (value === null || value === undefined || value === "") return '';
         return `<div><strong>${label}:</strong> ${value}${unit}</div>`;
     };
     
-    // Helper para crear fila con valor y descripción
+    // helper para crear fila con valor y descripción
     const makeRowWithDesc = (label, value, desc, unit = '') => {
         if (value === null || value === undefined || value === "") return '';
         const descPart = desc ? ` <small>(${desc})</small>` : '';
@@ -2557,11 +2504,10 @@ function actualizarNdviPanel() {
         `;
     };
     
-    // 🔍 Log detallado para debugging
     console.log("📊 Datos suelo recibidos en buildSuelosPopup:", d);
     console.log("📋 Campos disponibles:", Object.keys(d));
     
-    // 🎯 Obtener todos los valores
+    // obtener valores
     // IMPORTANTE: Los nombres aquí deben coincidir con lo que devuelve el backend
     // El backend devuelve los campos en snake_case (id_muestra, campana, etc.)
     
@@ -2601,12 +2547,7 @@ function actualizarNdviPanel() {
     const coorX = getField('coor_x_etr', 'COOR_X_ETR', 'Coor_X_Etr', 'coor_x');
     const coorY = getField('coor_y_etr', 'COOR_Y_ETR', 'Coor_Y_Etr', 'coor_y');
     
-    // 🔍 Log de valores específicos para debugging
-    console.log("🎯 Valores extraídos:");
-    console.log(`   - ID Muestra: ${idMuestra}`);
-    console.log(`   - Campaña: ${campana}`);
-    console.log(`   - pH: ${ph}`);
-    console.log(`   - Origen: ${origen}`);
+
     
     // Construir HTML del popup
     
@@ -2641,7 +2582,7 @@ function actualizarNdviPanel() {
         `;
     }
     
-    // Composición
+    // composición
     let composicionHtml = '';
     if (moPorc || arenaPorc || limoPorc || arcillaPorc || textura) {
         const texturaGrid = [
@@ -2674,7 +2615,7 @@ function actualizarNdviPanel() {
         }
     }
     
-    // Nutrientes
+    // nutrientes
     let nutrientesHtml = '';
     const nutrientesRows = [
         makeRowWithDesc('P (Olsen)', pOlsenPpm, pOlsen, ' ppm'),
@@ -2731,7 +2672,7 @@ function actualizarNdviPanel() {
   if (map.getZoom() < 13) return;
 
   try {
-    // ⭐ PRIORIDAD ABSOLUTA: SUELOS (solo con zoom >= 15)
+    // PRIORIDAD ABSOLUTA: SUELOS (solo con zoom >= 15)
     // CRÍTICO: Se verifica ANTES que cualquier otra capa, incluso elementos interactivos
     if (suelosActivos && map.getZoom() >= 15) {
       const r = await fetch(`/api/popup/suelos?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
@@ -2752,12 +2693,10 @@ function actualizarNdviPanel() {
 
     }
     
-    // ⚠️ IMPORTANTE: Solo llegamos aquí si NO había suelo activo o NO se encontró suelo
     
     // Si el click fue sobre un elemento interactivo Y no había suelo debajo, salir
     // (esto permite que recintos, dibujos, etc. funcionen normalmente cuando NO hay suelos)
     if (t && (t.classList?.contains("leaflet-interactive") || t.closest?.(".leaflet-interactive"))) {
-      console.log("ℹ️ Click en elemento interactivo (sin suelo debajo)");
       return;
     }
     
@@ -2796,9 +2735,7 @@ function actualizarNdviPanel() {
   }
 });
 
-  // -----------------------------------------
   // CyL suelos y demás
-  // -----------------------------------------
 
   const CYL2025_WMS_LAYER = "gis_project:Cultivos_y_Ocupación_del_suelo_2025";
   const CYL2025_STYLE = "mcsncyl2025"; 
@@ -2902,7 +2839,7 @@ function actualizarNdviPanel() {
 
   // Para añadir año modificar script
   
-  // Sistema de capas de cultivos por año (generado automáticamente)
+  // Sistema de capas de cultivos por año (generado automáticamente), esta 2 veces??
   const cylLayersData = {};
   const cultivosYearsForLayers = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'];
   
@@ -2954,7 +2891,6 @@ function actualizarNdviPanel() {
     cargarCyLSiProcede(2025);
   }
 
-// -------------------
 
   // Función auxiliar para mensajes tipo bootstrap
   function mostrarErrorInline(msg) {
@@ -2991,9 +2927,7 @@ function actualizarNdviPanel() {
     solicitarRecinto(payload);
   };
 
-  // -----------------------------------------
-  // 5) Cargar recintos
-  // -----------------------------------------
+  // cargar recintos
   function cargarRecintosSiProcede() {
     const z = map.getZoom();
 
@@ -3037,8 +2971,6 @@ function actualizarNdviPanel() {
           return;
         }
 
-        console.log("Recintos recibidos:", fc && fc.features ? fc.features.length : 0);
-
         // Guardar información del popup abierto antes de limpiar
         let popupAbiertoId = null;
         let popupEstiloSeleccionado = false;
@@ -3048,7 +2980,6 @@ function actualizarNdviPanel() {
             const props = layer.feature?.properties || {};
             popupAbiertoId = props.id_recinto;
             popupEstiloSeleccionado = (selectedRecintoLayer === layer);
-            console.log("Popup abierto detectado para recinto:", popupAbiertoId);
           }
         });
 
@@ -3090,11 +3021,9 @@ function actualizarNdviPanel() {
       });
   }
 
-  // -----------------------------------------
   // 6) Actualizar mapa según zoom
-  // -----------------------------------------
   // Declarado aquí (antes de actualizarMapaSegunZoom) para evitar ReferenceError con let
-  let modoEdicion = false;
+  window.modoEdicion = false;
 
   function actualizarMapaSegunZoom() {
     const z = map.getZoom();
@@ -3145,9 +3074,7 @@ if (editBtn) editBtn.disabled = true;
     }
   }
 
-  // -----------------------------------------
   // 7) Eventos del mapa
-  // -----------------------------------------
 
   map.on("zoomend", () => {
     const currentZoom = map.getZoom();
@@ -3205,9 +3132,7 @@ if (editBtn) editBtn.disabled = true;
   cargarTodasCapasSuelosSiProcede();
   cargarTodasCyLSiProcede();
 
-  // -----------------------------------------
-  // 8) Lógica del panel y botones sincronizados
-  // -----------------------------------------
+  // 8) lógica del panel y botones sincronizados, ***ahora lo del filtro da un poco igual porque no se usa esta oculto
   const toggleBtn = document.getElementById("basemap-toggle");
   const panel = document.getElementById("basemap-panel");
   const basemapContainer = document.getElementById("basemap-panel-container");
@@ -3229,7 +3154,7 @@ if (editBtn) editBtn.disabled = true;
     }
   });
 
-  // --- Selección de mapa principal ---
+  // selección de mapa principal
   document
     .querySelectorAll(".basemap-option.basemap-main[data-layer]")
     .forEach((option) => {
@@ -3250,7 +3175,7 @@ if (editBtn) editBtn.disabled = true;
       });
     });
 
-  // --- Toggle MisRecintos ---
+  // toggle MisRecintos 
   const misRecintosOption = document.querySelector(
     '.basemap-option.basemap-detail[data-detail="mis"]'
   );
@@ -3314,6 +3239,31 @@ if (editBtn) editBtn.disabled = true;
     });
   }
 
+
+
+  const estacionesOption = document.querySelector(
+  '.basemap-option.basemap-detail[data-detail="estaciones"]'
+  );
+
+  if (estacionesOption) {
+    estacionesOption.addEventListener("click", () => {
+      if (window.estacionesActivas) {
+        estacionesOption.classList.remove("active");
+        if (window.estacionesLayer && map.hasLayer(window.estacionesLayer)) {
+          map.removeLayer(window.estacionesLayer);
+        }
+        window.estacionesActivas = false;
+      } else {
+        estacionesOption.classList.add("active");
+        if (window.estacionesLayer) {
+          map.addLayer(window.estacionesLayer);
+        }
+        window.estacionesActivas = true;
+      }
+    });
+  }
+
+
   // --- Toggle Suelos ---
   const suelosOption = document.querySelector(
     '.basemap-option.basemap-detail[data-detail="suelos"]'
@@ -3360,7 +3310,6 @@ if (editBtn) editBtn.disabled = true;
     }
   });
 
-  // === EVENT LISTENERS PARA CAPAS DE SUELOS ===
   // Historial de activación: el último elemento es la capa más recientemente activada
   const historialActivacionSuelos = [];
 
@@ -3373,7 +3322,7 @@ if (editBtn) editBtn.disabled = true;
       capasActivasSuelos[capaNombre] = this.checked;
       
       if (this.checked) {
-        // Quitar borde verde de todas las otras capas
+        // quitar borde verde de todas las otras capas
         document.querySelectorAll('.soil-checkbox-label').forEach(label => {
           label.classList.remove('active-layer');
         });
@@ -3404,7 +3353,7 @@ if (editBtn) editBtn.disabled = true;
         }
         ocultarLeyendaSuelo(capaNombre);
         
-        // ✅ ASIGNAR BORDE VERDE A LA CAPA ACTIVADA MÁS RECIENTEMENTE
+        // asignar borde verde a la última capa activada (si hay alguna)
         if (historialActivacionSuelos.length > 0) {
           const ultimaCapaActiva = historialActivacionSuelos[historialActivacionSuelos.length - 1];
           const checkboxUltima = document.querySelector(`input[data-detail="${ultimaCapaActiva}"]`);
@@ -3463,9 +3412,7 @@ if (editBtn) editBtn.disabled = true;
     }
   }
 
-  // ============================================
-  // CENTRAR EN RECINTO ESPECÍFICO
-  // ============================================
+  // centrar en recinto especifico
 
   // Recibir datos del recinto específico desde Flask
   const recintoData = {{ recinto_data| tojson | safe if recinto_data else 'null' }};
@@ -3477,17 +3424,15 @@ if (editBtn) editBtn.disabled = true;
   function clearHighlight() {
     if (recintoResaltado) {
       try {
-        map.removeLayer(recintoResaltado); // Quita la capa roja
+        map.removeLayer(recintoResaltado); // quita la capa roja
       } catch (e) { }
       recintoResaltado = null;
     }
   }
 
-  // Función para centrar en un recinto específico
+  // centrar en recinto en especifico
   function centrarEnRecinto(data) {
     if (!data) return;
-
-    // Limpiar cualquier resaltado previo
     clearHighlight();
 
     console.log('Centrando en recinto:', data);
@@ -3542,7 +3487,7 @@ if (editBtn) editBtn.disabled = true;
             return; // no abrir popup si es mío
           }
 
-          // Si NO es mío: comportamiento normal (abrir popup "Añadir a mis recintos")
+          // si no es mío: comportamiento normal (abrir popup "Añadir a mis recintos")
           if (selectedRecintoLayer && selectedRecintoLayer !== targetLayer) {
             selectedRecintoLayer.setStyle(RECINTO_STYLE_DEFAULT);
           }
@@ -3552,7 +3497,7 @@ if (editBtn) editBtn.disabled = true;
         }
       }
 
-      // Guardar la clave del recinto rojo
+      // guardar la clave del recinto rojo
       const highlightKey = String(data.id);
 
       // Crear la geometría con Leaflet con estilo destacado
@@ -3618,7 +3563,7 @@ if (editBtn) editBtn.disabled = true;
           duration: 0.5
         });
 
-        // Abrir el popup después del zoom
+        // abrir el popup después del zoom
         setTimeout(() => {
           recintoResaltado.openPopup();
         }, 600);
@@ -3653,7 +3598,6 @@ if (editBtn) editBtn.disabled = true;
 
     // Esperar a que el mapa esté completamente cargado
     map.whenReady(function () {
-      console.log('Mapa listo, centrando en recinto...');
 
       // Activar recintos si están desactivados
       if (!recintosActivos) {
@@ -3714,260 +3658,6 @@ if (recintoData) {
   map.addControl(new RecentrarControl());
 }
 
-
-  const editarBtn = document.getElementById('editar-btn');
-  const dibujarBtn = document.getElementById('dibujar-btn');
-  const poligonoBtn = document.getElementById('poligono-btn');
-  const aceptarBtn = document.getElementById('aceptar-btn');
-  const cancelarBtn = document.getElementById('cancelar-btn');
-  const limpiarBtn = document.getElementById('limpiar-btn');
-
-  // FeatureGroup para guardar los elementos dibujados
-  const drawnItems = new L.FeatureGroup();
-  map.addLayer(drawnItems);
-
- let rectangleDrawer = null;
-  let polygonDrawer = null;
-  let dibujosTemporales = [];
-
-  // Función para deshabilitar/habilitar interacción con recintos durante el dibujo.
-  // Usar pointer-events: none en los panes garantiza que Leaflet.Draw recibe
-  // todos los clicks del mapa sin que los polígonos de recintos los intercepten.
-  function toggleInteraccionRecintos(enabled) {
-    const sigpacP = map.getPane('sigpacPane');
-    const misP    = map.getPane('misPane');
-
-    if (enabled) {
-      // Restaurar z-index originales
-      if (sigpacP) sigpacP.style.zIndex = '700';
-      if (misP)    misP.style.zIndex    = '800';
-      // Restaurar popups de recintos SIGPAC
-      recintosLayer.eachLayer(layer => {
-        if (layer._popup) layer.bindPopup(layer._popup);
-      });
-    } else {
-      // Bajar z-index por debajo del overlayPane de Leaflet.Draw (400)
-      // para que los paths SVG no intercepten los clicks del dibujador
-      if (sigpacP) sigpacP.style.zIndex = '200';
-      if (misP)    misP.style.zIndex    = '200';
-      // Desactivar popups de recintos SIGPAC
-      recintosLayer.eachLayer(layer => layer.unbindPopup());
-    }
-  }
-
-  // Al hacer clic en editar
-  editarBtn.addEventListener('click', () => {
-    editarBtn.classList.add('hidden');
-    dibujarBtn.classList.remove('hidden');
-    poligonoBtn.classList.remove('hidden');
-    aceptarBtn.classList.remove('hidden');
-    cancelarBtn.classList.remove('hidden');
-    limpiarBtn.classList.remove('hidden');
-
-    // Activar modo edición y deshabilitar interacción con recintos
-    modoEdicion = true;
-    toggleInteraccionRecintos(false);
-
-    // Guardar estado actual
-    dibujosTemporales = [];
-    drawnItems.eachLayer(layer => {
-      dibujosTemporales.push(layer);
-    });
-
-    console.log('Modo edición activado');
-  });
-
-  // Al hacer clic en dibujar rectángulo
-  dibujarBtn.addEventListener('click', () => {
-    // Desactivar polígono si está activo
-    if (polygonDrawer) {
-      polygonDrawer.disable();
-      polygonDrawer = null;
-    }
-
-    // Crear y activar el dibujador de rectángulos
-    L.drawLocal = L.drawLocal || {};
-    L.drawLocal.draw = L.drawLocal.draw || {};
-    L.drawLocal.draw.handlers = L.drawLocal.draw.handlers || {};
-
-    L.drawLocal.draw.handlers.rectangle = {
-      tooltip: {
-        start: 'Haz clic y arrastra para dibujar un rectángulo'
-      },
-      shapeOptions: {
-        color: '#3388ff'  // opcional, el color del rectángulo
-      }
-    };
-
-    // Ahora sí inicializamos el drawer
-    rectangleDrawer = new L.Draw.Rectangle(map);
-    rectangleDrawer.enable();
-
-    console.log('Modo dibujo de rectángulo activado');
-  });
-
-  // Al hacer clic en dibujar polígono
-  poligonoBtn.addEventListener('click', () => {
-    // Desactivar rectángulo si está activo
-    if (rectangleDrawer) {
-      rectangleDrawer.disable();
-      rectangleDrawer = null;
-    }
-
-    // Crear y activar el dibujador de polígonos
-    // Configurar mensajes en español para polígonos
-    L.drawLocal = L.drawLocal || {};
-    L.drawLocal.draw = L.drawLocal.draw || {};
-    L.drawLocal.draw.handlers = L.drawLocal.draw.handlers || {};
-
-    L.drawLocal.draw.handlers.polygon = {
-      tooltip: {
-        start: 'Haz clic para empezar a dibujar el polígono',   
-        cont: 'Haz clic para continuar el polígono',          
-        end: 'Haz clic en el primer punto para cerrar el polígono' 
-      },
-      shapeOptions: {
-        color: '#3388ff' // opcional: color del polígono
-      }
-    };
-
-    // Ahora inicializamos el drawer del polígono
-    polygonDrawer = new L.Draw.Polygon(map);
-    polygonDrawer.enable();
-
-
-    console.log('Modo dibujo de polígono activado - Haz clic para añadir puntos, doble clic para terminar');
-  });
-
-  // Evento cuando se completa el dibujo
-  map.on(L.Draw.Event.CREATED, (e) => {
-    const layer = e.layer;
-    drawnItems.addLayer(layer);
-    console.log('Forma dibujada:', layer);
-  });
-
-  // Al hacer clic en aceptar
- // Al hacer clic en aceptar
-  aceptarBtn.addEventListener('click', async () => {
-    // Obtener todos los dibujos actuales
-    const dibujos = [];
-    
-    drawnItems.eachLayer((layer) => {
-      const geoJSON = layer.toGeoJSON();
-      const tipo = layer instanceof L.Rectangle ? 'rectangulo' : 'poligono';
-      
-      dibujos.push({
-        geojson: geoJSON,
-        tipo: tipo
-      });
-    });
-
-    // Si hay dibujos, enviarlos al backend
-    if (dibujos.length > 0) {
-  try {
-    const response = await fetch('/api/guardar-dibujos', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ dibujos: dibujos })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      NotificationSystem.show({
-        type: "error",
-        title: "No se pudo guardar",
-        message: data.error || "Ocurrió un error al guardar los dibujos"
-      });
-      return;
-    }
-
-    // ✅ Mostrar éxito
-    NotificationSystem.show({
-      type: "success",
-      title: "Dibujo guardado",
-      message: data.message || "Dibujo/s creado/s correctamente"
-    });
-
-  } catch (error) {
-    console.error('Error en la petición:', error);
-    NotificationSystem.show({
-      type: "error",
-      title: "Error de conexión",
-      message: "No se pudo conectar con el servidor"
-    });
-  }
-}
-
-
-
-
-    // Continúa con el código original
-    dibujarBtn.classList.add('hidden');
-    poligonoBtn.classList.add('hidden');
-    aceptarBtn.classList.add('hidden');
-    cancelarBtn.classList.add('hidden');
-    limpiarBtn.classList.add('hidden');
-    editarBtn.classList.remove('hidden');
-
-    modoEdicion = false;
-    toggleInteraccionRecintos(true);
-
-    if (rectangleDrawer) {
-      rectangleDrawer.disable();
-      rectangleDrawer = null;
-    }
-    if (polygonDrawer) {
-      polygonDrawer.disable();
-      polygonDrawer = null;
-    }
-
-    console.log('Cambios guardados');
-  });
-
-
-  // Al hacer clic en cancelar
-  cancelarBtn.addEventListener('click', () => {
-    dibujarBtn.classList.add('hidden');
-    poligonoBtn.classList.add('hidden');
-    aceptarBtn.classList.add('hidden');
-    cancelarBtn.classList.add('hidden');
-    limpiarBtn.classList.add('hidden');
-    editarBtn.classList.remove('hidden');
-
-    // Desactivar modo edición y reactivar interacción
-    modoEdicion = false;
-    toggleInteraccionRecintos(true);
-
-    // Desactiva ambos modos de dibujo
-    if (rectangleDrawer) {
-      rectangleDrawer.disable();
-      rectangleDrawer = null;
-    }
-    if (polygonDrawer) {
-      polygonDrawer.disable();
-      polygonDrawer = null;
-    }
-
-    // Restaurar estado anterior (eliminar dibujos nuevos)
-    drawnItems.clearLayers();
-    dibujosTemporales.forEach(layer => {
-      drawnItems.addLayer(layer);
-    });
-
-    console.log('Edición cancelada');
-  });
-
-  // Al hacer clic en limpiar
-  limpiarBtn.addEventListener('click', () => {
-    // Eliminar todos los dibujos
-    drawnItems.clearLayers();
-  });
- 
-
-
   actualizarMapaSegunZoom();
   cargarRecintosSiProcede();
   cargarMisRecintosSiProcede();
@@ -3982,643 +3672,13 @@ if (recintoData) {
       }
     }
   });
-
-
-
-
-
-
-
-
-
-
-const dibujosToggle = document.getElementById('dibujos-toggle');
-const dibujosPanel = document.getElementById('dibujos-panel');
-const dibujosList = document.getElementById('dibujos-list');
-const dibujosCount = document.getElementById('dibujos-count');
-const refrescarDibujosBtn = document.getElementById('refrescar-dibujos');
-
-// FeatureGroup para los dibujos guardados
-const dibujosGuardadosLayer = new L.FeatureGroup();
-map.addLayer(dibujosGuardadosLayer);
-
-// Toggle panel
-dibujosToggle.addEventListener('click', () => {
-  dibujosPanel.classList.toggle('hidden');
-});
-
-
-
-// Función para formatear fecha
-function formatearFechaDibujo(fechaISO) {
-  const fecha = new Date(fechaISO);
-  const ahora = new Date();
-  const diff = ahora - fecha;
-  const dias = Math.floor(diff / (1000 * 60 * 60 * 24));
-  
-  if (dias === 0) return 'Hoy';
-  if (dias === 1) return 'Ayer';
-  if (dias < 7) return `Hace ${dias} días`;
-  
-  return fecha.toLocaleDateString('es-ES', { 
-    day: '2-digit', 
-    month: '2-digit', 
-    year: 'numeric' 
-  });
-}
-
-let dibujoVisibleId = null;
-
-// Función para cargar dibujos guardados
-async function cargarDibujosGuardados() {
-  try {
-    const response = await fetch('/api/obtener-dibujos');
-    const data = await response.json();
-    
-    if (!response.ok) {
-      console.error('Error al obtener dibujos:', data.error);
-      return;
-    }
-    
-    const dibujos = data.dibujos || [];
-    
-    // Actualizar contador
-    dibujosCount.textContent = dibujos.length;
-    dibujosCount.style.display = dibujos.length > 0 ? 'block' : 'none';
-    
-    // Limpiar lista y capa
-    dibujosList.innerHTML = '';
-    dibujosGuardadosLayer.clearLayers();
-    dibujoVisibleId = null;
-    
-    if (dibujos.length === 0) {
-      dibujosList.innerHTML = `
-        <div class="dibujos-empty">
-          <i class="bi bi-bookmark" style="font-size:48px;opacity:0.3;"></i>
-          <p style="margin:16px 0 0 0;font-size:14px;">No hay dibujos guardados</p>
-        </div>
-      `;
-      return;
-    }
-    
-    // Header con botón mostrar/ocultar todos
-    const headerActions = document.createElement('div');
-    headerActions.className = 'dibujos-list-header';
-    headerActions.innerHTML = `
-      <button class="dibujo-btn-toggle-all" id="toggle-all-dibujos">
-        <i class="bi bi-eye-fill"></i> Mostrar todos
-      </button>
-    `;
-    dibujosList.appendChild(headerActions);
-    
-    let todosVisibles = false;
-    
-    // Renderizar cada dibujo
-    dibujos.forEach((dibujo, index) => {
-      const geojson = typeof dibujo.geojson === 'string' 
-        ? JSON.parse(dibujo.geojson) 
-        : dibujo.geojson;
-      
-      const item = document.createElement('div');
-      item.className = 'dibujo-item';
-      item.dataset.dibujoId = dibujo.id;
-      
-      const colors = [
-        '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A',
-        '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2',
-        '#F8B739', '#52B788', '#EF476F', '#06D6A0', 
-        '#118AB2', '#FFD166', '#8338EC', '#3A86FF', 
-        '#FFBE0B', '#FB5607', '#2EC4B6', '#90DBF4'
-      ];
-
-      const color = colors[index % colors.length];
-      
-      item.innerHTML = `
-        <div class="dibujo-content">
-          <div class="dibujo-color" style="background-color: ${color};"></div>
-          
-          <div class="dibujo-info">
-            <div class="dibujo-ndvi-compact">
-              <div class="ndvi-compact-item">
-                <span class="ndvi-label">Máx</span>
-                <span class="ndvi-value">${dibujo.ndvi_max?.toFixed(2) || '-'}</span>
-              </div>
-              <div class="ndvi-compact-item">
-                <span class="ndvi-label">Min</span>
-                <span class="ndvi-value">${dibujo.ndvi_min?.toFixed(2) || '-'}</span>
-              </div>
-              <div class="ndvi-compact-item">
-                <span class="ndvi-label">Med</span>
-                <span class="ndvi-value">${dibujo.ndvi_medio?.toFixed(2) || '-'}</span>
-              </div>
-            </div>
-            
-            ${dibujo.area_m2 ? `
-              <div class="dibujo-area">
-                ${(dibujo.area_m2 / 10000).toFixed(2)} ha
-              </div>
-            ` : ''}
-          </div>
-          
-          <div class="dibujo-actions-compact">
-            <button class="dibujo-btn-icon delete-btn" data-id="${dibujo.id}" title="Eliminar">
-              <i class="bi bi-trash-fill"></i>
-            </button>
-          </div>
-        </div>
-      `;
-      
-      dibujosList.appendChild(item);
-      
-      // Añadir geometría al mapa con el color correspondiente
-      const layer = L.geoJSON(geojson, {
-        style: {
-          color: color,
-          weight: 5,
-          opacity: 0,
-          fillColor: color,
-          fillOpacity: 0
-        },
-        // CRÍTICO: Evitar que los eventos se propaguen a capas inferiores
-        bubblingMouseEvents: false,
-        pane: 'highlightPane', // Usar el pane de mayor z-index
-        interactive: false // Inicialmente no interactivo porque está oculto
-      });
-      
-      layer.dibujoId = dibujo.id;
-      layer.dibujoColor = color;
-      layer.colorOriginal = color;
-      
-      // Crear contenido del popup COMPACTO
-      const popupContent = `
-        <div style="font-family: inherit; min-width: 180px;">
-          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 2px solid ${color};">
-            <div style="width: 4px; height: 20px; background: ${color}; border-radius: 2px;"></div>
-            <h6 style="margin: 0; font-size: 13px; font-weight: 700; color: #333;">Consulta</h6>
-          </div>
-          
-          <div style="display: flex; gap: 8px; margin-bottom: 6px;">
-            <div style="flex: 1; background: #f8f9fa; padding: 6px; border-radius: 6px; text-align: center;">
-              <div style="font-size: 9px; color: #666; font-weight: 600;">MAX</div>
-              <div style="font-size: 14px; font-weight: 700; color: #198754;">${dibujo.ndvi_max?.toFixed(2) || '-'}</div>
-            </div>
-            <div style="flex: 1; background: #f8f9fa; padding: 6px; border-radius: 6px; text-align: center;">
-              <div style="font-size: 9px; color: #666; font-weight: 600;">MIN</div>
-              <div style="font-size: 14px; font-weight: 700; color: #198754;">${dibujo.ndvi_min?.toFixed(2) || '-'}</div>
-            </div>
-            <div style="flex: 1; background: #f8f9fa; padding: 6px; border-radius: 6px; text-align: center;">
-              <div style="font-size: 9px; color: #666; font-weight: 600;">MED</div>
-              <div style="font-size: 14px; font-weight: 700; color: #198754;">${dibujo.ndvi_medio?.toFixed(2) || '-'}</div>
-            </div>
-          </div>
-          
-          ${dibujo.area_m2 ? `
-            <div style="background: #e7f5ff; padding: 6px; border-radius: 6px; text-align: center;">
-              <span style="font-size: 14px; font-weight: 700; color: #1976d2;">${(dibujo.area_m2 / 10000).toFixed(2)} ha</span>
-              <span style="font-size: 10px; color: #666; margin-left: 4px;">(${dibujo.area_m2.toFixed(0)} m²)</span>
-            </div>
-          ` : ''}
-        </div>
-      `;
-      
-      // Hacer la capa interactiva con popup
-      layer.eachLayer(function(l) {
-        l.dibujoId = dibujo.id;
-        l.isDibujoGuardado = true;
-        
-        // NUEVO: Configurar para que no burbujeen los eventos
-        l.options.bubblingMouseEvents = false;
-        l.options.interactive = false; // Inicialmente no interactivo
-        
-        if (l.setStyle) {
-          l.setStyle({ className: 'dibujo-clickeable'});
-        }
-        
-        // Añadir popup
-        l.bindPopup(popupContent, {
-          maxWidth: 250,
-          className: 'dibujo-popup',
-          autoPan: true
-        });
-        
-        // Click handler - solo abrir popup, sin cambiar visibilidad
-        l.on('click', function(e) {
-          // Prevenir propagación
-          if (e && e.originalEvent) {
-            e.originalEvent._stopped = true;
-          }
-          
-          // Solo abrir popup si el dibujo está visible
-          const currentStyle = this.options;
-          if (currentStyle.opacity > 0 && currentStyle.interactive) {
-            this.openPopup();
-          }
-          
-          return false;
-        }, null, true);
-        
-        // Efectos hover - SOLO si el dibujo está visible
-        l.on('mouseover', function(e) {
-          const currentOpacity = this.options.opacity || 0;
-          
-          // Solo aplicar hover si está visible E interactivo
-          if (currentOpacity > 0 && this.options.interactive && this.setStyle) {
-            const currentWeight = this.options.weight || 3;
-            const currentFill = this.options.fillOpacity || 0.3;
-            
-            this.setStyle({ 
-              weight: currentWeight + 2, 
-              fillOpacity: Math.min(currentFill + 0.1, 0.5)
-            });
-          }
-          return false;
-        });
-        
-        l.on('mouseout', function(e) {
-          const currentOpacity = this.options.opacity || 0;
-          
-          // Solo resetear hover si está visible E interactivo
-          if (currentOpacity > 0 && this.options.interactive && this.setStyle) {
-            const isActive = dibujoVisibleId === dibujo.id;
-            this.setStyle({ 
-              weight: isActive ? 4 : 3,
-              fillOpacity: isActive ? 0.35 : 0.3
-            });
-          }
-          return false;
-        });
-      });
-      
-      dibujosGuardadosLayer.addLayer(layer);
-      
-      // Evento eliminar
-      item.querySelector('.delete-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        eliminarDibujo(dibujo.id);
-      });
-      
-      // Click en el item para toggle visibilidad (solo uno a la vez)
-      item.addEventListener('click', () => {
-  // Verificar si "mostrar todos" está activo
-  const btnToggleAll = document.getElementById('toggle-all-dibujos');
-  const mostrandoTodos = btnToggleAll && btnToggleAll.textContent.includes('Ocultar todos');
-  
-  if (mostrandoTodos) {
-    // Si están todos visibles, solo resaltar sin ocultar los demás
-    resaltarDibujoSinOcultar(dibujo.id, item);
-  } else {
-    // Si no están todos visibles, comportamiento normal (mostrar solo uno)
-    resaltarDibujo(dibujo.id, item);
-  }
-});
-    });
-    
-
-    // Añade esta función ANTES de la función "resaltarDibujo":
-// Busca la función resaltarDibujoSinOcultar y reemplázala completamente por esta:
-function resaltarDibujoSinOcultar(id, itemElement) {
-  // Quitar clase active de todos los items
-  document.querySelectorAll('.dibujo-item').forEach(item => {
-    item.classList.remove('active');
-  });
-  
-  // Añadir clase active al item seleccionado
-  itemElement.classList.add('active');
-  dibujoVisibleId = id;
-  
-  // Mantener todos visibles pero resaltar el seleccionado
-  dibujosGuardadosLayer.eachLayer(layer => {
-    if (layer.dibujoId === id) {
-      // Resaltar este con máxima visibilidad
-      layer.setStyle({ 
-        opacity: 1,
-        fillOpacity: 0.45,
-        weight: 5
-      });
-      
-      // Activar interactividad
-      layer.eachLayer(l => {
-        l.options.interactive = true;
-        if (l._path) {
-          l._path.style.pointerEvents = 'auto';
-        }
-      });
-      
-      // Hacer zoom
-      map.fitBounds(layer.getBounds(), {
-        padding: [50, 50],
-        maxZoom: 16
-      });
-      
-      // Abrir popup automáticamente
-      setTimeout(() => {
-        layer.eachLayer(l => {
-          if (l.getPopup) {
-            l.openPopup();
-          }
-        });
-      }, 300);
-      
-    } else {
-      // Mantener visibles los demás pero con opacidad original (0.9)
-      layer.setStyle({ 
-        opacity: 0.9,
-        fillOpacity: 0.3,
-        weight: 3
-      });
-      
-      // Mantener interactividad de todos
-      layer.eachLayer(l => {
-        l.options.interactive = true;
-        if (l._path) {
-          l._path.style.pointerEvents = 'auto';
-        }
-      });
-    }
-  });
-}
-    // Toggle todos
-    const toggleAllBtn = document.getElementById('toggle-all-dibujos');
-    if (toggleAllBtn) {
-      toggleAllBtn.addEventListener('click', function() {
-        todosVisibles = !todosVisibles;
-        
-        // Quitar el activo individual
-        dibujoVisibleId = null;
-        document.querySelectorAll('.dibujo-item').forEach(item => {
-          item.classList.remove('active');
-        });
-        
-        dibujosGuardadosLayer.eachLayer(layer => {
-          if (todosVisibles) {
-            // Mostrar todos
-            layer.setStyle({ 
-              opacity: 0.9,
-              fillOpacity: 0.3
-            });
-            
-            // CRÍTICO: Activar interactividad para todos
-            layer.eachLayer(l => {
-              l.options.interactive = true;
-              if (l._path) {
-                l._path.style.pointerEvents = 'auto';
-              }
-            });
-          } else {
-
-  map.closePopup();
-
-  // Ocultar todos
-  layer.setStyle({ 
-    opacity: 0, 
-    fillOpacity: 0 
-  });
-
-  // Desactivar interactividad
-  layer.eachLayer(l => {
-    l.options.interactive = false;
-    if (l._path) {
-      l._path.style.pointerEvents = 'none';
-    }
-  });
-}
-        });
-        
-        this.innerHTML = todosVisibles 
-          ? '<i class="bi bi-eye-slash-fill"></i> Ocultar todos'
-          : '<i class="bi bi-eye-fill"></i> Mostrar todos';
-      });
-    }
-    
-  } catch (error) {
-    console.error('Error al cargar dibujos:', error);
-  }
-}
-
-// Resaltar dibujo al hacer click en la lista (sin ocultarlo)
-function resaltarDibujo(id, itemElement) {
-  // Quitar clase active de todos los items
-  document.querySelectorAll('.dibujo-item').forEach(item => {
-    item.classList.remove('active');
-  });
-  
-  // Añadir clase active al item seleccionado
-  itemElement.classList.add('active');
-  dibujoVisibleId = id;
-  
-  // OCULTAR TODOS primero, luego mostrar solo el seleccionado
-  dibujosGuardadosLayer.eachLayer(layer => {
-    if (layer.dibujoId === id) {
-      // Mostrar solo este con máxima visibilidad Y hacerlo interactivo
-      layer.setStyle({ 
-        opacity: 1,
-        fillOpacity: 0.45,
-        weight: 5
-      });
-      
-      // CRÍTICO: Activar interactividad
-      layer.eachLayer(l => {
-        l.options.interactive = true;
-        if (l._path) {
-          l._path.style.pointerEvents = 'auto';
-        }
-      });
-      
-      // Hacer zoom
-      map.fitBounds(layer.getBounds(), {
-        padding: [50, 50],
-        maxZoom: 16
-      });
-      
-      // Abrir popup automáticamente
-      setTimeout(() => {
-        layer.eachLayer(l => {
-          if (l.getPopup) {
-            l.openPopup();
-          }
-        });
-      }, 300);
-      
-    } else {
-  // Mantener visibles los demás, pero atenuados
-  layer.setStyle({ 
-    opacity: 0.4,
-    fillOpacity: 0.15,
-    weight: 3
-  });
-
-  // Siguen siendo interactivos si quieres
-  layer.eachLayer(l => {
-    l.options.interactive = true;
-    if (l._path) {
-      l._path.style.pointerEvents = 'auto';
-    }
-  });
-}
-  });
-}
-
-// Toggle al hacer click (mantener por compatibilidad pero ya no se usa mucho)
-function toggleDibujoClick(id, itemElement) {
-  const wasVisible = (dibujoVisibleId === id);
-  
-  // Quitar clase active de todos los items
-  document.querySelectorAll('.dibujo-item').forEach(item => {
-    item.classList.remove('active');
-  });
-  
-  // Ocultar todos los dibujos
-  dibujosGuardadosLayer.eachLayer(layer => {
-    layer.setStyle({ opacity: 0, fillOpacity: 0 });
-  });
-  
-  if (wasVisible) {
-    // Si ya estaba visible, ocultarlo
-    dibujoVisibleId = null;
-  } else {
-    // Mostrar solo este con mayor visibilidad
-    dibujoVisibleId = id;
-    itemElement.classList.add('active');
-    
-    dibujosGuardadosLayer.eachLayer(layer => {
-      if (layer.dibujoId === id) {
-        layer.setStyle({ 
-          opacity: 1,           // Aumentado de 0.8 a 1
-          fillOpacity: 0.35,    // Aumentado de 0.25 a 0.35
-          weight: 4             // Aumentado de 3 a 4
-        });
-        
-        // Hacer zoom
-        map.fitBounds(layer.getBounds(), {
-          padding: [50, 50],
-          maxZoom: 16
-        });
-      }
-    });
-  }
-}
-
-// Eliminar dibujo
-window.eliminarDibujo = async function(id) {
-
-  const ok = await AppConfirm.open({
-    title: "Eliminar dibujo",
-    message: "¿Estás seguro de que deseas eliminar este dibujo?",
-    okText: "Eliminar",
-    cancelText: "Cancelar",
-    okClass: "btn-danger"
-  });
-
-  if (!ok) return;
-
-  try {
-    const response = await fetch(`/api/eliminar-dibujo/${id}`, {
-      method: 'DELETE'
-    });
-
-    if (response.ok) {
-
-      // Limpiar estado si estaba visible
-      if (dibujoVisibleId === id) {
-        dibujoVisibleId = null;
-        map.closePopup();
-      }
-
-      cargarDibujosGuardados();
-
-      // ✅ NOTIFICACIÓN
-      NotificationSystem.show({
-        type: "success",
-        title: "Dibujo eliminado",
-        message: "El dibujo se eliminó correctamente"
-      });
-
-    } else {
-      alert('Error al eliminar');
-    }
-
-  } catch (error) {
-    console.error('Error:', error);
-  }
-};
-
-// Cargar al inicio
-cargarDibujosGuardados();
-
-// CORRECCIÓN PRINCIPAL: Recargar después de guardar con limpieza de estado
-if (typeof aceptarBtn !== 'undefined') {
-  const originalClickHandler = aceptarBtn.onclick;
-  
-  aceptarBtn.addEventListener('click', function(e) {
-    // Ejecutar el handler original si existe
-    if (originalClickHandler) {
-      originalClickHandler.call(this, e);
-    }
-    
-    // Recargar dibujos después de un delay
-    setTimeout(() => {
-      cargarDibujosGuardados();
-      
-      // CRÍTICO: Limpiar el estado del modo de dibujo
-      if (typeof drawnItems !== 'undefined') {
-        drawnItems.clearLayers();
-      }
-      
-      // Resetear variables globales si existen
-      if (typeof currentLayer !== 'undefined') {
-        currentLayer = null;
-      }
-      
-      // Deshabilitar herramientas de dibujo activas
-      if (typeof drawControl !== 'undefined' && map.hasLayer(drawControl)) {
-        map.removeControl(drawControl);
-        // Volver a añadir el control limpio
-        if (typeof L.Control.Draw !== 'undefined') {
-          map.addControl(drawControl);
-        }
-      }
-      
-      // NUEVO: Activar automáticamente "mostrar todos" después de guardar
-      setTimeout(() => {
-        const btnToggleAll = document.getElementById('toggle-all-dibujos');
-        if (btnToggleAll && btnToggleAll.textContent.includes('Mostrar todos')) {
-          btnToggleAll.click();
-        }
-      }, 100);
-    }, 1000);
-  });
-}
-
-// NUEVO: Hacer los dibujos guardados clickeables en el mapa
-// Ahora con prevención de conflictos con recintos
-dibujosGuardadosLayer.on('click', function(e) {
-  // Solo procesar si realmente se hizo clic en un dibujo guardado
-  if (!e.layer || !e.layer.isDibujoGuardado) return;
-  
-  const clickedLayer = e.layer;
-  const dibujoId = clickedLayer.dibujoId;
-  
-  if (dibujoId) {
-    // Encontrar el item correspondiente en la lista
-    const item = document.querySelector(`.dibujo-item[data-dibujo-id="${dibujoId}"]`);
-    if (item) {
-      // Hacer scroll al item en la lista
-      item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      
-      // Resaltar el dibujo
-      resaltarDibujo(dibujoId, item);
-    }
-  }
-});
   });
 </script>
+<script src="{{ url_for('static', filename='js/visor/visor-dibujos.js') }}"></script>
 <script src="{{ url_for('static', filename='js/visor/visor-cultivos.js') }}"></script>
-
 <script src="{{ url_for('static', filename='js/visor/visor-operaciones.js') }}"></script>
-
-
-
 <script src="{{ url_for('static', filename='js/visor/visor-panel.js') }}"></script>
+<script src="{{ url_for('static', filename='js/visor/visor-estaciones.js') }}"></script>
 
 
 {% endblock %}

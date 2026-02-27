@@ -1,4 +1,4 @@
-/* Fondo para login / register */
+/* Fondo para login / register 
 body.auth-bg {
   background-image: url("../img/auth-bg.jpg");
   background-size: cover;
@@ -6,7 +6,7 @@ body.auth-bg {
   background-repeat: no-repeat;
   background-attachment: fixed;
 }
-
+  */
 /* Overlay suave para mejorar legibilidad del panel */
 body.auth-bg::before {
   content: "";

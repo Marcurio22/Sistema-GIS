@@ -367,6 +367,12 @@
                                                     placeholder="Ej: +34 666 66 66 66">
                                             </div>
 
+                                            <div class="mb-3">
+                                                <label class="form-label">Nueva Contraseña</label>
+                                                <input type="password" class="form-control" name="password"
+                                                    placeholder="Dejar en blanco para mantener la contraseña actual">
+                                            </div>
+
 
                                             {% if current_user.rol == 'superadmin' %}
                                             <div class="mb-3">

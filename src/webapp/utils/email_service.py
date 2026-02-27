@@ -4,7 +4,7 @@ Servicio de envío de correos electrónicos
 from flask_mail import Message
 from webapp import mail
 
-
+# cambiar 100.102
 def enviar_correo_prueba(destinatario):
     print(f"=" * 60)
     print(f"INICIANDO ENVÍO DE CORREO")
