@@ -5,7 +5,7 @@ class NDVI {
         this.todosLosIndices = [];
         this.indiceActual = 0;
         this.imagenZoomActual = 0;
-        this.chartInstance = null; // ← Importante inicializar aquí
+        this.chartInstance = null; 
         this.init();
         this.setupDetallePanel();
     }
@@ -304,9 +304,6 @@ class NDVI {
         }
     }
 
-    /**
-     * ✨ NUEVA FUNCIÓN: Actualizar solo la gráfica (sin hacer fetch)
-     */
     actualizarGrafica() {
         const container = document.getElementById('ndvi-chart');
         if (!container) return;
@@ -460,9 +457,7 @@ class NDVI {
         });
     }
 
-    /**
-     * 🔥 FUNCIÓN ORIGINAL: Renderizar gráfica por primera vez
-     */
+
     async renderizarGrafica() {
         const container = document.getElementById('ndvi-chart');
         if (!container) return;
@@ -484,7 +479,6 @@ class NDVI {
         this.todosLosIndices = [];
         this.indiceActual = 0;
 
-        // 🔥 Resetear lightbox si venimos de otro recinto
         if (window.lightboxManager) {
             window.lightboxManager.updateImages([], null);
         }

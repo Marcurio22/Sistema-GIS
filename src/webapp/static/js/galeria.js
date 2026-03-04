@@ -27,7 +27,6 @@ class GaleriaImagenes {
     const modalSubida = document.getElementById('modalSubida');
     if (!modalSubida || this._modalListenersConfigured) return;
 
-    // ✅ Solo resetear al cerrar, GPS se pide únicamente en "Tomar Foto"
     modalSubida.addEventListener('hidden.bs.modal', () => {
       this.resetearEstadoCompleto();
     });
@@ -90,7 +89,7 @@ class GaleriaImagenes {
         fileInput.click();
       });
 
-      // ✅ Primero GPS, luego cámara
+      // pimero GPS, luego cámara
       document.getElementById('btn-tomar-foto').addEventListener('click', async () => {
         fileInput.setAttribute('capture', 'environment');
         await this.solicitarPermisoUbicacion(); // ← espera respuesta (acepta o deniega)
@@ -210,8 +209,6 @@ class GaleriaImagenes {
     }
 
     try {
-      // ✅ NO limpiamos el contenedor aquí → las imágenes viejas se quedan
-      // visibles mientras carga, sin parpadeo negro
       const response = await fetch(`/api/galeria/listar/${this.recintoId}`);
       if (!response.ok) throw new Error('Error al cargar imágenes');
 
@@ -275,9 +272,6 @@ class GaleriaImagenes {
 
       const imgEl = item.querySelector('img');
       const overlayEl = item.querySelector('.galeria-overlay');
-
-      // Doble rAF: espera a que Chrome haya pintado la imagen antes de hacer el fade.
-      // Sin esto, Android Chrome crea la capa GPU con la imagen negra y luego la pinta.
       imgEl.onload = () => {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
@@ -329,7 +323,6 @@ class GaleriaImagenes {
       fragment.appendChild(toggleBtn);
     }
 
-    // ✅ Swap atómico: reemplazamos el contenido de golpe
     this.container.innerHTML = '';
     this.container.appendChild(fragment);
   }
@@ -453,7 +446,7 @@ class GaleriaImagenes {
       const btnSubir = form.querySelector('button[type="submit"]');
       this.animarSubida(btnSubir, true);
 
-      // ✅ Si el GPS aún está en curso, esperamos máximo 3s antes de enviar
+
       if (this.gpsPromesa) {
         await Promise.race([
           this.gpsPromesa,

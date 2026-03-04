@@ -1,4 +1,4 @@
-/* Dashboard minimap preview (robusto) */
+
 
 (function () {
   function safeParseStartView() {
