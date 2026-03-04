@@ -1,18 +1,18 @@
 from datetime import date, timedelta
 from  pathlib import Path
 from sqlalchemy import text
-from webapp import db
+from .. import db
 from flask import render_template, current_app
 from flask_login import login_required, current_user
 from collections import defaultdict
-from webapp.api.services import visor_start_view_usuario
+from ..api.services import visor_start_view_usuario
 from . import dashboard_bp
 import json
 import logging
 from .utils_dashboard import leaflet_bounds_from_tif, obtener_datos_aemet, MunicipiosCodigosFinder
 from ..models import Recinto
 import os
-from webapp.dashboard.utils_dashboard import municipios_finder
+from ..dashboard.utils_dashboard import municipios_finder
 
 
 logger = logging.getLogger('app.dashboard')

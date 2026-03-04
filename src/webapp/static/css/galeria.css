@@ -28,8 +28,10 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   cursor: pointer;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-  height: 250px; /* Altura fija */
+  height: 250px;
   background-color: #f8f9fa;
+  /* isolation:isolate evita que el fondo oscuro del panel "sangre" sin crear capas GPU extra */
+  isolation: isolate;
 }
 .galeria-item:hover {
   transform: translateY(-5px);
@@ -42,7 +44,9 @@
   height: 100%;
   object-fit: contain;
   opacity: 0;
-  transition: opacity 0.3s ease-in-out;
+  transition: opacity 0.25s ease-in-out;
+  /* Sin will-change ni translateZ: evita que Android Chrome cree una capa GPU
+     antes de que la imagen esté decodificada (lo que causaba el flash negro) */
 }
 
 .galeria-item:hover img {

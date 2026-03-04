@@ -124,7 +124,7 @@ class Recinto(db.Model):
     def nombre_municipio(self):
         """Obtiene el nombre del municipio desde el código"""
         try:
-            from webapp.dashboard.utils_dashboard import municipios_finder
+            from .dashboard.utils_dashboard import municipios_finder
             return municipios_finder.obtener_nombre_municipio(self.provincia, self.municipio)
         except Exception:
             return f"Municipio {self.municipio}"
@@ -133,7 +133,7 @@ class Recinto(db.Model):
     def nombre_provincia(self):
         """Obtiene el nombre de la provincia desde el código"""
         try:
-            from webapp.dashboard.utils_dashboard import municipios_finder
+            from .dashboard.utils_dashboard import municipios_finder
             return municipios_finder.obtener_nombre_provincia(self.provincia)
         except Exception:
             return f"Provincia {self.provincia}"

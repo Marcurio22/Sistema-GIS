@@ -1711,9 +1711,7 @@ svg.leaflet-zoom-animated {
 .lightbox {
   animation: fadeIn 0.3s ease;
 }
-/* ============================================
-   RESPONSIVE SIDE-PANEL MÓVIL
-   ============================================ */
+
 
 @media (max-width: 768px) {
   /* Side panel desde abajo en móvil */
@@ -1794,57 +1792,50 @@ svg.leaflet-zoom-animated {
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: space-between;
+    /* ✅ flex-start en lugar de space-between: evita el hueco vacío */
+    justify-content: flex-start;
     padding: 30px 20px 10px;
-    gap: 0;
+    gap: 8px;
   }
 
-  /* Título a la izquierda - PRIMERO */
+  /* ✅ El título crece para llenar todo el espacio disponible */
   #side-title {
-    order: 1;
     position: static;
     transform: none;
     text-align: left;
     font-size: 1.3rem;
-    flex: 0 1 auto;
+    flex: 1 1 0;       
+    min-width: 0;     
     max-width: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
   }
 
-  /* Botón editar justo después del título */
-  #btn-edit-name {
-    order: 2;
-    flex-shrink: 0;
-    margin-left: 8px;
-  }
-
-  /* Espacio flexible en el medio */
-  .side-header::after {
-    content: "";
-    order: 3;
-    flex: 1;
-  }
-
-  /* Botón eliminar */
-  #btn-delete-recinto {
-    order: 4;
-  }
-
-  /* Botón cerrar al final */
-  #side-close {
-    order: 5;
-  }
-
-  /* Los botones dentro de side-actions también necesitan order */
   .side-actions {
     display: flex;
-    order: 6;
+    flex-shrink: 0;
+    gap: 8px;
   }
 
-  /* CRÍTICO: Eliminar el gap del side-actions */
-  #side-panel .side-actions {
-    gap: 0 !important;
+  /* Las reglas de order en hijos de .side-actions no tenían efecto
+     (los botones están anidados dentro, no son hijos directos del
+     flex container .side-header). Se eliminan para evitar confusión. */
+  #btn-edit-name,
+  #btn-delete-recinto,
+  #side-close {
+    order: unset;
+    margin-left: 0;
   }
-} 
+
+  /* Eliminar el pseudo-elemento ::after que actuaba de spacer
+     (ya no hace falta con flex: 1 en el título) */
+  .side-header::after {
+    content: none;
+  }
+}
+
 
 
 /* Hover effect para checkboxes de suelos */

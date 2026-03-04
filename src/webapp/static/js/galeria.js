@@ -7,8 +7,11 @@ class GaleriaImagenes {
     this.recintoId = null;
     this.ultimaUbicacion = null;
     this.gpsYaSolicitado = false;
+    this.gpsPromesa = null; // ← guardamos la promesa en curso
     this.archivoSeleccionado = false;
     this._modalListenersConfigured = false;
+    this._puntosInterval = null; // ← intervals en this, no en data-*
+    this._waveInterval = null;
     this.init();
   }
 
@@ -20,11 +23,11 @@ class GaleriaImagenes {
     this.container.innerHTML = '<p class="text-muted">Selecciona un recinto para ver sus imágenes</p>';
   }
 
-  // ✅ Solo resetear al cerrar, NO pedir GPS al abrir
   setupModalListeners() {
     const modalSubida = document.getElementById('modalSubida');
     if (!modalSubida || this._modalListenersConfigured) return;
-    
+
+    // ✅ Solo resetear al cerrar, GPS se pide únicamente en "Tomar Foto"
     modalSubida.addEventListener('hidden.bs.modal', () => {
       this.resetearEstadoCompleto();
     });
@@ -35,35 +38,34 @@ class GaleriaImagenes {
   resetearEstadoCompleto() {
     this.ultimaUbicacion = null;
     this.gpsYaSolicitado = false;
+    this.gpsPromesa = null;
     this.archivoSeleccionado = false;
-    
+
     const gpsStatus = document.getElementById('gps-status');
     if (gpsStatus) {
       gpsStatus.classList.add('d-none');
       gpsStatus.classList.remove('text-success', 'text-warning', 'text-info');
       gpsStatus.innerHTML = '';
     }
-    
+
     const archivoSeleccionado = document.getElementById('archivo-seleccionado');
     if (archivoSeleccionado) {
       archivoSeleccionado.textContent = 'Ningún archivo seleccionado';
       archivoSeleccionado.style.color = '';
       archivoSeleccionado.style.fontWeight = '';
     }
-    
+
     const fileInput = document.getElementById('imagen-file');
-    if (fileInput) {
-      fileInput.value = '';
-    }
+    if (fileInput) fileInput.value = '';
   }
 
   setupCameraOption() {
     const fileInput = document.getElementById('imagen-file');
     if (!fileInput) return;
-    
+
     if (this.isMobile()) {
       fileInput.style.display = 'none';
-      
+
       const btnContainer = document.createElement('div');
       btnContainer.className = 'mb-3';
       btnContainer.innerHTML = `
@@ -79,23 +81,22 @@ class GaleriaImagenes {
         <small class="text-muted d-block mt-2" id="archivo-seleccionado">Ningún archivo seleccionado</small>
         <small class="d-none mt-1 d-block" id="gps-status"></small>
       `;
-      
+
       fileInput.parentNode.insertBefore(btnContainer, fileInput);
-      
-      // ✅ PEDIR GPS CUANDO HAGA CLIC EN GALERÍA
-      document.getElementById('btn-elegir-archivo').addEventListener('click', async () => {
-        await this.solicitarPermisoUbicacion(); // ← AQUÍ
+
+        // Sin GPS, solo abrir galería
+      document.getElementById('btn-elegir-archivo').addEventListener('click', () => {
         fileInput.removeAttribute('capture');
         fileInput.click();
       });
-      
-      // ✅ PEDIR GPS CUANDO HAGA CLIC EN TOMAR FOTO
+
+      // ✅ Primero GPS, luego cámara
       document.getElementById('btn-tomar-foto').addEventListener('click', async () => {
-        await this.solicitarPermisoUbicacion(); // ← AQUÍ
         fileInput.setAttribute('capture', 'environment');
-        fileInput.click();
+        await this.solicitarPermisoUbicacion(); // ← espera respuesta (acepta o deniega)
+        fileInput.click();                      // ← luego abre la cámara
       });
-      
+
       fileInput.addEventListener('change', (e) => {
         const archivoSeleccionado = document.getElementById('archivo-seleccionado');
         if (e.target.files.length > 0) {
@@ -110,94 +111,76 @@ class GaleriaImagenes {
           archivoSeleccionado.style.fontWeight = '';
         }
       });
+
     } else {
-      // ✅ En escritorio, pedir GPS cuando seleccione archivo
-      fileInput.addEventListener('click', async () => {
-        await this.solicitarPermisoUbicacion();
-      });
-      
+      // Escritorio: GPS al cambiar archivo
       fileInput.addEventListener('change', (e) => {
         this.archivoSeleccionado = e.target.files.length > 0;
       });
     }
   }
 
-  async solicitarPermisoUbicacion() {
-    if (this.gpsYaSolicitado) {
-      return this.ultimaUbicacion;
-    }
-
+  solicitarPermisoUbicacion() {
+    // Si ya hay una promesa en curso, devolver la misma
+    if (this.gpsPromesa) return this.gpsPromesa;
+    // Si ya tenemos ubicación, no volver a pedir
+    if (this.gpsYaSolicitado) return Promise.resolve(this.ultimaUbicacion);
+    // Si no hay geolocation disponible
     if (!navigator.geolocation) {
       this.gpsYaSolicitado = true;
-      return null;
+      return Promise.resolve(null);
     }
 
-    const gpsStatus = document.getElementById('gps-status');
     this.gpsYaSolicitado = true;
-    
+
+    const gpsStatus = document.getElementById('gps-status');
     if (gpsStatus) {
       gpsStatus.classList.remove('d-none', 'text-success', 'text-warning');
       gpsStatus.classList.add('text-info');
       gpsStatus.innerHTML = '<i class="bi bi-geo-alt"></i> Obteniendo ubicación...';
     }
-    
-    try {
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          pos => resolve(pos),
-          error => reject(error),
-          {
-            enableHighAccuracy: true,
-            timeout: 20000,
-            maximumAge: 0
+
+    this.gpsPromesa = new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          this.ultimaUbicacion = {
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+            timestamp: Date.now()
+          };
+          this.gpsPromesa = null;
+
+          if (gpsStatus) {
+            gpsStatus.classList.remove('d-none', 'text-warning', 'text-info');
+            gpsStatus.classList.add('text-success');
+            gpsStatus.innerHTML = `<i class="bi bi-geo-alt-fill"></i> GPS ✓ (±${Math.round(pos.coords.accuracy)}m)`;
           }
-        );
-      });
 
-      this.ultimaUbicacion = {
-        lat: position.coords.latitude,
-        lon: position.coords.longitude,
-        accuracy: position.coords.accuracy,
-        timestamp: Date.now()
-      };
-      
-      if (gpsStatus) {
-        gpsStatus.classList.remove('d-none', 'text-warning', 'text-info');
-        gpsStatus.classList.add('text-success');
-        gpsStatus.innerHTML = `<i class="bi bi-geo-alt-fill"></i> GPS capturado ✓ (±${Math.round(position.coords.accuracy)}m)`;
-      }
-      
-      return this.ultimaUbicacion;
+          resolve(this.ultimaUbicacion);
+        },
+        (error) => {
+          this.ultimaUbicacion = null;
+          this.gpsPromesa = null;
 
-    } catch (error) {
-      this.ultimaUbicacion = null;
-      
-      if (gpsStatus) {
-        gpsStatus.classList.remove('d-none', 'text-success', 'text-info');
-        gpsStatus.classList.add('text-warning');
-        
-        switch (error.code) {
-          case 1:
-            gpsStatus.innerHTML = '<i class="bi bi-geo-alt"></i> Permiso GPS denegado';
-            break;
-          case 2:
-            gpsStatus.innerHTML = '<i class="bi bi-geo-alt"></i> GPS no disponible';
-            break;
-          case 3:
-            gpsStatus.innerHTML = '<i class="bi bi-geo-alt"></i> Timeout GPS';
-            break;
-          default:
-            gpsStatus.innerHTML = '<i class="bi bi-geo-alt"></i> Error GPS';
-        }
-      }
-      
-      return null;
-    }
+          if (gpsStatus) {
+            gpsStatus.classList.remove('d-none', 'text-success', 'text-info');
+            gpsStatus.classList.add('text-warning');
+            const msgs = { 1: 'Permiso GPS denegado', 2: 'GPS no disponible', 3: 'Timeout GPS' };
+            gpsStatus.innerHTML = `<i class="bi bi-geo-alt"></i> ${msgs[error.code] || 'Error GPS'}`;
+          }
+
+          resolve(null);
+        },
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 120000 }
+      );
+    });
+
+    return this.gpsPromesa;
   }
 
   isMobile() {
-    const userAgent = navigator.userAgent.toLowerCase();
-    const isMobileDevice = /android|webos|iphone|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+    const isMobileDevice = /android|webos|iphone|ipod|blackberry|iemobile|opera mini/i.test(navigator.userAgent.toLowerCase());
     const isSmallScreen = window.innerWidth <= 576;
     return isMobileDevice && isSmallScreen;
   }
@@ -205,12 +188,7 @@ class GaleriaImagenes {
   extraerCoordenadas(geom) {
     if (!geom) return null;
     const match = geom.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
-    if (match) {
-      return {
-        lon: parseFloat(match[1]),
-        lat: parseFloat(match[2])
-      };
-    }
+    if (match) return { lon: parseFloat(match[1]), lat: parseFloat(match[2]) };
     return null;
   }
 
@@ -227,34 +205,28 @@ class GaleriaImagenes {
   async cargarImagenes() {
     if (!this.recintoId) {
       this.container.innerHTML = '<p class="text-muted">Selecciona un recinto para ver sus imágenes</p>';
-      if (window.lightboxManager) {
-        window.lightboxManager.updateImages([], null);
-      }
+      if (window.lightboxManager) window.lightboxManager.updateImages([], null);
       return;
     }
 
     try {
-      this.container.innerHTML = '<p>Cargando imágenes...</p>';
+      // ✅ NO limpiamos el contenedor aquí → las imágenes viejas se quedan
+      // visibles mientras carga, sin parpadeo negro
       const response = await fetch(`/api/galeria/listar/${this.recintoId}`);
-      
-      if (!response.ok) {
-        throw new Error('Error al cargar imágenes');
-      }
+      if (!response.ok) throw new Error('Error al cargar imágenes');
 
       this.imagenes = await response.json();
-      
+
       if (window.lightboxManager) {
         window.lightboxManager.updateImages(this.imagenes, this.recintoId);
       }
-      
+
       this.renderizarGaleria();
-      
+
     } catch (error) {
       console.error(error);
       this.container.innerHTML = '<p class="text-danger">Error cargando imágenes</p>';
-      if (window.lightboxManager) {
-        window.lightboxManager.updateImages([], null);
-      }
+      if (window.lightboxManager) window.lightboxManager.updateImages([], null);
     }
   }
 
@@ -269,104 +241,113 @@ class GaleriaImagenes {
       return;
     }
 
-    const imagenesAMostrar = this.mostrandoTodas 
-      ? this.imagenes 
+    const imagenesAMostrar = this.mostrandoTodas
+      ? this.imagenes
       : this.imagenes.slice(0, this.maxVisibles);
 
     const fragment = document.createDocumentFragment();
 
-    imagenesAMostrar.forEach((imagen, localIndex) => {
-        const item = document.createElement('div');
-        item.className = 'galeria-item';
+    imagenesAMostrar.forEach((imagen) => {
+      const item = document.createElement('div');
+      item.className = 'galeria-item';
 
-        const coords = this.extraerCoordenadas(imagen.geom);
-        const coordsHTML = coords ? `<small class="d-block mt-1" style="color: #17a2b8; font-weight: 500;">${this.formatearCoordenadas(coords)}</small>` : '';
+      const coords = this.extraerCoordenadas(imagen.geom);
+      const coordsHTML = coords
+        ? `<small class="d-block mt-1" style="color:#17a2b8;font-weight:500;">${this.formatearCoordenadas(coords)}</small>`
+        : '';
 
-        item.innerHTML = `
-            <img src="${imagen.thumb}" alt="${imagen.titulo}" loading="lazy" width="200" height="150">
-            <div class="galeria-overlay">
-                <h4>${imagen.titulo}</h4>
-                <p>${imagen.descripcion || ''}</p>
-                ${coordsHTML}
-            </div>
-            <div class="galeria-actions">
-                <button class="galeria-action-btn edit" data-id="${imagen.id}" data-index="${localIndex}" title="Editar">
-                    <i class="bi bi-pencil-fill"></i>
-                </button>
-                <button class="galeria-action-btn delete" data-id="${imagen.id}" title="Eliminar">
-                    <i class="bi bi-trash-fill"></i>
-                </button>
-            </div>
-        `;
+      item.innerHTML = `
+        <img src="${imagen.thumb}" alt="${imagen.titulo}" loading="lazy" width="200" height="150">
+        <div class="galeria-overlay">
+          <h4>${imagen.titulo}</h4>
+          <p>${imagen.descripcion || ''}</p>
+          ${coordsHTML}
+        </div>
+        <div class="galeria-actions">
+          <button class="galeria-action-btn edit" data-id="${imagen.id}" title="Editar">
+            <i class="bi bi-pencil-fill"></i>
+          </button>
+          <button class="galeria-action-btn delete" data-id="${imagen.id}" title="Eliminar">
+            <i class="bi bi-trash-fill"></i>
+          </button>
+        </div>
+      `;
 
-        const imgElement = item.querySelector('img');
-        const overlayElement = item.querySelector('.galeria-overlay');
+      const imgEl = item.querySelector('img');
+      const overlayEl = item.querySelector('.galeria-overlay');
 
-        imgElement.onload = () => imgElement.classList.add('loaded');
+      // Doble rAF: espera a que Chrome haya pintado la imagen antes de hacer el fade.
+      // Sin esto, Android Chrome crea la capa GPU con la imagen negra y luego la pinta.
+      imgEl.onload = () => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            imgEl.classList.add('loaded');
+          });
+        });
+      };
+      // Si la imagen ya estaba en caché y onload no dispara
+      if (imgEl.complete && imgEl.naturalWidth > 0) {
+        requestAnimationFrame(() => requestAnimationFrame(() => imgEl.classList.add('loaded')));
+      }
 
-        const indiceReal = this.imagenes.findIndex(img => img.id === imagen.id);
-        
-        const abrirLightbox = () => {
-            if (window.lightboxManager) {
-                window.lightboxManager.updateImages(this.imagenes, this.recintoId);
-                window.lightboxManager.open(indiceReal);
-            }
-        };
-        
-        imgElement.onclick = abrirLightbox;
-        overlayElement.onclick = abrirLightbox;
+      const indiceReal = this.imagenes.findIndex(img => img.id === imagen.id);
 
-        const editBtn = item.querySelector('.edit');
-        editBtn.onclick = (e) => { e.stopPropagation(); this.abrirModalEditar(imagen); };
-        const deleteBtn = item.querySelector('.delete');
-        deleteBtn.onclick = (e) => { e.stopPropagation(); this.confirmarEliminar(imagen); };
+      const abrirLightbox = () => {
+        if (window.lightboxManager) {
+          window.lightboxManager.updateImages(this.imagenes, this.recintoId);
+          window.lightboxManager.open(indiceReal);
+        }
+      };
 
-        fragment.appendChild(item);
+      imgEl.onclick = abrirLightbox;
+      overlayEl.onclick = abrirLightbox;
+
+      item.querySelector('.edit').onclick = (e) => {
+        e.stopPropagation();
+        this.abrirModalEditar(imagen);
+      };
+      item.querySelector('.delete').onclick = (e) => {
+        e.stopPropagation();
+        this.confirmarEliminar(imagen);
+      };
+
+      fragment.appendChild(item);
     });
 
     if (this.imagenes.length > this.maxVisibles) {
-        const toggleBtn = document.createElement('div');
-        toggleBtn.className = 'galeria-item galeria-ver-mas';
+      const toggleBtn = document.createElement('div');
+      toggleBtn.className = 'galeria-item galeria-ver-mas';
 
-        if (this.mostrandoTodas) {
-            toggleBtn.innerHTML = `<div class="ver-mas"><span>▲</span><p>Mostrar menos</p></div>`;
-            toggleBtn.onclick = () => this.contraerGaleria();
-        } else {
-            toggleBtn.innerHTML = `<div class="ver-mas"><span>+${this.imagenes.length - this.maxVisibles}</span><p>Ver todas</p></div>`;
-            toggleBtn.onclick = () => this.expandirGaleria();
-        }
+      if (this.mostrandoTodas) {
+        toggleBtn.innerHTML = `<div class="ver-mas"><span>▲</span><p>Mostrar menos</p></div>`;
+        toggleBtn.onclick = () => this.contraerGaleria();
+      } else {
+        toggleBtn.innerHTML = `<div class="ver-mas"><span>+${this.imagenes.length - this.maxVisibles}</span><p>Ver todas</p></div>`;
+        toggleBtn.onclick = () => this.expandirGaleria();
+      }
 
-        fragment.appendChild(toggleBtn);
+      fragment.appendChild(toggleBtn);
     }
 
+    // ✅ Swap atómico: reemplazamos el contenido de golpe
     this.container.innerHTML = '';
     this.container.appendChild(fragment);
   }
 
   expandirGaleria() {
-    if (typeof window.openGaleriaPanel === "function") {
-      window.openGaleriaPanel();
-    }
-
+    if (typeof window.openGaleriaPanel === 'function') window.openGaleriaPanel();
     this.mostrandoTodas = true;
     this.renderizarGaleria();
-
-    const overlay = document.getElementById("galeria-panel");
+    const overlay = document.getElementById('galeria-panel');
     if (overlay) overlay.scrollTop = 0;
   }
 
   contraerGaleria() {
     this.mostrandoTodas = false;
     this.renderizarGaleria();
-
-    if (typeof window.closeGaleriaPanel === "function") {
-      window.closeGaleriaPanel();
-    }
-
-    const galeriaContainer = document.getElementById("galeria-imagenes");
-    if (galeriaContainer) {
-      galeriaContainer.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
+    if (typeof window.closeGaleriaPanel === 'function') window.closeGaleriaPanel();
+    const galeriaContainer = document.getElementById('galeria-imagenes');
+    if (galeriaContainer) galeriaContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   async confirmarEliminar(imagen) {
@@ -381,29 +362,15 @@ class GaleriaImagenes {
     if (!confirmar) return;
 
     try {
-      const res = await fetch(`/api/galeria/eliminar/${imagen.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!res.ok) {
-        throw new Error('Error al eliminar la imagen');
-      }
+      const res = await fetch(`/api/galeria/eliminar/${imagen.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Error al eliminar la imagen');
 
       await this.cargarImagenes();
-      
-      NotificationSystem.show({
-        type: "success",
-        title: "Imagen eliminada",
-        message: `"${imagen.titulo}" ha sido eliminada correctamente`
-      });
-      
+      NotificationSystem.show({ type: 'success', title: 'Imagen eliminada', message: `"${imagen.titulo}" ha sido eliminada correctamente` });
+
     } catch (error) {
       console.error(error);
-      NotificationSystem.show({
-        type: "error",
-        title: "Error",
-        message: "No se pudo eliminar la imagen. Intenta de nuevo."
-      });
+      NotificationSystem.show({ type: 'error', title: 'Error', message: 'No se pudo eliminar la imagen. Intenta de nuevo.' });
     }
   }
 
@@ -419,11 +386,7 @@ class GaleriaImagenes {
       const descripcion = document.getElementById('editar-descripcion').value.trim();
 
       if (!titulo) {
-        NotificationSystem.show({
-          type: "warning",
-          title: "Campo requerido",
-          message: "El título es obligatorio"
-        });
+        NotificationSystem.show({ type: 'warning', title: 'Campo requerido', message: 'El título es obligatorio' });
         return;
       }
 
@@ -434,9 +397,7 @@ class GaleriaImagenes {
           body: JSON.stringify({ titulo, descripcion })
         });
 
-        if (!res.ok) {
-          throw new Error('Error al actualizar la imagen');
-        }
+        if (!res.ok) throw new Error('Error al actualizar la imagen');
 
         await this.cargarImagenes();
 
@@ -444,19 +405,11 @@ class GaleriaImagenes {
         const modal = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();
 
-        NotificationSystem.show({
-          type: "success",
-          title: "Imagen actualizada",
-          message: `"${titulo}" ha sido actualizada correctamente`
-        });
-        
+        NotificationSystem.show({ type: 'success', title: 'Imagen actualizada', message: `"${titulo}" ha sido actualizada correctamente` });
+
       } catch (error) {
         console.error(error);
-        NotificationSystem.show({
-          type: "error",
-          title: "Error",
-          message: "No se pudo actualizar la imagen. Intenta de nuevo."
-        });
+        NotificationSystem.show({ type: 'error', title: 'Error', message: 'No se pudo actualizar la imagen. Intenta de nuevo.' });
       }
     };
   }
@@ -467,8 +420,7 @@ class GaleriaImagenes {
     document.getElementById('editar-descripcion').value = imagen.descripcion || '';
     document.getElementById('editar-preview').src = imagen.thumb;
 
-    const modalEl = document.getElementById('modalEditar');
-    const modal = new bootstrap.Modal(modalEl);
+    const modal = new bootstrap.Modal(document.getElementById('modalEditar'));
     modal.show();
   }
 
@@ -484,43 +436,36 @@ class GaleriaImagenes {
       const descripcion = document.getElementById('imagen-descripcion').value.trim();
 
       if (!fileInput || !fileInput.files.length) {
-        NotificationSystem.show({
-          type: "warning",
-          title: "Imagen requerida",
-          message: "Selecciona una imagen para subir"
-        });
+        NotificationSystem.show({ type: 'warning', title: 'Imagen requerida', message: 'Selecciona una imagen para subir' });
         return;
       }
 
       if (!titulo) {
-        NotificationSystem.show({
-          type: "warning",
-          title: "Campo requerido",
-          message: "El título es obligatorio"
-        });
+        NotificationSystem.show({ type: 'warning', title: 'Campo requerido', message: 'El título es obligatorio' });
         return;
       }
 
-      const file = fileInput.files[0];
-      const recintoId = this.recintoId;
-
-      if (!recintoId) {
-        NotificationSystem.show({
-          type: "error",
-          title: "Error",
-          message: "No hay recinto seleccionado"
-        });
+      if (!this.recintoId) {
+        NotificationSystem.show({ type: 'error', title: 'Error', message: 'No hay recinto seleccionado' });
         return;
       }
 
       const btnSubir = form.querySelector('button[type="submit"]');
       this.animarSubida(btnSubir, true);
 
+      // ✅ Si el GPS aún está en curso, esperamos máximo 3s antes de enviar
+      if (this.gpsPromesa) {
+        await Promise.race([
+          this.gpsPromesa,
+          new Promise(resolve => setTimeout(resolve, 3000))
+        ]);
+      }
+
       const formData = new FormData();
-      formData.append('imagen', file);
+      formData.append('imagen', fileInput.files[0]);
       formData.append('titulo', titulo);
       formData.append('descripcion', descripcion);
-      formData.append('recinto_id', recintoId);
+      formData.append('recinto_id', this.recintoId);
 
       if (this.ultimaUbicacion) {
         formData.append('lat', this.ultimaUbicacion.lat.toString());
@@ -528,14 +473,11 @@ class GaleriaImagenes {
       }
 
       try {
-        const res = await fetch('/api/galeria/subir', {
-          method: 'POST',
-          body: formData
-        });
+        const res = await fetch('/api/galeria/subir', { method: 'POST', body: formData });
 
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));
-          throw new Error(errorData.error || "Error al subir la imagen");
+          throw new Error(errorData.error || 'Error al subir la imagen');
         }
 
         const nuevaImagen = await res.json();
@@ -548,21 +490,17 @@ class GaleriaImagenes {
         form.reset();
         this.resetearEstadoCompleto();
         this.animarSubida(btnSubir, false);
-        
+
         NotificationSystem.show({
-          type: "success",
-          title: "¡Imagen subida!",
+          type: 'success',
+          title: '¡Imagen subida!',
           message: `"${titulo}" añadida correctamente${nuevaImagen.tiene_ubicacion ? ' con GPS ✓' : ''}`
         });
-        
+
       } catch (error) {
         console.error(error);
         this.animarSubida(btnSubir, false);
-        NotificationSystem.show({
-          type: "error",
-          title: "Error al subir",
-          message: error.message || "No se pudo subir la imagen"
-        });
+        NotificationSystem.show({ type: 'error', title: 'Error al subir', message: error.message || 'No se pudo subir la imagen' });
       }
     };
   }
@@ -573,118 +511,30 @@ class GaleriaImagenes {
     if (activar) {
       boton.setAttribute('data-original-html', boton.innerHTML);
       boton.setAttribute('data-original-class', boton.className);
+      boton.style.minHeight = boton.offsetHeight + 'px';
       boton.disabled = true;
-      boton.style.position = 'relative';
-      boton.style.overflow = 'hidden';
-      
-      const container = document.createElement('div');
-      container.style.display = 'flex';
-      container.style.alignItems = 'center';
-      container.style.justifyContent = 'center';
-      container.style.gap = '8px';
-      
-      const spinnerContainer = document.createElement('div');
-      spinnerContainer.style.display = 'flex';
-      spinnerContainer.style.gap = '4px';
-      
-      for (let i = 0; i < 3; i++) {
-        const dot = document.createElement('div');
-        dot.style.width = '8px';
-        dot.style.height = '8px';
-        dot.style.backgroundColor = 'currentColor';
-        dot.style.borderRadius = '50%';
-        dot.style.animation = `bounce 0.6s ease-in-out ${i * 0.15}s infinite`;
-        spinnerContainer.appendChild(dot);
-      }
-      
-      const texto = document.createElement('span');
-      texto.textContent = 'Subiendo imagen';
-      texto.style.fontWeight = '500';
-      
-      let puntosCount = 0;
-      const puntosInterval = setInterval(() => {
-        puntosCount = (puntosCount + 1) % 4;
-        texto.textContent = 'Subiendo imagen' + '.'.repeat(puntosCount);
-      }, 400);
-      
-      boton.setAttribute('data-puntos-interval', puntosInterval);
-      
-      container.appendChild(spinnerContainer);
-      container.appendChild(texto);
-      
-      boton.innerHTML = '';
-      boton.appendChild(container);
-      
-      const wave = document.createElement('div');
-      wave.style.position = 'absolute';
-      wave.style.top = '0';
-      wave.style.left = '0';
-      wave.style.width = '0%';
-      wave.style.height = '100%';
-      wave.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
-      wave.style.transition = 'width 0.3s ease-out';
-      wave.style.zIndex = '0';
-      boton.appendChild(wave);
-      
-      container.style.position = 'relative';
-      container.style.zIndex = '1';
-      
-      let waveWidth = 0;
-      let waveDirection = 1;
-      const waveInterval = setInterval(() => {
-        waveWidth += waveDirection * 10;
-        if (waveWidth >= 100) {
-          waveWidth = 100;
-          waveDirection = -1;
-        } else if (waveWidth <= 0) {
-          waveWidth = 0;
-          waveDirection = 1;
-        }
-        wave.style.width = waveWidth + '%';
-      }, 50);
-      
-      boton.setAttribute('data-wave-interval', waveInterval);
-      
-      if (!document.getElementById('bounce-animation-style')) {
-        const style = document.createElement('style');
-        style.id = 'bounce-animation-style';
-        style.textContent = `
-          @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-          }
-        `;
-        document.head.appendChild(style);
-      }
-      
+      boton.innerHTML = `
+        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+        Subiendo imagen...
+      `;
+
     } else {
-      const puntosInterval = boton.getAttribute('data-puntos-interval');
-      const waveInterval = boton.getAttribute('data-wave-interval');
-      
-      if (puntosInterval) clearInterval(parseInt(puntosInterval));
-      if (waveInterval) clearInterval(parseInt(waveInterval));
-      
+      boton.style.minHeight = '';
+
       const originalClass = boton.getAttribute('data-original-class');
-      const originalHtml = boton.getAttribute('data-original-html');
-      
+      const originalHtml  = boton.getAttribute('data-original-html');
+
       if (originalClass) boton.className = originalClass;
-      
-      boton.innerHTML = '<span style="font-size: 20px;">✓</span> ¡Listo!';
-      boton.style.backgroundColor = '#28a745';
-      boton.style.borderColor = '#28a745';
-      boton.style.color = 'white';
-      
+      boton.innerHTML = '<span style="font-size:20px;">✓</span> ¡Listo!';
+      boton.style.cssText += 'background-color:#28a745;border-color:#28a745;color:white;';
+
       setTimeout(() => {
         boton.disabled = false;
-        boton.style.position = '';
-        boton.style.overflow = '';
         boton.style.backgroundColor = '';
         boton.style.borderColor = '';
         boton.style.color = '';
-        
-        if (originalHtml) {
-          boton.innerHTML = originalHtml;
-        }
+        boton.style.minHeight = '';
+        if (originalHtml) boton.innerHTML = originalHtml;
       }, 800);
     }
   }

@@ -3,24 +3,19 @@
 {% block title %}Visor SIG{% endblock %}
 
 {% block navbar_extra %}
-<!-- Versión móvil: solo temperatura -->
 <div class="d-flex d-md-none align-items-center gap-1 bg-white bg-opacity-10 rounded-3 px-2 py-1 flex-shrink-0">
   <i class="bi bi-{{ weather.icono }} text-white" style="font-size: 1.1rem;"></i>
   <span class="fw-bold text-white">{{ weather.temperatura }}°</span>
 </div>
 
-<!-- Versión desktop: completa -->
 <div class="d-none d-md-flex align-items-center gap-3 bg-white rounded-3 px-3 py-2 shadow-sm flex-shrink-0">
-  <!-- Temperatura principal -->
   <div class="d-flex align-items-center">
     <i class="bi bi-{{ weather.icono }} {{ weather.color_icono }}" style="font-size: 1.5rem;"></i>
     <span class="ms-2 fw-bold fs-5 text-dark">{{ weather.temperatura }}°</span>
   </div>
 
-  <!-- Separador -->
   <div class="vr opacity-50"></div>
 
-  <!-- Datos compactos -->
   <div class="d-flex gap-3 small text-dark">
     {% if weather.humedad %}
     <div class="d-flex align-items-center">
@@ -60,7 +55,6 @@
 
 <div id="modal-comparativa-campanias" class="modal-comparativa" style="display: none;">
   <div class="modal-comparativa-content">
-    <!-- Header del Modal -->
     <div class="modal-comparativa-header">
       <h3>
         <i class="bi bi-graph-up me-2"></i>
@@ -71,7 +65,6 @@
       </button>
     </div>
 
-    <!-- Loading Spinner -->
     <div id="comparativa-loading" class="text-center py-5">
       <div class="spinner-border text-success" role="status">
         <span class="visually-hidden">Cargando...</span>
@@ -79,9 +72,7 @@
       <p class="mt-3 text-muted">Cargando datos de campañas...</p>
     </div>
 
-    <!-- Contenido del Modal -->
     <div id="comparativa-contenido" style="display: none;">
-      <!-- Descripción -->
       <div class="comparativa-descripcion">
         <p class="text-muted mb-4">
           <i class="bi bi-info-circle me-1"></i>
@@ -89,12 +80,10 @@
         </p>
       </div>
 
-      <!-- Gráfica Unificada -->
       <div class="comparativa-chart-container">
         <canvas id="chart-campania-unificado"></canvas>
       </div>
 
-      <!-- Contenedor de imágenes del día seleccionado -->
       <div id="imagenes-dia-seleccionado" class="imagenes-dia-container" style="display: none;">
         <div class="imagenes-header">
           <h5>
@@ -106,7 +95,6 @@
           </button>
         </div>
         <div class="imagenes-grid">
-          <!-- Imagen Campaña 1 -->
           <div class="imagen-campania-box" id="imagen-box-1">
             <div class="imagen-campania-header">
               <span class="campania-label" id="imagen-label-1">Campaña 2025/2026</span>
@@ -117,7 +105,6 @@
               </div>
             </div>
           </div>
-          <!-- Imagen Campaña 2 -->
           <div class="imagen-campania-box" id="imagen-box-2">
             <div class="imagen-campania-header">
               <span class="campania-label" id="imagen-label-2">Campaña 2024/2025</span>
@@ -128,7 +115,6 @@
               </div>
             </div>
           </div>
-          <!-- Imagen Campaña 3 -->
           <div class="imagen-campania-box" id="imagen-box-3">
             <div class="imagen-campania-header">
               <span class="campania-label" id="imagen-label-3">Campaña 2023/2024</span>
@@ -142,10 +128,7 @@
         </div>
       </div>
 
-      <!-- Estadísticas en columnas, cambiadas de orden para que vayan de mas antiguo a mas reciente -->
       <div class="comparativa-stats-grid">
-        <!-- Campaña 3 (Mas antigua) -->
-        
         <div class="campania-stats-column">
           <div class="campania-stats-header">
             <h5 id="campania-3-titulo"></h5>
@@ -167,7 +150,6 @@
           </div>
         </div>
 
-        <!-- Campaña 2 -->
         <div class="campania-stats-column">
           <div class="campania-stats-header">
             <h5 id="campania-2-titulo"></h5>
@@ -189,10 +171,6 @@
           </div>
         </div>
 
-        <!-- Campaña 3 -->
-        
-
-
         <div class="campania-stats-column">
           <div class="campania-stats-header">
             <h5 id="campania-1-titulo"></h5>
@@ -213,12 +191,9 @@
             </div>
           </div>
         </div>
-
-
       </div>
     </div>
 
-    <!-- Mensaje de error -->
     <div id="comparativa-error" class="alert alert-danger" style="display: none;">
       <i class="bi bi-exclamation-triangle me-2"></i>
       <span id="comparativa-error-mensaje"></span>
@@ -234,7 +209,6 @@
 {% block content %}
 
 
-<!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
 <link rel="stylesheet" href="{{ url_for('static', filename='css/visor.css') }}">
@@ -252,14 +226,12 @@
 
 <div id="map"></div>
 
-<!-- Botón de capas -->
 <div id="basemap-panel-container">
   <button id="basemap-toggle" title="Capas">
     <i class="bi bi-layers-fill"></i>
   </button>
 </div>
 
-<!-- Panel de capas -->
 <div id="basemap-panel" style="max-height: 85vh; overflow-y: auto;">
   <h6>Mapa Principal</h6>
   <div class="basemap-grid">
@@ -410,84 +382,53 @@
       </ul>
     </div>
     
-    <!-- Contenedor de leyendas de suelos -->
     <div id="leyendas-suelos-container" style="margin-top: 20px; padding: 15px; background: white; border-radius: 8px; display: none; border: 2px dashed #dee2e6;">
       <div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e9ecef;">
         <h6 style="font-size: 0.95rem; margin: 0; font-weight: 600; color: #495057;">Leyendas Activas</h6>
       </div>
       <div id="leyenda-capacidadCampo" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #2196F3; border-radius: 4px;">
-        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
-          Capacidad de Campo
-        </strong>
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">Capacidad de Campo</strong>
         <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Capacidad de Campo">
       </div>
       <div id="leyenda-capacidadRetencion" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #03A9F4; border-radius: 4px;">
-        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
-          Capacidad de Retención de Agua
-        </strong>
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">Capacidad de Retención de Agua</strong>
         <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Capacidad Retención">
       </div>
       <div id="leyenda-clasificacionTextural" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #795548; border-radius: 4px;">
-        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
-          Clasificación Textural
-        </strong>
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">Clasificación Textural</strong>
         <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Clasificación Textural">
       </div>
       <div id="leyenda-contenidoArcilla" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #8D6E63; border-radius: 4px;">
-        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
-          Contenido de Arcilla
-        </strong>
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">Contenido de Arcilla</strong>
         <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Arcilla">
       </div>
       <div id="leyenda-contenidoArena" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #FFC107; border-radius: 4px;">
-        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
-          Contenido de Arena
-        </strong>
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">Contenido de Arena</strong>
         <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Arena">
       </div>
       <div id="leyenda-contenidoLimo" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #CDDC39; border-radius: 4px;">
-        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
-          Contenido de Limo
-        </strong>
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">Contenido de Limo</strong>
         <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Limo">
       </div>
       <div id="leyenda-materiaOrganica" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #4CAF50; border-radius: 4px;">
-        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
-          Materia Orgánica
-        </strong>
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">Materia Orgánica</strong>
         <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Materia Orgánica">
       </div>
       <div id="leyenda-nitrogeno" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #FF5722; border-radius: 4px;">
-        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
-          Nitrógeno Total
-        </strong>
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">Nitrógeno Total</strong>
         <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Nitrógeno">
       </div>
       <div id="leyenda-fosforoOlsen" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #9C27B0; border-radius: 4px;">
-        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
-          Fósforo Olsen
-        </strong>
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">Fósforo Olsen</strong>
         <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Fósforo">
       </div>
       <div id="leyenda-humedadSaturacion" class="leyenda-suelo" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-left: 4px solid #00BCD4; border-radius: 4px;">
-        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">
-          Humedad de Saturación
-        </strong>
+        <strong style="font-size: 0.85rem; color: #495057; margin-bottom: 8px; display: block;">Humedad de Saturación</strong>
         <img src="" class="leyenda-img" style="max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);" alt="Leyenda Humedad">
       </div>
     </div>
   </details>
-  
 
-  <!-- De momento no se usa, lo dejo por si acaso
-      <div class="basemap-option basemap-detail" data-detail="suelos">
-        <div class="basemap-thumb">
-            <img src="{{ url_for('static', filename='img/thumb_suelos.png') }}" alt="Suelos">
-        </div>
-        <div class="basemap-option-label">Suelos</div>
-      </div>
-      -->
-    
   <div style="margin-top: 20px; border-top: 1px solid #dee2e6; padding-top: 15px;">
     <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px 0;" id="toggle-detalles-adicionales">
       <h6 style="margin: 0; font-weight: 600;">
@@ -498,10 +439,8 @@
       </button>
     </div>
     
-    <!-- Contenido de Detalles Adicionales (inicialmente oculto) -->
     <div id="contenido-detalles-adicionales" style="display: none; margin-top: 10px;">
       
-      <!-- MAPA DE CULTIVOS -->
       <div style="margin-top: 10px;">
         <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px 10px; background: #e9ecef; border-radius: 6px;" id="toggle-mapa-cultivos">
           <span style="font-weight: 600; font-size: 0.95rem;">
@@ -523,15 +462,6 @@
 </div>
 
 
-<!-- Botón de filtros de momento no se uso asi que lo oculto
-<div id="filtro-container">
-  <button id="filtro-toggle" title="Filtros">
-    <i class="bi bi-funnel-fill"></i>
-  </button>
-</div>
--->
-
-<!-- Botón de dibujar -->
 <div id="editar-container">
   <button id="dibujar-btn" class="hidden" title="Dibujar Rectángulo">
     <i class="bi bi-square"></i>
@@ -554,8 +484,6 @@
 </div>
 
 
-<!-- Dibujos guardados-->
-
 <div id="dibujos-panel-container">
   <button id="dibujos-toggle" title="Mis Consultas NDVI">
     <i class="bi bi-bookmark-fill"></i>
@@ -571,7 +499,6 @@
   <div id="dibujos-list" class="dibujos-list"></div>
 </div>
 
-<!-- Panel derecho (split) -->
 <aside id="side-panel" aria-hidden="true">
 
   <div class="side-content">
@@ -602,11 +529,9 @@
         <span class="side-row-title">Superficie:</span>
         <span id="side-area" class="side-row-value ms-2">-</span>
 
-        <!-- Icono localización decorativo a la derecha -->
         <i class="bi bi-geo-alt-fill ms-auto text-success" style="font-size:1.6rem" aria-hidden="true">
         </i>
 
-        <!-- Coordenadas -->
         <span id="side-coords" class="side-row-value ms-2"></span>
       </div>
     </div>
@@ -667,11 +592,8 @@
     </div>
     
 
-   
-
     <div class="side-divider"></div>
 
-    <!-- OPERACIONES -->
     <div class="side-section" id="operaciones-section">
       <div class="side-section-head">
         <div></div>
@@ -691,7 +613,6 @@
 
     <div class="side-divider"></div>
 
-    <!-- OVERLAY HISTÓRICO OPERACIONES -->
     <div id="operaciones-historico-panel" class="side-overlay d-none" aria-hidden="true">
       <div class="overlay-topbar">
         <button id="btn-volver-operaciones-historico" class="btn btn-outline-secondary" type="button">
@@ -712,28 +633,23 @@
       <div id="operaciones-historico-list" class="pb-3"></div>
     </div>
     
-    <!-- GALERÍA-->
     <div id="galeria-imagenes" class="galeria-container mt-4">
       <h2 class="side-section-title mb-3">
         <i class="fa-solid fa-image me-2" style="color:#198754"></i>
         Galería
       </h2>
 
-      <!-- Botón Añadir Imagen -->
       <div class="mb-3">
         <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalSubida">
           <i class="fa-solid fa-plus me-1"></i> Añadir Imagen
         </button>
       </div>
 
-      <!-- Grid de imágenes -->
       <div class="galeria-grid" id="galeria-grid">
-        <!-- Se llenará dinámicamente -->
       </div>
 
     </div>
 
-    <!-- OVERLAY HISTÓRICO CULTIVOS -->
     <div id="cultivos-historico-panel" class="side-overlay d-none" aria-hidden="true">
 
       <div class="overlay-topbar">
@@ -755,7 +671,6 @@
       <div id="cultivos-historico-list" class="pb-3"></div>
     </div>
 
-    <!-- OVERLAY HISTÓRICO NDVI -->
     <div id="ndvi-historico-panel" class="side-overlay d-none" aria-hidden="true">
 
       <div class="overlay-topbar">
@@ -777,7 +692,6 @@
       <div id="ndvi-historico-list" class="pb-3"></div>
     </div>
 
-    <!-- OVERLAY GALERÍA COMPLETA -->
     <div id="galeria-panel" class="side-overlay d-none" aria-hidden="true">
       <div class="overlay-topbar">
         <button id="btn-volver-galeria" class="btn btn-outline-secondary" type="button">
@@ -829,7 +743,6 @@
   </div>
 </div>
 
-<!-- Modal para subir nueva imagen -->
 <div class="modal fade" id="modalSubida" tabindex="-1" aria-labelledby="modalSubidaLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -862,7 +775,6 @@
   </div>
 </div>
 
-<!-- Modal para editar imagen -->
 <div class="modal fade" id="modalEditar" tabindex="-1" aria-labelledby="modalEditarLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -899,7 +811,6 @@
   </div>
 </div>
 
-<!-- Modal Avanzado Cultivo -->
 <div class="modal fade" id="modalAvanzadoCultivo" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -908,7 +819,6 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body" id="modalAvanzadoCultivoBody">
-        <!-- contenido dinámico -->
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -917,7 +827,6 @@
   </div>
 </div>
 
-<!-- Modal Motivo Eliminación Recinto -->
 <div class="modal fade" id="motivoEliminacionModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -964,15 +873,21 @@
 </div>
 
 
-
-
-
-
-<!-- Utilidades globales: notificaciones, confirmación, modal eliminación -->
 <script src="{{ url_for('static', filename='js/visor/visor-utils.js') }}"></script>
 <script>
   
   document.addEventListener("DOMContentLoaded", function () {
+
+    const IS_MOBILE = window.matchMedia("(max-width: 1024px)").matches;
+
+    function debounce(fn, ms) {
+      let t;
+      return function (...args) {
+        clearTimeout(t);
+        t = setTimeout(() => fn.apply(this, args), ms);
+      };
+    }
+
     function guardarEstadoMapa() {
   const estado = {
     zoom: map.getZoom(),
@@ -989,7 +904,6 @@
   }
 }
 
-// Función para restaurar el estado del mapa y panel
 async function restaurarEstadoMapa() {
   try {
     const estadoStr = sessionStorage.getItem('mapaEstado');
@@ -997,31 +911,25 @@ async function restaurarEstadoMapa() {
     
     const estado = JSON.parse(estadoStr);
     
-    // Verificar que no sea muy antiguo 
-    const tiempoMaximo = 2 * 60 * 1000; // 2 minutos, subir?
+    const tiempoMaximo = 2 * 60 * 1000;
     if (Date.now() - estado.timestamp > tiempoMaximo) {
       sessionStorage.removeItem('mapaEstado');
       return false;
     }
     
-    // Restaurar vista del mapa
     if (estado.center && estado.zoom) {
       map.setView([estado.center.lat, estado.center.lng], estado.zoom);
     }
     
-    // Restaurar side panel si estaba abierto
     if (estado.sidePanelAbierto && estado.recintoActual) {
-      // Esperar un poco a que el mapa se estabilice
       await new Promise(resolve => setTimeout(resolve, 500));
       
       try {
-        // Intentar cargar los datos del recinto
         const response = await fetch(`/api/mis-recinto/${estado.recintoActual}`);
         if (!response.ok) throw new Error('Recinto no encontrado');
         
         const data = await response.json();
         
-        // Abrir el panel con los datos
         abrirRecintoEnPanel(data);
         
         console.log('Estado del mapa restaurado correctamente');
@@ -1041,8 +949,6 @@ async function restaurarEstadoMapa() {
   }
 }
 
-// Vista inicial recomendada: centrar en el municipio donde el usuario tiene MÁS "mis recintos"
-// - Si no hay datos (o el usuario es admin), devuelve false y se mantiene el fallback actual, igual para los admins tambien? no lo se 
 async function aplicarVistaInicialUsuario() {
   try {
     const resp = await fetch('/api/visor-start-view', { credentials: 'same-origin' });
@@ -1051,7 +957,6 @@ async function aplicarVistaInicialUsuario() {
     const data = await resp.json();
     if (!data) return false;
 
-    // bbox: [minx, miny, maxx, maxy] -> Leaflet bounds [[miny, minx],[maxy, maxx]]
     if (data.bbox && Array.isArray(data.bbox) && data.bbox.length === 4) {
       const [minx, miny, maxx, maxy] = data.bbox;
       if ([minx, miny, maxx, maxy].every(v => typeof v === 'number' && isFinite(v))) {
@@ -1065,7 +970,6 @@ async function aplicarVistaInicialUsuario() {
       }
     }
 
-    // center fallback
     if (data.center && typeof data.center.lat === 'number' && typeof data.center.lng === 'number') {
       const z = (typeof data.zoom_sugerido === 'number' && isFinite(data.zoom_sugerido)) ? data.zoom_sugerido : 13;
       map.setView([data.center.lat, data.center.lng], z);
@@ -1082,7 +986,6 @@ async function aplicarVistaInicialUsuario() {
   const CURRENT_USER_ID = {{ current_user.id_usuario if current_user.is_authenticated else 'null' }};
   NotificationSystem.init();
 
-  // roi desde flask
   const roiBbox = [
     {{ roi_bbox[0] }},
     {{ roi_bbox[1] }},
@@ -1101,7 +1004,6 @@ async function aplicarVistaInicialUsuario() {
 
   const ZOOM_RECINTOS = 15;
 
-  // Crear mapa
   const map = L.map("map", {
     maxBounds: ROI_BOUNDS,
     maxBoundsViscosity: 1.0,
@@ -1110,12 +1012,10 @@ async function aplicarVistaInicialUsuario() {
 
   map.fitBounds(ROI_BOUNDS);
   
-  // Hacer accesible globalmente
   window.map = map;
 
 
   
-  // los zindex, funciona sorprendentemente
   map.createPane('ndviPane');
   map.getPane('ndviPane').style.zIndex = 180; 
 
@@ -1173,11 +1073,6 @@ async function aplicarVistaInicialUsuario() {
   map.createPane("catastroPane");
   map.getPane("catastroPane").style.zIndex = 510;
 
-  // CREACIÓN AUTOMÁTICA DE PANES PARA MAPA DE CULTIVOS
-
-  // Para añadir nuevo año, meter el año en cultivosYears, en principio ya no hay mas?
-  
-  // Configuración de años (se genera automáticamente desde cylYearsConfig),
   const cultivosYears = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016' , '2015', '2014', '2013', '2012'];
   
   let zIndexBase = 590;
@@ -1190,7 +1085,6 @@ async function aplicarVistaInicialUsuario() {
 
 
 
-  // --- Modo split (panel derecho vacío) ---
   let splitOpen = false;
 
   function setSplitMode(on) {
@@ -1205,11 +1099,12 @@ async function aplicarVistaInicialUsuario() {
   const sp = document.getElementById("side-panel");
   if (sp) sp.setAttribute("aria-hidden", splitOpen ? "false" : "true");
 
-  setTimeout(() => {
-    try { map.invalidateSize(); } catch (e) {}
-  }, 280);
+  if (!IS_MOBILE) {
+    setTimeout(() => {
+      try { map.invalidateSize(); } catch (e) {}
+    }, 280);
+  }
   
-  // guardar estado, esto funciona regular
   if (splitOpen && currentSideRecintoId) {
     guardarEstadoMapa();
   } else {
@@ -1217,40 +1112,32 @@ async function aplicarVistaInicialUsuario() {
   }
 }
 
-  window.addEventListener('resize', () => {
+  window.addEventListener('resize', debounce(() => {
     if (splitOpen) {
       setNavbarHeightVar();
-      try { map.invalidateSize(); } catch (e) {}
+      if (!IS_MOBILE) {
+        try { map.invalidateSize(); } catch (e) {}
+      }
     }
-  });
+  }, IS_MOBILE ? 300 : 100));
 
-  // Cerrar split
   const sideCloseBtn = document.getElementById("side-close");
   if (sideCloseBtn) {
     sideCloseBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
 
-      // 1) cerrar cualquier popup abierto
       try { map.closePopup(); } catch (_) {}
 
-      // 2) quitar resaltado rojo
       clearHighlight();
 
-      // 3) cerrar panel
       closeHistoricoPanel();
       closeOperacionesPanel();
-      // closeGaleriaPanel?.();   
       setSplitMode(false);
 
-      // reset id actual
       window.currentSideRecintoId = null;
     });
   }
-
-  // editar nombre
-  // Enter o blur => guardar, igual tendira que tener un boton pero w/e
-  // Escape => cancelar
 
   let currentSideRecintoId = null;
   let originalTitleText = "";
@@ -1274,7 +1161,6 @@ async function aplicarVistaInicialUsuario() {
       titleEl.setAttribute("contenteditable", "true");
       titleEl.focus();
 
-      // Seleccionar todo el texto
       const range = document.createRange();
       range.selectNodeContents(titleEl);
       const sel = window.getSelection();
@@ -1372,7 +1258,6 @@ async function aplicarVistaInicialUsuario() {
     document.getElementById("side-owner").textContent = safeText(p.propietario, "N/A");
     document.getElementById("side-active").checked = (p.activa == null) ? true : !!p.activa;
 
-    // Mostrar coordenadas del centroide
     const coordsText = document.getElementById("side-coords");
     if (p.centroid_lat != null && p.centroid_lng != null) {
       coordsText.textContent = `${p.centroid_lat.toFixed(6)}, ${p.centroid_lng.toFixed(6)}`;
@@ -1438,8 +1323,6 @@ if (btnDelete) {
   });
 }
 
-// Función auxiliar para mostrar mensajes de éxito
-
   async function guardarNombreRecinto(nombre) {
     if (!currentSideRecintoId) return;
 
@@ -1459,13 +1342,12 @@ if (btnDelete) {
     }
   }
 
-    // CHECKBOX activo
     const sideActive = document.getElementById("side-active");
     if (sideActive) {
       sideActive.addEventListener("change", async () => {
         if (!currentSideRecintoId) return;
 
-        const prev = !sideActive.checked; // estado anterior
+        const prev = !sideActive.checked;
         const next = sideActive.checked;
 
         sideActive.disabled = true;
@@ -1482,12 +1364,10 @@ if (btnDelete) {
             throw new Error(resp.error || "No se pudo actualizar 'activa'");
           }
 
-          // asegurar checkbox según backend
           sideActive.checked = !!resp.activa;
 
         } catch (err) {
           console.error(err);
-          // revertir si falla
           sideActive.checked = prev;
 
           NotificationSystem.show({
@@ -1500,8 +1380,6 @@ if (btnDelete) {
         }
       });
     }
-
-  // 3) Capas base
 
   const baseOSM = L.tileLayer(
     "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -1562,10 +1440,6 @@ if (btnDelete) {
     return highZoomLayers[activeHighLayerKey];
   }
 
-  // 4) Capa de recintos
-
-  // fill opacity para rellenar o no, con 0 solo borde, weight para el grosor del borde
-
   const RECINTO_STYLE_DEFAULT = {
     color: "#ff8800",
     weight: 2,
@@ -1589,7 +1463,6 @@ if (btnDelete) {
     onEachFeature: function (feature, layer) {
       const p = feature.properties || {};
 
-      // Propietario: username o "N/A"
       const propietarioTexto =
         p.propietario && String(p.propietario).trim() !== ""
           ? p.propietario
@@ -1644,9 +1517,7 @@ if (btnDelete) {
 
       layer.bindPopup(html);
 
-      // Marcar visualmente la selección - CON PRIORIDAD DE SUELOS
       layer.on("click", async function (e) {
-        // modo dibujo no hacer na de na, 
         if (typeof rectangleDrawer !== 'undefined' && rectangleDrawer && rectangleDrawer._enabled) {
           return;
         }
@@ -1666,7 +1537,6 @@ if (btnDelete) {
                 .setLatLng(latlng)
                 .setContent(buildSuelosPopup(j.data))
                 .openOn(map);
-              // Detener propagación para evitar que se abra popup de recinto
               L.DomEvent.stopPropagation(e);
               return;
             }
@@ -1675,7 +1545,6 @@ if (btnDelete) {
           }
         }
         
-        // No hay suelo o suelos no activos - mostrar popup normal de recinto
         if (selectedRecintoLayer && selectedRecintoLayer !== layer) {
           selectedRecintoLayer.setStyle(RECINTO_STYLE_DEFAULT);
         }
@@ -1687,7 +1556,6 @@ if (btnDelete) {
   }).addTo(map);
   window.recintosLayer = recintosLayer;
 
-  // Highlight para WMS (Cultivos/Catastro)
   map.createPane("wmsHighlightPane");
   map.getPane("wmsHighlightPane").style.zIndex = 650; 
 
@@ -1721,14 +1589,12 @@ if (btnDelete) {
   }
 
   function highlightGeojson(geojson, which) {
-    // Limpiar highlights previos
     clearCultivoHighlight();
     clearCatastroHighlight();
     clearSuelosHighlight();
 
     if (!geojson) return;
 
-    // limpiar el otro highlight para evitar “doble selección”
     if (which === "cultivo") { clearCatastroHighlight(); clearSuelosHighlight(); }
     if (which === "catastro") { clearCultivoHighlight(); clearSuelosHighlight(); }
     if (which === "suelos") { clearCultivoHighlight(); clearCatastroHighlight(); }
@@ -1786,9 +1652,7 @@ if (btnDelete) {
 
 function actualizarNdviPanel() {
   if (window.ndviManager && window.ndviManager.panelDetalleAbierto) {
-    // El panel está abierto, se actualizará automáticamente cuando
-    // se llame a setRecintoId en renderSidePanelFromProps
-    return true; // panel esta abierto
+    return true;
   }
   return false;
 }
@@ -1802,16 +1666,12 @@ function actualizarNdviPanel() {
     const operacionesAbierto = document.getElementById("side-panel")?.classList.contains("operaciones-open");
     const galeriaAbierta = document.getElementById("side-panel")?.classList.contains("galeria-open");
 
-    // abrir split
     setSplitMode(true);
 
-    // setear id global
     currentSideRecintoId = data.id;
 
-    // pintar panel (esto actualizará automáticamente el contenido base y NDVI)
     renderSidePanelFromProps(data);
 
-    // Actualizar los paneles que estaban abiertos
     setTimeout(() => {
       if (cultivosAbierto) {
         actualizarHistoricoCultivos();
@@ -1822,29 +1682,22 @@ function actualizarNdviPanel() {
       if (galeriaAbierta) {
         actualizarGaleria();
       }
-      // El NDVI se actualiza automáticamente en renderSidePanelFromProps
     }, 100);
 
-    // centrar y resaltar
-    // *** cambiar por resaltarrecintosinzoom ??
     centrarEnRecinto(data);
 
-    // Guardar estado después de abrir
     setTimeout(() => guardarEstadoMapa(), 300);
   }
   function resaltarRecintoSinZoom(data) {
     if (!data) return;
 
-    // Limpiar cualquier resaltado previo
     clearHighlight();
 
     console.log('Resaltando recinto (sin zoom):', data);
 
     try {
-      // Parsear el GeoJSON del recinto
       const geojson = JSON.parse(data.geojson);
 
-      // Crear el FeatureCollection completo
       const featureCollection = {
         type: 'FeatureCollection',
         features: [{
@@ -1866,7 +1719,6 @@ function actualizarNdviPanel() {
         }]
       };
 
-      // Crear la geometría con Leaflet con estilo destacado
       recintoResaltado = L.geoJSON(featureCollection, {
         pane: 'highlightPane',
         style: {
@@ -1877,10 +1729,8 @@ function actualizarNdviPanel() {
           dashArray: '10, 5'
         }
       }).addTo(map);
-      // asegurar arriba del todo
       recintoResaltado.bringToFront();
 
-      // Crear contenido del popup
       const popupContent = `
       <div class="popup-recinto" style="min-width: 250px;">
         <div class="popup-recinto-info" style="font-size: 0.9rem;">
@@ -1895,13 +1745,11 @@ function actualizarNdviPanel() {
       </div>
     `;
 
-      // Añadir popup
       recintoResaltado.bindPopup(popupContent, {
         maxWidth: 300,
         className: 'recinto-destacado-popup'
       });
 
-      // Cerrar popup al hacer clic en el recinto rojo
       recintoResaltado.eachLayer((lyr) => {
         lyr.on('click', () => {
           try { lyr.closePopup(); } catch (e) { }
@@ -1914,27 +1762,22 @@ function actualizarNdviPanel() {
     }
   }
 
-  // esto esta medio raro hecho creo
   async function abrirRecintoDesdeVer(dataFlask) {
     if (!dataFlask || !dataFlask.id) return;
 
-    // Siempre centramos y resaltamos en rojo
     centrarEnRecinto(dataFlask);
 
-    // Comprobar si es mío intentando pedir detalle "mis-recinto"
     try {
       const r = await fetch(`/api/mis-recinto/${dataFlask.id}`);
       if (!r.ok) throw new Error("No es mío");
 
       const dataDb = await r.json();
 
-      // Es mío -> abrir panel con datos reales de BBDD
       setSplitMode(true);
       currentSideRecintoId = dataDb.id;
       renderSidePanelFromProps(dataDb);
 
     } catch (_) {
-      // No es mío (admin u otro) -> NO abrir panel
       setSplitMode(false);
     }
   }
@@ -1969,35 +1812,31 @@ function actualizarNdviPanel() {
     style: () => MIS_RECINTO_STYLE,
     onEachFeature: function (feature, layer) {
       layer.on("click", async function (e) {
-        // modo dibujo, no hacer na de na
         if (modoEdicion) return;
 
        
         
         try { L.DomEvent.stop(e); } catch (_) {}
 
-        // PRIORIDAD 1: Si suelos están activos, verificar primero si hay suelo
         if (suelosActivos && map.getZoom() >= 13) {
           const latlng = e.latlng;
           try {
             const r = await fetch(`/api/popup/suelos?lat=${latlng.lat}&lng=${latlng.lng}`);
             const j = await r.json().catch(() => ({}));
             if (j.ok && j.found) {
-              // HAY SUELO - Mostrar popup de suelo en lugar de abrir panel
               highlightGeojson(j.data.geojson, "suelos");
               console.log("✅ Suelo encontrado (click en mis recintos):", j.data);
               L.popup({ maxWidth: 320, autoPan: true })
                 .setLatLng(latlng)
                 .setContent(buildSuelosPopup(j.data))
                 .openOn(map);
-              return; // No abrir panel de recinto
+              return;
             }
           } catch (err) {
             console.error("Error verificando suelo:", err);
           }
         }
 
-        // No hay suelo - abrir panel normal de mis recintos
         const id = feature?.properties?.id_recinto;
         if (!id) return;
 
@@ -2015,16 +1854,13 @@ function actualizarNdviPanel() {
     }
   }).addTo(map);
     
-  // Mis IDs para evitar duplicados
   const MIS_IDS = new Set();
 
-  // Por defecto activos
   let misRecintosActivos = true;
 
  function cargarMisRecintosSiProcede() {
   const z = map.getZoom();
 
-  // Siempre limpiar primero
   if (z < ZOOM_RECINTOS || !misRecintosActivos) {
     misRecintosLayer.clearLayers();
     return;
@@ -2044,7 +1880,6 @@ function actualizarNdviPanel() {
       return r.json();
     })
     .then((fc) => {
-      // Verificar de nuevo el zoom antes de añadir
       if (map.getZoom() < ZOOM_RECINTOS) {
         misRecintosLayer.clearLayers();
         return;
@@ -2064,11 +1899,9 @@ function actualizarNdviPanel() {
     .catch((err) => console.error("Error al cargar mis recintos:", err));
 }
 
-  // recintos activos por defecto 
   let recintosActivos = true;
   let recintosRequestToken = 0;
 
-  // Función auxiliar para llamar a la API de solicitudes
   function solicitarRecinto(payload) {
     fetch("/api/solicitudes-recinto", {
       method: "POST",
@@ -2107,16 +1940,11 @@ function actualizarNdviPanel() {
       });
   }
 
-  // Parcelas Catastro + Cultivos SIGPAC + Suelos (WMS desde GeoServer)
-
-  // 1) URL WMS, coger del .env supongo y cambiarla
   const GEOSERVER_WMS = "http://100.102.237.86:8080/geoserver/wms";
 
-  // 2) Flags de visibilidad
   let parcelasCatastroActivas = false;
   let cultivosSigpacActivos = false;
 
-  // 3) Capas WMS
   const parcelasCatastroLayer = L.tileLayer.wms(GEOSERVER_WMS, {
     layers: "gis_project:parcelasCatastro",
     styles: "catastro_fucsia", 
@@ -2136,7 +1964,7 @@ function actualizarNdviPanel() {
     tiled: true,
     pane: "cultivosSigpacPane",
     maxZoom: 22,
-    interactive: false  // No capturar eventos de cli
+    interactive: false
   });
 
 
@@ -2146,7 +1974,7 @@ function actualizarNdviPanel() {
     transparent: true,
     tiled: true,
     pane: "capacidadCampoPane",
-    minZoom: 8,
+    minZoom: 7,
     maxZoom: 22,
     interactive: false  
   });
@@ -2157,7 +1985,7 @@ function actualizarNdviPanel() {
     transparent: true,
     tiled: true,
     pane: "capacidadRetencionPane",
-    minZoom: 8,
+    minZoom: 7,
     maxZoom: 22,
     interactive: false  
   });
@@ -2168,7 +1996,7 @@ function actualizarNdviPanel() {
     transparent: true,
     tiled: true,
     pane: "clasificacionTexturalPane",
-    minZoom: 8,
+    minZoom: 7,
     maxZoom: 22,
     interactive: false  
   });
@@ -2179,7 +2007,7 @@ function actualizarNdviPanel() {
     transparent: true,
     tiled: true,
     pane: "contenidoArcillaPane",
-    minZoom: 8,
+    minZoom: 7,
     maxZoom: 22,
     interactive: false  
   });
@@ -2190,7 +2018,7 @@ function actualizarNdviPanel() {
     transparent: true,
     tiled: true,
     pane: "contenidoArenaPane",
-    minZoom: 8,
+    minZoom: 7,
     maxZoom: 22,
     interactive: false  
   });
@@ -2201,7 +2029,7 @@ function actualizarNdviPanel() {
     transparent: true,
     tiled: true,
     pane: "contenidoLimoPane",
-    minZoom: 8,
+    minZoom: 7,
     maxZoom: 22,
     interactive: false  
   });
@@ -2212,7 +2040,7 @@ function actualizarNdviPanel() {
     transparent: true,
     tiled: true,
     pane: "materiaOrganicaPane",
-    minZoom: 8,
+    minZoom: 7,
     maxZoom: 22,
     interactive: false  
   });
@@ -2223,7 +2051,7 @@ function actualizarNdviPanel() {
     transparent: true,
     tiled: true,
     pane: "nitrogenoPane",
-    minZoom: 8,
+    minZoom: 7,
     maxZoom: 22,
     interactive: false  
   });
@@ -2234,7 +2062,7 @@ function actualizarNdviPanel() {
     transparent: true,
     tiled: true,
     pane: "fosforoOlsenPane",
-    minZoom: 8,
+    minZoom: 7,
     maxZoom: 22,
     interactive: false  
   });
@@ -2245,7 +2073,7 @@ function actualizarNdviPanel() {
     transparent: true,
     tiled: true,
     pane: "humedadSaturacionPane",
-    minZoom: 8,
+    minZoom: 7,
     maxZoom: 22,
     interactive: false  
   });
@@ -2253,7 +2081,6 @@ function actualizarNdviPanel() {
 
   
 
-  // Ahora esta quitado, no se usa ( ni creo que se use nunca, borrar?)
   const suelosLayer = L.tileLayer.wms(GEOSERVER_WMS, {
     layers: "ne:PtosMuestrasSuelosCyL_Etrs89_H30",  
     styles: "suelos",
@@ -2267,7 +2094,6 @@ function actualizarNdviPanel() {
 
 
 
-  // Leyendas suelos
   const leyendaCapacidadCampo = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Capacidad_de_campo`;
   const leyendaCapacidadRetencionAgua = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Capacidad_retencion_agua`;
   const leyendaClasificacionTextural = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Clasificacion_textural`;
@@ -2280,10 +2106,6 @@ function actualizarNdviPanel() {
   const leyendaHumedadSaturacion = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Humedad_de_saturacion`;
 
 
-
-
-
-  // solo mostrar a partir de cierto zoom
   function cargarParcelasCatastroSiProcede() {
     const z = map.getZoom();
     if (!parcelasCatastroActivas || z < ZOOM_RECINTOS) {
@@ -2315,7 +2137,6 @@ function actualizarNdviPanel() {
     if (!map.hasLayer(suelosLayer)) suelosLayer.addTo(map);
 }
 
-  // nuevas capas de suelos
   let capasActivasSuelos = {
     capacidadCampo: false,
     capacidadRetencion: false,
@@ -2342,7 +2163,6 @@ function actualizarNdviPanel() {
     humedadSaturacion: { layer: humedadSaturacionLayer, leyenda: leyendaHumedadSaturacion, pane: 'humedadSaturacionPane' }
   };
 
-  // z-index dinámico de suelos: empieza en 200, sube hasta ~210
   let currentMaxZIndex = 200;
 
   function cargarCapaSueloSiProcede(capaNombre) {
@@ -2376,11 +2196,8 @@ function actualizarNdviPanel() {
       leyendaDiv.style.display = 'block';
       leyendasContainer.style.display = 'block';
       
-      // MOVER LA LEYENDA AL PRINCIPIO (después del header "Leyendas Activas")
-      // El header es el primer div hijo del contenedor
       const header = leyendasContainer.firstElementChild;
       if (header) {
-        // Insertar justo después del header (la leyenda se mueve automáticamente)
         header.after(leyendaDiv);
       }
     }
@@ -2391,7 +2208,6 @@ function actualizarNdviPanel() {
     if (leyendaDiv) {
       leyendaDiv.style.display = 'none';
       
-      // Ocultar contenedor si no hay leyendas activas
       const todasOcultas = Object.keys(capasActivasSuelos).every(key => !capasActivasSuelos[key]);
       if (todasOcultas) {
         const leyendasContainer = document.getElementById('leyendas-suelos-container');
@@ -2406,7 +2222,6 @@ function actualizarNdviPanel() {
     const capaData = capasMapeoSuelos[capaNombre];
     if (!capaData || !capaData.pane) return;
     
-    // Incrementar el z-index máximo y asignarlo a esta capa
     currentMaxZIndex++;
     const pane = map.getPane(capaData.pane);
     if (pane) {
@@ -2421,7 +2236,6 @@ function actualizarNdviPanel() {
   }
 
 
-  // Funciones auxiliares para popups
   function fmt(v, fallback = "-") {
     if (v === null || v === undefined) return fallback;
     const s = String(v).trim();
@@ -2475,11 +2289,9 @@ function actualizarNdviPanel() {
   }
 
   function buildSuelosPopup(d) {
-    // Helper: buscar valor en múltiples variantes de nombre
     const getField = (...keys) => {
         for (const k of keys) {
             const v = d[k];
-            // Considerar null, undefined y "" como "no hay valor"
             if (v !== null && v !== undefined && v !== "") {
                 return v;
             }
@@ -2487,13 +2299,11 @@ function actualizarNdviPanel() {
         return null;
     };
     
-    // helper: crear fila solo si hay valor
     const makeRow = (label, value, unit = '') => {
         if (value === null || value === undefined || value === "") return '';
         return `<div><strong>${label}:</strong> ${value}${unit}</div>`;
     };
     
-    // helper para crear fila con valor y descripción
     const makeRowWithDesc = (label, value, desc, unit = '') => {
         if (value === null || value === undefined || value === "") return '';
         const descPart = desc ? ` <small>(${desc})</small>` : '';
@@ -2507,33 +2317,22 @@ function actualizarNdviPanel() {
     console.log("📊 Datos suelo recibidos en buildSuelosPopup:", d);
     console.log("📋 Campos disponibles:", Object.keys(d));
     
-    // obtener valores
-    // IMPORTANTE: Los nombres aquí deben coincidir con lo que devuelve el backend
-    // El backend devuelve los campos en snake_case (id_muestra, campana, etc.)
-    
     const idMuestra = getField('id_muestra', 'ID_MUESTRA', 'idmuestra', 'IdMuestra', 'ID_Muestra');
     const origen = getField('origen', 'Origen');
-    
-    // ✅ CRÍTICO: El backend devuelve 'campana' (sin tilde)
     const campana = getField('campana', 'Campaña', 'Campana', 'campanya');
-    
     const laboratori = getField('laboratori', 'Laboratori');
-    
     const ph = getField('ph', 'pH', 'PH');
     const acidez = getField('acidez_basi', 'AcidezBasi', 'Acidez_Basi', 'Acidez');
     const ce = getField('conductivi', 'Conductivi', 'conductividad', 'CE');
-    
     const moPorc = getField('mo_porc', 'MO_Porc', 'MO_%');
     const materiaOrg = getField('materia_org', 'MateriaOrg', 'Materia_Org');
     const arenaPorc = getField('arena_porc', 'Arena_Porc', 'Arena_%');
     const limoPorc = getField('limo_porc', 'Limo_Porc', 'Limo_%');
     const arcillaPorc = getField('arcilla_po', 'Arcilla_Po', 'arcilla_porc', 'Arcilla_%');
-    
     const textura = getField('textura', 'Textura');
     const textCalcu = getField('text_calcu', 'TextCalcu', 'Text_Calcu');
     const grupoTextu = getField('grupo_textu', 'GrupoTextu', 'Grupo_Textu');
     const valoracion = getField('valoracion', 'Valoracion');
-    
     const pOlsenPpm = getField('p_olsen_pp', 'P_Olsen_pp', 'P_Olsen_ppm', 'p_olsen_ppm');
     const pOlsen = getField('p_olsen', 'P_Olsen');
     const potasioPpm = getField('potasio_pp', 'Potasio_pp', 'Potasio_ppm', 'potasio_ppm');
@@ -2543,15 +2342,9 @@ function actualizarNdviPanel() {
     const calcio = getField('calcio', 'Calcio');
     const magnesioPpm = getField('magnesio_p', 'Magnesio_p', 'Magnesio_ppm', 'magnesio_ppm');
     const magnesio = getField('magnesio', 'Magnesio');
-    
     const coorX = getField('coor_x_etr', 'COOR_X_ETR', 'Coor_X_Etr', 'coor_x');
     const coorY = getField('coor_y_etr', 'COOR_Y_ETR', 'Coor_Y_Etr', 'coor_y');
-    
 
-    
-    // Construir HTML del popup
-    
-    // Información básica - SIEMPRE mostrar campaña
     let infoBasicaHtml = '';
     const rows = [
         origen ? makeRow('Origen', origen) : '',
@@ -2567,7 +2360,6 @@ function actualizarNdviPanel() {
         `;
     }
     
-    // pH y CE - SIEMPRE mostrar pH
     let phCeHtml = '';
     const phCeRows = [
         `<div><strong>pH:</strong> ${ph !== null && ph !== undefined && ph !== "" ? ph : 'N/A'}${acidez ? ` <small>(${acidez})</small>` : ''}</div>`,
@@ -2582,7 +2374,6 @@ function actualizarNdviPanel() {
         `;
     }
     
-    // composición
     let composicionHtml = '';
     if (moPorc || arenaPorc || limoPorc || arcillaPorc || textura) {
         const texturaGrid = [
@@ -2615,7 +2406,6 @@ function actualizarNdviPanel() {
         }
     }
     
-    // nutrientes
     let nutrientesHtml = '';
     const nutrientesRows = [
         makeRowWithDesc('P (Olsen)', pOlsenPpm, pOlsen, ' ppm'),
@@ -2636,7 +2426,6 @@ function actualizarNdviPanel() {
         `;
     }
     
-    // Coordenadas
     let coordsHtml = '';
     if (coorX && coorY) {
         coordsHtml = `
@@ -2646,7 +2435,6 @@ function actualizarNdviPanel() {
         `;
     }
     
-    // Construir popup completo
     return `
       <div class="popup-recinto" style="min-width: 280px; max-width: 420px;">
         <div class="popup-recinto-info" style="font-size: 0.9rem;">
@@ -2664,16 +2452,13 @@ function actualizarNdviPanel() {
       </div>
     `;
 }
-  // 5) Handler click mapa para popups - SUELOS TIENEN PRIORIDAD
+
   map.on("click", async (e) => {
   const t = e?.originalEvent?.target;
   
-  // Zoom mínimo general
   if (map.getZoom() < 13) return;
 
   try {
-    // PRIORIDAD ABSOLUTA: SUELOS (solo con zoom >= 15)
-    // CRÍTICO: Se verifica ANTES que cualquier otra capa, incluso elementos interactivos
     if (suelosActivos && map.getZoom() >= 15) {
       const r = await fetch(`/api/popup/suelos?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
       const j = await r.json().catch(() => ({}));
@@ -2682,28 +2467,20 @@ function actualizarNdviPanel() {
         highlightGeojson(j.data.geojson, "suelos");
         abrirPopupHtml(e.latlng, buildSuelosPopup(j.data));
         
-      
         if (e.originalEvent) {
           e.originalEvent.stopPropagation();
         }
         
         return;
       }
-      
-
     }
     
-    
-    // Si el click fue sobre un elemento interactivo Y no había suelo debajo, salir
-    // (esto permite que recintos, dibujos, etc. funcionen normalmente cuando NO hay suelos)
     if (t && (t.classList?.contains("leaflet-interactive") || t.closest?.(".leaflet-interactive"))) {
       return;
     }
     
-    // Resto de capas solo con zoom alto
     if (map.getZoom() < ZOOM_RECINTOS) return;
 
-    // PRIORIDAD 2: Cultivos SIGPAC (solo si NO hubo suelo)
     if (cultivosSigpacActivos) {
       const r = await fetch(`/api/popup/cultivo-sigpac?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
       const j = await r.json().catch(() => ({}));
@@ -2714,7 +2491,6 @@ function actualizarNdviPanel() {
       }
     }
 
-    // PRIORIDAD 3: Catastro (solo si NO hubo suelo ni cultivo)
     if (parcelasCatastroActivas) {
       const r = await fetch(`/api/popup/catastro?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
       const j = await r.json().catch(() => ({}));
@@ -2725,7 +2501,6 @@ function actualizarNdviPanel() {
       }
     }
 
-    // Si no hay nada debajo, cerramos popup y highlights
     map.closePopup();
     clearCultivoHighlight();
     clearCatastroHighlight();
@@ -2734,8 +2509,6 @@ function actualizarNdviPanel() {
     console.error("Error popup click:", err);
   }
 });
-
-  // CyL suelos y demás
 
   const CYL2025_WMS_LAYER = "gis_project:Cultivos_y_Ocupación_del_suelo_2025";
   const CYL2025_STYLE = "mcsncyl2025"; 
@@ -2750,7 +2523,6 @@ function actualizarNdviPanel() {
       TRANSPARENT: "true",
       WIDTH: "360",
       HEIGHT: "600",
-
       LEGEND_OPTIONS: "forceLabels:on;fontSize:12"
     });
 
@@ -2804,7 +2576,7 @@ function actualizarNdviPanel() {
     const box = document.getElementById("legend-cyl2025");
     const img = document.getElementById("legend-cyl2025-img");
     const btn = document.getElementById("btn-legend-cyl2025-hide");
-    if (box) box.style.display = "none";  // capa apagada => ocultar todo
+    if (box) box.style.display = "none";
     if (img) {
       img.style.display = "block";
       img.removeAttribute("src");
@@ -2812,19 +2584,6 @@ function actualizarNdviPanel() {
     if (btn) btn.textContent = "Ocultar";
   }
 
-  function resetCyl2025Legend() {
-    const box = document.getElementById("legend-cyl2025");
-    const img = document.getElementById("legend-cyl2025-img");
-    const btn = document.getElementById("btn-legend-cyl2025-hide");
-    if (box) box.style.display = "none";  // capa apagada => ocultar todo
-    if (img) {
-      img.style.display = "block";
-      img.removeAttribute("src");
-    }
-    if (btn) btn.textContent = "Ocultar";
-  }
-
-  // Botón “Ocultar” de la leyenda
   document.addEventListener("click", (e) => {
     if (e.target && e.target.id === "btn-legend-cyl2025-hide") {
       const img = document.getElementById("legend-cyl2025-img");
@@ -2836,10 +2595,6 @@ function actualizarNdviPanel() {
     }
   });
 
-
-  // Para añadir año modificar script
-  
-  // Sistema de capas de cultivos por año (generado automáticamente), esta 2 veces??
   const cylLayersData = {};
   const cultivosYearsForLayers = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'];
   
@@ -2858,7 +2613,6 @@ function actualizarNdviPanel() {
     };
   });
 
-  // Hacer accesible globalmente para los botones de MCSNCyL
   window.cylLayersData = cylLayersData;
 
   function cargarCyLSiProcede(year) {
@@ -2877,14 +2631,12 @@ function actualizarNdviPanel() {
     }
   }
 
-  // Hacer accesible globalmente para los botones de MCSNCyL
   window.cargarCyLSiProcede = cargarCyLSiProcede;
 
   function cargarTodasCyLSiProcede() {
     Object.keys(cylLayersData).forEach(year => cargarCyLSiProcede(parseInt(year)));
   }
 
-  // Compatibilidad con código existente
   let CyLCultivosActivos = false;
   const CyL2025Layer = cylLayersData[2025].layer;
   function cargarCyL2025SiProcede() {
@@ -2892,7 +2644,6 @@ function actualizarNdviPanel() {
   }
 
 
-  // Función auxiliar para mensajes tipo bootstrap
   function mostrarErrorInline(msg) {
     const c = document.getElementById("side-alerts");
     if (!c) return;
@@ -2905,7 +2656,6 @@ function actualizarNdviPanel() {
     `;
   }
 
-  // Handler global llamado desde el botón del popup
   window._solicitarRecintoDesdePopup = function (btn) {
     if (!btn || btn.disabled) return;
 
@@ -2927,17 +2677,14 @@ function actualizarNdviPanel() {
     solicitarRecinto(payload);
   };
 
-  // cargar recintos
   function cargarRecintosSiProcede() {
     const z = map.getZoom();
 
-    // Siempre limpiar primero si no procede
     if (z < ZOOM_RECINTOS || !recintosActivos) {
       recintosLayer.clearLayers();
       return;
     }
 
-    // Token de esta petición
     const myToken = ++recintosRequestToken;
 
     const b = map.getBounds();
@@ -2956,22 +2703,18 @@ function actualizarNdviPanel() {
         return response.json();
       })
       .then((fc) => {
-        // Si llegó tarde (hay otra petición más nueva), ignorar
         if (myToken !== recintosRequestToken) return;
 
-        // Si se desactivó mientras esperábamos, ignorar y limpiar
         if (!recintosActivos) {
           recintosLayer.clearLayers();
           return;
         }
 
-        // Si el zoom bajó mientras esperábamos, limpiar y salir
         if (map.getZoom() < ZOOM_RECINTOS) {
           recintosLayer.clearLayers();
           return;
         }
 
-        // Guardar información del popup abierto antes de limpiar
         let popupAbiertoId = null;
         let popupEstiloSeleccionado = false;
 
@@ -2987,27 +2730,22 @@ function actualizarNdviPanel() {
 
         if (!fc || !fc.features || fc.features.length === 0) return;
 
-        // Recheck final antes de pintar (por si cambió justo ahora)
         if (myToken !== recintosRequestToken || !recintosActivos || map.getZoom() < ZOOM_RECINTOS) return;
 
         recintosLayer.addData(fc);
 
-        // Reabrir el popup si estaba abierto
         if (popupAbiertoId) {
           recintosLayer.eachLayer((layer) => {
             const props = layer.feature?.properties || {};
             if (String(props.id_recinto) === String(popupAbiertoId)) {
               console.log("Reabriendo popup para recinto:", popupAbiertoId);
 
-              // Restaurar estilo de selección si lo tenía
               if (popupEstiloSeleccionado) {
                 selectedRecintoLayer = layer;
                 try { layer.setStyle(RECINTO_STYLE_SELECTED); } catch (_) {}
               }
 
-              // Reabrir popup con pequeño delay
               setTimeout(() => {
-                // Si ya no procede cuando vaya a abrir, no lo abras
                 if (myToken !== recintosRequestToken || !recintosActivos) return;
                 try { layer.openPopup(); } catch (_) {}
               }, 50);
@@ -3016,13 +2754,10 @@ function actualizarNdviPanel() {
         }
       })
       .catch((err) => {
-        // Si el error viene de que se invalidó/cambió de capa, no es grave
         console.error("Error al cargar recintos:", err);
       });
   }
 
-  // 6) Actualizar mapa según zoom
-  // Declarado aquí (antes de actualizarMapaSegunZoom) para evitar ReferenceError con let
   window.modoEdicion = false;
 
   function actualizarMapaSegunZoom() {
@@ -3044,11 +2779,10 @@ function actualizarNdviPanel() {
         activeHighLayer.addTo(map);
       }
 
-      // Mostrar botón de dibujo solo cuando los recintos son visibles
       if (!modoEdicion) {
-  const editBtn = document.getElementById('editar-btn');
-  if (editBtn) editBtn.disabled = false;
-}
+        const editBtn = document.getElementById('editar-btn');
+        if (editBtn) editBtn.disabled = false;
+      }
     } else {
       Object.values(highZoomLayers).forEach((layer) => {
         if (layer && map.hasLayer(layer)) {
@@ -3062,11 +2796,9 @@ function actualizarNdviPanel() {
 
       recintosLayer.clearLayers();
 
-      // Ocultar botón de dibujo cuando no hay recintos visibles
       const editBtn = document.getElementById('editar-btn');
-if (editBtn) editBtn.disabled = true;
+      if (editBtn) editBtn.disabled = true;
 
-      // Si estaba en modo edición, cancelar automáticamente
       if (modoEdicion) {
         const cancelarBtn = document.getElementById('cancelar-btn');
         if (cancelarBtn) cancelarBtn.click();
@@ -3074,12 +2806,19 @@ if (editBtn) editBtn.disabled = true;
     }
   }
 
-  // 7) Eventos del mapa
+  const DEBOUNCE_MS = IS_MOBILE ? 1000 : 800;
+
+  const cargarRecintosSiProcedeDebounced    = debounce(cargarRecintosSiProcede,         DEBOUNCE_MS);
+  const cargarMisRecintosSiProcedeDebounced = debounce(cargarMisRecintosSiProcede,       DEBOUNCE_MS);
+  const cargarParcelasCatastroDebounced     = debounce(cargarParcelasCatastroSiProcede,  DEBOUNCE_MS);
+  const cargarCultivosSigpacDebounced       = debounce(cargarCultivosSigpacSiProcede,    DEBOUNCE_MS);
+  const cargarSuelosDebounced               = debounce(cargarSuelosSiProcede,            DEBOUNCE_MS);
+  const cargarTodasCapasSuelosDebounced     = debounce(cargarTodasCapasSuelosSiProcede,  DEBOUNCE_MS);
+  const cargarTodasCyLDebounced             = debounce(cargarTodasCyLSiProcede,          DEBOUNCE_MS);
 
   map.on("zoomend", () => {
     const currentZoom = map.getZoom();
     
-    // Cerrar popups si el zoom es menor que el mínimo general
     if (currentZoom < 13) {
       map.closePopup();
       clearCultivoHighlight();
@@ -3087,12 +2826,10 @@ if (editBtn) editBtn.disabled = true;
       clearSuelosHighlight();
     }
     
-    // Cerrar popup de suelos si el zoom es menor que 15
     if (currentZoom < 15) {
       clearSuelosHighlight();
     }
     
-    // Cerrar popups de cultivos, catastro y suelos si zoom < ZOOM_RECINTOS (15)
     if (currentZoom < ZOOM_RECINTOS) {
       map.closePopup();
       clearCultivoHighlight();
@@ -3101,26 +2838,26 @@ if (editBtn) editBtn.disabled = true;
     }
     
     actualizarMapaSegunZoom();
-    cargarRecintosSiProcede();
-    cargarMisRecintosSiProcede();
-    cargarParcelasCatastroSiProcede();
-    cargarCultivosSigpacSiProcede();
-    cargarSuelosSiProcede();
-    cargarTodasCapasSuelosSiProcede();
-    cargarTodasCyLSiProcede();
+    cargarRecintosSiProcedeDebounced();
+    cargarMisRecintosSiProcedeDebounced();
+    cargarParcelasCatastroDebounced();
+    cargarCultivosSigpacDebounced();
+    cargarSuelosDebounced();
+    cargarTodasCapasSuelosDebounced();
+    cargarTodasCyLDebounced();
     if (splitOpen && currentSideRecintoId) {
-    guardarEstadoMapa();
-  }
+      guardarEstadoMapa();
+    }
   });
 
   map.on("moveend", () => {
-    cargarRecintosSiProcede();
-    cargarMisRecintosSiProcede();
-    cargarParcelasCatastroSiProcede();
-    cargarCultivosSigpacSiProcede();
-    cargarSuelosSiProcede();
-    cargarTodasCapasSuelosSiProcede();
-    cargarTodasCyLSiProcede();
+    cargarRecintosSiProcedeDebounced();
+    cargarMisRecintosSiProcedeDebounced();
+    cargarParcelasCatastroDebounced();
+    cargarCultivosSigpacDebounced();
+    cargarSuelosDebounced();
+    cargarTodasCapasSuelosDebounced();
+    cargarTodasCyLDebounced();
   });
 
   actualizarMapaSegunZoom();
@@ -3132,7 +2869,6 @@ if (editBtn) editBtn.disabled = true;
   cargarTodasCapasSuelosSiProcede();
   cargarTodasCyLSiProcede();
 
-  // 8) lógica del panel y botones sincronizados, ***ahora lo del filtro da un poco igual porque no se usa esta oculto
   const toggleBtn = document.getElementById("basemap-toggle");
   const panel = document.getElementById("basemap-panel");
   const basemapContainer = document.getElementById("basemap-panel-container");
@@ -3144,7 +2880,6 @@ if (editBtn) editBtn.disabled = true;
     panel.classList.toggle("visible");
     toggleBtn.classList.toggle("active");
 
-    // Desplazar ambos contenedores
     if (isOpening) {
       basemapContainer.classList.add("panel-open");
       filtroContainer.classList.add("panel-open");
@@ -3154,7 +2889,6 @@ if (editBtn) editBtn.disabled = true;
     }
   });
 
-  // selección de mapa principal
   document
     .querySelectorAll(".basemap-option.basemap-main[data-layer]")
     .forEach((option) => {
@@ -3175,7 +2909,6 @@ if (editBtn) editBtn.disabled = true;
       });
     });
 
-  // toggle MisRecintos 
   const misRecintosOption = document.querySelector(
     '.basemap-option.basemap-detail[data-detail="mis"]'
   );
@@ -3194,7 +2927,6 @@ if (editBtn) editBtn.disabled = true;
     });
   }
 
-  // --- Toggle Recintos SigPac ---
   const recintosOption = document.querySelector(
     '.basemap-option.basemap-detail[data-detail="sigpac"]'
   );
@@ -3209,7 +2941,6 @@ if (editBtn) editBtn.disabled = true;
     });
   }
 
-  // --- Toggle Cultivos SIGPAC ---
   const cultivosSigpacOption = document.querySelector(
     '.basemap-option.basemap-detail[data-detail="cultivosSigpac"]'
   );
@@ -3224,7 +2955,6 @@ if (editBtn) editBtn.disabled = true;
     });
   }
 
-  // --- Toggle Parcelas Catastro ---
   const parcelasCatastroOption = document.querySelector(
     '.basemap-option.basemap-detail[data-detail="catastro"]'
   );
@@ -3264,7 +2994,6 @@ if (editBtn) editBtn.disabled = true;
   }
 
 
-  // --- Toggle Suelos ---
   const suelosOption = document.querySelector(
     '.basemap-option.basemap-detail[data-detail="suelos"]'
   );
@@ -3283,7 +3012,6 @@ if (editBtn) editBtn.disabled = true;
     });
   }
 
-  // --- Toggles para todos los años CyL ---
   ['CyL2025', 'CyL2024', 'CyL2023'].forEach(detailKey => {
     const year = parseInt(detailKey.replace('CyL', ''));
     const cylOption = document.querySelector(`.basemap-option.basemap-detail[data-detail="${detailKey}"]`);
@@ -3310,7 +3038,6 @@ if (editBtn) editBtn.disabled = true;
     }
   });
 
-  // Historial de activación: el último elemento es la capa más recientemente activada
   const historialActivacionSuelos = [];
 
   document.querySelectorAll('input[type="checkbox"][data-detail]').forEach(checkbox => {
@@ -3322,28 +3049,22 @@ if (editBtn) editBtn.disabled = true;
       capasActivasSuelos[capaNombre] = this.checked;
       
       if (this.checked) {
-        // quitar borde verde de todas las otras capas
         document.querySelectorAll('.soil-checkbox-label').forEach(label => {
           label.classList.remove('active-layer');
         });
         
-        // Agregar borde verde a esta capa (la última activada)
         this.closest('.soil-checkbox-label').classList.add('active-layer');
         
-        // Registrar en el historial (evitar duplicados)
         const idx = historialActivacionSuelos.indexOf(capaNombre);
         if (idx !== -1) historialActivacionSuelos.splice(idx, 1);
         historialActivacionSuelos.push(capaNombre);
         
-        // Poner la capa arriba en el orden de z-index
         ponerCapaArriba(capaNombre);
         cargarCapaSueloSiProcede(capaNombre);
         mostrarLeyendaSuelo(capaNombre);
       } else {
-        // Quitar borde verde al desactivar
         this.closest('.soil-checkbox-label').classList.remove('active-layer');
         
-        // Eliminar del historial
         const idx = historialActivacionSuelos.indexOf(capaNombre);
         if (idx !== -1) historialActivacionSuelos.splice(idx, 1);
         
@@ -3353,7 +3074,6 @@ if (editBtn) editBtn.disabled = true;
         }
         ocultarLeyendaSuelo(capaNombre);
         
-        // asignar borde verde a la última capa activada (si hay alguna)
         if (historialActivacionSuelos.length > 0) {
           const ultimaCapaActiva = historialActivacionSuelos[historialActivacionSuelos.length - 1];
           const checkboxUltima = document.querySelector(`input[data-detail="${ultimaCapaActiva}"]`);
@@ -3365,15 +3085,12 @@ if (editBtn) editBtn.disabled = true;
     });
   });
 
-  // Funciones para activar/desactivar detalles de los toggles
   function desactivarDetalle(key) {
     const opt = document.querySelector(`.basemap-option.basemap-detail[data-detail="${key}"]`);
     if (opt) opt.classList.remove("active");
 
-    // cerrar popups y limpiar resaltados al cambiar de capa
     try { map.closePopup(); } catch (_) {}
 
-    // limpiar highlights WMS
     clearCultivoHighlight();
     clearCatastroHighlight();
     clearSuelosHighlight();
@@ -3392,7 +3109,6 @@ if (editBtn) editBtn.disabled = true;
   }
 
   function activarDetalleExclusivo(key) {
-    // apaga los otros (menos "mis")
     ["sigpac", "cultivosSigpac", "catastro"].forEach(k => {
       if (k !== key) desactivarDetalle(k);
     });
@@ -3412,25 +3128,19 @@ if (editBtn) editBtn.disabled = true;
     }
   }
 
-  // centrar en recinto especifico
-
-  // Recibir datos del recinto específico desde Flask
   const recintoData = {{ recinto_data| tojson | safe if recinto_data else 'null' }};
 
-  // Variable para guardar la capa del recinto resaltado
   let recintoResaltado = null;
 
-  // Función para limpieza de capa roja
   function clearHighlight() {
     if (recintoResaltado) {
       try {
-        map.removeLayer(recintoResaltado); // quita la capa roja
+        map.removeLayer(recintoResaltado);
       } catch (e) { }
       recintoResaltado = null;
     }
   }
 
-  // centrar en recinto en especifico
   function centrarEnRecinto(data) {
     if (!data) return;
     clearHighlight();
@@ -3438,10 +3148,8 @@ if (editBtn) editBtn.disabled = true;
     console.log('Centrando en recinto:', data);
 
     try {
-      // Parsear el GeoJSON del recinto
       const geojson = JSON.parse(data.geojson);
 
-      // Crear el FeatureCollection completo
       const featureCollection = {
         type: 'FeatureCollection',
         features: [{
@@ -3463,7 +3171,6 @@ if (editBtn) editBtn.disabled = true;
         }]
       };
 
-      // Función para abrir popup del recinto en la capa de recintos
       function openSigpacPopupForKey(key) {
         let targetLayer = null;
 
@@ -3478,16 +3185,14 @@ if (editBtn) editBtn.disabled = true;
           const p = (targetLayer.feature && targetLayer.feature.properties) || {};
           const esMio = MIS_IDS.has(String(key));
 
-          // Si es mío: NO abrir popup ni aplicar estilo azul
           if (esMio) {
             if (selectedRecintoLayer) {
               selectedRecintoLayer.setStyle(RECINTO_STYLE_DEFAULT);
               selectedRecintoLayer = null;
             }
-            return; // no abrir popup si es mío
+            return;
           }
 
-          // si no es mío: comportamiento normal (abrir popup "Añadir a mis recintos")
           if (selectedRecintoLayer && selectedRecintoLayer !== targetLayer) {
             selectedRecintoLayer.setStyle(RECINTO_STYLE_DEFAULT);
           }
@@ -3497,10 +3202,8 @@ if (editBtn) editBtn.disabled = true;
         }
       }
 
-      // guardar la clave del recinto rojo
       const highlightKey = String(data.id);
 
-      // Crear la geometría con Leaflet con estilo destacado
       recintoResaltado = L.geoJSON(featureCollection, {
         pane: 'highlightPane',
         style: {
@@ -3511,11 +3214,9 @@ if (editBtn) editBtn.disabled = true;
           dashArray: '10, 5'
         }
       }).addTo(map);
-      // asegurar arriba del todo
       recintoResaltado.bringToFront();
 
 
-      // Crear contenido del popup
       const popupContent = `
       <div class="popup-recinto" style="min-width: 250px;">
         <div class="popup-recinto-info" style="font-size: 0.9rem;">
@@ -3530,13 +3231,11 @@ if (editBtn) editBtn.disabled = true;
       </div>
     `;
 
-      // Añadir popup
       recintoResaltado.bindPopup(popupContent, {
         maxWidth: 300,
         className: 'recinto-destacado-popup'
       });
 
-      // Cerrar popup al hacer clic en el recinto rojo
       recintoResaltado.eachLayer((lyr) => {
         lyr.on('click', () => {
           try { lyr.closePopup(); } catch (e) { }
@@ -3544,17 +3243,13 @@ if (editBtn) editBtn.disabled = true;
       });
 
 
-      // Obtener bounds del recinto
       const bounds = recintoResaltado.getBounds();
 
-      // Calcular el zoom apropiado
       const zoom = map.getBoundsZoom(bounds, false);
-      const targetZoom = Math.min(zoom, 18); // Máximo zoom 18
+      const targetZoom = Math.min(zoom, 18);
 
-      // Primero hacer zoom para que se cargue la capa correcta
       map.setView(bounds.getCenter(), Math.max(targetZoom, ZOOM_RECINTOS));
 
-      // Después de un momento, ajustar el bounds con padding
       setTimeout(() => {
         map.fitBounds(bounds, {
           padding: [80, 80],
@@ -3563,7 +3258,6 @@ if (editBtn) editBtn.disabled = true;
           duration: 0.5
         });
 
-        // abrir el popup después del zoom
         setTimeout(() => {
           recintoResaltado.openPopup();
         }, 600);
@@ -3572,7 +3266,6 @@ if (editBtn) editBtn.disabled = true;
     } catch (error) {
       console.error('Error al centrar en el recinto:', error);
 
-      // Fallback: usar el bbox si falla el GeoJSON
       if (data.bbox && data.bbox.length === 4) {
         const [minx, miny, maxx, maxy] = data.bbox;
         const bounds = [[miny, minx], [maxy, maxx]];
@@ -3592,14 +3285,11 @@ if (editBtn) editBtn.disabled = true;
     }
   }
 
-  // Si hay datos de recinto, centrar en él cuando el mapa esté listo
   if (recintoData) {
     console.log('Recinto específico detectado, preparando centrado...');
 
-    // Esperar a que el mapa esté completamente cargado
     map.whenReady(function () {
 
-      // Activar recintos si están desactivados
       if (!recintosActivos) {
         recintosActivos = true;
         const recintosOption = document.querySelector(
@@ -3610,7 +3300,6 @@ if (editBtn) editBtn.disabled = true;
         }
       }
 
-      // Pequeño delay para asegurar que todo esté inicializado
       setTimeout(() => {
         abrirRecintoDesdeVer(recintoData);
       }, 300);
@@ -3627,7 +3316,6 @@ if (recintoData) {
     onAdd: function (map) {
       const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
 
-      // 👉 márgenes aquí
       container.style.marginBottom = '100px';
       container.style.marginLeft = '20px';
 
@@ -3662,8 +3350,6 @@ if (recintoData) {
   cargarRecintosSiProcede();
   cargarMisRecintosSiProcede();
 
-  // Intentar restaurar el estado guardado.
-  // Si no hay estado guardado, centrar en el municipio donde el usuario tiene más "mis recintos".
   map.whenReady(async function () {
     if (!recintoData) {
       const restaurado = await restaurarEstadoMapa();

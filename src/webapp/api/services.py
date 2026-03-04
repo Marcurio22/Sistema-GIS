@@ -6,7 +6,7 @@ from .. import db
 import requests
 import json
 from datetime import date, datetime
-from webapp.dashboard.utils_dashboard import municipios_finder
+from ..dashboard.utils_dashboard import municipios_finder
 from ..models import Variedad
 
 

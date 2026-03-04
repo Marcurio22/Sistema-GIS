@@ -172,7 +172,7 @@ class NDVI {
             btnPrev.addEventListener('click', () => {
                 // Prev = ir hacia atrás (imágenes más antiguas)
                 if (this.indiceActual > 0) {
-                    this.indiceActual = Math.max(0, this.indiceActual - 5);
+                    this.indiceActual = Math.max(0, this.indiceActual - 1);
                     this.actualizarCarousel();
                     this.actualizarGrafica(); // ← SINCRONIZAR
                 }
@@ -184,7 +184,7 @@ class NDVI {
                 // Next = ir hacia adelante (imágenes más recientes)
                 const total = this.todosLosIndices.length;
                 if (this.indiceActual + 5 < total) {
-                    this.indiceActual = Math.min(total - 5, this.indiceActual + 5);
+                    this.indiceActual = Math.min(total - 5, this.indiceActual + 1);
                     this.actualizarCarousel();
                     this.actualizarGrafica(); // ← SINCRONIZAR
                 }

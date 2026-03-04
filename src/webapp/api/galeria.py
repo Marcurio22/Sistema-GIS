@@ -11,7 +11,8 @@ from geoalchemy2 import functions as geo_func
 
 galeria_bp = Blueprint('galeria', __name__, url_prefix='/api/galeria')
 
-UPLOAD_FOLDER = "./webapp/static/uploads/images"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "uploads", "images")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 MAX_FILE_SIZE = 12 * 1024 * 1024
@@ -126,8 +127,7 @@ def crear_wkt_point(longitud, latitud):
 
 @galeria_bp.route('/subir', methods=['POST'])
 def subir_imagen():
-    print("=" * 80)
-    print("📤 Nueva petición de subida de imagen")
+    print("📤Nueva petición de subida de imagen")
     
     archivo = request.files.get('imagen')
     titulo = request.form.get('titulo')

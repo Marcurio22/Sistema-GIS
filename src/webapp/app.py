@@ -1,4 +1,4 @@
-from webapp import create_app, db
+from . import create_app, db
 
 app = create_app()
 

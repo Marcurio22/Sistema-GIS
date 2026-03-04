@@ -32,8 +32,8 @@ from rasterio.warp import transform_geom
 
 from .. import db
 from ..models import ImagenDibujada, IndicesRaster, Recinto, Solicitudrecinto, Variedad, Estacion, DatosDiarios
-from webapp.dashboard.utils_dashboard import municipios_finder
-from webapp.utils.legend_loader import load_legend_from_csv
+from ..dashboard.utils_dashboard import municipios_finder
+from ..utils.legend_loader import load_legend_from_csv
 
 from . import api_bp, legend_bp
 from .services import (

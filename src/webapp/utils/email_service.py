@@ -2,7 +2,7 @@
 Servicio de envío de correos electrónicos
 """
 from flask_mail import Message
-from webapp import mail
+from .. import mail
 
 # cambiar 100.102
 def enviar_correo_prueba(destinatario):
@@ -25,7 +25,6 @@ def enviar_correo_prueba(destinatario):
         print(f"MAIL_PASSWORD: {current_app.config.get('MAIL_PASSWORD')[:5]}***")
         print(f"MAIL_DEFAULT_SENDER: {current_app.config.get('MAIL_DEFAULT_SENDER')}")
         
-        from webapp import mail
         print(f"\nObjeto mail: {mail}")
         print(f"Tipo: {type(mail)}")
         
@@ -300,7 +299,6 @@ def enviar_notificacion_aceptacion(destinatario, nombre_usuario, numero_recinto,
     """
     
     try:
-        from webapp import mail
         from flask_mail import Message
         
         msg = Message(
@@ -447,7 +445,6 @@ def enviar_notificacion_eliminacion_aceptada(destinatario, nombre_usuario, numer
     """
     
     try:
-        from webapp import mail
         from flask_mail import Message
         
         msg = Message(
@@ -624,7 +621,6 @@ def enviar_notificacion_rechazo(destinatario, nombre_usuario, numero_recinto, ti
     """
     
     try:
-        from webapp import mail
         from flask_mail import Message
         
         msg = Message(

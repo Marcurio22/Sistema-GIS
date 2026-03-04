@@ -61,7 +61,7 @@ ROI_PATH = os.getenv(
 )
 
 # FECHA ESPECÍFICA
-TARGET_DATE = datetime(2025, 5, 30, tzinfo=timezone.utc)
+TARGET_DATE = datetime(2026, 2, 19, tzinfo=timezone.utc)
 DATE_WINDOW_DAYS = 0# no se usa va raro
 
 # Parámetros de búsqueda
