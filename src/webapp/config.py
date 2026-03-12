@@ -8,8 +8,8 @@ class Config:
 
     DB_USER = os.getenv("POSTGRES_USER")
     DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
-    DB_HOST = os.getenv("POSTGRES_HOST", "localhost")
-    DB_PORT = os.getenv("POSTGRES_PORT", "5432")
+    DB_HOST = os.getenv("POSTGRES_HOST")
+    DB_PORT = os.getenv("POSTGRES_PORT")
     DB_NAME = os.getenv("POSTGRES_DB")
 
     # Si tienes DATABASE_URL en el .env, úsalo; si no, construye la URI
@@ -34,7 +34,8 @@ class Config:
     AEMET_API_KEY = os.getenv("AEMET_API_KEY")
 
     # cambiar por lo del server
-    GEOSERVER_WFS_URL = os.getenv("GEOSERVER_WFS_URL", "http://100.102.237.86:8080/geoserver/wfs")
+    GEOSERVER_WMS_URL = os.getenv("GEOSERVER_WMS_URL")
+    GEOSERVER_WFS_URL = os.getenv("GEOSERVER_WFS_URL")
     GEOSERVER_USER = os.getenv("GEOSERVER_USER")
     GEOSERVER_PASSWORD = os.getenv("GEOSERVER_PASSWORD")
     GEOSERVER_RECINTOS_TYPENAME = os.getenv("GEOSERVER_RECINTOS_TYPENAME", "gis_project:recintos_con_propietario")

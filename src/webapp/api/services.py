@@ -24,8 +24,7 @@ def recintos_geojson(bbox_str: str | None) -> dict:
         raise ValueError(f"Formato de bbox no válido: {bbox_str!r}")
 
     cfg = current_app.config
-    # .env supongo
-    wfs_url = cfg.get("GEOSERVER_WFS_URL", "http://100.102.237.86:8080/geoserver/wfs")
+    wfs_url = cfg.get("GEOSERVER_WFS_URL")
     type_name = cfg.get("GEOSERVER_RECINTOS_TYPENAME", "gis_project:recintos_con_propietario")
     gs_user = cfg.get("GEOSERVER_USER")
     gs_password = cfg.get("GEOSERVER_PASSWORD")

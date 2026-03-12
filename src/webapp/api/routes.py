@@ -8,7 +8,8 @@ solicitudes de recintos.
 from __future__ import annotations
 from fileinput import filename
 
-from flask import Response, jsonify, request, send_from_directory
+from flask import Response, jsonify, request, send_from_directory, current_app
+from xml.etree import ElementTree as ET
 from pathlib import Path
 from flask_login import login_required, current_user
 import requests
@@ -406,8 +407,7 @@ def geoserver_legend():
         return {"error": "Missing layer"}, 400
 
 
-    # .env supongo
-    GEOSERVER_WMS = "http://100.102.237.86:8080/geoserver/wms"
+    GEOSERVER_WMS = current_app.config["GEOSERVER_WMS_URL"]
 
     params = {
         "SERVICE": "WMS",
@@ -465,7 +465,7 @@ def popup_suelos():
             return jsonify({'ok': False, 'found': False, 'error': 'Coordenadas inválidas'})
         
         # URL de GeoServer, .env supongo
-        geoserver_url = "http://100.102.237.86:8080/geoserver/wms"
+        GEOSERVER_WMS = current_app.config["GEOSERVER_WMS_URL"]
         
         # Parámetros para GetFeatureInfo
         params = {
@@ -485,7 +485,7 @@ def popup_suelos():
         }
         
         # Hacer la petición a GeoServer
-        response = requests.get(geoserver_url, params=params, timeout=10)
+        response = requests.get(GEOSERVER_WMS, params=params, timeout=10)
         
         if response.status_code != 200:
             return jsonify({'ok': False, 'found': False, 'error': 'Error en GeoServer'})
@@ -1643,3 +1643,43 @@ def api_estacion_datos(estacion_id, fecha):
         "pepmon":          d.pepmon,
         "perad":           d.perad,
     })
+
+
+
+
+@api_bp.route('/etp/fechas')
+@login_required
+def etp_fechas():
+    geoserver_url = current_app.config["GEOSERVER_WMS_URL"]
+    try:
+        r = requests.get(geoserver_url, params={
+            "SERVICE": "WMS",
+            "VERSION": "1.1.1",
+            "REQUEST": "GetCapabilities"
+        }, timeout=10)
+        root = ET.fromstring(r.content)
+
+        fechas = []
+        for layer in root.iter("Layer"):
+            name = layer.find("Name")
+            if name is not None and "mapascontinuos" in name.text:
+                for extent in layer.iter("Extent"):
+                    if extent.get("name") == "time" and extent.text:  # ← añadir "and extent.text"
+                        fechas = [
+                            f.strip()[:10]
+                            for f in extent.text.strip().split(",")
+                            if f.strip()
+                        ]
+                        break
+                for dim in layer.iter("Dimension"):
+                    if dim.get("name") == "time" and dim.text and not fechas:  # ← igual aquí
+                        fechas = [
+                            f.strip()[:10]
+                            for f in dim.text.strip().split(",")
+                            if f.strip()
+                        ]
+                        break
+
+        return jsonify({"ok": True, "fechas": sorted(set(fechas))})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500

@@ -256,7 +256,7 @@
       <div class="basemap-option-label">Vigor Vegetal<br>(NDVI)</div>
     </div>
 
-    <div class="basemap-option disabled">
+    <div class="basemap-option basemap-main" data-layer="etp">
       <div class="basemap-thumb">
         <img src="{{ url_for('static', filename='img/thumb_etp.png') }}" alt="ETP" />
       </div>
@@ -1417,6 +1417,8 @@ if (btnDelete) {
     ndvi: baseNdvi
   };
 
+  window.highZoomLayers = highZoomLayers;
+
   const urlParams = new URLSearchParams(window.location.search);
   const capaInicial = urlParams.get('capa') || 'satellite';
 
@@ -1435,6 +1437,7 @@ if (btnDelete) {
 }
 
   let activeHighLayerKey = capaInicial;
+  window.setActiveHighLayerKey = (k) => { activeHighLayerKey = k; };
   actualizarBasemapUI(activeHighLayerKey);
   function getActiveHighLayer() {
     return highZoomLayers[activeHighLayerKey];
@@ -1940,7 +1943,8 @@ function actualizarNdviPanel() {
       });
   }
 
-  const GEOSERVER_WMS = "http://100.102.237.86:8080/geoserver/wms";
+  const GEOSERVER_WMS = "{{ config['GEOSERVER_WMS_URL'] }}";
+  window.GEOSERVER_WMS = GEOSERVER_WMS;
 
   let parcelasCatastroActivas = false;
   let cultivosSigpacActivos = false;
@@ -2805,7 +2809,7 @@ function actualizarNdviPanel() {
       }
     }
   }
-
+  window.actualizarMapaSegunZoom = actualizarMapaSegunZoom;
   const DEBOUNCE_MS = IS_MOBILE ? 1000 : 800;
 
   const cargarRecintosSiProcedeDebounced    = debounce(cargarRecintosSiProcede,         DEBOUNCE_MS);
@@ -3365,6 +3369,7 @@ if (recintoData) {
 <script src="{{ url_for('static', filename='js/visor/visor-operaciones.js') }}"></script>
 <script src="{{ url_for('static', filename='js/visor/visor-panel.js') }}"></script>
 <script src="{{ url_for('static', filename='js/visor/visor-estaciones.js') }}"></script>
+<script src="{{ url_for('static', filename='js/visor/visor-etp.js') }}"></script>
 
 
 {% endblock %}
