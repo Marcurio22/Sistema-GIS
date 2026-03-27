@@ -5,7 +5,9 @@ import os
 import requests
 from requests.auth import HTTPBasicAuth
 import numpy as np
-import psycopg2
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+from webapp.config import Config
 from scipy.spatial import cKDTree
 from scipy.interpolate import Rbf, LinearNDInterpolator
 import pyproj
@@ -27,16 +29,13 @@ except ImportError:
 # PARÁMETROS DE CONFIGURACIÓN (CÁMBIALOS AQUÍ)
 # ============================================================
 
-DB_CONFIG = {
-    "host": "localhost",
-    "port": 5432,
-    "dbname": "gisdb",
-    "user": "postgres",
-    "password": "postgres"
-}
+# ── CAMBIO: motor SQLAlchemy en lugar de DB_CONFIG dict ─────────────────────
+engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
+Session = sessionmaker(bind=engine)
+# ────────────────────────────────────────────────────────────────────────────
 
 VARIABLE = "etpmon"
-FECHA = "2025-07-01"
+FECHA = "2026-03-22"
 METODO = "IDW"
 POTENCIA_IDW = 2.0
 KRIGING_KERNEL = None
@@ -62,7 +61,7 @@ MARGEN_M = 20000
 EPSG_UTM = 32630
 
 # ============================================================
-# GEOSERVER
+# GEOSERVER 
 # ============================================================
 
 GEOSERVER_URL  = "http://localhost:8080/geoserver"
@@ -75,35 +74,40 @@ STORE          = "mapascontinuos"
 # FIN DE LA CONFIGURACIÓN
 # ============================================================
 
+# ── CAMBIO: conectar_bd ahora devuelve una sesión SQLAlchemy ─────────────────
 def conectar_bd():
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
+        session = Session()
+        session.execute(text("SELECT 1"))  # ping de comprobación
         print("✅ Conexión exitosa a la base de datos.")
-        return conn
+        return session
     except Exception as e:
         print(f"❌ Error al conectar a la base de datos: {e}")
         return None
+# ────────────────────────────────────────────────────────────────────────────
 
-def obtener_datos(conn, variable, fecha):
-    query = f"""
+# ── CAMBIO: obtener_datos usa session.execute(text(...)) ─────────────────────
+def obtener_datos(session, variable, fecha):
+    query = text(f"""
         SELECT ST_X(e.geom) AS lon, ST_Y(e.geom) AS lat, d.{variable} AS valor
         FROM estaciones e
         JOIN datos_diarios d ON e.id = d.estacion_id
-        WHERE d.fecha = %s AND d.{variable} IS NOT NULL;
-    """
+        WHERE d.fecha = :fecha AND d.{variable} IS NOT NULL;
+    """)
     try:
-        with conn.cursor() as cur:
-            cur.execute(query, (fecha,))
-            filas = cur.fetchall()
+        resultado = session.execute(query, {"fecha": fecha})
+        filas = resultado.fetchall()
         if not filas:
             print(f"⚠️ No se encontraron datos para '{variable}' en {fecha}.")
             return None
-        datos = np.array(filas, dtype=[('lon', float), ('lat', float), ('valor', float)])
+        datos = np.array([(f[0], f[1], f[2]) for f in filas],
+                         dtype=[('lon', float), ('lat', float), ('valor', float)])
         print(f"✅ {len(datos)} estaciones con datos válidos.")
         return datos
     except Exception as e:
         print(f"❌ Error en la consulta: {e}")
         return None
+# ────────────────────────────────────────────────────────────────────────────
 
 def reproyectar_a_utm(datos, epsg_origen=4326, epsg_destino=32630):
     transformer = pyproj.Transformer.from_crs(epsg_origen, epsg_destino, always_xy=True)
@@ -147,6 +151,7 @@ def crear_grid(datos, resolucion_x, resolucion_y, forzar_extension=False,
     print(f"📐 Grid ajustado: {nrows} filas x {ncols} columnas.")
     print(f"   Extensión real: X[{min_x:.6f}, {max_x:.6f}], Y[{min_y:.6f}, {max_y:.6f}]")
     return X, Y, bounds
+
 def idw_interpolacion(puntos_conocidos, valores_conocidos, X, Y, potencia=2, num_vecinos=None):
     puntos_grid = np.column_stack((X.ravel(), Y.ravel()))
     
@@ -269,11 +274,13 @@ def main():
         print("❌ La fecha debe tener formato YYYY-MM-DD")
         return None
 
-    conn = conectar_bd()
-    if not conn:
+    # ── CAMBIO: se usa sesión SQLAlchemy y se cierra con session.close() ─────
+    session = conectar_bd()
+    if not session:
         return None
-    datos = obtener_datos(conn, VARIABLE, FECHA)
-    conn.close()
+    datos = obtener_datos(session, VARIABLE, FECHA)
+    session.close()
+    # ─────────────────────────────────────────────────────────────────────────
     if datos is None:
         return None
 
@@ -348,4 +355,4 @@ def main():
 if __name__ == "__main__":
     archivo = main()
     if archivo:
-        actualizar_imagemosaic() 
+        actualizar_imagemosaic()

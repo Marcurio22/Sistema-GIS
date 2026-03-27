@@ -12,7 +12,6 @@ class Config:
     DB_PORT = os.getenv("POSTGRES_PORT")
     DB_NAME = os.getenv("POSTGRES_DB")
 
-    # Si tienes DATABASE_URL en el .env, úsalo; si no, construye la URI
     SQLALCHEMY_DATABASE_URI = (
         os.getenv("DATABASE_URL")
         or f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
@@ -27,9 +26,11 @@ class Config:
         "pool_recycle": 1800,
     }
 
-    SESSION_TYPE = "filesystem"
-    SESSION_PERMANENT = False
+    SESSION_TYPE = "sqlalchemy"
+    SESSION_PERMANENT = True
     PERMANENT_SESSION_LIFETIME = 2629800
+    SESSION_USE_SIGNER = True
+    SESSION_KEY_PREFIX = "session:"
 
     AEMET_API_KEY = os.getenv("AEMET_API_KEY")
 
@@ -46,8 +47,8 @@ class Config:
     MAIL_PORT = int(os.getenv("MAIL_PORT", "25"))
     MAIL_USE_TLS = os.getenv("MAIL_USE_TLS", "True") == "True"
     MAIL_USE_SSL = os.getenv("MAIL_USE_SSL", "False") == "True"
-    MAIL_USERNAME = os.getenv("MAIL_USERNAME", "your_username")
-    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "your_password")
+    MAIL_USERNAME = os.getenv("MAIL_USERNAME")
+    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER")
 
     INFORIEGO_API_KEY = os.getenv("INFORIEGO_API_KEY")

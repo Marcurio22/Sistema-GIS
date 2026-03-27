@@ -1,41 +1,42 @@
 import pandas as pd
-import psycopg2
-from psycopg2.extras import execute_batch
+# ── CAMBIO: sustituido psycopg2 por SQLAlchemy ──────────────────────────────
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+from webapp.config import Config
 
-# ========== CONFIGURACIÓN ==========
-DB_CONFIG = {
-    'host': 'localhost',
-    'database': 'gisdb',
-    'user': 'postgres',
-    'password': 'postgres'
-}
+engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
+Session = sessionmaker(bind=engine)
+# ────────────────────────────────────────────────────────────────────────────
 
 ARCHIVO = './webapp/static/csv/variedades.csv'  # o 'variedades.xlsx'
-# ===================================
 
+# ── CAMBIO: devuelve sesión SQLAlchemy ───────────────────────────────────────
 def conectar_db():
     """Conecta a PostgreSQL"""
-    return psycopg2.connect(**DB_CONFIG)
+    return Session()
+# ────────────────────────────────────────────────────────────────────────────
 
-def obtener_cultivos_existentes(conn):
+# ── CAMBIO: pd.read_sql acepta engine directamente ──────────────────────────
+def obtener_cultivos_existentes():
     """Obtiene códigos y descripciones de cultivos en BD"""
     query = """
         SELECT codigo, UPPER(TRIM(descripcion)) as descripcion 
         FROM productos_fega
     """
-    df = pd.read_sql(query, conn)
+    df = pd.read_sql(query, engine)
     # Retorna dict: {'TRIGO BLANDO': 1, 'CEBADA': 2, ...}
     return dict(zip(df['descripcion'], df['codigo']))
 
-def obtener_variedades_existentes(conn):
+def obtener_variedades_existentes():
     """Obtiene variedades ya en BD (nombre + producto_fega_id)"""
     query = """
         SELECT LOWER(TRIM(nombre)) as nombre, producto_fega_id 
         FROM variedades
     """
-    df = pd.read_sql(query, conn)
+    df = pd.read_sql(query, engine)
     # Retorna set de tuplas: {('blat mort', 1), ('cebada', 2), ...}
     return set(zip(df['nombre'], df['producto_fega_id']))
+# ────────────────────────────────────────────────────────────────────────────
 
 def leer_archivo(ruta):
     """Lee CSV con encoding correcto"""
@@ -79,39 +80,36 @@ def procesar_variedades(df, cultivos_bd):
     return [(row['Variedad_norm'], row['producto_fega_id']) 
             for _, row in resultado.iterrows()]
 
-def insertar_variedades(conn, nuevas_variedades):
+# ── CAMBIO: inserción en lote con session.execute(text(...)) ─────────────────
+def insertar_variedades(session, nuevas_variedades):
     """Inserta las nuevas variedades en lote"""
-    cursor = conn.cursor()
-    
-    # Obtiene el ID máximo actual
-    cursor.execute("SELECT COALESCE(MAX(id_variedad), 0) FROM variedades")
-    max_id = cursor.fetchone()[0]
-    
-    # Prepara datos: (id, nombre, producto_fega_id)
-    datos = [(max_id + i + 1, nombre, prod_id) 
-             for i, (nombre, prod_id) in enumerate(nuevas_variedades)]
-    
-    # Inserta en lote
-    query = """
-        INSERT INTO variedades (id_variedad, nombre, producto_fega_id)
-        VALUES (%s, %s, %s)
-    """
-    execute_batch(cursor, query, datos, page_size=1000)
-    conn.commit()
-    cursor.close()
-    
+    resultado = session.execute(text("SELECT COALESCE(MAX(id_variedad), 0) FROM variedades"))
+    max_id = resultado.scalar()
+
+    datos = [
+        {"id_variedad": max_id + i + 1, "nombre": nombre, "producto_fega_id": prod_id}
+        for i, (nombre, prod_id) in enumerate(nuevas_variedades)
+    ]
+
+    session.execute(
+        text("INSERT INTO variedades (id_variedad, nombre, producto_fega_id) VALUES (:id_variedad, :nombre, :producto_fega_id)"),
+        datos
+    )
+    session.commit()
+
     return len(datos)
+# ────────────────────────────────────────────────────────────────────────────
 
 def main():
     print("🔄 Iniciando proceso de importación...")
     
     # 1. Conecta a BD
     print("🔗 Conectando a base de datos...")
-    conn = conectar_db()
+    session = conectar_db()
     
     # 2. Obtiene cultivos existentes en BD
     print("📦 Obteniendo cultivos en productos_fega...")
-    cultivos_bd = obtener_cultivos_existentes(conn)
+    cultivos_bd = obtener_cultivos_existentes()
     print(f"   ✓ {len(cultivos_bd)} cultivos en BD")
     if len(cultivos_bd) <= 10:
         for cult, cod in list(cultivos_bd.items())[:10]:
@@ -119,7 +117,7 @@ def main():
     
     # 3. Obtiene variedades existentes
     print("\n📊 Obteniendo variedades existentes...")
-    existentes = obtener_variedades_existentes(conn)
+    existentes = obtener_variedades_existentes()
     print(f"   ✓ {len(existentes):,} variedades ya en BD")
     
     # 4. Lee el archivo
@@ -139,7 +137,7 @@ def main():
     
     if not nuevas:
         print("✅ ¡No hay nada que insertar!")
-        conn.close()
+        session.close()
         return
     
     # Muestra muestra por cultivo
@@ -159,16 +157,16 @@ def main():
     respuesta = input("\n¿Continuar con la inserción? (s/n): ")
     if respuesta.lower() != 's':
         print("❌ Cancelado")
-        conn.close()
+        session.close()
         return
     
     # 7. Inserta
     print("\n💾 Insertando variedades...")
-    insertadas = insertar_variedades(conn, nuevas)
+    insertadas = insertar_variedades(session, nuevas)
     
     print(f"✅ ¡{insertadas:,} variedades insertadas correctamente!")
     
-    conn.close()
+    session.close()
 
 if __name__ == "__main__":
     try:

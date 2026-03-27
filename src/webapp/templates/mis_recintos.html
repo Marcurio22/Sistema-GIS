@@ -493,7 +493,7 @@
 <style>
     /* Estilos para evitar desplazamiento de la tabla */
     .table-responsive {
-        overflow-x: visible !important;
+        overflow-x: auto !important;
     }
 
     #chartNDVI {
@@ -788,15 +788,21 @@
         });
 
         // DataTable para solicitudes
-        $('#tablaSolicitudes').DataTable({
+        var tableSolicitudes = $('#tablaSolicitudes').DataTable({
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
             pageLength: 25,
-            responsive: true,
+            responsive: false,
             scrollX: true,
+            autoWidth: false,
             order: [[5, 'desc']],
             columnDefs: [
                 { searchable: false, targets: -1 }
             ]
+        });
+
+        // Ajustar cabeceras al mostrar la pestaña (la tabla se inicializa oculta y no puede calcular anchos)
+        $('#solicitudes-tab').on('shown.bs.tab', function () {
+            tableSolicitudes.columns.adjust().draw();
         });
 
         // ==================== MODO COMPARACIÓN ====================
@@ -1796,7 +1802,7 @@
             }
         });
 
-        // ==================== EXPORTAR MIS RECINTOS A PDF ====================
+        // EXPORTAR MIS RECINTOS A PDF 
         $('#exportarMisRecintosPDF').on('click', function () {
             var rows = tableMisRecintos.rows({ search: 'applied' }).nodes();
 

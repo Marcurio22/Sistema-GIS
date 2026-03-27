@@ -1880,3 +1880,11 @@ svg.leaflet-zoom-animated {
     #leyendas-suelos-container::-webkit-scrollbar-thumb:hover {
       background: #555;
     }
+
+
+.resalte-activo {
+  outline: 2px solid #198754;
+  outline-offset: 2px;
+  box-shadow: 0 0 5px rgba(25, 135, 84, 0.3);
+  border-radius: 8px;
+}

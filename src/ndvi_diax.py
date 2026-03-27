@@ -61,11 +61,14 @@ ROI_PATH = os.getenv(
 )
 
 # FECHA ESPECÍFICA
-TARGET_DATE = datetime(2026, 2, 19, tzinfo=timezone.utc)
-DATE_WINDOW_DAYS = 0# no se usa va raro
+TARGET_DATE = datetime(2026, 2, 14, tzinfo=timezone.utc)
+
+# Para fecha actual usar:
+# TARGET_DATE = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0)
+DATE_WINDOW_DAYS = 0 # no se usa va raro
 
 # Parámetros de búsqueda
-CLOUD_MAX = float(os.getenv("S2_CLOUD_MAX", "40"))
+CLOUD_MAX = float(os.getenv("S2_CLOUD_MAX", "80"))
 MAX_ITEMS = 50  # Aumentado para capturar todos los tiles
 
 # Parámetros de calidad

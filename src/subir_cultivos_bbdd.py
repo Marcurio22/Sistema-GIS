@@ -1,22 +1,25 @@
 import pandas as pd
-import psycopg2
-from psycopg2 import Error
+# ── CAMBIO: sustituido psycopg2 por SQLAlchemy ──────────────────────────────
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+from webapp.config import Config
 
+engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
+Session = sessionmaker(bind=engine)
+# ────────────────────────────────────────────────────────────────────────────
+
+# ── CAMBIO: devuelve sesión SQLAlchemy ───────────────────────────────────────
 def conectar_bd():
     """Establece conexión con PostgreSQL"""
     try:
-        conexion = psycopg2.connect(
-            host='localhost',
-            database='gisdb',
-            user='postgres',
-            password='postgres',
-            port='5432'
-        )
+        session = Session()
+        session.execute(text("SELECT 1"))  # ping de comprobación
         print("✓ Conexión exitosa")
-        return conexion
-    except Error as e:
+        return session
+    except Exception as e:
         print(f"✗ Error: {e}")
         return None
+# ────────────────────────────────────────────────────────────────────────────
 
 def importar_variedades(ruta_csv):
     """Importa variedades desde CSV"""
@@ -26,13 +29,13 @@ def importar_variedades(ruta_csv):
     df.columns = df.columns.str.strip()
     
     # Conectar
-    conexion = conectar_bd()
-    if not conexion:
+    session = conectar_bd()
+    if not session:
         return
     
-    cursor = conexion.cursor()
     insertados = 0
-    
+
+    # ── CAMBIO: session.execute(text(...)) en lugar de cursor.execute ─────────
     for _, row in df.iterrows():
         try:
             producto_fega_id = int(row['Código cultivo'])
@@ -42,18 +45,18 @@ def importar_variedades(ruta_csv):
             if nombre.upper() == 'SIN VARIEDAD':
                 continue
             
-            cursor.execute(
-                "INSERT INTO variedad (nombre, producto_fega_id) VALUES (%s, %s)",
-                (nombre, producto_fega_id)
+            session.execute(
+                text("INSERT INTO variedad (nombre, producto_fega_id) VALUES (:nombre, :producto_fega_id)"),
+                {"nombre": nombre, "producto_fega_id": producto_fega_id}
             )
             insertados += 1
             
         except Exception as e:
             print(f"✗ Error: {e}")
-    
-    conexion.commit()
-    cursor.close()
-    conexion.close()
+
+    session.commit()
+    session.close()
+    # ─────────────────────────────────────────────────────────────────────────
     
     print(f"\n✓ {insertados} variedades insertadas")
 

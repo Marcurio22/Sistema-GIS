@@ -22,27 +22,29 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
 import matplotlib.patches as mpatches
-import psycopg2
+# ── CAMBIO: sustituido psycopg2 por SQLAlchemy ──────────────────────────────
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+from webapp.config import Config
+# ────────────────────────────────────────────────────────────────────────────
 from pyproj import Transformer
 from scipy.ndimage import gaussian_filter
 import gc
 from datetime import datetime
 
 # ==================== CONFIGURACIÓN ====================
-DB_CONFIG = {
-    'dbname': 'gisdb',
-    'user': 'postgres',
-    'password': 'postgres',
-    'host': 'localhost',
-    'port': '5432'
-}
+
+# ── CAMBIO: motor SQLAlchemy en lugar de DB_CONFIG dict ─────────────────────
+engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
+Session = sessionmaker(bind=engine)
+# ────────────────────────────────────────────────────────────────────────────
 
 # Directorio base de thumbnails (ahora se crearán subcarpetas por fecha)
 THUMBNAILS_BASE_DIR = 'webapp/static/thumbnails'
 
 # Archivos NDVI de entrada
-NDVI_BASE = '../data/processed/ndvi_composite/ndvi_pc_20240530_mosaic_3857.tif'
-NDVI_META = '../data/processed/ndvi_composite/ndvi_pc_20240530_mosaic.json'
+NDVI_BASE = '../data/processed/ndvi_composite/ndvi_pc_20260316_mosaic_3857.tif'
+NDVI_META = '../data/processed/ndvi_composite/ndvi_pc_20260316_mosaic.json'
 
 START_FROM_ID = 0
 SKIP_EXISTING = True
@@ -385,17 +387,15 @@ if __name__ == "__main__":
     print(f"✓ Método de colores: DISCRETO (igual que scripts de procesamiento)")
     print(f"✓ Umbral mínimo de datos válidos: {MIN_VALID_PIXELS_PERCENT}%")
 
-    conn = psycopg2.connect(**DB_CONFIG)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT id_recinto, geom
-        FROM recintos
-        WHERE id_recinto >= %s
-        ORDER BY id_recinto
-    """, (START_FROM_ID,))
-
-    recintos = cursor.fetchall()
+    # ── CAMBIO: sesión SQLAlchemy en lugar de psycopg2.connect + cursor ──────
+    session = Session()
+    resultado = session.execute(
+        text("SELECT id_recinto, geom FROM recintos WHERE id_recinto >= :start ORDER BY id_recinto"),
+        {"start": START_FROM_ID}
+    )
+    recintos = resultado.fetchall()
+    session.close()
+    # ─────────────────────────────────────────────────────────────────────────
 
     total = len(recintos)
     print(f"✓ Recintos a procesar: {total}")
@@ -429,9 +429,6 @@ if __name__ == "__main__":
 
         if idx % 500 == 0:
             gc.collect()
-
-    cursor.close()
-    conn.close()
 
     print("\n" + "="*70)
     print("✓ PROCESO TERMINADO")

@@ -2,6 +2,7 @@ from flask import Flask, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_mail import Mail
+from flask_session import Session
 from .config import Config
 from .filters import formato_tel_es
 
@@ -18,6 +19,9 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     mail.init_app(app)
+
+    app.config["SESSION_SQLALCHEMY"] = db 
+    Session(app)      
     
     
     login_manager.login_view = 'auth.login'
