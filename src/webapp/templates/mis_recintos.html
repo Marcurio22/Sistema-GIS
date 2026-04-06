@@ -478,17 +478,11 @@
         </div>
     </div>
 </div>
-
+{% endblock %}
 {% block extra_js %}
-<!-- Chart.js para gráficos -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<!-- Adapter de fechas para Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-<!-- jsPDF para exportar PDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-<!-- SheetJS para exportar Excel -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+
+
 
 <style>
     /* Estilos para evitar desplazamiento de la tabla */
@@ -757,7 +751,7 @@
         let fechaSeleccionada = null; // Fecha actualmente seleccionada con clic
 
         var tableMisRecintos = $('#tablaRecintos').DataTable({
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+            language: { url: '/static/js/vendor/es-ES.json' },
             pageLength: 25,
             responsive: false,
             scrollX: true,
@@ -789,7 +783,7 @@
 
         // DataTable para solicitudes
         var tableSolicitudes = $('#tablaSolicitudes').DataTable({
-            language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+            language: { url: '/static/js/vendor/es-ES.json' },
             pageLength: 25,
             responsive: false,
             scrollX: true,
@@ -1858,5 +1852,4 @@
         });
     });
 </script>
-{% endblock %}
 {% endblock %}

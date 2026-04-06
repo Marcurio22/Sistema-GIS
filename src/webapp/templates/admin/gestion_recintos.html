@@ -476,7 +476,7 @@ async function refrescarSolicitudes() {
       }
       
       $('#tablaRoles').DataTable({
-        language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+        language: { url: '/static/js/vendor/es-ES.json' },
         pageLength: 25,
         responsive: true,
         order: [[4, 'desc']]
@@ -513,17 +513,15 @@ async function refrescarSolicitudes() {
   }
 }
 </script>
-
+{% endblock %}
 {% block extra_js %}
-<!-- jsPDF para exportar PDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
 
 <script>
   $(document).ready(function () {
     // DataTable para recintos
     var tableRecintos = $('#tablaUsuarios').DataTable({
-      language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+      language: { url: '/static/js/vendor/es-ES.json' },
       pageLength: 25,
       responsive: true,
       columnDefs: [
@@ -534,7 +532,7 @@ async function refrescarSolicitudes() {
 
     // DataTable para solicitudes
     $('#tablaRoles').DataTable({
-      language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+      language: { url: '/static/js/vendor/es-ES.json' },
       pageLength: 25,
       responsive: true,
       order: [[4, 'desc']],
@@ -545,7 +543,7 @@ async function refrescarSolicitudes() {
 
     // DataTable para logs
     $('#tablaLogs').DataTable({
-      language: { url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json' },
+      language: { url: '/static/js/vendor/es-ES.json' },
       pageLength: 50,
       responsive: true,
       order: [[0, 'desc']]
@@ -661,5 +659,4 @@ async function refrescarSolicitudes() {
     });
   });
 </script>
-{% endblock %}
 {% endblock %}

@@ -16,6 +16,7 @@
             <!-- DataTables cargará los datos vía AJAX -->
         </tbody>
     </table>
+    {% endblock %}
 {% block extra_js %}
 <script>
     $(document).ready(function () {
@@ -44,7 +45,7 @@
                 }
             ],
             language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+                url: '/static/js/vendor/es-ES.json'
             },
             pageLength: 25,
             order: [[0, 'asc']], 
@@ -52,5 +53,4 @@
         });
     });
 </script>
-{% endblock %}
 {% endblock %}

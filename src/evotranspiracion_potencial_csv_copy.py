@@ -44,7 +44,6 @@ UMBRALES_ALERTA = {
 
 # Estaciones a excluir del IDW por datos anómalos recurrentes.
 # Se siguen mostrando en la validación pero no se usan como fuente.
-# Ejemplo: ESTACIONES_EXCLUIR = {"ZA02", "SG01"}
 ESTACIONES_EXCLUIR = set()
 
 RASTER_NDVI    = r"C:\Users\Instalador\Documents\Sistema-GIS-main\data\processed\ndvi_composite\\ndvi_pc_20260301_mosaic_utm.tif"

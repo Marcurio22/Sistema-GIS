@@ -422,11 +422,9 @@
         </div>
     </div>
 </div>
-
+{% endblock %}
 {% block extra_js %}
-<!-- jsPDF para exportar PDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
 
 <script>
     // Inicializar DataTables
@@ -437,7 +435,7 @@
 
         var table = $('#tablaUsuarios').DataTable({
             language: {
-                url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/es-ES.json'
+                url: '/static/js/vendor/es-ES.json'
             },
             order: [[0, 'desc']],
             pageLength: 25,
@@ -592,5 +590,4 @@
         });
     });
 </script>
-{% endblock %}
 {% endblock %}

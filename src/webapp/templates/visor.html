@@ -209,8 +209,7 @@
 {% block content %}
 
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
 <link rel="stylesheet" href="{{ url_for('static', filename='css/visor.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/galeria.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ndvi.css') }}">
@@ -221,7 +220,7 @@
 <script src="{{ url_for('static', filename='js/lightbox-manager.js') }}"></script>
 <script src="{{ url_for('static', filename='js/galeria.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ndvi.js') }}"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
 
 
 <div id="map"></div>
@@ -1073,7 +1072,7 @@ async function aplicarVistaInicialUsuario() {
   map.createPane("catastroPane");
   map.getPane("catastroPane").style.zIndex = 510;
 
-  const cultivosYears = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016' , '2015', '2014', '2013', '2012'];
+  const cultivosYears = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016' , '2015', '2014', '2013', '2012', '2011'];
   
   let zIndexBase = 590;
   
@@ -1082,8 +1081,6 @@ async function aplicarVistaInicialUsuario() {
     map.createPane(paneName);
     map.getPane(paneName).style.zIndex = zIndexBase--;
   });
-
-
 
   let splitOpen = false;
 
@@ -1956,7 +1953,7 @@ function actualizarNdviPanel() {
     transparent: true,
     tiled: true,
     pane: "catastroPane",
-    maxZoom: 22,
+    maxZoom: 20,
     interactive: false 
   });
 
@@ -1967,7 +1964,7 @@ function actualizarNdviPanel() {
     transparent: true,
     tiled: true,
     pane: "cultivosSigpacPane",
-    maxZoom: 22,
+    maxZoom: 20,
     interactive: false
   });
 
@@ -2271,7 +2268,7 @@ function actualizarNdviPanel() {
           <strong>Parcela:</strong> ${fmt(d.parcela)}<br>
           <strong>Recinto:</strong> ${fmt(d.recinto)}<br>
           <hr style="margin: 8px 0;">
-          <strong>Producto:</strong> <strong>${prodTxt}</strong><br>
+          <strong>Producto:</strong> <strong>${prodNombre}</strong><br>
           <strong>Sist. exp.:</strong> ${fmt(d.parc_sistexp)}<br>
         </div>
       </div>
@@ -2514,93 +2511,13 @@ function actualizarNdviPanel() {
   }
 });
 
-  const CYL2025_WMS_LAYER = "gis_project:Cultivos_y_Ocupación_del_suelo_2025";
-  const CYL2025_STYLE = "mcsncyl2025"; 
 
-  function buildCylLegendUrl() {
-    const params = new URLSearchParams({
-      SERVICE: "WMS",
-      REQUEST: "GetLegendGraphic",
-      VERSION: "1.1.1",
-      FORMAT: "image/png",
-      LAYER: CYL2025_WMS_LAYER,
-      TRANSPARENT: "true",
-      WIDTH: "360",
-      HEIGHT: "600",
-      LEGEND_OPTIONS: "forceLabels:on;fontSize:12"
-    });
 
-    if (CYL2025_STYLE) params.set("STYLE", CYL2025_STYLE);
+  
 
-    return `${GEOSERVER_WMS}?${params.toString()}&ts=${Date.now()}`;
-  }
-
-  function showCyl2025Legend() {
-    const box = document.getElementById("legend-cyl2025");
-    const img = document.getElementById("legend-cyl2025-img");
-    if (!box || !img) return;
-
-    const url =
-      GEOSERVER_WMS +
-      "?SERVICE=WMS" +
-      "&VERSION=1.1.1" +
-      "&REQUEST=GetLegendGraphic" +
-      "&FORMAT=image/png" +
-      "&LAYER=" + encodeURIComponent(CYL2025_WMS_LAYER) +
-      "&STYLE=" + encodeURIComponent(CYL2025_STYLE) +
-      "&LEGEND_OPTIONS=" + encodeURIComponent("forceLabels:on;fontAntiAliasing:true");
-
-    img.onerror = () => {
-      console.error("No se pudo cargar la leyenda:", url);
-      NotificationSystem.show({
-        type: "warning",
-        title: "Leyenda no disponible",
-        message: "GeoServer no devolvió una leyenda válida para esta capa/estilo."
-      });
-    };
-
-    img.onload = () => {
-      box.style.display = "block";
-    };
-
-    img.src = url;
-    box.style.display = "block";
-  }
-
-  function hideCyl2025Legend() {
-    const box = document.getElementById("legend-cyl2025");
-    const img = document.getElementById("legend-cyl2025-img");
-    const btn = document.getElementById("btn-legend-cyl2025-hide");
-    if (!box || !img) return;
-    img.style.display = "none";
-    if (btn) btn.textContent = "Mostrar";
-  }
-
-  function resetCyl2025Legend() {
-    const box = document.getElementById("legend-cyl2025");
-    const img = document.getElementById("legend-cyl2025-img");
-    const btn = document.getElementById("btn-legend-cyl2025-hide");
-    if (box) box.style.display = "none";
-    if (img) {
-      img.style.display = "block";
-      img.removeAttribute("src");
-    }
-    if (btn) btn.textContent = "Ocultar";
-  }
-
-  document.addEventListener("click", (e) => {
-    if (e.target && e.target.id === "btn-legend-cyl2025-hide") {
-      const img = document.getElementById("legend-cyl2025-img");
-      if (!img) return;
-
-      const visible = getComputedStyle(img).display !== "none";
-      if (visible) hideCyl2025Legend();
-      else showCyl2025Legend();
-    }
-  });
 
   const cylLayersData = {};
-  const cultivosYearsForLayers = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012'];
+  const cultivosYearsForLayers = ['2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015', '2014', '2013', '2012', '2011'];
   
   cultivosYearsForLayers.forEach(year => {
     cylLayersData[year] = {
@@ -2609,7 +2526,6 @@ function actualizarNdviPanel() {
         layers: `gis_project:Cultivos_y_Ocupación_del_suelo_${year}`,
         format: "image/png",
         transparent: true,
-        tiled: true,
         pane: `cultivos${year}`,
         maxZoom: 22,
         interactive: false
@@ -2641,11 +2557,7 @@ function actualizarNdviPanel() {
     Object.keys(cylLayersData).forEach(year => cargarCyLSiProcede(parseInt(year)));
   }
 
-  let CyLCultivosActivos = false;
-  const CyL2025Layer = cylLayersData[2025].layer;
-  function cargarCyL2025SiProcede() {
-    cargarCyLSiProcede(2025);
-  }
+
 
 
   function mostrarErrorInline(msg) {
@@ -2684,7 +2596,7 @@ function actualizarNdviPanel() {
   function cargarRecintosSiProcede() {
     const z = map.getZoom();
 
-    if (z < ZOOM_RECINTOS || !recintosActivos) {
+    if (z < ZOOM_RECINTOS|| !recintosActivos) {
       recintosLayer.clearLayers();
       return;
     }
@@ -3016,31 +2928,7 @@ function actualizarNdviPanel() {
     });
   }
 
-  ['CyL2025', 'CyL2024', 'CyL2023'].forEach(detailKey => {
-    const year = parseInt(detailKey.replace('CyL', ''));
-    const cylOption = document.querySelector(`.basemap-option.basemap-detail[data-detail="${detailKey}"]`);
-    
-    if (cylOption) {
-      cylOption.addEventListener("click", () => {
-        const data = cylLayersData[year];
-        if (!data) return;
-        
-        data.active = !data.active;
-
-        if (data.active) {
-          cylOption.classList.add("active");
-          cargarCyLSiProcede(year);
-          if (year === 2025) showCyl2025Legend();
-        } else {
-          cylOption.classList.remove("active");
-          if (map.hasLayer(data.layer)) {
-            map.removeLayer(data.layer);
-          }
-          if (year === 2025) resetCyl2025Legend();
-        }
-      });
-    }
-  });
+  
 
   const historialActivacionSuelos = [];
 

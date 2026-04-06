@@ -1,14 +1,21 @@
 import os
+import sys
 from datetime import date
 from pathlib import Path
 from io import BytesIO
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
 import requests
 import geopandas as gpd
+from shapely.geometry import MultiPolygon
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from webapp import create_app, db   
 
 try:
     from geoalchemy2 import Geometry
@@ -35,33 +42,33 @@ print("ROI bbox EPSG:4326:", bbox4326)
 
 WFS_URL = "http://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx"
 
+
 def get_typename_cadastralparcel():
     params = {"service": "WFS", "version": "2.0.0", "request": "GetCapabilities"}
     r = requests.get(WFS_URL, params=params, timeout=180)
     r.raise_for_status()
 
     root = ET.fromstring(r.content)
-
-    # Namespaces típicos de WFS Capabilities
     ns = {
         "wfs": "http://www.opengis.net/wfs/2.0",
         "ows": "http://www.opengis.net/ows/1.1",
     }
-
-    # Busca FeatureType/Name que contenga "CadastralParcel"
     for ft in root.findall(".//wfs:FeatureType", ns):
         name_el = ft.find("wfs:Name", ns)
         if name_el is not None and "CadastralParcel" in name_el.text:
             return name_el.text
 
-    # Fallback conocido/documentado
     return "CP:CadastralParcel"
+
 
 TYPENAME = get_typename_cadastralparcel()
 print("Typename detectado:", TYPENAME)
 
-# Elegir UTM ETRS89 por centroide del ROI (simple)
-centroid = roi.geometry.union_all().centroid  # evita warning
+try:
+    centroid = roi.geometry.union_all().centroid
+except AttributeError:
+    centroid = roi.geometry.unary_union.centroid
+
 lon = float(centroid.x)
 if lon < -12.0:
     epsg_utm = 25828
@@ -88,8 +95,8 @@ while x < maxx_m:
 
 print(f"Tiles generados: {len(tiles)}")
 
+
 def get_feature_gml(bbox_m):
-    # En documentación del catastro suelen usar SRSname=EPSG::25830 :contentReference[oaicite:1]{index=1}
     params = {
         "service": "WFS",
         "version": "2.0.0",
@@ -103,54 +110,66 @@ def get_feature_gml(bbox_m):
     r.raise_for_status()
     return r.content
 
-gdfs = []
-for i, t in enumerate(tiles, start=1):
-    print(f"→ Tile {i}/{len(tiles)} bbox_utm={t}")
+
+def fetch_tile(args):
+    i, t = args
     try:
         content = get_feature_gml(t)
-        # parsea GML con geopandas (Fiona/OGR)
         gdf_tile = gpd.read_file(BytesIO(content))
         if not gdf_tile.empty:
-            gdfs.append(gdf_tile)
-            print(f"   ✅ features={len(gdf_tile)}")
-        else:
-            print("   (vacío)")
+            print(f"   ✅ Tile {i}/{len(tiles)} features={len(gdf_tile)}")
+            return gdf_tile
+        print(f"   (vacío) Tile {i}/{len(tiles)}")
+        return None
     except Exception as e:
-        print(f"   ⚠️ fallo tile: {e}")
+        print(f"   ⚠️ fallo tile {i}/{len(tiles)}: {e}")
+        return None
+
+MAX_WORKERS = int(os.getenv("CATASTRO_WORKERS", "8"))
+print(f"Descargando {len(tiles)} tiles con {MAX_WORKERS} workers en paralelo...")
+
+with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+    results = list(executor.map(fetch_tile, enumerate(tiles, start=1)))
+gdfs = [r for r in results if r is not None]
 
 if not gdfs:
     print("⚠️ No se descargó ninguna parcela. Revisa conectividad/servicio.")
     raise SystemExit(0)
 
 parcelas = gpd.GeoDataFrame(pd.concat(gdfs, ignore_index=True))
-# Normaliza CRS
-if parcelas.crs is None:
-    parcelas = parcelas.set_crs(epsg_utm)
-else:
-    parcelas = parcelas.to_crs(epsg_utm)
+parcelas = parcelas.set_crs(epsg_utm, allow_override=True)
 
-# Campos mínimos “para pintar”
-# intenta detectar la ref catastral (según schema INSPIRE suele llamarse nationalCadastralReference)
+mask = parcelas.geometry.geom_type == "Polygon"
+parcelas.loc[mask, "geometry"] = parcelas.loc[mask, "geometry"].apply(MultiPolygon)
+parcelas = parcelas.set_geometry("geometry")
+
 cols_lower = {c.lower(): c for c in parcelas.columns}
 ref_col = cols_lower.get("nationalcadastralreference") or cols_lower.get("refcat")
-
 parcelas["refcat"] = parcelas[ref_col] if ref_col else None
 
-# inspire_id (si viene separado o directo)
 if "inspireId" in parcelas.columns:
-    parcelas["inspire_id"] = parcelas["inspireId"].astype(str)
+    parcelas["inspire_id"] = parcelas["inspireId"].apply(
+        lambda x: x.get("localId") if isinstance(x, dict) else (str(x) if x else None)
+    )
 else:
     parcelas["inspire_id"] = None
 
+parcelas["area_m2"] = parcelas.geometry.area
+
 parcelas = parcelas.to_crs(4326)
-parcelas_utm_area = parcelas.to_crs(epsg_utm)
-parcelas["area_m2"] = parcelas_utm_area.geometry.area
 
-# Dedupe si hay inspire_id
-if parcelas["inspire_id"].notna().any():
-    parcelas = parcelas.drop_duplicates(subset=["inspire_id"])
+before = len(parcelas)
+if parcelas["refcat"].notna().any():
+    parcelas = parcelas.drop_duplicates(subset=["refcat"], keep="first").reset_index(drop=True)
+    print(f"Dedup por refcat: {before} → {len(parcelas)} parcelas")
+elif parcelas["inspire_id"].notna().any():
+    parcelas = parcelas.drop_duplicates(subset=["inspire_id"], keep="first").reset_index(drop=True)
+    print(f"Dedup por inspire_id: {before} → {len(parcelas)} parcelas")
+else:
+    print("⚠️  Sin columna de clave única disponible, no se deduplica.")
 
-# Backup
+print(f"Parcelas totales tras dedup: {len(parcelas)}")
+
 out_dir = PROJECT_ROOT / "data" / "raw" / "catastro"
 out_dir.mkdir(parents=True, exist_ok=True)
 stamp = date.today().isoformat()
@@ -158,39 +177,25 @@ out_path = out_dir / f"{stamp}_parcelas_catastro.gpkg"
 parcelas.to_file(out_path, driver="GPKG")
 print(f"Backup guardado en: {out_path}")
 
-# PostGIS
-host = os.getenv("POSTGRES_HOST", "localhost")
-port = os.getenv("POSTGRES_PORT", "5432")
-db   = os.getenv("POSTGRES_DB")
-user = os.getenv("POSTGRES_USER")
-pwd  = os.getenv("POSTGRES_PASSWORD")
-db_url = f"postgresql+psycopg2://{user}:{pwd}@{host}:{port}/{db}"
-engine = create_engine(db_url)
+app = create_app()   # ← igual que en el 2º script
 
-with engine.begin() as conn:
-    conn.execute(text("CREATE SCHEMA IF NOT EXISTS catastro"))
-    conn.execute(text("""
-        DO $$
-        BEGIN
-            IF to_regclass('catastro.parcelas') IS NOT NULL THEN
-                TRUNCATE TABLE catastro.parcelas;
-            END IF;
-        END
-        $$;
-    """))
+with app.app_context():
+    db.session.execute(text("CREATE SCHEMA IF NOT EXISTS catastro"))
+    db.session.commit()
 
-parcelas_min = parcelas[["inspire_id", "refcat", "area_m2", "geometry"]].copy()
+    parcelas_min = parcelas[["inspire_id", "refcat", "area_m2", "geometry"]].copy()
+    parcelas_min.index.name = "id"
 
-dtype = {"geometry": Geometry("MULTIPOLYGON", srid=4326)} if _HAS_GEOALCHEMY else None
+    dtype = {"geometry": Geometry("MULTIPOLYGON", srid=4326)} if _HAS_GEOALCHEMY else None
 
-parcelas_min.to_postgis(
-    name="parcelas",
-    con=engine,
-    schema="catastro",
-    if_exists="append",
-    index=False,
-    chunksize=2000,
-    dtype=dtype,
-)
+    parcelas_min.to_postgis(
+        name="parcelas2",
+        con=db.engine,            
+        schema="catastro",
+        if_exists="replace",
+        index=True,
+        chunksize=2000,
+        dtype=dtype,
+    )
 
-print("Tabla catastro.parcelas actualizada.")
+    print("Tabla catastro.parcelas2 cargada.")
