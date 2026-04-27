@@ -360,7 +360,7 @@
       <div class="etp-leyenda-bar">
         <span style="font-size:0.68rem;">0.5</span>
         <div class="etp-leyenda-gradient"></div>
-        <span style="font-size:0.68rem;">3.0</span>
+        <span style="font-size:0.68rem;">10</span>
       </div>
       <div style="display:flex; justify-content:space-between;
                   font-size:0.63rem; color:#888; margin-top:1px; padding:0 22px;">
