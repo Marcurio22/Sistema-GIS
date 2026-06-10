@@ -32,7 +32,6 @@
 </head>
 
 <body class="bg-light">
-
     <!-- Animación de entrada -->
     {% if request.endpoint == 'dashboard.dashboard' %}
     <div id="splash-screen">
@@ -51,21 +50,17 @@
             <div class="d-flex align-items-center w-100">
             <i class="bi bi-droplet-fill me-2 fs-3 flex-shrink-0"></i>
 
-            <!-- BLOQUE TEXTO + USUARIO -->
             <div class="flex-grow-1"
                 style="display:grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; column-gap:.75rem;">
 
-                <!-- Fila 1, Col 1: TÍTULO -->
                 <h5 class="mb-0 fw-bold" style="grid-column:1; grid-row:1;">
                 Comunidad de Regantes
                 </h5>
-
-                <!-- Fila 2, Col 1: SUBTÍTULO -->
+                
                 <small class="opacity-75" style="grid-column:1; grid-row:2;">
                 Sistema de Gestión
                 </small>
 
-            
                 {% if current_user.is_authenticated %}
                 <a href="{{ url_for('auth.perfil') }}"
                     id="profile-link-offcanvas"

@@ -259,7 +259,14 @@
       <div class="basemap-thumb">
         <img src="{{ url_for('static', filename='img/thumb_etp.png') }}" alt="ETP" />
       </div>
-      <div class="basemap-option-label">ETP</div>
+      <div class="basemap-option-label">Mapas ETP</div>
+    </div>
+
+    <div class="basemap-option basemap-main" data-layer="prediccion-etp">
+      <div class="basemap-thumb">
+        <img src="{{ url_for('static', filename='img/thumb_prediccion_etp.png') }}" alt="Predicciones ETP" />
+      </div>
+      <div class="basemap-option-label">Predicciones ETP</div>
     </div>
   </div>
 
@@ -468,7 +475,7 @@
   <button id="poligono-btn" class="hidden" title="Dibujar Polígono">
     <i class="bi bi-pentagon"></i>
   </button>
-  <button id="editar-btn"  title="Dibujar (disponible con zoom ≥15)">
+  <button id="editar-btn"  title="Dibujar">
     <i class="bi bi-pencil-fill"></i>
   </button>
   <button id="aceptar-btn" class="hidden" title="Aceptar">
@@ -3020,6 +3027,9 @@ function actualizarNdviPanel() {
     }
   }
 
+  window.activarDetalleExclusivo = activarDetalleExclusivo;
+  window.desactivarDetalle = desactivarDetalle;
+
   const recintoData = {{ recinto_data| tojson | safe if recinto_data else 'null' }};
 
   let recintoResaltado = null;
@@ -3258,6 +3268,7 @@ if (recintoData) {
 <script src="{{ url_for('static', filename='js/visor/visor-panel.js') }}"></script>
 <script src="{{ url_for('static', filename='js/visor/visor-estaciones.js') }}"></script>
 <script src="{{ url_for('static', filename='js/visor/visor-etp.js') }}"></script>
+<script src="{{ url_for('static', filename='js/visor/visor-prediccion-etp.js') }}"></script>
 
 
 {% endblock %}

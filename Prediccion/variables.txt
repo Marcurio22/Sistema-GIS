@@ -1,0 +1,11 @@
+CADENAX: Nombre del fichero de entrenamiento
+CADENAY: Nombre donde guardas en binario
+CADENAZ: Nombre donde se guarda en texto
+
+
+
+txtx:True si el modelo es texto, false si es binario
+
+nsx: 4 siempre
+
+DLLPrediccionFichero:

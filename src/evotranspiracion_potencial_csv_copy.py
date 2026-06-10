@@ -1,3 +1,5 @@
+# EL BUENO SE SUPONE, AUNQUE SEA EL COPY
+
 import os
 import numpy as np
 import pandas as pd
@@ -13,27 +15,42 @@ from shapely.ops import transform as shapely_transform
 from shapely.geometry import box as shapely_box
 from webapp.config import Config
 
-# ============================================================
-# CONFIGURACIÓN
-# ============================================================
-
 engine  = create_engine(Config.SQLALCHEMY_DATABASE_URI)
 Session = sessionmaker(bind=engine)
 
 FECHA          = "2026-03-01"
 DIAS_ATRAS_ETO = 12
 
-VARIABLES_DIA  = ["tempmax", "tempmin", "tempmedia", "humedadd"]
+VARIABLES_DIA  = ["tempmax", "tempmin", "tempmedia", "humedadd", "velviento", "precipitacion", "radiacion", "pepmon"]
+
+ALIAS_COLUMNAS = {
+    "pepmon": "precipitacion_efectiva",
+    "radiacion": "radiacion(MJ/M^2)",
+    "humedadd": "humedad",
+    "precipitacion": "precipitacion(mm)",
+}
 
 # IDW adaptativo — parámetros
-POTENCIA         = 3.0
 MIN_VECINOS      = 4
 MAX_VECINOS      = 6
 RADIO_INICIAL_KM = 80
 RADIO_MAX_KM     = 180
 PASO_RADIO_KM    = 30
 
-# Umbrales de alerta por variable (diff máximo antes de mostrar ⚠️)
+# Potencias específicas por variable
+POTENCIAS_IDW = {
+    "tempmax":        2.0,
+    "tempmin":        2.0,
+    "tempmedia":      2.0,
+    "radiacion":      2.0,
+    "humedadd":       2.5,
+    "etpmon":         2.5,
+    "velviento":      3.5,
+    "precipitacion":  3.5,
+    "pepmon":         3.5,
+}
+
+# Umbrales de alerta por variable
 UMBRALES_ALERTA = {
     "tempmax":   2.0,
     "tempmin":   2.0,
@@ -42,18 +59,59 @@ UMBRALES_ALERTA = {
     "etpmon":    0.4,
 }
 
-# Estaciones a excluir del IDW por datos anómalos recurrentes.
-# Se siguen mostrando en la validación pero no se usan como fuente.
 ESTACIONES_EXCLUIR = set()
 
-RASTER_NDVI    = r"C:\Users\Instalador\Documents\Sistema-GIS-main\data\processed\ndvi_composite\\ndvi_pc_20260301_mosaic_utm.tif"
-
+RASTER_NDVI    = r"C:\Users\Instalador\Documents\Sistema-GIS-main\data\processed\ndvi_composite\ndvi_pc_20260301_mosaic_utm.tif"
 CARPETA_SALIDA = r"C:\datos\salida"
-NOMBRE_SALIDA  = f"cultivospacheco2_{FECHA}.csv"
+NOMBRE_SALIDA  = f"datoscultivos50_{FECHA}.csv"
 
-# ============================================================
-# CONEXIÓN
-# ============================================================
+# ------------------------------------------------------------
+# FUNCIONES AUXILIARES (NUEVAS O MODIFICADAS)
+# ------------------------------------------------------------
+
+# CAMBIO: Nueva función para obtener proyección UTM de una zona
+def get_utm_proj(lon, lat):
+    """Devuelve un Transformer de WGS84 a la zona UTM correspondiente."""
+    zone = int((lon + 180) // 6) + 1
+    epsg = 32600 + zone if lat >= 0 else 32700 + zone   # 326xx para norte, 327xx para sur
+    return pyproj.Transformer.from_crs("EPSG:4326", f"EPSG:{epsg}", always_xy=True)
+
+
+# CAMBIO: Nueva función IDW que trabaja directamente en metros
+def idw_adaptativo_metrico(puntos_conocidos_m, valores_conocidos, puntos_destino_m,
+                           potencia=3.0, min_vecinos=4, max_vecinos=6,
+                           radio_inicial_m=80000, radio_max_m=180000, paso_m=30000):
+    """
+    IDW con radio dinámico en sistema métrico (metros).
+    """
+    tree = cKDTree(puntos_conocidos_m)
+    resultado = np.full(len(puntos_destino_m), np.nan)
+    k_buscar = min(max_vecinos, len(puntos_conocidos_m))
+    sin_cob = 0
+
+    for i, punto in enumerate(puntos_destino_m):
+        radio_m = radio_inicial_m
+        asignado = False
+        while radio_m <= radio_max_m:
+            dists, idxs = tree.query([punto], k=k_buscar)
+            dists, idxs = dists[0], idxs[0]
+            mascara = dists <= radio_m
+            if mascara.sum() >= min_vecinos:
+                d = np.maximum(dists[mascara], 1e-12)
+                v = valores_conocidos[idxs[mascara]]
+                pesos = 1.0 / (d ** potencia)
+                resultado[i] = np.sum(pesos * v) / np.sum(pesos)
+                asignado = True
+                break
+            radio_m += paso_m
+        if not asignado:
+            sin_cob += 1
+
+    if sin_cob:
+        print(f"  ⚠️  {sin_cob:,} cultivos sin cobertura → NaN "
+              f"(radio máx {radio_max_m/1000:.0f} km, mín {min_vecinos} vecinos).")
+    return resultado
+
 
 def conectar_bd():
     try:
@@ -65,15 +123,8 @@ def conectar_bd():
         print(f"❌ Error al conectar: {e}")
         return None
 
-# ============================================================
-# CARGA DE DATOS
-# ============================================================
 
 def obtener_cultivos(session):
-    """
-    Carga los cultivos con su geometría completa en WKT (para NDVI zonal)
-    y el centroide lon/lat (para la interpolación meteorológica).
-    """
     query = text("""
         SELECT
             ST_AsText(c.geometry)         AS geometry_wkt,
@@ -83,18 +134,16 @@ def obtener_cultivos(session):
             c.parc_sistexp
         FROM sigpac.cultivo_declarado c
         LEFT JOIN public.productos_fega p ON p.codigo = c.parc_producto
-        WHERE c.geometry IS NOT NULL;
+        WHERE c.geometry IS NOT NULL
+          AND p.descripcion IS NOT NULL;    -- <-- línea añadida
     """)
     resultado = session.execute(query)
     df = pd.DataFrame(resultado.fetchall(), columns=resultado.keys())
     print(f"✅ {len(df):,} cultivos cargados.")
     return df
 
+
 def obtener_estaciones(session, variable, fecha):
-    """
-    Carga estaciones con datos para una variable y fecha,
-    excluyendo las marcadas en ESTACIONES_EXCLUIR.
-    """
     excluir_sql = ""
     params = {"fecha": fecha}
     if ESTACIONES_EXCLUIR:
@@ -124,62 +173,14 @@ def obtener_estaciones(session, variable, fecha):
     )
     sufijo = f" (excluyendo {len(ESTACIONES_EXCLUIR)})" if ESTACIONES_EXCLUIR else ""
     print(f"  ✅ {variable} ({fecha}): {len(datos)} estaciones{sufijo}.")
+    datos = np.sort(datos, order='codigo')
     return datos
 
-# ============================================================
-# IDW ADAPTATIVO CON RADIO DINÁMICO
-# ============================================================
 
-def idw_adaptativo(puntos_conocidos, valores_conocidos, puntos_destino,
-                   potencia=3.0, min_vecinos=4, max_vecinos=6,
-                   radio_inicial_km=80, radio_max_km=180, paso_km=30):
-    """
-    IDW con radio dinámico.
-    Parte de radio_inicial_km y amplía en paso_km hasta radio_max_km
-    si no encuentra min_vecinos estaciones. Usa como máximo max_vecinos.
-    """
-    tree      = cKDTree(puntos_conocidos)
-    resultado = np.full(len(puntos_destino), np.nan)
-    k_buscar  = min(max_vecinos, len(puntos_conocidos))
-    sin_cob   = 0
-
-    for i, punto in enumerate(puntos_destino):
-        radio_km = radio_inicial_km
-        asignado = False
-
-        while radio_km <= radio_max_km:
-            radio_grados = radio_km / 111.0
-            dists, idxs  = tree.query([punto], k=k_buscar)
-            dists, idxs  = dists[0], idxs[0]
-
-            mascara  = dists <= radio_grados
-            if mascara.sum() >= min_vecinos:
-                d = np.maximum(dists[mascara], 1e-12)
-                v = valores_conocidos[idxs[mascara]]
-                pesos = 1.0 / (d ** potencia)
-                resultado[i] = np.sum(pesos * v) / np.sum(pesos)
-                asignado = True
-                break
-            radio_km += paso_km
-
-        if not asignado:
-            sin_cob += 1
-
-    if sin_cob:
-        print(f"  ⚠️  {sin_cob:,} cultivos sin cobertura → NaN "
-              f"(radio máx {radio_max_km} km, mín {min_vecinos} vecinos).")
-    return resultado
-
-# ============================================================
-# VALIDACIÓN
-# ============================================================
-
-def validar_interpolacion(df, col_nombre, datos, puntos_cultivos):
-    """
-    Para cada estación busca el cultivo más cercano y compara
-    el valor real con el interpolado. Usa umbrales por variable.
-    """
-    tree   = cKDTree(puntos_cultivos)
+# CAMBIO: La validación ahora necesita las coordenadas originales (lon/lat)
+#          para comparar en el mismo sistema. No requiere modificación.
+def validar_interpolacion(df, col_nombre, datos, puntos_cultivos_lonlat):
+    tree   = cKDTree(puntos_cultivos_lonlat)
     umbral = UMBRALES_ALERTA.get(col_nombre, 3.0)
     print(f"\n  📍 Validación {col_nombre} (umbral ⚠️ > {umbral}):")
     for i in range(len(datos)):
@@ -187,28 +188,16 @@ def validar_interpolacion(df, col_nombre, datos, puntos_cultivos):
         dist, idx = tree.query([[lon, lat]], k=1)
         valor_csv = df[col_nombre].iloc[idx[0]]
         diff      = abs(valor_real - valor_csv)
-        dist_km   = dist[0] * 111
+        dist_km   = dist[0] * 111   # Aproximación para mostrar, no crítica
         alerta    = "  ⚠️ " if diff > umbral else ""
         print(f"     {datos['nombre'][i]:25s} ({datos['codigo'][i]:6s}): "
               f"real={valor_real:.3f} | interpolado={valor_csv:.3f} | "
               f"diff={diff:.3f} | dist={dist_km:.1f}km{alerta}")
 
-# ============================================================
-# NDVI ZONAL — media de TODOS los píxeles dentro del recinto
-# ============================================================
 
 def muestrear_ndvi_zonal(df, ruta_raster):
-    """
-    Calcula el NDVI medio de cada recinto usando estadística zonal:
-    - Reproyecta la geometría completa de cada recinto al CRS del raster.
-    - Enmascara el raster con esa geometría (rasterio.mask).
-    - Promedia todos los píxeles válidos que caen dentro.
-
-    Si el recinto es muy pequeño (ningún centro de píxel cae dentro)
-    se reintenta con all_touched=True antes de asignar NaN.
-    """
+    # (Sin cambios, funciona correctamente)
     print(f"🛰️  Leyendo NDVI (estadística zonal): {ruta_raster}")
-
     with rasterio.open(ruta_raster) as src:
         raster_crs = src.crs
         nodata_val = src.nodata
@@ -219,7 +208,6 @@ def muestrear_ndvi_zonal(df, ruta_raster):
         print(f"  NoData value   : {nodata_val}")
         print(f"  Procesando {len(df):,} recintos...")
 
-        # Transformador WGS84 → CRS del raster (hecho UNA SOLA VEZ)
         transformer = pyproj.Transformer.from_crs(
             "EPSG:4326", raster_crs, always_xy=True
         )
@@ -232,33 +220,28 @@ def muestrear_ndvi_zonal(df, ruta_raster):
 
         ndvi_vals   = np.full(len(df), np.nan)
         n_validos   = 0
-        n_pequenos  = 0   # recintos donde solo all_touched funcionó
-        n_vacios    = 0   # recintos dentro del raster pero sin píxel válido
+        n_pequenos  = 0
+        n_vacios    = 0
         n_fuera     = 0
         n_error_wkt = 0
 
         for i, wkt_str in enumerate(df["geometry_wkt"]):
-
-            # 1. Parsear WKT
             try:
                 geom_wgs84 = shapely_wkt.loads(wkt_str)
             except Exception:
                 n_error_wkt += 1
                 continue
 
-            # 2. Reproyectar
             try:
                 geom_proj = reproyectar(geom_wgs84)
             except Exception:
                 n_fuera += 1
                 continue
 
-            # 3. Comprobar intersección con el raster
             if not geom_proj.intersects(raster_box):
                 n_fuera += 1
                 continue
 
-            # 4. Estadística zonal
             def extraer_pixeles(all_touched):
                 pixeles, _ = rasterio_mask(
                     src,
@@ -274,58 +257,75 @@ def muestrear_ndvi_zonal(df, ruta_raster):
 
             try:
                 validos = extraer_pixeles(all_touched=False)
-
-                # Recinto muy pequeño: ningún centro de píxel cae dentro
-                # → reintentamos tocando todos los píxeles que intersectan
                 if len(validos) == 0:
                     validos = extraer_pixeles(all_touched=True)
                     if len(validos) > 0:
                         n_pequenos += 1
-
                 if len(validos) == 0:
                     n_vacios += 1
                 else:
                     ndvi_vals[i] = validos.mean()
                     n_validos   += 1
-
             except Exception:
                 n_fuera += 1
 
         print(f"  ✅ Con píxeles válidos      : {n_validos:,}")
-        print(f"  🔹 Recintos muy pequeños   : {n_pequenos:,}  "
-              f"(resueltos con all_touched)")
-        print(f"  ⬜ Sin píxeles válidos      : {n_vacios:,}  "
-              f"(nubes / nodata completo)")
+        print(f"  🔹 Recintos muy pequeños   : {n_pequenos:,}  (resueltos con all_touched)")
+        print(f"  ⬜ Sin píxeles válidos      : {n_vacios:,}  (nubes / nodata completo)")
         print(f"  🔲 Fuera del raster        : {n_fuera:,}")
         if n_error_wkt:
             print(f"  ❌ Error WKT               : {n_error_wkt:,}")
 
     return ndvi_vals
 
-# ============================================================
-# MAIN
-# ============================================================
+
+# ------------------------------------------------------------
+# MAIN (MODIFICADO PARA USO DE UTM)
+# ------------------------------------------------------------
 
 def main():
     print(f"\n🌱 Interpolación sobre cultivos — {FECHA}")
     print(f"   IDW adaptativo : radio {RADIO_INICIAL_KM}→{RADIO_MAX_KM} km "
           f"(paso {PASO_RADIO_KM} km) | "
-          f"vecinos {MIN_VECINOS}–{MAX_VECINOS} | potencia {POTENCIA}")
+          f"vecinos {MIN_VECINOS}–{MAX_VECINOS}")
+    print(f"   Potencias IDW específicas por variable:")
+    for var in sorted(POTENCIAS_IDW.keys()):
+        print(f"      • {var:15s} → {POTENCIAS_IDW[var]}")
     if ESTACIONES_EXCLUIR:
         print(f"   Estaciones excluidas del IDW: {', '.join(ESTACIONES_EXCLUIR)}")
     print()
 
     fecha_dt = datetime.strptime(FECHA, "%Y-%m-%d")
 
+    # Conexión a BD
     session = conectar_bd()
     if not session:
         return
 
+    # Cargar cultivos (con geometrías y coordenadas lon/lat)
     df = obtener_cultivos(session)
-    puntos_cultivos = df[["lon", "lat"]].values
 
-    # ---- ETo ----
+    # --------------------------------------------------------
+    # CAMBIO: Reproyectar todos los cultivos a UTM una sola vez
+    # --------------------------------------------------------
+    # Usamos la mediana de las coordenadas para determinar la zona UTM
+    lon_med = df['lon'].median()
+    lat_med = df['lat'].median()
+    transformer_utm = get_utm_proj(lon_med, lat_med)
+
+    # Reproyectar centroides de cultivos a UTM (metros)
+    x_cult, y_cult = transformer_utm.transform(df['lon'].values, df['lat'].values)
+    puntos_cultivos_utm = np.column_stack((x_cult, y_cult))
+
+    # Guardamos también las coordenadas originales para la validación
+    puntos_cultivos_lonlat = df[["lon", "lat"]].values
+
+    # --------------------------------------------------------
+    # Interpolación de ETo (días hacia atrás)
+    # --------------------------------------------------------
     print(f"\n📡 Interpolando ETo ({DIAS_ATRAS_ETO + 1} días)...")
+    potencia_eto = POTENCIAS_IDW.get("etpmon", 2.5)
+
     for dias in range(DIAS_ATRAS_ETO + 1):
         fecha_iter = (fecha_dt - timedelta(days=dias)).strftime("%Y-%m-%d")
         col_nombre = "eto_0" if dias == 0 else f"eto_-{dias}"
@@ -335,16 +335,26 @@ def main():
             df[col_nombre] = np.nan
             continue
 
-        puntos_est     = np.column_stack((datos['lon'], datos['lat']))
-        df[col_nombre] = idw_adaptativo(
-            puntos_est, datos['valor'], puntos_cultivos,
-            potencia=POTENCIA, min_vecinos=MIN_VECINOS, max_vecinos=MAX_VECINOS,
-            radio_inicial_km=RADIO_INICIAL_KM, radio_max_km=RADIO_MAX_KM,
-            paso_km=PASO_RADIO_KM,
-        )
-        validar_interpolacion(df, col_nombre, datos, puntos_cultivos)
+        # Reproyectar estaciones a UTM
+        x_est, y_est = transformer_utm.transform(datos['lon'], datos['lat'])
+        puntos_est_utm = np.column_stack((x_est, y_est))
 
-    # ---- Variables meteorológicas ----
+        # Interpolar con la función métrica
+        df[col_nombre] = idw_adaptativo_metrico(
+            puntos_est_utm, datos['valor'], puntos_cultivos_utm,
+            potencia=potencia_eto,
+            min_vecinos=MIN_VECINOS, max_vecinos=MAX_VECINOS,
+            radio_inicial_m=RADIO_INICIAL_KM * 1000,
+            radio_max_m=RADIO_MAX_KM * 1000,
+            paso_m=PASO_RADIO_KM * 1000,
+        )
+
+        # Validación (usa coordenadas lon/lat originales)
+        validar_interpolacion(df, col_nombre, datos, puntos_cultivos_lonlat)
+
+    # --------------------------------------------------------
+    # Interpolación del resto de variables del día FECHA
+    # --------------------------------------------------------
     print(f"\n📡 Interpolando variables del día {FECHA}...")
     for variable in VARIABLES_DIA:
         datos = obtener_estaciones(session, variable, FECHA)
@@ -352,45 +362,51 @@ def main():
             df[variable] = np.nan
             continue
 
-        puntos_est   = np.column_stack((datos['lon'], datos['lat']))
-        df[variable] = idw_adaptativo(
-            puntos_est, datos['valor'], puntos_cultivos,
-            potencia=POTENCIA, min_vecinos=MIN_VECINOS, max_vecinos=MAX_VECINOS,
-            radio_inicial_km=RADIO_INICIAL_KM, radio_max_km=RADIO_MAX_KM,
-            paso_km=PASO_RADIO_KM,
+        potencia_var = POTENCIAS_IDW.get(variable, 3.0)
+
+        # Reproyectar estaciones a UTM
+        x_est, y_est = transformer_utm.transform(datos['lon'], datos['lat'])
+        puntos_est_utm = np.column_stack((x_est, y_est))
+
+        df[variable] = idw_adaptativo_metrico(
+            puntos_est_utm, datos['valor'], puntos_cultivos_utm,
+            potencia=potencia_var,
+            min_vecinos=MIN_VECINOS, max_vecinos=MAX_VECINOS,
+            radio_inicial_m=RADIO_INICIAL_KM * 1000,
+            radio_max_m=RADIO_MAX_KM * 1000,
+            paso_m=PASO_RADIO_KM * 1000,
         )
-        validar_interpolacion(df, variable, datos, puntos_cultivos)
+
+        validar_interpolacion(df, variable, datos, puntos_cultivos_lonlat)
 
     session.close()
-
-    # ---- NDVI zonal ----
     print()
-    df["ndvi"] = muestrear_ndvi_zonal(df, RASTER_NDVI)
 
-    # ---- Guardar CSV (geometry_wkt como última columna) ----
+    # NDVI (sin cambios)
+    df["ndvi"] = muestrear_ndvi_zonal(df, RASTER_NDVI)
+    df["ndvi_24-02-2026"] = muestrear_ndvi_zonal(df, RASTER_NDVI.replace("20260301", "20260224"))
+    df["ndvi_19-02-2026"] = muestrear_ndvi_zonal(df, RASTER_NDVI.replace("20260301", "20260219"))
+
+    # Limpieza final y guardado
     df = df.drop(columns=["lon", "lat"])
     cols = [c for c in df.columns if c != "geometry_wkt"] + ["geometry_wkt"]
     df = df[cols]
-    df = df.sort_values(["cultivo", "parc_sistexp"], na_position="last").reset_index(drop=True)
+    df = df.sort_values(["cultivo", "parc_sistexp", "geometry_wkt"],na_position="last").reset_index(drop=True)
+    df.insert(0, "id", df.index + 1)
+
     os.makedirs(CARPETA_SALIDA, exist_ok=True)
     ruta_csv = os.path.join(CARPETA_SALIDA, NOMBRE_SALIDA)
-    df.to_csv(ruta_csv, index=False)
+
+    df = df.rename(columns=ALIAS_COLUMNAS)
+
+    # Redondear todas las columnas numéricas a 3 decimales (excepto 'id', que es entero)
+    cols_numericas = df.select_dtypes(include=[np.number]).columns.difference(["id"])
+    df[cols_numericas] = df[cols_numericas].round(3)
+
+    df.to_csv(ruta_csv, index=False, encoding="utf-8-sig")
 
     print(f"\n💾 CSV guardado: {ruta_csv}  "
           f"({os.path.getsize(ruta_csv) / 1024 / 1024:.1f} MB)")
-
-    # ---- Resumen estadístico ----
-    print("\n📊 Resumen:")
-    cols_resumen = (
-        ["eto_0"] + [f"eto_-{d}" for d in range(1, DIAS_ATRAS_ETO + 1)]
-        + VARIABLES_DIA + ["ndvi"]
-    )
-    for col in cols_resumen:
-        serie = df[col].dropna()
-        if len(serie):
-            print(f"   {col:14s} — min: {serie.min():.3f}  max: {serie.max():.3f}  "
-                  f"media: {serie.mean():.3f}  NaN: {df[col].isna().sum():,}")
-    print("\n✨ Hecho.")
 
 
 if __name__ == "__main__":

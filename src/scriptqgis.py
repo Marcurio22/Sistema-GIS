@@ -35,7 +35,7 @@ Session = sessionmaker(bind=engine)
 # ────────────────────────────────────────────────────────────────────────────
 
 VARIABLE = "etpmon"
-FECHA = "2026-03-22"
+FECHA = "2026-04-21"
 METODO = "IDW"
 POTENCIA_IDW = 2.0
 KRIGING_KERNEL = None

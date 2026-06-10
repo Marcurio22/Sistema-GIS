@@ -223,6 +223,9 @@ def sync(fecha_inicio, fecha_fin):
 
         session.commit()
         log.info(f"Sincronización completa: {total_insert} insertados, {total_skip} omitidos")
+        if total_insert == 0:
+            log.error("No se han insertado datos nuevos.")
+            sys.exit(1)
 
     except Exception as e:
         session.rollback()
@@ -245,8 +248,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dias",
         type=int,
-        default=5,
-        help="Número de días hacia atrás a sincronizar (por defecto: 25)",
+        default=15,
+        help="Número de días hacia atrás a sincronizar (por defecto: 20)",
     )
     parser.add_argument(
         "--inicio",
