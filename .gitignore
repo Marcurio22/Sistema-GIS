@@ -300,6 +300,8 @@ src/webapp/static/uploads/*
 src/webapp/static/ndvi_simple/*
 src/webapp/static/thumbnails/*
 
+Prediccion/modelosPred/*
+
 # ===============================
 # End of file
 # ===============================
