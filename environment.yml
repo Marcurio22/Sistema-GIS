@@ -42,3 +42,4 @@ dependencies:
   - pip:
       - dash
       - python-dotenv
+      - waitress

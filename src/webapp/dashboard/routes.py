@@ -358,6 +358,50 @@ def dashboard():
             WHERE estado = 'pendiente'
         """)).mappings().first()
         pendientes = int(row["n"]) if row and row.get("n") is not None else 0
+    alertas_riego = []
+    sql_alertas = text("""
+        SELECT DISTINCT ON (r.id_recinto)
+            r.id_recinto,
+            r.nombre,
+            pf.descripcion AS cultivo,
+            c.parc_supcult,
+            c.parc_sistexp,
+            ROUND(AVG(e.etp) OVER (PARTITION BY r.id_recinto)::numeric, 2) AS etp,
+            e.fecha
+        FROM public.recintos r
+        JOIN sigpac.cultivo_declarado c 
+            ON r.provincia  = c.provincia
+            AND r.municipio = c.municipio
+            AND r.agregado  = c.agregado
+            AND r.zona      = c.zona
+            AND r.poligono  = c.poligono
+            AND r.parcela   = c.parcela
+            AND r.recinto   = c.recinto
+        JOIN public.productos_fega pf
+            ON c.parc_producto = pf.codigo
+        JOIN public.etp_prediccion_0 e 
+            ON ST_Intersects(r.geom, e.geometry)
+            AND e.color = 'red'
+        WHERE r.id_propietario = :uid
+        AND r.activa = true
+        ORDER BY r.id_recinto, c.parc_supcult DESC
+    """)
+
+
+
+    rows_alertas = db.session.execute(sql_alertas, {"uid": current_user.id_usuario}).mappings().all()
+    for row in rows_alertas:
+        nombre = (row["nombre"] or "").strip() or f"Recinto {row['id_recinto']}"
+        sistexp = "Regadío" if (row["parc_sistexp"] or "").strip() == "R" else "Secano"
+        alertas_riego.append({
+            "id_recinto": row["id_recinto"],
+            "nombre": nombre,
+            "cultivo": row["cultivo"],
+            "superficie_ha": round(float(row["parc_supcult"]) / 10000, 2) if row["parc_supcult"] else 0,
+            "sistexp": sistexp,
+            "etp": float(row["etp"]) if row["etp"] else 0,
+            "fecha": row["fecha"],
+        })
 
     return render_template(
             'dashboard.html',
@@ -374,6 +418,7 @@ def dashboard():
             operaciones_resumen=operaciones_resumen,
             admin_solicitudes_pendientes=pendientes,
             is_admin=getattr(current_user, "rol", None) in ["admin", "superadmin"],
+            alertas_riego=alertas_riego
         )
 
 @dashboard_bp.route("/visor")

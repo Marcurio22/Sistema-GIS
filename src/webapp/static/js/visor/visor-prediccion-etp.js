@@ -1,7 +1,7 @@
 (function () {
 
-  document.addEventListener("DOMContentLoaded", function () {
-    setTimeout(initPrediccionEtp, 300);
+  window.addEventListener("load", function () {
+    setTimeout(initPrediccionEtp, 500);
   });
 
   // ── Init ────────────────────────────────────────────────────────────────────
@@ -29,6 +29,9 @@
     let capaActual       = null;
     let indice           = {};
     const capasWMS       = {}; // cache de capas ya creadas
+
+    // ── Inyectar UI primero, antes de nada ───────────────────────────────────
+    _inyectarUI();
 
     // ── Cargar índice de fechas ───────────────────────────────────────────────
     async function cargarIndice() {
@@ -70,7 +73,6 @@
     function cargarCapa(offset) {
       if (capaActual) { map.removeLayer(capaActual); capaActual = null; }
 
-      // Reutiliza si ya se instanció antes
       if (!capasWMS[offset]) capasWMS[offset] = crearCapaWMS(offset);
 
       capaActual = capasWMS[offset];
@@ -142,22 +144,20 @@
 
       cargarCapa(offsetDias);
 
-      // ── Forzar mapa base: Imagen Satelital (OSM Standard / Esri) ─────────
+      // ── Forzar mapa base: Imagen Satelital ────────────────────────────────
       if (window.highZoomLayers && window.setActiveHighLayerKey && window.actualizarMapaSegunZoom) {
         window.setActiveHighLayerKey("satellite");
         window.actualizarMapaSegunZoom();
-
-        // Sincronizar UI del selector de capa base
-        document.querySelectorAll(".basemap-option.basemap-main")
-          .forEach(el => el.classList.remove("active"));
-        const btnSat = document.querySelector('.basemap-option.basemap-main[data-layer="satellite"]');
-        if (btnSat) btnSat.classList.add("active");
-
-        btnPrediccion.classList.add("active");  
       }
 
+      // Sincronizar UI botones: satellite activo + prediccion-etp activo
+      document.querySelectorAll(".basemap-option.basemap-main")
+        .forEach(el => el.classList.remove("active"));
+      const btnSat = document.querySelector('.basemap-option.basemap-main[data-layer="satellite"]');
+      if (btnSat) btnSat.classList.add("active");
+      btnPrediccion.classList.add("active");
+
       // ── Activar capa temática: Cultivos SigPac ────────────────────────────
-      // Requiere que visor.html exponga: window.activarDetalleExclusivo
       if (typeof window.activarDetalleExclusivo === "function") {
         window.activarDetalleExclusivo("cultivosSigpac");
       } else {
@@ -203,7 +203,12 @@
 
     // ── Arranque ──────────────────────────────────────────────────────────────
     cargarIndice();
-    _inyectarUI();
+
+    // ── Activación automática por parámetro URL ───────────────────────────────
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("modo") === "etp") {
+      activar();
+    }
   }
 
   // ── UI ────────────────────────────────────────────────────────────────────
