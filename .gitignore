@@ -300,7 +300,14 @@ src/webapp/static/uploads/*
 src/webapp/static/ndvi_simple/*
 src/webapp/static/thumbnails/*
 
+# CSVs grandes generados / auxiliares (no versionar)
+src/ndvi_menor_0.csv
+src/parc_sistexp_R.csv
+
 Prediccion/modelosPred/*
+
+# Predicción — salidas del pipeline (predecir.py → mapasprediccion*.py)
+Prediccion/salidaPred/predicciones_*.csv
 
 # Predicción — temporales de la DLL (generarmodelos.py / predecir.py)
 Prediccion/_tmp_ent.dat
