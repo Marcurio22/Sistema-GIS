@@ -56,7 +56,7 @@
 
     // ── Crear capa WMS ────────────────────────────────────────────────────────
     function crearCapaWMS(offset) {
-      return L.tileLayer.wms(GEOSERVER_WMS, {
+      const params = {
         layers:      `${WORKSPACE}:etp_prediccion_${offset}`,
         format:      "image/png",
         transparent: true,
@@ -66,9 +66,39 @@
         maxZoom:     20,
         minZoom:     7,
         interactive: false
-      });
+      };
+
+      // Filtrar solo los recintos del usuario logueado
+      if (window.CURRENT_USER_ID) {
+        params.CQL_FILTER = `id_propietario=${window.CURRENT_USER_ID}`;
+      }
+
+      return L.tileLayer.wms(GEOSERVER_WMS, params);
     }
 
+    // ── GetFeatureInfo también filtrado ───────────────────────────────────────
+    function buildGetFeatureInfoUrl(latlng, offset) {
+      const size   = map.getSize();
+      const bounds = map.getBounds();
+      const point  = map.latLngToContainerPoint(latlng);
+
+      let url = GEOSERVER_WMS +
+        `?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo` +
+        `&LAYERS=${WORKSPACE}:etp_prediccion_${offset}` +
+        `&QUERY_LAYERS=${WORKSPACE}:etp_prediccion_${offset}` +
+        `&INFO_FORMAT=application/json` +
+        `&FEATURE_COUNT=1` +
+        `&WIDTH=${size.x}&HEIGHT=${size.y}` +
+        `&BBOX=${bounds.toBBoxString()}` +
+        `&X=${Math.round(point.x)}&Y=${Math.round(point.y)}` +
+        `&SRS=EPSG:4326`;
+
+      if (window.CURRENT_USER_ID) {
+        url += `&CQL_FILTER=id_propietario=${window.CURRENT_USER_ID}`;
+      }
+
+      return url;
+    }
     // ── Cargar capa del día ───────────────────────────────────────────────────
     function cargarCapa(offset) {
       if (capaActual) { map.removeLayer(capaActual); capaActual = null; }
@@ -174,6 +204,8 @@
       const panel = document.getElementById("pred-etp-panel");
       if (panel) panel.style.display = "none";
 
+      btnPrediccion.classList.remove("active");
+
       // ── Desactivar capa temática de cultivos al salir ─────────────────────
       if (typeof window.desactivarDetalle === "function") {
         window.desactivarDetalle("cultivosSigpac");
@@ -182,6 +214,11 @@
 
     // ── Eventos ───────────────────────────────────────────────────────────────
     btnPrediccion.addEventListener("click", function () {
+      if (prediccionActivo) {
+        desactivar();
+        return;
+      }
+
       document.querySelectorAll(".basemap-option.basemap-main")
         .forEach(el => el.classList.remove("active"));
       btnPrediccion.classList.add("active");

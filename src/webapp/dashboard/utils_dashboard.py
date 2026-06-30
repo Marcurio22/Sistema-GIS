@@ -4,6 +4,7 @@ import pandas as pd
 from pathlib import Path
 from ..models import Recinto
 from datetime import datetime, timedelta
+import json
 
 import rasterio
 from rasterio.warp import transform_bounds
@@ -273,6 +274,50 @@ def obtener_info_clima(descripcion, es_noche=False):
 
 _weather_cache = {}
 
+
+def _weather_cache_dir() -> Path:
+    """Directorio de caché en disco (lazy: no falla al importar el módulo)."""
+    return Path(__file__).resolve().parents[3] / "data" / "cache" / "weather"
+
+
+def _weather_disk_read(codigo: str):
+    """Lee caché en disco. Devuelve dict con data, timestamp y age, o None."""
+    path = _weather_cache_dir() / f"{codigo}.json"
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        ts = datetime.fromisoformat(payload["timestamp"])
+        age = datetime.now() - ts
+        if age <= timedelta(hours=6):
+            return {"data": payload["data"], "timestamp": ts, "age": age}
+    except Exception:
+        pass
+    return None
+
+
+def _weather_disk_write(codigo: str, data: dict) -> None:
+    path = _weather_cache_dir() / f"{codigo}.json"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({
+            "timestamp": datetime.now().isoformat(),
+            "data": data,
+        }, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _weather_fallback(cache_key: str, codigo: str):
+    """Último recurso: memoria o disco (hasta 6 h)."""
+    if cache_key in _weather_cache:
+        return _weather_cache[cache_key].get("data")
+    disk = _weather_disk_read(str(codigo))
+    if disk:
+        return disk["data"]
+    return None
+
+
 def obtener_datos_aemet(CODIGO_MUNICIPIO):
     """Obtiene los datos meteorológicos de AEMET con sistema de caché"""
     
@@ -288,6 +333,13 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
         if tiempo_cache and (now - tiempo_cache) < timedelta(hours=1):
             print(f"✅ Usando caché para municipio {CODIGO_MUNICIPIO}")
             return cached_data.get('data')
+
+    # 1b. Caché en disco (sobrevive reinicios del servidor)
+    disk = _weather_disk_read(str(CODIGO_MUNICIPIO))
+    if disk and disk["age"] < timedelta(hours=1):
+        _weather_cache[cache_key] = {"data": disk["data"], "timestamp": disk["timestamp"]}
+        print(f"✅ Usando caché en disco para municipio {CODIGO_MUNICIPIO}")
+        return disk["data"]
     
     # 2. Si no hay caché válido, pedir datos nuevos a AEMET
     try:
@@ -300,15 +352,11 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
         # Si hay error de rate limit (429), usar último dato guardado
         if data1.get('estado') == 429:
             print(f"⚠️ Límite de peticiones alcanzado. Usando último caché.")
-            if cache_key in _weather_cache:
-                return _weather_cache[cache_key].get('data')
-            return None
+            return _weather_fallback(cache_key, CODIGO_MUNICIPIO)
         
         if data1.get('estado') != 200:
             print(f"❌ Error API AEMET: {data1.get('descripcion', 'Error desconocido')}")
-            if cache_key in _weather_cache:
-                return _weather_cache[cache_key].get('data')
-            return None
+            return _weather_fallback(cache_key, CODIGO_MUNICIPIO)
         
         response2 = requests.get(data1['datos'], timeout=5)
         datos = response2.json()
@@ -414,6 +462,7 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
             'data': resultado,
             'timestamp': now
         }
+        _weather_disk_write(str(CODIGO_MUNICIPIO), resultado)
         
         print(f"🆕 Datos frescos obtenidos y guardados para {CODIGO_MUNICIPIO}")
         return resultado
@@ -421,9 +470,7 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
     except Exception as e:
         print(f"❌ Error: {str(e)}")
         # Si hay error, devolver caché antiguo si existe
-        if cache_key in _weather_cache:
-            return _weather_cache[cache_key].get('data')
-        return None
+        return _weather_fallback(cache_key, CODIGO_MUNICIPIO)
 
 class MunicipiosCodigosFinder:
     """Buscador de nombres de municipios por código de provincia y municipio."""
@@ -459,6 +506,54 @@ class MunicipiosCodigosFinder:
         self.df_municipios = self.df.drop_duplicates(subset='CODIGO', keep='first').set_index('CODIGO')
         
         self.df_provincias = self.df[['Provincia', 'Nombre Provincia']].drop_duplicates().set_index('Provincia')
+
+        self.df_ine = pd.read_csv(
+            csv_dir / 'nombres_municipios.csv',
+            skiprows=1,
+            dtype=str,
+        )
+        self.df_ine['CPRO'] = self.df_ine['CPRO'].str.strip().str.zfill(2)
+        self.df_ine['CMUN'] = self.df_ine['CMUN'].str.strip().str.zfill(3)
+        self.df_ine['NOMBRE'] = self.df_ine['NOMBRE'].str.strip()
+        self.df_ine['CODIGO_INE'] = self.df_ine['CPRO'] + self.df_ine['CMUN']
+        self.df_ine_index = self.df_ine.set_index('CODIGO_INE')
+    
+    @staticmethod
+    def _slug_aemet(nombre_municipio):
+        return (
+            nombre_municipio
+            .lower()
+            .replace(' ', '-')
+            .replace('á', 'a')
+            .replace('é', 'e')
+            .replace('í', 'i')
+            .replace('ó', 'o')
+            .replace('ú', 'u')
+            .replace('ñ', 'n')
+            .replace('ü', 'u')
+        )
+
+    def obtener_nombre_municipio_ine(self, codigo_ine):
+        codigo_ine = str(codigo_ine).zfill(5)
+        try:
+            return self.df_ine_index.loc[codigo_ine, 'NOMBRE']
+        except KeyError:
+            return None
+
+    def construir_url_aemet_ine(self, codigo_ine, nombre_oficial=None):
+        """URL del widget AEMET usando código INE oficial (nombres_municipios.csv)."""
+        codigo_ine = str(codigo_ine).zfill(5)
+        if nombre_oficial is None:
+            nombre_oficial = self.obtener_nombre_municipio_ine(codigo_ine)
+        if not nombre_oficial:
+            return None
+
+        nombre_municipio_url = self._slug_aemet(nombre_oficial)
+        return (
+            'https://www.aemet.es/es/eltiempo/prediccion/municipios/mostrarwidget/'
+            f'{nombre_municipio_url}-id{codigo_ine}'
+            f'?w=g3p111111111ohmffffffx4f86d9t95b6e9r1s8n2'
+        )
     
     def obtener_nombre_municipio(self, cod_provincia, cod_municipio):
         """
@@ -526,7 +621,7 @@ class MunicipiosCodigosFinder:
         url = (
             f'https://www.aemet.es/es/eltiempo/prediccion/municipios/mostrarwidget/'
             f'{nombre_municipio_url}-id{codigo_ine}'
-            f'?w=g4p111111111ohmffffffx4f86d9t95b6e9r1s8n2'
+            f'?w=g3p111111111ohmffffffx4f86d9t95b6e9r1s8n2'
         )
 
         return url

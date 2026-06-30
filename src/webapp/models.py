@@ -422,3 +422,63 @@ class DatosDiarios(db.Model):
             "id_inforiego": self.id_inforiego,
             "id_aux": self.id_aux
         }
+
+
+
+class Contador(db.Model):
+    __tablename__ = "contadores"
+ 
+    id             = db.Column(db.Integer, primary_key=True)
+    id_recinto     = db.Column(
+                         db.Integer,
+                         db.ForeignKey("recintos.id_recinto", ondelete="CASCADE"),
+                         nullable=False,
+                         index=True
+                     )
+    id_usuario     = db.Column(
+                         db.Integer,
+                         db.ForeignKey("usuarios.id_usuario", ondelete="CASCADE"),
+                         nullable=False,
+                         index=True
+                     )
+ 
+    # Datos de la lectura
+    titulo         = db.Column(db.String(200), nullable=False)
+    lectura        = db.Column(db.String(100))   # "12345.6 m³", texto libre
+    descripcion    = db.Column(db.Text)
+ 
+    # Rutas de imagen
+    ruta_imagen    = db.Column(db.Text, nullable=False)
+    ruta_thumb     = db.Column(db.Text, nullable=False)
+ 
+    # SIGPAC denormalizado (para construir ruta de carpeta sin JOIN)
+    poligono       = db.Column(db.BigInteger)
+    parcela        = db.Column(db.BigInteger)
+ 
+    # Geolocalización WKT: "POINT(lon lat)"
+    # Mismo formato que GaleriaImagenes.extraerCoordenadas()
+    geom           = db.Column(db.Text, nullable=False)
+ 
+    fecha_creacion = db.Column(
+                         db.DateTime(timezone=True),
+                         nullable=False,
+                         default=lambda: datetime.now(timezone.utc)
+                     )
+ 
+    # Relaciones
+    recinto        = db.relationship("Recinto",  backref=db.backref("contadores", lazy="dynamic"))
+    usuario        = db.relationship("User",     backref=db.backref("contadores", lazy="dynamic"))
+ 
+    def __repr__(self):
+        return f"<Contador #{self.id} recinto={self.id_recinto} lectura={self.lectura!r}>"
+ 
+    @property
+    def coords(self):
+        """Devuelve (lat, lon) parseando el WKT, o None si no hay."""
+        import re
+        if not self.geom:
+            return None
+        m = re.match(r'POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)', self.geom, re.I)
+        if m:
+            return float(m.group(2)), float(m.group(1))   # (lat, lon)
+        return None

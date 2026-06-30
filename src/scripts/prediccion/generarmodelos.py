@@ -1,13 +1,21 @@
 # entrenar_modelos.py
-import ctypes, os
-import pandas as pd
+import ctypes
+import os
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 
-CARPETA_DLL = r"C:\Users\Instalador\Documents\Sistema-GIS-main\prediccion"
-CARPETA_MOD = r"C:\Users\Instalador\Documents\Sistema-GIS-main\prediccion\modelosPred"
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "src"))
+from project_paths import DATOS_SALIDA_DIR, MODELOS_PRED_DIR, PREDICCION_DLL_DIR  # noqa: E402
+
+CARPETA_DLL = str(PREDICCION_DLL_DIR)
+CARPETA_MOD = str(MODELOS_PRED_DIR)
 
 FECHA = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-CSV =         r"C:\datos\salida\datoscultivospred" + FECHA + ".csv"
+CSV = str(DATOS_SALIDA_DIR / f"datoscultivospred{FECHA}.csv")
 
 os.makedirs(CARPETA_MOD, exist_ok=True)
 
@@ -44,14 +52,13 @@ for cultivo, grupo in df.groupby("Cl"):
     r = func(
         ctypes.create_unicode_buffer(dat_tmp, 512),
         ctypes.create_unicode_buffer(bin_mod, 512),
-        ctypes.create_unicode_buffer(txt_mod, 512)
+        ctypes.create_unicode_buffer(txt_mod, 512),
     )
-
     if r == 0:
-        print(f"✅ {cultivo}: {len(grupo_limpio)} parcelas")
+        print(f"✅ {cultivo}")
         ok += 1
     else:
-        print(f"❌ {cultivo}: error DLL código {r}")
+        print(f"❌ {cultivo} (código {r})")
         err += 1
 
-print(f"\n✅ OK: {ok}  ❌ Error: {err}  ⚠️ Saltados: {skip}  Total: {ok+err+skip}")
+print(f"\nResumen: {ok} OK, {err} error, {skip} omitidos")

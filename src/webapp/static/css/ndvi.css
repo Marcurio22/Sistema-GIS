@@ -41,7 +41,7 @@
 
 .stat-value {
   font-weight: 600;
-  color: #198754;
+  color: #90bc05;
   font-size: 0.95rem;
 }
 
@@ -82,9 +82,9 @@
 }
 
 .carousel-btn:hover:not(:disabled) {
-  background: #198754;
+  background: #90bc05;
   color: #fff;
-  border-color: #198754;
+  border-color: #90bc05;
 }
 
 .carousel-btn:disabled {
@@ -103,7 +103,7 @@
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: #198754 #f8f9fa;
+  scrollbar-color: #90bc05 #f8f9fa;
   padding: 0 4px; /* ← Pequeño padding para que no queden pegadas a los bordes */
 }
 
@@ -118,7 +118,7 @@
 }
 
 .carousel-images::-webkit-scrollbar-thumb {
-  background: #198754;
+  background: #90bc05;
   border-radius: 3px;
 }
 
@@ -145,7 +145,7 @@
 }
 
 .carousel-img:hover {
-  border-color: #198754;
+  border-color: #90bc05;
   cursor: pointer;
 }
 

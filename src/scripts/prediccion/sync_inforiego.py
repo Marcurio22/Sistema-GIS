@@ -248,8 +248,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dias",
         type=int,
-        default=1,
-        help="Número de días hacia atrás a sincronizar (por defecto: 20)",
+        default=15,
+        help="Número de días hacia atrás a sincronizar (por defecto: 15)",
     )
     parser.add_argument(
         "--inicio",

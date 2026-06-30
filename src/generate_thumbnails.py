@@ -1,163 +1,133 @@
 """
-Generador de Thumbnail NDVI - VERSIÓN ORGANIZADA POR FECHAS
-✓ Solo genera thumbnails si el recinto tiene datos NDVI reales
-✓ NO rellena recintos vacíos con color uniforme
-✓ Fondo transparente
-✓ Borde negro
-✓ Recorte exacto
-✓ NUEVO: Organiza thumbnails en subcarpetas por fecha (YYYYMMDD)
-✓ COLORES DISCRETOS: Usa el mismo método que ndvi_diax.py y ndvi_completo.py
+Generador de Thumbnail NDVI — varias fechas y procesamiento paralelo.
+
+Uso:
+  cd src
+  python generate_thumbnails.py
+  python generate_thumbnails.py --fechas 20260219,20260224,20260301
+  python generate_thumbnails.py --fechas 19/02/2026,24/02/2026,01/03/2026 --force
+  python generate_thumbnails.py --recintos 12,45,78 --workers 8
 """
 
+from __future__ import annotations
+
+import argparse
+import gc
+import json
 import os
 import sys
-import json
+import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from datetime import datetime
+from multiprocessing import shared_memory
+
 import numpy as np
 import rasterio
+from PIL import Image, ImageDraw
+from pyproj import Transformer
 from rasterio.windows import Window
+from scipy.ndimage import gaussian_filter
 from shapely import wkb
 from shapely.ops import transform as shapely_transform
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-from matplotlib.path import Path
-import matplotlib.patches as mpatches
-# ── CAMBIO: sustituido psycopg2 por SQLAlchemy ──────────────────────────────
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+
+from project_paths import NDVI_COMPOSITE_DIR, PROJECT_ROOT
 from webapp.config import Config
-# ────────────────────────────────────────────────────────────────────────────
-from pyproj import Transformer
-from scipy.ndimage import gaussian_filter
-import gc
-from datetime import datetime
 
 # ==================== CONFIGURACIÓN ====================
 
-# ── CAMBIO: motor SQLAlchemy en lugar de DB_CONFIG dict ─────────────────────
-engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
-Session = sessionmaker(bind=engine)
-# ────────────────────────────────────────────────────────────────────────────
+THUMBNAILS_BASE_DIR = PROJECT_ROOT / "src" / "webapp" / "static" / "thumbnails"
 
-# Directorio base de thumbnails (ahora se crearán subcarpetas por fecha)
-THUMBNAILS_BASE_DIR = 'webapp/static/thumbnails'
-
-# Archivos NDVI de entrada
-NDVI_BASE = '../data/processed/ndvi_composite/ndvi_pc_20260316_mosaic_3857.tif'
-NDVI_META = '../data/processed/ndvi_composite/ndvi_pc_20260316_mosaic.json'
+# Fechas por defecto (capturas galería NDVI)
+FECHAS_DEFECTO = ("20260219", "20260224", "20260301")
 
 START_FROM_ID = 0
-SKIP_EXISTING = True
-LOG_INTERVAL = 1000
-IMAGE_PADDING = 0.0
+LOG_INTERVAL = 500
+MIN_VALID_PIXELS_PERCENT = 5.0
 
-MIN_VALID_PIXELS_PERCENT = 5.0  
+engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
+Session = sessionmaker(bind=engine)
 
-RASTER_CACHE = None
-TRANSFORMER_CACHE = {}
-
-# ==================== FECHA NDVI ====================
-def get_ndvi_date_from_json():
-    """Extrae la fecha del NDVI desde el archivo metadata JSON"""
-    if not os.path.exists(NDVI_META):
-        return datetime.now().strftime("%Y%m%d")
-
-    with open(NDVI_META, 'r', encoding='utf-8') as f:
-        meta = json.load(f)
-
-    if meta.get('ndvi_date_formatted'):
-        return meta['ndvi_date_formatted']
-
-    for key in ['ndvi_date', 'updated_utc']:
-        if meta.get(key):
-            dt = datetime.fromisoformat(meta[key].replace('Z', '+00:00'))
-            return dt.strftime("%Y%m%d")
-
-    return datetime.now().strftime("%Y%m%d")
+# Estado por proceso hijo (shared memory del raster)
+_WORKER: dict = {}
 
 
-NDVI_DATE_STR = get_ndvi_date_from_json()
+# ==================== FECHAS Y RUTAS ====================
 
-# *** NUEVO: Crear directorio de salida específico para esta fecha ***
-OUTPUT_DIR = os.path.join(THUMBNAILS_BASE_DIR, NDVI_DATE_STR)
-
-# ==================== CACHE RASTER ====================
-def cargar_raster_en_memoria():
-    global RASTER_CACHE
-
-    if RASTER_CACHE is not None:
-        return RASTER_CACHE
-
-    print("📦 Cargando raster NDVI en memoria...")
-
-    with rasterio.open(NDVI_BASE) as src:
-        RASTER_CACHE = {
-            'data': src.read(1),
-            'transform': src.transform,
-            'crs': src.crs.to_epsg(),
-            'width': src.width,
-            'height': src.height
-        }
-
-    return RASTER_CACHE
+def parse_fecha(s: str) -> str:
+    s = s.strip()
+    for fmt in ("%Y%m%d", "%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d", "%d %b %Y", "%d %b. %Y"):
+        try:
+            return datetime.strptime(s, fmt).strftime("%Y%m%d")
+        except ValueError:
+            continue
+    raise ValueError(f"Fecha no reconocida: {s!r}")
 
 
-def get_transformer(geom_srid, raster_crs):
-    key = (geom_srid, raster_crs)
-    if key not in TRANSFORMER_CACHE:
-        TRANSFORMER_CACHE[key] = Transformer.from_crs(
-            f"EPSG:{geom_srid}",
-            f"EPSG:{raster_crs}",
-            always_xy=True
-        )
-    return TRANSFORMER_CACHE[key]
+def parse_fechas_list(raw: str | None) -> list[str]:
+    if not raw:
+        return list(FECHAS_DEFECTO)
+    out: list[str] = []
+    for part in raw.replace(";", ",").split(","):
+        part = part.strip()
+        if part:
+            out.append(parse_fecha(part))
+    return out
 
-# ==================== RELLENO INTELIGENTE DE NaN ====================
-def rellenar_ndvi_inteligente(ndvi_array):
-    """
-    ✓ Solo rellena NaN si hay suficientes datos válidos
-    ✓ Si menos del 5% son válidos → devuelve None (no generar thumbnail)
-    ✓ Si hay datos → rellena huecos pequeños con interpolación
-    """
+
+def resolve_ndvi_tif(fecha_str: str) -> Path | None:
+    tif_3857 = NDVI_COMPOSITE_DIR / f"ndvi_pc_{fecha_str}_mosaic_3857.tif"
+    if tif_3857.is_file():
+        return tif_3857
+    tif_utm = NDVI_COMPOSITE_DIR / f"ndvi_pc_{fecha_str}_mosaic_utm.tif"
+    if tif_utm.is_file():
+        return tif_utm
+    return None
+
+
+def fecha_desde_meta(meta_path: Path, fallback: str) -> str:
+    if not meta_path.is_file():
+        return fallback
+    try:
+        with open(meta_path, encoding="utf-8") as f:
+            meta = json.load(f)
+        if meta.get("ndvi_date_formatted"):
+            return meta["ndvi_date_formatted"]
+        for key in ("ndvi_date", "updated_utc"):
+            if meta.get(key):
+                dt = datetime.fromisoformat(meta[key].replace("Z", "+00:00"))
+                return dt.strftime("%Y%m%d")
+    except (OSError, json.JSONDecodeError, ValueError):
+        pass
+    return fallback
+
+
+# ==================== NDVI → IMAGEN ====================
+
+def rellenar_ndvi_inteligente(ndvi_array: np.ndarray) -> np.ndarray | None:
     total_pixels = ndvi_array.size
     valid_pixels = np.sum(~np.isnan(ndvi_array))
     valid_percent = (valid_pixels / total_pixels) * 100
-    
-    # Filtro principal: Si casi todo es NaN, no generar thumbnail
     if valid_percent < MIN_VALID_PIXELS_PERCENT:
         return None
-    
-    # Si hay suficientes datos, rellenar huecos pequeños
+
     filled = ndvi_array.copy()
     media = np.nanmean(filled)
-    
-    # Solo rellenar NaN, no cambiar valores válidos
     nan_mask = np.isnan(filled)
     filled[nan_mask] = media
-    
-    # Suavizar solo las áreas rellenadas para que se integren mejor
     if np.any(nan_mask):
         filled = gaussian_filter(filled, sigma=1.0)
-    
     return filled
 
 
-# ==================== CONVERSIÓN NDVI A RGBA DISCRETA ====================
-def ndvi_to_rgba_discrete(ndvi):
-    """
-    Convertir NDVI a imagen RGBA usando el MISMO MÉTODO que ndvi_diax.py y ndvi_completo.py
-    
-    MÉTODO DISCRETO: Asignación directa de colores por rangos (sin gradientes)
-    """
+def ndvi_to_rgba_discrete(ndvi: np.ndarray) -> np.ndarray:
     h, w = ndvi.shape
     rgba = np.zeros((h, w, 4), dtype=np.uint8)
     valid = np.isfinite(ndvi)
-    
     if not np.any(valid):
         return rgba
 
-    # MISMOS RANGOS Y COLORES que los scripts de procesamiento
-    # los he sacao de aqui no se si estan bien https://custom-scripts.sentinel-hub.com/custom-scripts/sentinel-2/ndvi-on-vegetation-natural_colours/
     ranges_colors = [
         (-0.2, 0.0, (165, 0, 38)),
         (0.0, 0.1, (215, 48, 39)),
@@ -171,271 +141,397 @@ def ndvi_to_rgba_discrete(ndvi):
         (0.8, 0.9, (26, 152, 80)),
         (0.9, 1.0, (0, 104, 55)),
     ]
-    
-    # Valores por debajo de -0.2 → negro
+
     rgba[valid & (ndvi < -0.2)] = [0, 0, 0, 255]
-    
-    # Asignar color DISCRETO para cada rango
     for vmin, vmax, color in ranges_colors:
         mask = valid & (ndvi >= vmin) & (ndvi < vmax)
         if np.any(mask):
-            rgba[mask] = [*color, 255]  # Color sólido para todo el rango
-    
-    # Valores >= 1.0 → verde oscuro
+            rgba[mask] = [*color, 255]
     rgba[valid & (ndvi >= 1.0)] = [0, 104, 55, 255]
-    
-    # Transparente donde no hay datos
     rgba[~valid, 3] = 0
-    
     return rgba
 
 
-# 
-def extraer_ventana_raster(geometria, padding=0.0):
-    """Extrae ventana del raster"""
-    raster = RASTER_CACHE
+def get_polygons_from_geometry(geometria):
+    if geometria.geom_type == "Polygon":
+        return [geometria]
+    if geometria.geom_type == "MultiPolygon":
+        return list(geometria.geoms)
+    return []
 
+
+def geo_to_pixel(x: float, y: float, transform) -> tuple[float, float]:
+    col = (x - transform.c) / transform.a
+    row = (y - transform.f) / transform.e
+    return col, row
+
+
+def extraer_ventana_raster(geometria, raster: dict):
     minx, miny, maxx, maxy = geometria.bounds
-
-    transform = raster['transform']
+    transform = raster["transform"]
     col_start, row_start = ~transform * (minx, maxy)
     col_end, row_end = ~transform * (maxx, miny)
 
     col_start = max(0, int(col_start))
     row_start = max(0, int(row_start))
-    col_end = min(raster['width'], int(col_end) + 1)
-    row_end = min(raster['height'], int(row_end) + 1)
+    col_end = min(raster["width"], int(col_end) + 1)
+    row_end = min(raster["height"], int(row_end) + 1)
 
     if col_end <= col_start or row_end <= row_start:
         return None, None
 
-    window_data = raster['data'][row_start:row_end, col_start:col_end]
-
+    window_data = raster["data"][row_start:row_end, col_start:col_end]
     window_transform = rasterio.windows.transform(
         Window(col_start, row_start, col_end - col_start, row_end - row_start),
-        transform
+        transform,
     )
-
     return window_data, window_transform
 
 
-# ==================== EXTRAER POLÍGONOS ====================
-def get_polygons_from_geometry(geometria):
-    """Extrae lista de polígonos de cualquier geometría"""
-    if geometria.geom_type == 'Polygon':
-        return [geometria]
-    elif geometria.geom_type == 'MultiPolygon':
-        return list(geometria.geoms)
-    else:
-        return []
-
-
-# el DPI hace que las imagenes se generen mas grandes y a major calidad, 100 o asi esta bien, pero tarda mcho, para probar bajar
-def generar_thumbnail_optimizado(ndvi_data, window_transform, geometria, output_path, dpi=75):
-    """
-    Genera thumbnail con colores DISCRETOS (no gradientes)
-    mismo metodo que ndvi_diax.py y ndvi_completo.py creo
-    """
-
-    # Verificar datos válidos ANTES de generar imagen
+def generar_thumbnail_pil(
+    ndvi_data: np.ndarray,
+    window_transform,
+    geometria,
+    output_path: str,
+    border_px: int = 2,
+) -> float | None:
+    """Genera PNG con PIL (mucho más rápido que matplotlib)."""
     ndvi_filled = rellenar_ndvi_inteligente(ndvi_data)
-    
     if ndvi_filled is None:
-        # No hay suficientes datos válidos, no generar thumbnail
         return None
-    
-    # Procesar con datos válidos
-    ndvi_clean = np.clip(ndvi_filled, -0.2, 1.0)
 
-    # *** NUEVA LÓGICA: Convertir NDVI a RGBA usando método discreto ***
-    rgba_image = ndvi_to_rgba_discrete(ndvi_clean)
+    rgba = ndvi_to_rgba_discrete(np.clip(ndvi_filled, -0.2, 1.0))
+    h, w = rgba.shape[:2]
+    img = Image.fromarray(rgba, "RGBA")
 
-    # FONDO TRANSPARENTE
-    fig, ax = plt.subplots(figsize=(6, 6), dpi=dpi)
-    fig.patch.set_alpha(0.0)
-    ax.patch.set_alpha(0.0)
-
-    # EXTENT REAL DEL RASTER
-    h, w = ndvi_clean.shape
-    xmin = window_transform.c
-    xmax = xmin + window_transform.a * w
-    ymax = window_transform.f
-    ymin = ymax + window_transform.e * h
-
-    # mostrar imagen RGBA directamente sin leyenda ni hostias  ***
-    im = ax.imshow(
-        rgba_image,
-        extent=[xmin, xmax, ymin, ymax],
-        interpolation='nearest',  # Sin interpolación para mantener colores discretos
-        zorder=1
-    )
-
-    # MÁSCARA PARA RECORTAR EXACTAMENTE AL RECINTO
+    mask = Image.new("L", (w, h), 0)
+    draw_mask = ImageDraw.Draw(mask)
     polygons = get_polygons_from_geometry(geometria)
-    
-    if len(polygons) > 0:
-        all_verts = []
-        all_codes = []
-        
-        for poly in polygons:
-            coords = np.array(poly.exterior.coords)
-            codes = [Path.MOVETO] + [Path.LINETO] * (len(coords) - 2) + [Path.CLOSEPOLY]
-            all_verts.append(coords)
-            all_codes.extend(codes)
-        
-        combined_verts = np.vstack(all_verts)
-        combined_path = Path(combined_verts, all_codes)
-        
-        clip_patch = mpatches.PathPatch(
-            combined_path,
-            facecolor='none',
-            edgecolor='none',
-            transform=ax.transData
-        )
-        ax.add_patch(clip_patch)
-        im.set_clip_path(clip_patch)
 
-    # CONTORNO NEGRO
     for poly in polygons:
-        x, y = poly.exterior.xy
-        ax.plot(x, y, color='black', linewidth=1.5, zorder=3)
+        pts = [geo_to_pixel(x, y, window_transform) for x, y in poly.exterior.coords]
+        draw_mask.polygon(pts, fill=255)
 
-    # LÍMITES EXACTOS
-    minx_plot, miny_plot, maxx_plot, maxy_plot = geometria.bounds
-    ax.set_xlim(minx_plot, maxx_plot)
-    ax.set_ylim(miny_plot, maxy_plot)
+    r, g, b, a = img.split()
+    a = Image.composite(a, Image.new("L", (w, h), 0), mask)
+    img = Image.merge("RGBA", (r, g, b, a))
 
-    ax.axis('off')
-    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-    
-    plt.savefig(
-        output_path, 
-        dpi=dpi, 
-        bbox_inches='tight', 
-        pad_inches=0,
-        transparent=True,
-        facecolor='none'
-    )
-    plt.close(fig)
+    minx, miny, maxx, maxy = geometria.bounds
+    c0, r0 = geo_to_pixel(minx, maxy, window_transform)
+    c1, r1 = geo_to_pixel(maxx, miny, window_transform)
+    left = int(min(c0, c1))
+    top = int(min(r0, r1))
+    right = int(max(c0, c1)) + 1
+    bottom = int(max(r0, r1)) + 1
 
-    del fig, ax, ndvi_filled, ndvi_clean, rgba_image
+    pad = border_px + 1
+    left = max(0, left - pad)
+    top = max(0, top - pad)
+    right = min(w, right + pad)
+    bottom = min(h, bottom + pad)
 
-    # Calcular media de valores ORIGINALES válidos
+    cropped = img.crop((left, top, right, bottom))
+    draw = ImageDraw.Draw(cropped)
+
+    for poly in polygons:
+        pts = [
+            (geo_to_pixel(x, y, window_transform)[0] - left,
+             geo_to_pixel(x, y, window_transform)[1] - top)
+            for x, y in poly.exterior.coords
+        ]
+        if len(pts) >= 2:
+            draw.line(pts + [pts[0]], fill=(0, 0, 0, 255), width=border_px)
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    cropped.save(output_path, "PNG", optimize=True)
+
     valid_mask = ~np.isnan(ndvi_data) & np.isfinite(ndvi_data)
     if np.any(valid_mask):
         return float(np.mean(ndvi_data[valid_mask]))
-    else:
-        return None
+    return None
 
 
-# ==================== RECINTO ====================
-def procesar_recinto_optimizado(id_recinto, geom_wkb):
-    """
-    Procesa un recinto y genera su thumbnail.
-    ruta a la carpeta de la fecha
-    Formato: webapp/static/thumbnails/YYYYMMDD/{id_recinto}.png
-    """
-    # *** Nombre sin fecha, solo ID del recinto ***
-    output_png = os.path.join(OUTPUT_DIR, f"{id_recinto}.png")
-    
-    if SKIP_EXISTING and os.path.exists(output_png):
-        return 'skipped'
+# ==================== WORKERS ====================
 
-    if isinstance(geom_wkb, str):
-        geom_wkb = bytes.fromhex(geom_wkb)
+def _worker_init(
+    shm_name: str,
+    shape: tuple[int, int],
+    dtype_str: str,
+    transform_vals: tuple,
+    crs: int,
+    output_dir: str,
+    skip_existing: bool,
+    geom_srid: int,
+):
+    shm = shared_memory.SharedMemory(name=shm_name)
+    _WORKER["data"] = np.ndarray(shape, dtype=np.dtype(dtype_str), buffer=shm.buf)
+    _WORKER["transform"] = rasterio.Affine(*transform_vals)
+    _WORKER["crs"] = crs
+    _WORKER["width"] = shape[1]
+    _WORKER["height"] = shape[0]
+    _WORKER["output_dir"] = output_dir
+    _WORKER["skip_existing"] = skip_existing
+    _WORKER["geom_srid"] = geom_srid
+    _WORKER["transformer"] = (
+        Transformer.from_crs(f"EPSG:{geom_srid}", f"EPSG:{crs}", always_xy=True)
+        if geom_srid != crs
+        else None
+    )
+
+
+def _worker_process(item: tuple[int, bytes]) -> str:
+    id_recinto, geom_wkb = item
+    output_png = os.path.join(_WORKER["output_dir"], f"{id_recinto}.png")
+
+    if _WORKER["skip_existing"] and os.path.exists(output_png):
+        return "skipped"
 
     geometria = wkb.loads(geom_wkb)
+    if _WORKER["transformer"] is not None:
+        geometria = shapely_transform(_WORKER["transformer"].transform, geometria)
 
-    raster_crs = RASTER_CACHE['crs']
-    geom_srid = 4326
-
-    if geom_srid != raster_crs:
-        transformer = get_transformer(geom_srid, raster_crs)
-        geometria = shapely_transform(transformer.transform, geometria)
-
-    ndvi_data, window_transform = extraer_ventana_raster(geometria)
-
-    if ndvi_data is None:
-        return 'no_overlap'
-
-    # generar_thumbnail devuelve None si no hay datos suficientes
-    result = generar_thumbnail_optimizado(ndvi_data, window_transform, geometria, output_png)
-    
-    if result is None:
-        return 'insufficient_data'
-    
-    return 'success'
-
-
-# ==================== MAIN ====================
-if __name__ == "__main__":
-
-    if not os.path.exists(NDVI_BASE):
-        print("✗ Raster NDVI no encontrado")
-        sys.exit(1)
-
-    cargar_raster_en_memoria()
-    
-    # Crear directorio de salida para esta fecha
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    
-    print(f"\n{'='*70}")
-    print(f"GENERADOR DE THUMBNAILS NDVI - COLORES DISCRETOS")
-    print(f"{'='*70}")
-    print(f"✓ Fecha NDVI: {NDVI_DATE_STR}")
-    print(f"✓ Directorio de salida: {OUTPUT_DIR}")
-    print(f"✓ Método de colores: DISCRETO (igual que scripts de procesamiento)")
-    print(f"✓ Umbral mínimo de datos válidos: {MIN_VALID_PIXELS_PERCENT}%")
-
-    # ── CAMBIO: sesión SQLAlchemy en lugar de psycopg2.connect + cursor ──────
-    session = Session()
-    resultado = session.execute(
-        text("SELECT id_recinto, geom FROM recintos WHERE id_recinto >= :start ORDER BY id_recinto"),
-        {"start": START_FROM_ID}
-    )
-    recintos = resultado.fetchall()
-    session.close()
-    # ─────────────────────────────────────────────────────────────────────────
-
-    total = len(recintos)
-    print(f"✓ Recintos a procesar: {total}")
-
-    # Contadores
-    stats = {
-        'success': 0,
-        'skipped': 0,
-        'no_overlap': 0,
-        'insufficient_data': 0,
-        'error': 0
+    raster = {
+        "data": _WORKER["data"],
+        "transform": _WORKER["transform"],
+        "crs": _WORKER["crs"],
+        "width": _WORKER["width"],
+        "height": _WORKER["height"],
     }
 
-    for idx, (id_recinto, geom_wkb) in enumerate(recintos, 1):
+    ndvi_data, window_transform = extraer_ventana_raster(geometria, raster)
+    if ndvi_data is None:
+        return "no_overlap"
 
-        try:
-            result = procesar_recinto_optimizado(id_recinto, geom_wkb)
-            stats[result] = stats.get(result, 0) + 1
-        except Exception as e:
-            print(f"Error en recinto {id_recinto}: {e}")
-            stats['error'] += 1
-            continue
+    result = generar_thumbnail_pil(ndvi_data, window_transform, geometria, output_png)
+    if result is None:
+        return "insufficient_data"
+    return "success"
 
-        if idx % LOG_INTERVAL == 0 or idx == total:
-            print(f"\n{idx}/{total} procesados")
-            print(f"  ✓ Exitosos: {stats['success']}")
-            print(f"  ⊘ Sin datos suficientes: {stats['insufficient_data']}")
-            print(f"  ⊘ Sin solapamiento: {stats['no_overlap']}")
-            print(f"  → Omitidos (ya existen): {stats['skipped']}")
-            print(f"  ✗ Errores: {stats['error']}")
 
-        if idx % 500 == 0:
-            gc.collect()
+def cargar_recintos(recinto_ids: list[int] | None) -> list[tuple[int, bytes]]:
+    session = Session()
+    try:
+        if recinto_ids:
+            rows = session.execute(
+                text(
+                    "SELECT id_recinto, geom FROM recintos "
+                    "WHERE id_recinto = ANY(:ids) ORDER BY id_recinto"
+                ),
+                {"ids": recinto_ids},
+            ).fetchall()
+        else:
+            rows = session.execute(
+                text(
+                    "SELECT id_recinto, geom FROM recintos "
+                    "WHERE id_recinto >= :start ORDER BY id_recinto"
+                ),
+                {"start": START_FROM_ID},
+            ).fetchall()
+    finally:
+        session.close()
 
-    print("\n" + "="*70)
-    print("✓ PROCESO TERMINADO")
-    print("="*70)
-    print(f"Total procesados: {total}")
-    print(f"Thumbnails generados: {stats['success']}")
-    print(f"Recintos sin datos NDVI válidos: {stats['insufficient_data'] + stats['no_overlap']}")
-    print(f"Ya existentes (omitidos): {stats['skipped']}")
-    print(f"Errores: {stats['error']}")
-    print(f"\n📁 Thumbnails guardados en: {OUTPUT_DIR}")
+    out: list[tuple[int, bytes]] = []
+    for id_recinto, geom in rows:
+        if isinstance(geom, memoryview):
+            geom = geom.tobytes()
+        elif isinstance(geom, str):
+            geom = bytes.fromhex(geom)
+        out.append((int(id_recinto), bytes(geom)))
+    return out
+
+
+def procesar_fecha(
+    fecha_str: str,
+    recintos: list[tuple[int, bytes]],
+    *,
+    skip_existing: bool,
+    workers: int,
+) -> dict[str, int]:
+    tif_path = resolve_ndvi_tif(fecha_str)
+    meta_path = NDVI_COMPOSITE_DIR / f"ndvi_pc_{fecha_str}_mosaic.json"
+
+    if tif_path is None:
+        print(f"  ✗ Sin raster NDVI para {fecha_str} en {NDVI_COMPOSITE_DIR}")
+        return {"error": 1}
+
+    fecha_out = fecha_desde_meta(meta_path, fecha_str)
+    output_dir = str(THUMBNAILS_BASE_DIR / fecha_out)
+    os.makedirs(output_dir, exist_ok=True)
+
+    print(f"\n{'─'*60}")
+    print(f"  Fecha NDVI: {fecha_out}  ←  {tif_path.name}")
+    print(f"  Salida:     {output_dir}")
+    print(f"  Workers:    {workers}")
+
+    t0 = time.perf_counter()
+
+    with rasterio.open(tif_path) as src:
+        data = src.read(1)
+        transform = src.transform
+        crs = src.crs.to_epsg()
+
+    shm = shared_memory.SharedMemory(create=True, size=data.nbytes)
+    shared = np.ndarray(data.shape, dtype=data.dtype, buffer=shm.buf)
+    np.copyto(shared, data)
+    del data
+
+    stats = {
+        "success": 0,
+        "skipped": 0,
+        "no_overlap": 0,
+        "insufficient_data": 0,
+        "error": 0,
+    }
+
+    transform_vals = (transform.a, transform.b, transform.c, transform.d, transform.e, transform.f)
+
+    try:
+        if workers <= 1:
+            _worker_init(
+                shm.name,
+                shared.shape,
+                str(shared.dtype),
+                transform_vals,
+                crs,
+                output_dir,
+                skip_existing,
+                4326,
+            )
+            for idx, item in enumerate(recintos, 1):
+                try:
+                    result = _worker_process(item)
+                    stats[result] = stats.get(result, 0) + 1
+                except Exception as e:
+                    print(f"  Error recinto {item[0]}: {e}")
+                    stats["error"] += 1
+                if idx % LOG_INTERVAL == 0 or idx == len(recintos):
+                    _log_progreso(idx, len(recintos), stats)
+        else:
+            with ProcessPoolExecutor(
+                max_workers=workers,
+                initializer=_worker_init,
+                initargs=(
+                    shm.name,
+                    shared.shape,
+                    str(shared.dtype),
+                    transform_vals,
+                    crs,
+                    output_dir,
+                    skip_existing,
+                    4326,
+                ),
+            ) as pool:
+                futures = {pool.submit(_worker_process, item): item[0] for item in recintos}
+                done = 0
+                for fut in as_completed(futures):
+                    done += 1
+                    rid = futures[fut]
+                    try:
+                        result = fut.result()
+                        stats[result] = stats.get(result, 0) + 1
+                    except Exception as e:
+                        print(f"  Error recinto {rid}: {e}")
+                        stats["error"] += 1
+                    if done % LOG_INTERVAL == 0 or done == len(recintos):
+                        _log_progreso(done, len(recintos), stats)
+    finally:
+        shm.close()
+        shm.unlink()
+        gc.collect()
+
+    elapsed = time.perf_counter() - t0
+    print(f"  ✓ {fecha_out} en {elapsed:.1f}s — generados: {stats['success']}, omitidos: {stats['skipped']}")
+    return stats
+
+
+def _log_progreso(done: int, total: int, stats: dict[str, int]) -> None:
+    print(
+        f"  … {done}/{total} | ok={stats['success']} "
+        f"sin_datos={stats['insufficient_data']} "
+        f"sin_solape={stats['no_overlap']} "
+        f"omitidos={stats['skipped']} err={stats['error']}"
+    )
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Genera thumbnails NDVI por fecha")
+    parser.add_argument(
+        "--fechas",
+        default=",".join(FECHAS_DEFECTO),
+        help="Fechas separadas por coma (YYYYMMDD o DD/MM/YYYY). "
+        f"Por defecto: {','.join(FECHAS_DEFECTO)}",
+    )
+    parser.add_argument(
+        "--recintos",
+        default="",
+        help="Solo estos id_recinto (coma). Vacío = todos.",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=max(1, (os.cpu_count() or 4) - 1),
+        help="Procesos en paralelo (por fecha)",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Regenerar aunque el PNG ya exista",
+    )
+    args = parser.parse_args()
+
+    try:
+        fechas = parse_fechas_list(args.fechas)
+    except ValueError as e:
+        print(f"✗ {e}")
+        return 1
+
+    recinto_ids: list[int] | None = None
+    if args.recintos.strip():
+        recinto_ids = [int(x.strip()) for x in args.recintos.split(",") if x.strip()]
+
+    recintos = cargar_recintos(recinto_ids)
+    if not recintos:
+        print("✗ No hay recintos que procesar")
+        return 1
+
+    print("=" * 70)
+    print("GENERADOR DE THUMBNAILS NDVI — MULTI-FECHA + PARALELO (PIL)")
+    print("=" * 70)
+    print(f"Fechas:   {', '.join(fechas)}")
+    print(f"Recintos: {len(recintos)}")
+    print(f"Workers:  {args.workers}")
+    print(f"Force:    {args.force}")
+
+    total_stats = {
+        "success": 0,
+        "skipped": 0,
+        "no_overlap": 0,
+        "insufficient_data": 0,
+        "error": 0,
+    }
+
+    t_global = time.perf_counter()
+    for fecha in fechas:
+        stats = procesar_fecha(
+            fecha,
+            recintos,
+            skip_existing=not args.force,
+            workers=args.workers,
+        )
+        for k, v in stats.items():
+            total_stats[k] = total_stats.get(k, 0) + v
+
+    print("\n" + "=" * 70)
+    print("PROCESO TERMINADO")
+    print("=" * 70)
+    print(f"Tiempo total: {time.perf_counter() - t_global:.1f}s")
+    print(f"Thumbnails generados: {total_stats['success']}")
+    print(f"Omitidos (ya existían): {total_stats['skipped']}")
+    print(f"Sin datos / sin solape: {total_stats['insufficient_data'] + total_stats['no_overlap']}")
+    print(f"Errores: {total_stats['error']}")
+    print(f"Carpeta base: {THUMBNAILS_BASE_DIR}")
+    return 0 if total_stats["error"] == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

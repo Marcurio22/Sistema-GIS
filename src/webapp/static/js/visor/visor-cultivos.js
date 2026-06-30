@@ -40,8 +40,60 @@ async function fetchJson(url, opts = {}, allow404 = false) {
     return data; // puede ser null si no hay JSON
 }
 
+function normCultivoNombre(s) {
+    return String(s || "")
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+}
+
+function estimarRendimientoKgHa(cultivo, tipoRegistro) {
+    const n = normCultivoNombre(cultivo);
+    if (!n) return null;
+    const isPlant = String(tipoRegistro || "").toUpperCase().includes("IMPL");
+    if (isPlant) {
+        if (/OLIVO|OLIVAR/.test(n)) return 3500;
+        if (/VINA|VID|UVA/.test(n)) return 8000;
+        if (/ALMENDRO|AVELLANO|NOGAL|PISTACHO/.test(n)) return 2000;
+        if (/MANZANO|PERAL|MELOCOTO|CEREZO|CIRUELO|FRUTALES?/.test(n)) return 25000;
+        if (/NARANJA|LIMON|MANDARINA|CITRICO/.test(n)) return 30000;
+        return null;
+    }
+    if (/TRIGO|CEBADA|CENTENO|TRITICALE|ESPELTA/.test(n)) return 3800;
+    if (/MAIZ/.test(n)) return 11000;
+    if (/GIRASOL|CARTAMO/.test(n)) return 2200;
+    if (/GARBANZO|LENTEJA|VEZA|GUISANTE|HABA|ALUBIA/.test(n)) return 1800;
+    if (/PATATA/.test(n)) return 35000;
+    if (/REMOLACHA/.test(n)) return 60000;
+    if (/COLZA|MOSTAZA|CAMELINA/.test(n)) return 2500;
+    if (/TOMATE|PIMIENTO|PEPINO/.test(n)) return 70000;
+    if (/ALFALFA|RAYGRASS|PRADERA|PASTOS/.test(n)) return 12000;
+    return 3000;
+}
+
+function previsionCosechaDesdeCultivo(cultivo, tipoRegistro, superficieHa, avanzado) {
+    const prev = avanzado?.prevision_cosecha;
+    if (prev?.kg_ha) {
+        const kgHa = Number(prev.kg_ha);
+        const kgTotal = prev.kg_total != null
+            ? Number(prev.kg_total)
+            : (superficieHa ? Math.round(kgHa * superficieHa) : null);
+        return { kg_ha: kgHa, kg_total: kgTotal };
+    }
+    const kgHa = estimarRendimientoKgHa(cultivo, tipoRegistro);
+    if (kgHa == null) return null;
+    return {
+        kg_ha: kgHa,
+        kg_total: superficieHa ? Math.round(kgHa * superficieHa) : null,
+    };
+}
+
+function formatKg(n) {
+    if (n == null || !Number.isFinite(Number(n))) return "—";
+    return Number(n).toLocaleString("es-ES", { maximumFractionDigits: 0 });
+}
+
 // Convierte fechas de inputs a ISO (YYYY-MM-DD).
-// Acepta: YYYY-MM-DD (input type="date"), DD/MM/YYYY y DD-MM-YYYY.
 function parseDateToISO(v) {
     if (!v) return null;
     const s = String(v).trim();
@@ -352,10 +404,11 @@ document.getElementById("btn-historico-cultivos")?.addEventListener("click", asy
         }
 
         try {
-            const [usos, productos, hist] = await Promise.all([
+            const [usos, productos, hist, sigpacResp] = await Promise.all([
                 loadUsosSigpac(),
                 loadProductosFega(),
-                fetchJson(`/api/mis-recinto/${currentSideRecintoId}/cultivos-historico`)
+                fetchJson(`/api/mis-recinto/${currentSideRecintoId}/cultivos-historico`),
+                fetchJson(`/api/mis-recinto/${currentSideRecintoId}/cultivos-sigpac`).catch(() => ({ items: [] }))
             ]);
 
             const usosMap = byCodigo(usos);
@@ -363,12 +416,30 @@ document.getElementById("btn-historico-cultivos")?.addEventListener("click", asy
 
             const arr = (Array.isArray(hist) ? hist : []).map(normalizeCultivoFromApi);
             const count = arr.length;
+            const sigpacItems = Array.isArray(sigpacResp?.items) ? sigpacResp.items : [];
+            const sigpacCount = sigpacItems.length;
 
             listEl.innerHTML = `
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-database text-primary"></i>
+                <span>Declaraciones SIGPAC</span>
+                <span class="badge bg-primary">${sigpacCount}</span>
+            </div>
+            <button id="btn-download-sigpac-csv"
+                class="btn btn-outline-primary btn-sm ms-auto"
+                ${sigpacCount ? "" : "disabled"}
+                type="button">
+                <i class="bi bi-download me-1"></i> CSV SIGPAC
+            </button>
+        </div>
+        <div id="sigpac-historico-cards" class="mt-2"></div>
+        <div class="side-divider"></div>
+
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
         <div class="d-flex align-items-center gap-2">
             <i class="bi bi-journal-check text-success"></i>
-            <span>Registro completo</span>
+            <span>Tu registro</span>
             <span class="badge bg-success">${count}</span>
         </div>
 
@@ -388,6 +459,80 @@ document.getElementById("btn-historico-cultivos")?.addEventListener("click", asy
         <div class="side-divider"></div>
         <div id="historico-cards"></div>
     `;
+
+            const sigpacEl = listEl.querySelector("#sigpac-historico-cards");
+
+            // Separar SIGPAC oficial de datos ITACYL
+            const sigpacOficial = sigpacItems.filter(s => s.fuente !== "ITACYL");
+            const itacylItems   = sigpacItems.filter(s => s.fuente === "ITACYL");
+
+            let sigpacHtml = "";
+            if (!sigpacOficial.length) {
+                sigpacHtml = `
+                    <div class="text-muted small">
+                        No hay declaraciones SIGPAC para este recinto en la base de datos.
+                        <span class="d-block mt-1 opacity-75">La campaña anterior requiere importar datos históricos del FEGA.</span>
+                    </div>`;
+            } else {
+                sigpacHtml = `
+                <div class="table-responsive historico-table-wrap">
+                <table class="table table-sm table-hover align-middle historico-table mb-0">
+                    <thead>
+                    <tr>
+                        <th>Campaña</th>
+                        <th>Cultivo</th>
+                        <th>Explotación</th>
+                        <th class="text-end">Superf. (ha)</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    ${sigpacOficial.map((s) => `
+                        <tr>
+                            <td>${safeText(s.campana)}</td>
+                            <td>${safeText(s.cultivo)}</td>
+                            <td>${safeText(s.sistexp || "—")}</td>
+                            <td class="text-end">${s.superficie_ha != null ? safeText(s.superficie_ha) : "—"}</td>
+                        </tr>
+                    `).join("")}
+                    </tbody>
+                </table>
+                </div>`;
+            }
+
+            // Sección ITACYL (uso del suelo histórico, años 2011-2025)
+            let itacylHtml = "";
+            if (itacylItems.length) {
+                itacylHtml = `
+                <div class="mt-3">
+                    <div class="fw-semibold small text-muted mb-1">
+                        <i class="bi bi-layers me-1"></i>Uso del suelo histórico (ITACYL)
+                    </div>
+                    <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0" style="font-size:.82rem">
+                        <thead class="table-light">
+                            <tr><th>Año</th><th>Cultivo / Uso</th></tr>
+                        </thead>
+                        <tbody>
+                        ${itacylItems.map((s) => `
+                            <tr>
+                                <td class="text-muted fw-semibold">${safeText(s.campana)}</td>
+                                <td>${safeText(s.cultivo || "—")}</td>
+                            </tr>
+                        `).join("")}
+                        </tbody>
+                    </table>
+                    </div>
+                </div>`;
+            }
+
+            sigpacEl.innerHTML = sigpacHtml + itacylHtml;
+
+            listEl.querySelector("#btn-download-sigpac-csv")?.addEventListener("click", () => {
+                const headers = ["campana", "cultivo", "sistexp", "superficie_ha", "parc_ayudasol", "tipo_aprovecha", "parc_producto"];
+                const rows = sigpacItems.map((s) => headers.map((h) => s[h] ?? ""));
+                const csv = rowsToCsv(headers, rows, ";");
+                downloadCsv(`cultivos_sigpac_recinto_${currentSideRecintoId || "NA"}.csv`, csv);
+            });
 
             // CSV disabled: gris + tooltip (el title no funciona en button disabled)
             const csvBtn = listEl.querySelector("#btn-download-cultivos-csv");
@@ -941,8 +1086,15 @@ function renderCultivoView(container, recintoId, cultivo, usos, productos) {
     const isCamp = String(cultivo.tipo_registro || "").toUpperCase().includes("CAMP");
 
     const inicio = isCamp ? cultivo.fecha_siembra : cultivo.fecha_implantacion;
-    const fin = cultivo.fecha_cosecha_real || cultivo.fecha_cosecha_estimada;
-
+    const finEsReal = !!cultivo.fecha_cosecha_real;
+    const finReal = cultivo.fecha_cosecha_real;
+    const nombreCultivo = cultivo.tipo_cultivo || cultivo.cultivo_custom || "";
+    const prevision = previsionCosechaDesdeCultivo(
+        nombreCultivo,
+        cultivo.tipo_registro,
+        parseFloat(cultivo.superficie_ha) || 0,
+        cultivo.avanzado
+    );
     const variedad = cultivo.variedad ? safeText(cultivo.variedad) : "N/A";
     const obs = cultivo.observaciones || "";
 
@@ -984,10 +1136,19 @@ function renderCultivoView(container, recintoId, cultivo, usos, productos) {
         <div class="k">Fecha inicio</div>
         <div class="v">${safeText(formatDateOnly(inicio))}</div>
     </div>
+    ${finEsReal ? `
     <div class="cultivo-field">
-        <div class="k">Fecha fin</div>
-        <div class="v">${safeText(formatDateOnly(fin))}</div>
-    </div>
+        <div class="k">Fecha de cosecha</div>
+        <div class="v">${safeText(formatDateOnly(finReal))}</div>
+    </div>` : ""}
+    ${prevision ? `
+    <div class="cultivo-field">
+        <div class="k">Previsión de cosecha</div>
+        <div class="v">
+          <strong>${formatKg(prevision.kg_ha)} kg/ha</strong>
+          ${prevision.kg_total ? `<div class="text-muted small mt-1">${formatKg(prevision.kg_total)} kg en total (estimado)</div>` : ""}
+        </div>
+    </div>` : ""}
     </div>
 
     ${hasAvanzado(cultivo.avanzado) ? `
@@ -1866,17 +2027,22 @@ function renderCultivoForm(container, args) {
             }
         }
 
-        // Si no hay fecha fin: estimación simple
-        let fechaCosechaEst = fechaFin;
+        // Previsión de cosecha en kg (no fecha automática)
         let cosechaAuto = false;
+        const nombreCult = selectedProd?.descripcion || cultivo_custom || "";
+        let supHa = 0;
+        try {
+            const recMeta = await fetchJson(`/api/mis-recinto/${recintoId}`, {}, true);
+            supHa = parseFloat(recMeta?.superficie_ha) || 0;
+        } catch (_) {}
 
-        if (!fechaFin) {
-            cosechaAuto = true;
-            const d = new Date(fechaInicio);
-            const deltaDays = (tipo_registro === "CAMPANA") ? 120 : 365;
-            d.setDate(d.getDate() + deltaDays);
-            fechaCosechaEst = d.toISOString().slice(0, 10);
-        }
+        const prevKgHa = estimarRendimientoKgHa(nombreCult, tipo_registro);
+        const previsionCosecha = prevKgHa != null ? {
+            kg_ha: prevKgHa,
+            kg_total: supHa ? Math.round(prevKgHa * supHa) : null,
+            auto: true,
+        } : null;
+        if (previsionCosecha) cosechaAuto = true;
 
         const observaciones = container.querySelector("#observaciones")?.value || null;
 
@@ -1902,7 +2068,9 @@ function renderCultivoForm(container, args) {
         } else {
             payload.fecha_implantacion = toISODate(fechaInicio);
         }
-        payload.fecha_cosecha_estimada = toISODate(fechaCosechaEst);
+        if (fechaFin) {
+            payload.fecha_cosecha_real = toISODate(fechaFin);
+        }
 
         // Construir Avanzado 
         const aAprove = pickObjFromSelect(advAprove);
@@ -1931,14 +2099,14 @@ function renderCultivoForm(container, args) {
             material_vegetal: materialVegetal,
             tipo_labor: aTipoLabor,
             procedencia_material_vegetal: aProcMv,
-            senp: aSenp
+            senp: aSenp,
+            prevision_cosecha: previsionCosecha,
         };
 
         // normaliza a null si está vacío
         function normalizeAvanzado(av) {
             if (!av || typeof av !== "object") return null;
 
-            // aplanado simple
             const vals = [
                 av.aprovechamiento, av.tipo_cobertura_suelo, av.destino_cultivo,
                 av.tipo_labor, av.procedencia_material_vegetal, av.senp
@@ -1947,8 +2115,9 @@ function renderCultivoForm(container, args) {
             const mv = av.material_vegetal;
             if (mv && (mv.tipo || mv.detalle)) vals.push(mv.tipo, mv.detalle);
 
-            const hasAny = vals.some(v => v && (v.codigo || v.label));
-            return hasAny ? av : null;
+            const hasPrevision = av.prevision_cosecha && av.prevision_cosecha.kg_ha;
+            const hasAny = vals.some(v => v && (v.codigo || v.label)) || hasPrevision;
+            return hasAny ? av : (hasPrevision ? { prevision_cosecha: av.prevision_cosecha } : null);
         }
 
         payload.avanzado = normalizeAvanzado(avanzadoRaw);

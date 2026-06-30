@@ -1,6 +1,9 @@
 # -*- coding: utf-8-sig -*-
 
 import os
+import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
@@ -8,6 +11,10 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from scipy.spatial import cKDTree
 import pyproj
+
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "src"))
+from project_paths import DATOS_SALIDA_DIR  # noqa: E402
 from webapp.config import Config
 
 engine  = create_engine(Config.SQLALCHEMY_DATABASE_URI)
@@ -34,7 +41,7 @@ POTENCIAS_IDW = {
 
 ESTACIONES_EXCLUIR = set()
 
-CARPETA_SALIDA = r"C:\datos\salida"
+CARPETA_SALIDA = str(DATOS_SALIDA_DIR)
 NOMBRE_SALIDA  = f"datoscultivospred{FECHA}.csv"
 
 

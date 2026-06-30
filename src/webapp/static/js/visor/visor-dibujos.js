@@ -125,7 +125,10 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   // Evento cuando se completa el dibujo
+  // NOTA: si window.modoSubparcelas es true, el evento pertenece a
+  // visor-subparcelas.js — no lo procesamos aquí para evitar duplicados.
   map.on(L.Draw.Event.CREATED, (e) => {
+    if (window.modoSubparcelas) return;
     const layer = e.layer;
     drawnItems.addLayer(layer);
     console.log('Forma dibujada:', layer);
@@ -420,15 +423,15 @@ async function cargarDibujosGuardados() {
           <div style="display: flex; gap: 8px; margin-bottom: 6px;">
             <div style="flex: 1; background: #f8f9fa; padding: 6px; border-radius: 6px; text-align: center;">
               <div style="font-size: 9px; color: #666; font-weight: 600;">MAX</div>
-              <div style="font-size: 14px; font-weight: 700; color: #198754;">${dibujo.ndvi_max?.toFixed(2) || '-'}</div>
+              <div style="font-size: 14px; font-weight: 700; color: #90bc05;">${dibujo.ndvi_max?.toFixed(2) || '-'}</div>
             </div>
             <div style="flex: 1; background: #f8f9fa; padding: 6px; border-radius: 6px; text-align: center;">
               <div style="font-size: 9px; color: #666; font-weight: 600;">MIN</div>
-              <div style="font-size: 14px; font-weight: 700; color: #198754;">${dibujo.ndvi_min?.toFixed(2) || '-'}</div>
+              <div style="font-size: 14px; font-weight: 700; color: #90bc05;">${dibujo.ndvi_min?.toFixed(2) || '-'}</div>
             </div>
             <div style="flex: 1; background: #f8f9fa; padding: 6px; border-radius: 6px; text-align: center;">
               <div style="font-size: 9px; color: #666; font-weight: 600;">MED</div>
-              <div style="font-size: 14px; font-weight: 700; color: #198754;">${dibujo.ndvi_medio?.toFixed(2) || '-'}</div>
+              <div style="font-size: 14px; font-weight: 700; color: #90bc05;">${dibujo.ndvi_medio?.toFixed(2) || '-'}</div>
             </div>
           </div>
           
@@ -789,7 +792,7 @@ window.eliminarDibujo = async function(id) {
       // ✅ NOTIFICACIÓN
       NotificationSystem.show({
         type: "success",
-        title: "Dibujo eliminado",
+        title: "Consulta eliminado",
         message: "El dibujo se eliminó correctamente"
       });
 

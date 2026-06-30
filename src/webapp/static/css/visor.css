@@ -18,7 +18,7 @@
     height: 48px;
     border-radius: 12px;
     border: none;
-    background-color: #198754;
+    background-color: #90bc05;
     color: #ffffff;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
     cursor: pointer;
@@ -48,7 +48,7 @@
 
   #map{
     position: fixed;
-    top: 65px;
+    top: var(--navbar-h, 65px);
     left: 0;
     right: 0;
     bottom: 0;
@@ -72,12 +72,12 @@
   }
 
   #basemap-panel-container {
-    top: 80px;
+    top: calc(var(--navbar-h, 65px) + 12px);
     right: 20px;
   }
 
   #filtro-container {
-    top: 150px;
+    top: calc(var(--navbar-h, 65px) + 82px);
     right: 20px;
   }
 
@@ -94,7 +94,7 @@
     height: 48px;
     border-radius: 12px;
     border: none;
-    background-color: #198754;
+    background-color: #90bc05;
     color: #ffffff;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
     cursor: pointer;
@@ -115,7 +115,7 @@
   #basemap-toggle:not(.active),
   #filtro-toggle:not(.active) {
     background-color: #ffffff;
-    color: #198754;
+    color: #90bc05;
   }
 
   #basemap-toggle:hover,
@@ -132,14 +132,14 @@
 
   #basemap-toggle.active,
   #filtro-toggle.active {
-    background-color: #198754;
+    background-color: #90bc05;
     color: #ffffff;
   }
 
   /* ---------- Panel ---------- */
   #basemap-panel {
     position: fixed;
-    top: 80px;
+    top: calc(var(--navbar-h, 65px) + 12px);
     right: 20px;
     width: 420px;
     max-height: 75vh;
@@ -230,14 +230,14 @@
   }
 
   .basemap-option.active .basemap-thumb {
-    border-color: #198754;
+    border-color: #90bc05;
     border-width: 5px;
     box-shadow: 0 0 0 4px rgba(25, 135, 84, .25), 0 10px 22px rgba(0, 0, 0, .30);
     transform: translateY(-2px) scale(1.02);
   }
 
   .basemap-option.active .basemap-option-label {
-    color: #198754;
+    color: #90bc05;
     font-weight: 700;
   }
 
@@ -245,6 +245,36 @@
     opacity: 0.45;
     cursor: default;
     pointer-events: none;
+  }
+
+  .basemap-option--plain {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    background: #fff;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.35;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .basemap-option--plain:hover {
+    background: #f8f9fa;
+    border-color: #90bc05;
+    transform: none;
+  }
+
+  .basemap-option--plain.active {
+    border-color: #90bc05;
+    background: rgba(144, 188, 5, 0.1);
+    color: #4d6602;
+    font-weight: 600;
+    box-shadow: inset 0 0 0 1px rgba(144, 188, 5, 0.35);
   }
 
   /* --------- Responsive: móviles / pantallas pequeñas ---------- */
@@ -393,16 +423,16 @@
 
   /* Tipos */
   .notification.success {
-    border-left-color: #198754;
+    border-left-color: #90bc05;
   }
 
   .notification.success .notification-icon {
     background: #d1f4e0;
-    color: #198754;
+    color: #90bc05;
   }
 
   .notification.success .notification-progress {
-    color: #198754;
+    color: #90bc05;
   }
 
   .notification.error {
@@ -542,7 +572,7 @@
 
 /* Ajuste correcto bajo la navbar SOLO en split */
   :root{
-    --navbar-h: 65px;      /* fallback seguro */
+    --navbar-h: 72px;      /* fallback seguro (navbar + logos) */
     --side-panel-w: 0px;
   }
 
@@ -664,7 +694,7 @@
     width: 44px;
     height: 40px;
     border-radius: 10px;
-    background: #198754;
+    background: #90bc05;
     color: #fff;
     border: 0;
     display: inline-flex;
@@ -698,7 +728,7 @@
     padding: 6px;
   }
 
-  .icon-btn.edit{ color: #198754; }
+  .icon-btn.edit{ color: #90bc05; }
   .icon-btn.delete{ color: #dc3545; }
 
   .side-divider{
@@ -719,7 +749,7 @@
 
   .side-ico{
     font-size: 22px;
-    color: #198754;
+    color: #90bc05;
     margin-top: 2px;
   }
 
@@ -788,6 +818,13 @@
 
 
   .side-section-head #btn-comparativa-ndvi{
+  grid-column: 1;
+  justify-self: start;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+.side-section-head .btn-contadores{
   grid-column: 1;
   justify-self: start;
   border-radius: 999px;
@@ -1186,6 +1223,33 @@
     display: none !important;
   }
 
+  /* Overlay OPEN (Subparcelas — modo dibujo) */
+  #side-panel.subparcelas-open .side-content{
+    overflow: hidden;
+  }
+  #side-panel.subparcelas-open .side-content > *:not(#subparcelas-overlay){
+    display: none !important;
+  }
+  #side-panel.subparcelas-open #subparcelas-overlay{
+    display: block !important;
+  }
+  #side-panel.subparcelas-open #side-close{
+    display: none !important;
+  }
+
+  /* Tarjeta de subparcela en el panel lateral */
+  .subparcela-card{
+    transition: box-shadow .15s ease, transform .15s ease, background-color .15s ease;
+  }
+  .subparcela-card:hover{
+    background-color: #eef6ef !important;
+  }
+  .subparcela-card.subparcela-card-activa{
+    background-color: #e7f3ea !important;
+    box-shadow: 0 0 0 2px #90bc05, 0 6px 16px rgba(25,135,84,.18);
+    transform: translateY(-1px);
+  }
+
   /* Tabla histórico Operaciones */
   #operaciones-historico-panel .historico-table-wrap{
     border: 1px solid rgba(0,0,0,.10);
@@ -1239,7 +1303,7 @@
   border-radius: 12px;
   border: none;
   background-color: #ffffff;
-  color: #198754;
+  color: #90bc05;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   cursor: pointer;
   display: flex;
@@ -1355,14 +1419,14 @@
 }
 
 .dibujo-item:hover {
-  border-color: #198754;
+  border-color: #90bc05;
   box-shadow: 0 2px 8px rgba(25, 135, 84, 0.15);
   transform: translateY(-1px);
 }
 
 /* Item activo (visible en el mapa) */
 .dibujo-item.active {
-  border-color: #198754;
+  border-color: #90bc05;
   border-width: 2px;
   padding: 9px; /* Compensar el borde extra */
   box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.15);
@@ -1412,7 +1476,7 @@
 .ndvi-value {
   font-size: 13px;
   font-weight: 700;
-  color: #198754;
+  color: #90bc05;
 }
 
 .dibujo-area {
@@ -1521,9 +1585,9 @@ body.split-mode #dibujos-panel-container {
 .dibujo-btn-toggle-all {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #198754;
+  border: 1px solid #90bc05;
   background: white;
-  color: #198754;
+  color: #90bc05;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
@@ -1536,7 +1600,7 @@ body.split-mode #dibujos-panel-container {
 }
 
 .dibujo-btn-toggle-all:hover {
-  background: #198754;
+  background: #90bc05;
   color: white;
 }
 
@@ -1721,7 +1785,7 @@ svg.leaflet-zoom-animated {
     left: 0;
     right: 0;
     width: 100vw;
-    height: 70vh;
+    height: 62vh;
     border-radius: 20px 20px 0 0;
     transform: translateY(100%);
     transition: transform 0.3s ease;
@@ -1746,7 +1810,7 @@ svg.leaflet-zoom-animated {
     z-index: 1001;
   }
 
-  /* Overlay oscuro cuando está abierto */
+  /* Overlay oscuro cuando está abierto (no durante división: bloquea toques en el mapa) */
   body.split-mode::after {
     content: "";
     position: fixed;
@@ -1757,6 +1821,88 @@ svg.leaflet-zoom-animated {
     background: rgba(0, 0, 0, 0.5);
     z-index: 949;
     animation: fadeInOverlay 0.3s ease;
+  }
+
+  body.split-mode.subparcelas-editing::after,
+  body.split-mode:has(#side-panel.subparcelas-open)::after {
+    display: none;
+  }
+
+  /* Durante trazado: ocultar panel por completo y fijar el mapa */
+  body.subparcelas-drawing {
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  /* El mapa tiene touch-action none durante el dibujo para que preventDefault funcione */
+  body.subparcelas-drawing #map {
+    touch-action: none;
+  }
+
+  body.subparcelas-drawing:not(.subparcelas-panel-visible) #side-panel {
+    display: none !important;
+    transform: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  body.subparcelas-editing:not(.subparcelas-panel-visible) #side-panel {
+    display: none !important;
+    transform: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+
+  body.subparcelas-drawing.subparcelas-panel-visible #side-panel,
+  body.subparcelas-editing.subparcelas-panel-visible #side-panel {
+    display: block !important;
+    transform: translateY(0) !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    height: 70vh;
+    max-height: 70vh;
+    overflow: hidden;
+  }
+
+  body.subparcelas-drawing.subparcelas-panel-visible #side-panel .side-content,
+  body.subparcelas-editing.subparcelas-panel-visible #side-panel .side-content {
+    height: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  body.subparcelas-editing #map {
+    bottom: 72px;
+    z-index: 600;
+  }
+
+  body.subparcelas-drawing #map {
+    bottom: 72px;
+    z-index: 600;
+  }
+
+  #subparcelas-mobile-draw-bar {
+    display: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2100;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(180deg, rgba(30, 45, 20, 0.94) 0%, rgba(18, 28, 12, 0.98) 100%);
+    color: #fff;
+    box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.35);
+  }
+
+  body.subparcelas-editing #subparcelas-mobile-draw-bar,
+  body.subparcelas-drawing #subparcelas-mobile-draw-bar {
+    display: block;
+  }
+
+  body.split-mode #side-panel.subparcelas-open {
+    height: 70vh;
+    max-height: 70vh;
   }
 
   @keyframes fadeInOverlay {
@@ -1841,13 +1987,13 @@ svg.leaflet-zoom-animated {
 /* Hover effect para checkboxes de suelos */
     .soil-checkbox-label:hover {
       background: #f8f9fa !important;
-      border-color: #198754 !important;
+      border-color: #90bc05 !important;
       transform: translateX(3px);
     }
     
     /* Borde verde para la última capa activada */
     .soil-checkbox-label.active-layer {
-      border-color: #198754 !important;
+      border-color: #90bc05 !important;
       border-width: 2px !important;
       background: #f0f9f4 !important;
     }
@@ -1855,6 +2001,81 @@ svg.leaflet-zoom-animated {
     /* Animación del chevron en details */
     details[open] summary i.bi-chevron-down {
       transform: rotate(180deg);
+    }
+
+    .chduero-subpanel[open] > summary .bi-chevron-down,
+    .chduero-panel[open] > summary .bi-chevron-down {
+      transform: rotate(180deg);
+    }
+
+    .chduero-checkbox-label:hover {
+      background: #f0f7fc !important;
+      border-color: #1565c0 !important;
+      transform: translateX(3px);
+    }
+
+    .chduero-checkbox-label.active-layer {
+      border-color: #1565c0 !important;
+      border-width: 2px !important;
+      background: #e3f2fd !important;
+    }
+
+    .leaflet-popup.chduero-popup .leaflet-popup-content-wrapper {
+      max-width: min(420px, 92vw);
+    }
+
+    .leaflet-popup.chduero-popup .leaflet-popup-content {
+      margin: 10px 14px;
+      max-height: min(360px, 55vh);
+      overflow-y: auto;
+      overflow-x: hidden;
+      width: auto !important;
+    }
+
+    .chduero-gfi-html {
+      font-size: 0.9rem;
+      max-width: 100%;
+    }
+
+    .chduero-gfi-content {
+      max-width: 100%;
+      overflow-x: auto;
+      color: #212529;
+    }
+
+    .chduero-gfi-content table {
+      width: 100%;
+      max-width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      table-layout: fixed;
+    }
+
+    .chduero-gfi-content th,
+    .chduero-gfi-content td {
+      padding: 4px 6px;
+      vertical-align: top;
+      border-bottom: 1px solid #e0e0e0;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .chduero-gfi-content caption {
+      font-weight: 700;
+      color: #212529;
+      margin-bottom: 6px;
+      text-align: left;
+    }
+
+    .chduero-gfi-content a,
+    .chduero-gfi-content td,
+    .chduero-gfi-content th,
+    .chduero-gfi-content span,
+    .chduero-gfi-content font {
+      color: #212529 !important;
+      text-decoration: none !important;
+      cursor: default;
+      pointer-events: none;
     }
     
     /* Estilo del scrollbar para el contenedor de leyendas si es muy largo */
@@ -1883,7 +2104,7 @@ svg.leaflet-zoom-animated {
 
 
 .resalte-activo {
-  outline: 2px solid #198754;
+  outline: 2px solid #90bc05;
   outline-offset: 2px;
   box-shadow: 0 0 5px rgba(25, 135, 84, 0.3);
   border-radius: 8px;

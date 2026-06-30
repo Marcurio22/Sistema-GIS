@@ -43,3 +43,4 @@ dependencies:
       - dash
       - python-dotenv
       - waitress
+      - ruff

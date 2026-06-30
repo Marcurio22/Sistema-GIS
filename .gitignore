@@ -302,6 +302,12 @@ src/webapp/static/thumbnails/*
 
 Prediccion/modelosPred/*
 
+# Predicción — temporales de la DLL (generarmodelos.py / predecir.py)
+Prediccion/_tmp_ent.dat
+Prediccion/_tmp_sal.txt
+Prediccion/**/_tmp_ent.dat
+Prediccion/**/_tmp_sal.txt
+
 # ===============================
 # End of file
 # ===============================

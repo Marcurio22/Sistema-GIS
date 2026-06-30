@@ -20,7 +20,7 @@
 /* Animación de la Gota SVG */
 .water-drop {
     width: 60px;
-    fill: #198754; /* Verde success de Bootstrap */
+    fill: #90bc05; /* Verde success de Bootstrap */
     filter: drop-shadow(0 5px 5px rgba(0,0,0,0.1));
     animation: drop-fall 2s infinite ease-in;
 }
@@ -41,7 +41,7 @@
     /* Tamaño mucho más grande */
     font-size: 3.5rem; 
     font-weight: 800; /* Extra Bold */
-    color: #198754;
+    color: #90bc05;
     
     /* Estilo adicional */
     letter-spacing: -1.5px; /* Junta un poco las letras para estilo moderno */

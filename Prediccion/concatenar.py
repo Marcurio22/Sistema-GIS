@@ -1,11 +1,18 @@
-import pandas as pd
 import os
+import sys
+from pathlib import Path
 
-CARPETA = r"C:\datos\salida"
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+from project_paths import DATOS_SALIDA_DIR  # noqa: E402
+
+CARPETA = str(DATOS_SALIDA_DIR)
 
 fechas = [
     "2025-01-15",
-    "2025-03-15", 
+    "2025-03-15",
     "2025-06-15",
     "2025-09-15",
     "2025-11-15",
@@ -15,7 +22,7 @@ dfs = []
 for f in fechas:
     ruta = os.path.join(CARPETA, f"datoscultivospred{f}.csv")
     df = pd.read_csv(ruta)
-    df["fecha"] = f  # para saber de qué fecha viene cada fila
+    df["fecha"] = f
     dfs.append(df)
     print(f"✅ {f}: {len(df):,} filas")
 

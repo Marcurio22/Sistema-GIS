@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Cultivos - Admin{% endblock %}
+
+{% block content %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="mb-3">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button
+                            type="button"
+                            class="btn-close"
+                            data-bs-dismiss="alert"
+                            aria-label="Close">
+                        </button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>Gestión de Cultivos</h1>
+
+        <button
+            type="button"
+            class="btn btn-primary"
+            data-bs-toggle="modal"
+            data-bs-target="#modalNuevoCultivo">
+            Nuevo cultivo
+        </button>
+    </div>
+
+    <table id="tablaCultivos" class="table table-hover table-bordered align-middle">
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th width="80">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cultivo in productos_fega %}
+                <tr>
+                    <td>{{ cultivo.codigo }}</td>
+                    <td>{{ cultivo.descripcion }}</td>
+                    <td class="text-center">
+
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-outline-danger btn-eliminar"
+                            data-codigo="{{ cultivo.codigo }}"
+                            data-descripcion="{{ cultivo.descripcion }}"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalEliminarCultivo"
+                            title="Eliminar cultivo">
+                            🗑️
+                        </button>
+
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Modal Crear Cultivo -->
+    <div
+        class="modal fade"
+        id="modalNuevoCultivo"
+        tabindex="-1"
+        aria-labelledby="modalNuevoCultivoLabel"
+        aria-hidden="true">
+
+        <div class="modal-dialog">
+            <div class="modal-content">
+
+                <form method="post" action="{{ url_for('admin.crear_cultivo') }}">
+
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalNuevoCultivoLabel">
+                            Nuevo cultivo
+                        </h5>
+
+                        <button
+                            type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal">
+                        </button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="nombreCultivo" class="form-label">
+                                Nombre del cultivo
+                            </label>
+
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="nombreCultivo"
+                                name="nombre"
+                                maxlength="200"
+                                required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="variedadCultivo" class="form-label">
+                                Variedad (opcional)
+                            </label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="variedadCultivo"
+                                name="variedad"
+                                maxlength="200">
+                            <div class="form-text">Si la indicas, se creará vinculada a este cultivo.</div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button
+                            type="button"
+                            class="btn btn-secondary"
+                            data-bs-dismiss="modal">
+                            Cancelar
+                        </button>
+
+                        <button
+                            type="submit"
+                            class="btn btn-primary">
+                            Crear
+                        </button>
+                    </div>
+
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Eliminar Cultivo -->
+    <div
+        class="modal fade"
+        id="modalEliminarCultivo"
+        tabindex="-1"
+        aria-labelledby="modalEliminarCultivoLabel"
+        aria-hidden="true">
+
+        <div class="modal-dialog">
+            <div class="modal-content">
+
+                <form id="formEliminarCultivo" method="post">
+
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalEliminarCultivoLabel">
+                            Confirmar eliminación
+                        </h5>
+
+                        <button
+                            type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal">
+                        </button>
+                    </div>
+
+                    <div class="modal-body">
+                        <p>
+                            ¿Seguro que deseas eliminar el cultivo
+                            <strong id="nombreCultivoEliminar"></strong>?
+                        </p>
+
+                        <p class="text-danger mb-0">
+                            Esta acción no se puede deshacer.
+                        </p>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button
+                            type="button"
+                            class="btn btn-secondary"
+                            data-bs-dismiss="modal">
+                            Cancelar
+                        </button>
+
+                        <button
+                            type="submit"
+                            class="btn btn-danger">
+                            Eliminar
+                        </button>
+                    </div>
+
+                </form>
+
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function () {
+
+    $('#tablaCultivos').DataTable({
+        pageLength: 25,
+        responsive: true,
+        language: {
+            url: '/static/js/vendor/es-ES.json'
+        },
+        columnDefs: [
+            {
+                targets: 2,
+                orderable: false,
+                searchable: false
+            }
+        ]
+    });
+
+    $('.btn-eliminar').on('click', function () {
+
+        const codigo = $(this).data('codigo');
+        const descripcion = $(this).data('descripcion');
+
+        $('#nombreCultivoEliminar').text(descripcion);
+
+        $('#formEliminarCultivo').attr(
+            'action',
+            "{{ url_for('admin.eliminar_cultivo', codigo=0) }}".replace('0', codigo)
+        );
+    });
+
+});
+</script>
+{% endblock %}

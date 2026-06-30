@@ -81,6 +81,12 @@
 
     // ── Click botón ETP ─────────────────────────────────────────────────────
     btnEtp.addEventListener("click", async function () {
+      if (etpActivo) {
+        btnEtp.classList.remove("active");
+        desactivarEtp();
+        return;
+      }
+
       document.querySelectorAll(".basemap-option.basemap-main")
         .forEach(el => el.classList.remove("active"));
       btnEtp.classList.add("active");
@@ -273,7 +279,7 @@
       #etp-fecha-label {
         display: none;
         margin-left: auto;
-        background: #198754;
+        background: #90bc05;
         color: white;
         border-radius: 4px;
         padding: 1px 7px;
@@ -317,7 +323,7 @@
       }
       .etp-cal-day.disponible:hover { background: #a3d4ad; }
       .etp-cal-day.seleccionado {
-        background: #198754 !important;
+        background: #90bc05 !important;
         color: white !important;
       }
       .etp-cal-day.no-disponible {

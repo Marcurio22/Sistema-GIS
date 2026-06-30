@@ -2,6 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
+import warnings
+from pathlib import Path
+
 import requests
 from requests.auth import HTTPBasicAuth
 import numpy as np
@@ -14,7 +18,11 @@ import pyproj
 import rasterio
 from rasterio.transform import from_origin
 from datetime import datetime
-import warnings
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+from project_paths import GEOSERVER_MAPAS_DIR  # noqa: E402
+
 warnings.filterwarnings("ignore")
 
 try:
@@ -53,7 +61,7 @@ Y_MAX = 42.9877607660000010
 
 MARGEN_GRADOS = 0.5
 GUARDAR_DISTANCIAS = False
-CARPETA_SALIDA = "C:\\ProgramData\\GeoServer\\data\\mapascontinuos"
+CARPETA_SALIDA = str(GEOSERVER_MAPAS_DIR)
 
 REPROYECTAR = False
 RESOLUCION_M = 5000
@@ -87,6 +95,7 @@ def conectar_bd():
 # ────────────────────────────────────────────────────────────────────────────
 
 # ── CAMBIO: obtener_datos usa session.execute(text(...)) ─────────────────────
+# ── CAMBIO: obtener_datos usa session.execute(text(...)) ─────────────────────
 def obtener_datos(session, variable, fecha):
     query = text(f"""
         SELECT ST_X(e.geom) AS lon, ST_Y(e.geom) AS lat, d.{variable} AS valor
@@ -100,15 +109,27 @@ def obtener_datos(session, variable, fecha):
         if not filas:
             print(f"⚠️ No se encontraron datos para '{variable}' en {fecha}.")
             return None
+
         datos = np.array([(f[0], f[1], f[2]) for f in filas],
                          dtype=[('lon', float), ('lat', float), ('valor', float)])
+
+        # ── Excluir estaciones sin dato real (valor == 0) ─────────────────
+        n_antes = len(datos)
+        datos = datos[datos['valor'] != 0]
+        n_excluidas = n_antes - len(datos)
+        if n_excluidas > 0:
+            print(f"⚠️  {n_excluidas} estación(es) excluida(s) por valor 0.")
+
+        if len(datos) == 0:
+            print(f"⚠️ No quedan estaciones con datos válidos (todas eran NULL o 0) para '{variable}' en {fecha}.")
+            return None
+
         print(f"✅ {len(datos)} estaciones con datos válidos.")
         return datos
     except Exception as e:
         print(f"❌ Error en la consulta: {e}")
         return None
 # ────────────────────────────────────────────────────────────────────────────
-
 def reproyectar_a_utm(datos, epsg_origen=4326, epsg_destino=32630):
     transformer = pyproj.Transformer.from_crs(epsg_origen, epsg_destino, always_xy=True)
     x_utm, y_utm = transformer.transform(datos['lon'], datos['lat'])

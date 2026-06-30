@@ -90,6 +90,15 @@ const NotificationSystem = {
 // setNavbarHeightVar
 // -----------------------------------------
 function setNavbarHeightVar() {
+  const header = document.querySelector('.app-top-header');
+  if (header) {
+    const h = Math.round(header.getBoundingClientRect().bottom);
+    if (h >= 40 && h <= 160) {
+      document.documentElement.style.setProperty('--navbar-h', `${h}px`);
+      return;
+    }
+  }
+
   const candidates = [
     'nav.navbar.fixed-top',
     'nav.navbar.sticky-top',
@@ -119,13 +128,18 @@ function setNavbarHeightVar() {
     h = Math.round(rect.bottom);
   }
 
-  if (h < 40 || h > 120) h = 65;
+  if (h < 40 || h > 160) h = 65;
   document.documentElement.style.setProperty('--navbar-h', `${h}px`);
 }
 
-// Calcular al cargar y recalcular en resize
+// Calcular al cargar y recalcular en resize / cuando carguen imágenes del header
 setNavbarHeightVar();
 window.addEventListener("resize", setNavbarHeightVar);
+window.addEventListener("load", setNavbarHeightVar);
+document.querySelectorAll(".app-top-header img").forEach((img) => {
+  if (img.complete) return;
+  img.addEventListener("load", setNavbarHeightVar, { once: true });
+});
 
 // -----------------------------------------
 // AppConfirm

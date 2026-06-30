@@ -55,7 +55,7 @@
             {% if recintos %}
             <div class="alert alert-info">
                 <strong>Total:</strong> {{ recintos|length }} recintos |
-                <strong>Superficie:</strong> {{ "%.2f"|format(recintos|sum(attribute='superficie_ha')) }} ha
+                <strong>Superficie:</strong> {{ "%.2f"|format(total_superficie_geom|default(0, true)) }} ha
             </div>
 
             <!-- Botones de exportación y comparación -->
@@ -93,7 +93,8 @@
                             <th>Nombre</th>
                             <th>Provincia</th>
                             <th>Municipio</th>
-                            <th>SIGPAC</th>
+                            <th>Polígono</th>
+                            <th>Parcela</th>
                             <th>Superficie (ha)</th>
                             <th>Estado</th>
                             <th>Acciones</th>
@@ -103,8 +104,9 @@
                         {% for recinto in recintos %}
                         <tr data-nombre="{{ recinto.nombre }}" data-provincia="{{ recinto.nombre_provincia }}"
                             data-municipio="{{ recinto.nombre_municipio }}"
-                            data-sigpac="{{ recinto.provincia }}-{{ recinto.municipio }}-{{ recinto.poligono }}-{{ recinto.parcela }}"
-                            data-superficie="{{ '%.2f'|format(recinto.superficie_ha) }}"
+                            data-poligono="{{ recinto.poligono }}" 
+                            data-parcela="{{ recinto.parcela }}"
+                            data-superficie="{{ '%.2f'|format(recinto.superficie_ha_geom|default(recinto.superficie_ha, true)) }}"
                             data-estado="{{ 'Activa' if recinto.activa else 'Inactiva' }}"
                             data-recinto-id="{{ recinto.id_recinto }}">
                             <td class="col-seleccion d-none text-center align-middle">
@@ -113,11 +115,11 @@
                                     data-nombre="{{ recinto.nombre }}">
                             </td>
                             <td><strong>{{ recinto.nombre }}</strong></td>
-                            <td>{{ recinto.nombre_provincia }}</td>
-                            <td>{{ recinto.nombre_municipio }}</td>
-                            <td><code class="text-nowrap">{{ recinto.provincia }}-{{ recinto.municipio }}-{{ recinto.poligono }}-{{ recinto.parcela }}</code>
-                            </td>
-                            <td>{{ "%.2f"|format(recinto.superficie_ha) }}</td>
+                            <td>{{ recinto.nombre_provincia }} ({{ recinto.provincia }})</td>
+                            <td>{{ recinto.nombre_municipio }} ({{ recinto.municipio }})</td>
+                            <td class="text-end">{{ recinto.poligono }}</td>
+                            <td class="text-end">{{ recinto.parcela }}</td>
+                            <td class="text-end">{{ "%.2f"|format(recinto.superficie_ha_geom|default(recinto.superficie_ha, true)) }}</td>
                             <td>
                                 {% if recinto.activa %}
                                 <span class="badge bg-success">Activa</span>
@@ -192,7 +194,7 @@
                                             <div class="alert alert-info mb-0">
                                                 <small>
                                                     <i class="bi bi-info-circle"></i>
-                                                    <strong>Superficie:</strong> {{ "%.2f"|format(recinto.superficie_ha)
+                                                    <strong>Superficie:</strong> {{ "%.2f"|format(recinto.superficie_ha_geom|default(recinto.superficie_ha, true))
                                                     }} ha
                                                 </small>
                                             </div>

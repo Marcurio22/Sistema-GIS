@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Cuaderno de campo{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="row mb-3">
+        <div class="col d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <h1 class="mb-0 h3">
+                <i class="bi bi-journal-bookmark text-success me-2"></i>Cuaderno de campo
+            </h1>
+            <a href="{{ url_for('dashboard.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Volver
+            </a>
+        </div>
+    </div>
+
+    {% if not items %}
+    <div class="alert alert-info">
+        No tienes cultivos activos registrados. <a href="{{ url_for('dashboard.plan_cultivo') }}" class="alert-link">Ir al plan de cultivo</a> para añadir uno.
+    </div>
+    {% else %}
+    <div class="row g-3">
+        {% for c in items %}
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body d-flex flex-column gap-2 p-3">
+
+                    {# — Cabecera recinto — #}
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div class="min-w-0">
+                            <h2 class="h6 mb-0 text-truncate fw-bold" title="{{ c.recinto_nombre }}">
+                                {{ c.recinto_nombre }}
+                            </h2>
+                            <div class="text-muted small">Pol. {{ c.poligono }} · Parc. {{ c.parcela }} · Rec. {{ c.recinto_num }} · {{ c.superficie_ha }} ha</div>
+                        </div>
+                        {% if c.estado == 'activo' %}
+                            <span class="badge bg-success flex-shrink-0">Activo</span>
+                        {% elif c.estado == 'planificado' %}
+                            <span class="badge bg-warning text-dark flex-shrink-0">Planificado</span>
+                        {% elif c.estado %}
+                            <span class="badge bg-secondary flex-shrink-0">{{ c.estado | capitalize }}</span>
+                        {% endif %}
+                    </div>
+
+                    {# — Cultivo — #}
+                    <div class="bg-light rounded px-3 py-2 small">
+                        <div class="fw-semibold text-success">
+                            <i class="bi bi-flower1 me-1"></i>{{ c.cultivo }}
+                            {% if c.variedad %}
+                            <span class="fw-normal text-muted"> · {{ c.variedad }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mt-1 text-muted">
+                            {% if c.fecha_inicio %}
+                            <span><i class="bi bi-calendar-event me-1"></i>Inicio: {{ c.fecha_inicio }}</span>
+                            {% endif %}
+                            {% if c.prevision_kg_ha %}
+                            <span class="w-100">
+                                <i class="bi bi-box-seam me-1"></i>Previsión cosecha:
+                                <strong>{{ "{:,.0f}".format(c.prevision_kg_ha).replace(",", ".") }} kg/ha</strong>
+                                {% if c.prevision_kg_total %}
+                                <span class="text-muted">({{ "{:,.0f}".format(c.prevision_kg_total).replace(",", ".") }} kg total)</span>
+                                {% endif %}
+                            </span>
+                            {% elif c.fin_es_real and c.fecha_fin %}
+                            <span><i class="bi bi-check-circle text-success me-1"></i>Cosecha: {{ c.fecha_fin }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {# — Operaciones recientes — #}
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold small text-muted mb-1">
+                            <i class="bi bi-list-task me-1"></i>Últimas operaciones
+                        </div>
+                        {% if c.operaciones %}
+                        <div class="d-flex flex-column gap-1">
+                            {% for op in c.operaciones %}
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-{{ op.badge }} flex-shrink-0" style="font-size:0.7rem">{{ op.tipo_label }}</span>
+                                <span class="text-muted small">{{ op.fecha }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-muted small fst-italic">Sin operaciones recientes.</div>
+                        {% endif %}
+                    </div>
+
+                    {# — Acciones — #}
+                    <div class="d-flex gap-2 mt-auto pt-2 border-top">
+                        <a href="{{ url_for('dashboard.visor', recinto_id=c.id_recinto, panel='operaciones', op='nueva') }}"
+                           class="btn btn-success btn-sm flex-fill">
+                            <i class="bi bi-plus-lg me-1"></i>Añadir operación
+                        </a>
+                        <a href="{{ url_for('dashboard.visor', recinto_id=c.id_recinto) }}"
+                           class="btn btn-outline-secondary btn-sm flex-shrink-0" title="Ver en el mapa">
+                            <i class="bi bi-map"></i>
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

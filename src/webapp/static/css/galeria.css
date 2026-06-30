@@ -313,7 +313,7 @@
 }
 
 .galeria-ver-mas:hover {
-  border-color: #198754;
+  border-color: #90bc05;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
@@ -330,7 +330,7 @@
   font-weight: 600;
   line-height: 1;
   margin-bottom: 8px;
-  color: #198754;
+  color: #90bc05;
 }
 
 .ver-mas p {
@@ -342,7 +342,7 @@
 }
 
 .galeria-ver-mas:hover .ver-mas {
-  color: #198754;
+  color: #90bc05;
 }
 
 .galeria-ver-mas:hover .ver-mas span {

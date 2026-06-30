@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+
+{% block title %}Contadores{% endblock %}
+
+{% block main_class %}container py-4{% endblock %}
+
+{% block content %}
+
+{# Mensajes flash #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="mb-3">
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div id="flash-container" class="mb-3"></div>
+
+<div class="row mb-4 align-items-center">
+    <div class="col">
+        <h2 class="fw-bold mb-0">
+            <i class="bi bi-speedometer2 me-2 text-success"></i>Contadores
+        </h2>
+        <p class="text-muted small mb-0">Todas las lecturas registradas en tus recintos</p>
+    </div>
+    <div class="col-auto d-flex gap-2">
+        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalContadorPage">
+            <i class="bi bi-camera-fill me-1"></i>Nueva lectura
+        </button>
+        <a href="{{ url_for('dashboard.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Volver
+        </a>
+    </div>
+</div>
+
+{% if contadores %}
+<div class="card shadow-sm border-0 bg-transparent">
+    <div class="card-body p-0 pt-3 bg-transparent">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="tabla-contadores">
+                <thead class="table-success">
+                    <tr>
+                        <th style="width:80px;">Foto</th>
+                        <th>Fecha</th>
+                        <th>Título</th>
+                        <th>Lectura</th>
+                        <th>Recinto</th>
+                        <th>Polígono / Parcela</th>
+                        <th>Provincia / Municipio</th>
+                        <th class="text-center">GPS</th>
+                        <th style="width:50px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in contadores %}
+                    <tr data-id="{{ c.id }}">
+                        <td>
+                            {% if c.ruta_thumb %}
+                            <img src="{{ c.ruta_thumb }}"
+                                 alt="{{ c.titulo }}"
+                                 class="rounded"
+                                 style="width:64px; height:48px; object-fit:cover; cursor:pointer;"
+                                 data-bs-toggle="modal"
+                                 data-bs-target="#modalFotoContador"
+                                 data-src="{{ c.ruta_imagen }}"
+                                 data-titulo="{{ c.titulo }}"
+                                 data-lectura="{{ c.lectura or '' }}">
+                            {% else %}
+                            <div class="bg-light rounded d-flex align-items-center justify-content-center"
+                                 style="width:64px; height:48px;">
+                                <i class="bi bi-image text-muted"></i>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td class="text-nowrap small">
+                            {{ c.fecha_creacion.strftime('%d/%m/%Y') }}<br>
+                            <span class="text-muted">{{ c.fecha_creacion.strftime('%H:%M') }}</span>
+                        </td>
+                        <td>
+                            <span class="fw-semibold">{{ c.titulo }}</span>
+                            {% if c.descripcion %}
+                            <br><small class="text-muted">{{ c.descripcion }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if c.lectura %}
+                            <span class="badge bg-success fs-6">{{ c.lectura }} m³</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if c.recinto %}
+                            <a href="{{ url_for('dashboard.visor', recinto_id=c.id_recinto) }}"
+                               class="text-decoration-none text-success fw-semibold">
+                                {{ c.recinto.nombre or 'Sin nombre' }}
+                            </a>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-nowrap small">
+                            {{ c.poligono or '—' }} / {{ c.parcela or '—' }}
+                        </td>
+                        <td class="small">
+                            {% if c.recinto %}
+                                {{ c.recinto.provincia }} - {{ c.recinto.nombre_provincia }}<br>
+                                <span class="text-muted">{{ c.recinto.municipio }} - {{ c.recinto.nombre_municipio }}</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if c.geom %}
+                            <i class="bi bi-geo-alt-fill text-success" title="{{ c.geom }}"></i>
+                            {% else %}
+                            <i class="bi bi-geo-alt text-muted"></i>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-outline-danger btn-sm btn-borrar-contador"
+                                    data-id="{{ c.id }}"
+                                    title="Eliminar">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="card shadow-sm border-0">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-speedometer2 text-muted" style="font-size:3rem; opacity:0.3;"></i>
+        <h5 class="mt-3 text-muted">No hay lecturas registradas</h5>
+        <p class="text-muted small">Pulsa <strong>Nueva lectura</strong> para tomar una foto con GPS o accede al visor.</p>
+        <button type="button" class="btn btn-success mt-2 me-2" data-bs-toggle="modal" data-bs-target="#modalContadorPage">
+            <i class="bi bi-camera-fill me-1"></i>Nueva lectura
+        </button>
+        <a href="{{ url_for('dashboard.visor') }}" class="btn btn-outline-success mt-2">
+            <i class="bi bi-map me-1"></i>Ir al visor
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal nueva lectura (foto + GPS → recinto automático) -->
+<div class="modal fade" id="modalContadorPage" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="form-contador-page" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-camera me-2"></i>Nueva lectura de contador</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="contador-page-modal-alert" class="alert d-none small mb-3" role="alert"></div>
+                    <div id="contador-page-recinto" class="alert alert-secondary d-none small mb-3"></div>
+                    <small class="mb-2 d-block" id="contador-page-gps-status"></small>
+
+                    <div class="mb-3">
+                        <label for="contador-page-file" class="form-label">Foto del contador</label>
+                        <input class="form-control" type="file" id="contador-page-file" accept="image/*" capture="environment" required>
+                        <small class="text-muted d-block mt-1" id="contador-page-archivo">Se detectará el recinto por GPS al tomar la foto</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contador-page-titulo" class="form-label">Título</label>
+                        <input type="text" class="form-control" id="contador-page-titulo" placeholder="Ej: Contador riego norte" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contador-page-lectura" class="form-label">Lectura</label>
+                        <input type="text" class="form-control" id="contador-page-lectura" placeholder="Ej: 12345.6">
+                    </div>
+                    <div class="mb-3">
+                        <label for="contador-page-descripcion" class="form-label">Notas (opcional)</label>
+                        <textarea class="form-control" id="contador-page-descripcion" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Guardar lectura</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal foto ampliada -->
+<div class="modal fade" id="modalFotoContador" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalFotoTitulo"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center p-2">
+                <img id="modalFotoImg" src="" alt="" class="img-fluid rounded">
+                <p id="modalFotoLectura" class="mt-2 fw-bold text-success fs-5 mb-0"></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal confirmar borrado -->
+<div class="modal fade" id="modalConfirmarBorrar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>¿Eliminar lectura?
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center text-muted small">
+                Se eliminará la foto y todos los datos de esta lectura. Esta acción no se puede deshacer.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger btn-sm" id="btn-confirmar-borrar">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    function mostrarFlash(categoria, mensaje) {
+        const contenedor = document.getElementById('flash-container');
+        const div = document.createElement('div');
+        div.className = `alert alert-${categoria} alert-dismissible fade show`;
+        div.setAttribute('role', 'alert');
+        div.innerHTML = `${mensaje}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+        contenedor.appendChild(div);
+        setTimeout(() => {
+            div.classList.remove('show');
+            setTimeout(() => div.remove(), 300);
+        }, 4000);
+    }
+    window.mostrarFlashContador = mostrarFlash;
+
+    // ── DataTable ────────────────────────────────────────────────────
+    if (typeof $.fn.DataTable !== 'undefined') {
+        $('#tabla-contadores').DataTable({
+            language: { url: '/static/js/vendor/es-ES.json' },
+            order: [[1, 'desc']],
+            columnDefs: [
+                { orderable: false, targets: [0, 7, 8] },
+                { searchable: false, targets: [0, 7, 8] }
+            ]
+        });
+    }
+
+    // ── Modal foto ampliada ──────────────────────────────────────────
+    const modalFoto = document.getElementById('modalFotoContador');
+    if (modalFoto) {
+        modalFoto.addEventListener('show.bs.modal', (e) => {
+            const btn = e.relatedTarget;
+            document.getElementById('modalFotoTitulo').textContent = btn.dataset.titulo;
+            document.getElementById('modalFotoImg').src = btn.dataset.src;
+            const lectura = btn.dataset.lectura;
+            const lecturaEl = document.getElementById('modalFotoLectura');
+            lecturaEl.textContent = lectura || '';
+            lecturaEl.style.display = lectura ? 'block' : 'none';
+        });
+    }
+
+    // ── Borrar contador ──────────────────────────────────────────────
+    let idPendienteBorrar = null;
+    const modalBorrar = new bootstrap.Modal(document.getElementById('modalConfirmarBorrar'));
+
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-borrar-contador');
+        if (!btn) return;
+        idPendienteBorrar = btn.dataset.id;
+        modalBorrar.show();
+    });
+
+    document.getElementById('btn-confirmar-borrar').addEventListener('click', async () => {
+        if (!idPendienteBorrar) return;
+
+        const btnConfirmar = document.getElementById('btn-confirmar-borrar');
+        btnConfirmar.disabled = true;
+        btnConfirmar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Eliminando...';
+
+        try {
+            const res = await fetch(`/contadores/eliminar/${idPendienteBorrar}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error();
+
+            if (typeof $.fn.DataTable !== 'undefined') {
+                const table = $('#tabla-contadores').DataTable();
+                const fila = document.querySelector(`tr[data-id="${idPendienteBorrar}"]`);
+                if (fila) table.row(fila).remove().draw();
+            } else {
+                document.querySelector(`tr[data-id="${idPendienteBorrar}"]`)?.remove();
+            }
+
+            modalBorrar.hide();
+            mostrarFlash('success', '<i class="bi bi-check-circle me-1"></i>Lectura eliminada correctamente.');
+
+        } catch {
+            modalBorrar.hide();
+            mostrarFlash('danger', '<i class="bi bi-x-circle me-1"></i>No se pudo eliminar. Inténtalo de nuevo.');
+        } finally {
+            btnConfirmar.disabled = false;
+            btnConfirmar.innerHTML = 'Eliminar';
+            idPendienteBorrar = null;
+        }
+    });
+});
+</script>
+<script src="{{ url_for('static', filename='js/contadores-page.js') }}"></script>
+{% endblock %}

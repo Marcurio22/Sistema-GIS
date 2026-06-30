@@ -2,6 +2,9 @@
 # EL BUENO SE SUPONE, AUNQUE SEA EL COPY
 
 import os
+import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
@@ -15,6 +18,10 @@ from shapely import wkt as shapely_wkt
 from shapely.ops import transform as shapely_transform
 from shapely.geometry import box as shapely_box
 from webapp.config import Config
+
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+from project_paths import DATOS_SALIDA_DIR, ndvi_mosaic_mas_reciente  # noqa: E402
 
 engine  = create_engine(Config.SQLALCHEMY_DATABASE_URI)
 Session = sessionmaker(bind=engine)
@@ -62,8 +69,14 @@ UMBRALES_ALERTA = {
 
 ESTACIONES_EXCLUIR = set()
 
-RASTER_NDVI    = r"C:\Users\Instalador\Documents\Sistema-GIS-main\data\processed\ndvi_composite\ndvi_pc_20260301_mosaic_utm.tif"
-CARPETA_SALIDA = r"C:\datos\salida"
+_ndvi_path = os.getenv("NDVI_MOSAIC_PATH", "").strip()
+if _ndvi_path:
+    RASTER_NDVI = _ndvi_path
+else:
+    _ndvi_auto = ndvi_mosaic_mas_reciente()
+    RASTER_NDVI = str(_ndvi_auto) if _ndvi_auto else ""
+
+CARPETA_SALIDA = str(DATOS_SALIDA_DIR)
 NOMBRE_SALIDA  = f"datoscultivos222final_{FECHA}.csv"
 
 

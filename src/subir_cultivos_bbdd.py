@@ -1,3 +1,7 @@
+import os
+import sys
+from pathlib import Path
+
 import pandas as pd
 # ── CAMBIO: sustituido psycopg2 por SQLAlchemy ──────────────────────────────
 from sqlalchemy import create_engine, text
@@ -61,5 +65,9 @@ def importar_variedades(ruta_csv):
     print(f"\n✓ {insertados} variedades insertadas")
 
 
-# Ejecutar
-importar_variedades('C:\\Users\\Instalador\\Downloads\\variedades.csv')
+if __name__ == "__main__":
+    ruta = os.getenv(
+        "VARIEDADES_CSV",
+        str(Path(__file__).resolve().parents[1] / "data" / "variedades.csv"),
+    )
+    importar_variedades(ruta)

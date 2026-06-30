@@ -75,7 +75,7 @@
   padding: 20px;
   background-color: #f8f9fa;
   border-radius: 8px;
-  border: 2px solid #198754;
+  border: 2px solid #90bc05;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -92,7 +92,7 @@
   margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
-  color: #198754;
+  color: #90bc05;
 }
 
 .btn-cerrar-imagenes {

@@ -10,6 +10,27 @@ from ..dashboard.utils_dashboard import municipios_finder
 from ..models import Variedad
 
 
+def superficie_geom_por_recinto(ids) -> dict[int, float]:
+    """
+    Devuelve {id_recinto: hectáreas geométricas} calculadas sobre la geometría
+    real (public.recintos.geom) con geography. Es la superficie "del mapa", la
+    misma base con la que se recortan/validan las subparcelas, de modo que
+    cuadra con la suma de subparcelas. Puede diferir de la declarada (SIGPAC).
+    """
+    ids = list(ids or [])
+    if not ids:
+        return {}
+    rows = db.session.execute(
+        text("""
+            SELECT id_recinto, ST_Area(geography(geom)) / 10000.0 AS ha
+            FROM public.recintos
+            WHERE id_recinto = ANY(:ids)
+        """),
+        {"ids": ids},
+    ).mappings().all()
+    return {int(r["id_recinto"]): float(r["ha"]) for r in rows if r["ha"] is not None}
+
+
 def recintos_geojson(bbox_str: str | None) -> dict:
     """
     Devuelve un FeatureCollection GeoJSON con los recintos obtenidos desde
@@ -87,7 +108,8 @@ def mis_recintos_geojson(bbox: str | None, user_id: int):
             r.provincia, r.municipio, r.agregado, r.zona,
             r.poligono, r.parcela, r.recinto,
             COALESCE(u.username, 'N/A') AS propietario,
-            ST_AsGeoJSON(r.geom)::json AS geom_json
+            ST_AsGeoJSON(r.geom)::json AS geom_json,
+            ST_Area(geography(r.geom)) / 10000.0 AS superficie_ha
         FROM public.recintos r
         LEFT JOIN public.usuarios u ON u.id_usuario = r.id_propietario
         WHERE r.id_propietario = :uid
@@ -125,6 +147,7 @@ def mis_recintos_geojson(bbox: str | None, user_id: int):
                 "parcela": r["parcela"],
                 "recinto": r["recinto"],
                 "propietario": r["propietario"],
+                "superficie_ha": round(float(r["superficie_ha"]), 4) if r["superficie_ha"] is not None else None,
             },
         })
 
@@ -148,6 +171,7 @@ def mis_recinto_detalle(id_recinto: int, user_id: int) -> dict:
             r.poligono, r.parcela, r.recinto,
             COALESCE(u.username, 'N/A') AS propietario,
             ST_AsGeoJSON(r.geom)::json AS geom_json,
+            ST_Area(geography(r.geom)) / 10000.0 AS superficie_geom,
             ST_Y(ST_Centroid(r.geom)) AS centroid_lat,
             ST_X(ST_Centroid(r.geom)) AS centroid_lng
         FROM public.recintos r
@@ -163,6 +187,11 @@ def mis_recinto_detalle(id_recinto: int, user_id: int) -> dict:
 
     nombre_provincia = municipios_finder.obtener_nombre_provincia(row["provincia"])
     nombre_municipio = municipios_finder.obtener_nombre_municipio(row["provincia"], row["municipio"])
+    # Superficie geométrica (mapa); si no hay geom, cae a la declarada.
+    superficie_geom = (
+        float(row["superficie_geom"]) if row["superficie_geom"] is not None
+        else (float(row["superficie_ha"]) if row["superficie_ha"] is not None else None)
+    )
     return {
         "id": row["id_recinto"],
         "provincia": row["provincia"],
@@ -175,7 +204,8 @@ def mis_recinto_detalle(id_recinto: int, user_id: int) -> dict:
         "parcela": row["parcela"],
         "recinto": row["recinto"],
         "nombre": row["nombre"],
-        "superficie_ha": float(row["superficie_ha"]) if row["superficie_ha"] is not None else None,
+        "superficie_ha": round(superficie_geom, 4) if superficie_geom is not None else None,
+        "superficie_sigpac": float(row["superficie_ha"]) if row["superficie_ha"] is not None else None,
         "fecha_creacion": row["fecha_creacion"].isoformat() if row["fecha_creacion"] else None,
         "activa": bool(row["activa"]) if row["activa"] is not None else True,
         "propietario": row["propietario"],

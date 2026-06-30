@@ -13,6 +13,7 @@ from xml.etree import ElementTree as ET
 from pathlib import Path
 from flask_login import login_required, current_user
 import requests
+import re as _re_api
 
 from sqlalchemy import text, and_, func
 import matplotlib
@@ -25,14 +26,15 @@ from rasterio.mask import mask as rio_mask
 from decimal import Decimal
 from geoalchemy2.shape import from_shape, to_shape
 import os
+import uuid
 
-
+from PIL import Image
 import numpy as np
 import rasterio
 from rasterio.warp import transform_geom
 
 from .. import db
-from ..models import ImagenDibujada, IndicesRaster, Recinto, Solicitudrecinto, Variedad, Estacion, DatosDiarios
+from ..models import ImagenDibujada, IndicesRaster, Recinto, Solicitudrecinto, Variedad, Estacion, DatosDiarios, Recinto, Contador
 from ..dashboard.utils_dashboard import municipios_finder
 from ..utils.legend_loader import load_legend_from_csv
 
@@ -241,14 +243,7 @@ def editar_nombre_recinto(recinto_id):
 @api_bp.get("/visor-start-view")
 @login_required
 def visor_start_view():
-    """Devuelve la vista inicial recomendada del visor para el usuario actual.
-
-    - Solo para usuarios normales.
-    - Para admins/superadmins devuelve nulls (no altera el comportamiento actual).
-    """
-    if getattr(current_user, "rol", None) in {"admin", "superadmin"}:
-        return jsonify({"municipio_top": None, "center": None, "bbox": None})
-
+    """Devuelve la vista inicial recomendada del visor para el usuario actual."""
     data = visor_start_view_usuario(current_user.id_usuario)
     if not data:
         return jsonify({"municipio_top": None, "center": None, "bbox": None})
@@ -597,6 +592,251 @@ def popup_suelos():
         traceback.print_exc()
         return jsonify({'ok': False, 'found': False, 'error': str(e)})
 
+
+def _parse_geoserver_features_response(response: requests.Response) -> list[dict]:
+    try:
+        if response.status_code != 200:
+            return []
+        text = (response.text or "").strip()
+        if not text or text.startswith("<?xml") or text.startswith("<"):
+            return []
+        data = response.json()
+        if isinstance(data, dict):
+            return data.get("features") or []
+        return []
+    except Exception:
+        return []
+
+
+def _pick_best_feature(features: list[dict], lat: float, lng: float) -> dict | None:
+    if not features:
+        return None
+    if len(features) == 1:
+        return features[0]
+
+    from shapely.geometry import Point
+
+    pt = Point(lng, lat)
+    best = None
+    best_dist = float("inf")
+
+    for feature in features:
+        geom_data = feature.get("geometry")
+        if not geom_data:
+            continue
+        try:
+            geom = shape(geom_data)
+            if geom.contains(pt) or geom.touches(pt) or geom.intersects(pt.buffer(0.00005)):
+                return feature
+            dist = geom.distance(pt)
+            if dist < best_dist:
+                best_dist = dist
+                best = feature
+        except Exception:
+            continue
+
+    return best or features[0]
+
+
+def _mirame_layer_name(local_layer: str) -> str:
+    """Capa publicada localmente gis_project:X → origen remoto mirame:X."""
+    if ":" in local_layer:
+        return "mirame:" + local_layer.split(":", 1)[1]
+    return "mirame:" + local_layer
+
+
+def _sanitize_chduero_gfi_html(html: str) -> str:
+    """
+    El HTML de GetFeatureInfo suele traer enlaces al GeoServer local (store en cascada).
+    Quitamos los <a> del contenido y dejamos un enlace único al visor oficial de Mírame.
+    """
+    import re
+
+    out = re.sub(r"<a\b[^>]*>(.*?)</a>", r"\1", html, flags=re.IGNORECASE | re.DOTALL)
+    out = re.sub(r"<a\b[^>]*>", "", out, flags=re.IGNORECASE)
+    out = re.sub(r"</a>", "", out, flags=re.IGNORECASE)
+    out = re.sub(r"\s+onclick\s*=\s*([\"']).*?\1", "", out, flags=re.IGNORECASE)
+    return out
+
+
+def _parse_gfi_response(response: requests.Response, lat: float, lng: float) -> dict | None:
+    if response.status_code != 200:
+        return None
+    text = (response.text or "").strip()
+    if not text:
+        return None
+
+    head = text[:400].lower()
+    if text.startswith("<?xml") or "serviceexception" in head:
+        return None
+
+    content_type = (response.headers.get("Content-Type") or "").lower()
+
+    if text.startswith("{"):
+        features = _parse_geoserver_features_response(response)
+        picked = _pick_best_feature(features, lat, lng)
+        if picked:
+            return picked
+        return None
+
+    no_feat_markers = (
+        "no features were found",
+        "search returned no results",
+        "sin información",
+        "no information",
+    )
+    if any(m in head for m in no_feat_markers):
+        return None
+
+    if (
+        "html" in content_type
+        or "<table" in head
+        or "<tr" in head
+        or "<body" in head
+        or "<!doctype" in head
+    ):
+        return {"properties": {"_gfi_html": _sanitize_chduero_gfi_html(text)}, "geometry": None}
+
+    return None
+
+
+def _wms_getfeatureinfo(
+    wms_url: str,
+    layer: str,
+    lat: float,
+    lng: float,
+    auth: tuple[str, str] | None,
+    *,
+    width: int = 101,
+    height: int = 101,
+    x: int = 50,
+    y: int = 50,
+    bbox: str | None = None,
+    info_format: str = "application/json",
+    srs: str = "EPSG:4326",
+) -> requests.Response:
+    if bbox is None:
+        delta = 0.002
+        bbox = f"{lng - delta},{lat - delta},{lng + delta},{lat + delta}"
+    params = {
+        "SERVICE": "WMS",
+        "VERSION": "1.1.1",
+        "REQUEST": "GetFeatureInfo",
+        "LAYERS": layer,
+        "QUERY_LAYERS": layer,
+        "INFO_FORMAT": info_format,
+        "FEATURE_COUNT": 10,
+        "SRS": srs,
+        "WIDTH": width,
+        "HEIGHT": height,
+        "X": x,
+        "Y": y,
+        "BBOX": bbox,
+    }
+    return requests.get(wms_url, params=params, timeout=12, auth=auth)
+
+
+def _chduero_feature_at_point(
+    local_wms: str,
+    mirame_wms: str,
+    layer: str,
+    lat: float,
+    lng: float,
+    auth: tuple[str, str] | None,
+    *,
+    width: int | None = None,
+    height: int | None = None,
+    x: int | None = None,
+    y: int | None = None,
+    bbox: str | None = None,
+) -> dict | None:
+    """
+    Capas CH Duero vía store WMS en cascada (Mírame).
+    GetFeatureInfo text/html — primero Mírame directo (sin auth local).
+    """
+    mirame_layer = _mirame_layer_name(layer)
+    attempts: list[tuple] = []
+
+    if width and height and x is not None and y is not None and bbox:
+        attempts.append((mirame_wms, mirame_layer, None, width, height, x, y, bbox))
+        attempts.append((local_wms, layer, auth, width, height, x, y, bbox))
+
+    for delta in (0.003, 0.015, 0.05):
+        pt_bbox = f"{lng - delta},{lat - delta},{lng + delta},{lat + delta}"
+        attempts.append((mirame_wms, mirame_layer, None, 101, 101, 50, 50, pt_bbox))
+        attempts.append((local_wms, layer, auth, 101, 101, 50, 50, pt_bbox))
+
+    for wms_url, lyr, req_auth, w, h, xi, yi, bb in attempts:
+        try:
+            resp = _wms_getfeatureinfo(
+                wms_url, lyr, lat, lng, req_auth,
+                width=w, height=h, x=xi, y=yi, bbox=bb,
+                info_format="text/html",
+            )
+            feat = _parse_gfi_response(resp, lat, lng)
+            if feat:
+                return feat
+        except Exception as exc:
+            print(f"[CH-DUERO] GFI error {lyr}: {exc}")
+
+    return None
+
+
+@api_bp.route('/popup/chduero')
+@login_required
+def popup_chduero():
+    """GetFeatureInfo WMS para capas CH Duero (store en cascada Mírame)."""
+    try:
+        layer = (request.args.get('layer') or '').strip()
+        lat = request.args.get('lat', type=float)
+        lng = request.args.get('lng', type=float)
+        bbox = (request.args.get('bbox') or '').strip() or None
+        width = request.args.get('width', type=int)
+        height = request.args.get('height', type=int)
+        x = request.args.get('x', type=int)
+        y = request.args.get('y', type=int)
+
+        if not layer or lat is None or lng is None:
+            return jsonify({'ok': False, 'found': False, 'error': 'Parámetros incompletos'})
+
+        cfg = current_app.config
+        auth = None
+        if cfg.get("GEOSERVER_USER") and cfg.get("GEOSERVER_PASSWORD"):
+            auth = (cfg["GEOSERVER_USER"], cfg["GEOSERVER_PASSWORD"])
+
+        feature = _chduero_feature_at_point(
+            cfg["GEOSERVER_WMS_URL"],
+            cfg.get("CHDUERO_MIRAME_WMS_URL", "https://mirame.chduero.es/geoserver/mirame/wms"),
+            layer,
+            lat,
+            lng,
+            auth,
+            width=width,
+            height=height,
+            x=x,
+            y=y,
+            bbox=bbox,
+        )
+
+        if not feature:
+            print(f"[CH-DUERO] Sin GetFeatureInfo para {layer} en ({lat}, {lng})")
+            return jsonify({'ok': True, 'found': False})
+
+        return jsonify({
+            'ok': True,
+            'found': True,
+            'feature': {
+                'properties': feature.get('properties', {}),
+                'geometry': feature.get('geometry'),
+            },
+        })
+
+    except Exception as e:
+        print(f"❌ Error en popup_chduero: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'ok': False, 'found': False, 'error': str(e)})
+
 # Catálogos para el frontend
 
 @api_bp.get("/catalogos/usos-sigpac")
@@ -779,6 +1019,136 @@ def api_get_cultivos_historico(recinto_id: int):
         out.append(cultivo_dict)
 
     return jsonify(out)
+
+@api_bp.get("/mis-recinto/<int:recinto_id>/cultivos-sigpac")
+@login_required
+def api_get_cultivos_sigpac(recinto_id: int):
+    """Declaraciones SIGPAC vinculadas al recinto (campaña actual y tablas históricas si existen)."""
+    recinto = Recinto.query.filter_by(
+        id_recinto=recinto_id,
+        id_propietario=current_user.id_usuario,
+    ).first()
+    if not recinto:
+        return jsonify({"ok": False, "error": "Recinto no encontrado"}), 404
+
+    # NOTA: "cultivo_declarado2" era una tabla alternativa/duplicada creada por scripts de descarga.
+    # Para evitar confusión en UI, no la listamos aquí.
+    fuentes = [
+        ("sigpac.cultivo_declarado", "Campaña en curso"),
+        ("sigpac.cultivo_declarado_anterior", "Campaña anterior"),
+    ]
+
+    params = {
+        "prov": recinto.provincia,
+        "mun": recinto.municipio,
+        "agr": recinto.agregado or 0,
+        "zon": recinto.zona or 0,
+        "pol": recinto.poligono,
+        "par": recinto.parcela,
+        "rec": recinto.recinto,
+    }
+
+    out = []
+    for tabla, campana_label in fuentes:
+        schema, name = tabla.split(".", 1)
+        existe = db.session.execute(
+            text("""
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = :schema AND table_name = :name
+            """),
+            {"schema": schema, "name": name},
+        ).scalar()
+        if not existe:
+            continue
+
+        sql = text(f"""
+            SELECT
+                c.parc_producto,
+                COALESCE(pf.descripcion, c.parc_producto::text) AS cultivo,
+                c.parc_sistexp,
+                ROUND((c.parc_supcult / 10000.0)::numeric, 4) AS superficie_ha,
+                c.parc_ayudasol,
+                c.tipo_aprovecha,
+                c.cultsecun_producto,
+                c.pdr_rec
+            FROM {schema}.{name} c
+            LEFT JOIN public.productos_fega pf ON pf.codigo = c.parc_producto
+            WHERE c.provincia = :prov
+              AND c.municipio = :mun
+              AND COALESCE(c.agregado, 0) = COALESCE(:agr, 0)
+              AND COALESCE(c.zona, 0) = COALESCE(:zon, 0)
+              AND c.poligono = :pol
+              AND c.parcela = :par
+              AND c.recinto = :rec
+        """)
+        rows = db.session.execute(sql, params).mappings().all()
+        for row in rows:
+            item = {k: _jsonable(v) for k, v in dict(row).items()}
+            item["campana"] = campana_label
+            item["sistexp"] = (
+                "Regadío" if str(item.get("parc_sistexp") or "").strip() == "R" else "Secano"
+            )
+            out.append(item)
+
+    # ── Historial ITACYL (cultivo_historico_itacyl) ───────────────────────────
+    tiene_itacyl = db.session.execute(text("""
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'cultivo_historico_itacyl'
+    """)).scalar()
+
+    if tiene_itacyl:
+        _leyendas_mcsn: dict[int, dict[str, str]] = {}
+
+        def _label_mcsncyl(anio: int, codigo) -> str | None:
+            if codigo is None or str(codigo).strip() == "":
+                return None
+            if anio not in _leyendas_mcsn:
+                try:
+                    base = Path(__file__).resolve().parents[1]
+                    csv_path = base / "static" / "csv" / "legends" / f"mcsncyl_{anio}.csv"
+                    payload = load_legend_from_csv(str(csv_path))
+                    _leyendas_mcsn[anio] = {
+                        str(it["code"]): it["label"] for it in payload.get("items", [])
+                    }
+                except Exception:
+                    _leyendas_mcsn[anio] = {}
+            return _leyendas_mcsn[anio].get(str(codigo).strip())
+
+        itacyl_rows = db.session.execute(text("""
+            SELECT h.año, h.uso_codigo, h.uso_descripcion
+            FROM public.cultivo_historico_itacyl h
+            WHERE h.id_recinto = :rid
+            ORDER BY h.año DESC
+        """), {"rid": recinto_id}).mappings().all()
+
+        def _itacyl_desc(s):
+            if not s:
+                return s
+            try:
+                s = s.encode("latin-1").decode("utf-8")
+            except Exception:
+                pass
+            s = _re_api.sub(r'\s*[\(\[]\s*(Regad[íio]|Secano|Riego|Irrigado)\s*[\)\]]', '', s, flags=_re_api.IGNORECASE)
+            s = _re_api.sub(r'\s+(regad[íio]|secano)\s*$', '', s.strip(), flags=_re_api.IGNORECASE)
+            return s.strip()
+
+        for row in itacyl_rows:
+            anio = int(row["año"])
+            desc = _itacyl_desc(row["uso_descripcion"])
+            if not desc:
+                desc = _label_mcsncyl(anio, row["uso_codigo"])
+            if not desc:
+                continue
+            out.append({
+                "cultivo":       desc,
+                "uso_codigo":    row["uso_codigo"],
+                "campana":       str(anio),
+                "fuente":        "ITACYL",
+                "sistexp":       None,
+                "superficie_ha": None,
+            })
+
+    return jsonify({"ok": True, "items": out})
 
 @api_bp.post("/mis-recinto/<int:recinto_id>/cultivo-historico")
 @login_required
@@ -1061,14 +1431,14 @@ def guardar_dibujos():
         dibujos = data.get('dibujos', [])
         
         if not dibujos:
-            return jsonify({'error': 'No se recibieron dibujos'}), 400
+            return jsonify({'error': 'No se recibieron consultas'}), 400
         
         # Límite de dibujos por usuario
         MAX_DIBUJOS = 10
         dibujos_existentes = ImagenDibujada.query.filter_by(id_usuario=current_user.id_usuario).count()
         
         if dibujos_existentes >= MAX_DIBUJOS:
-            return jsonify({'error': f'Has alcanzado el límite de {MAX_DIBUJOS} dibujos permitidos'}), 400
+            return jsonify({'error': f'Has alcanzado el límite de {MAX_DIBUJOS} consultas permitidos'}), 400
         
         # Solo guardar hasta llegar al límite
         espacio_disponible = MAX_DIBUJOS - dibujos_existentes
@@ -1106,12 +1476,12 @@ def guardar_dibujos():
         return jsonify({
             'success': True,
             'guardados': guardados,
-            'message': f'Se guardaron {guardados} dibujos correctamente'
+            'message': f'Se guardaron {guardados} consultas correctamente'
         }), 200
         
     except Exception as e:
         db.session.rollback()
-        print(f"Error al guardar dibujos: {str(e)}")
+        print(f"Error al guardar consultas: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 
@@ -1683,3 +2053,404 @@ def etp_fechas():
         return jsonify({"ok": True, "fechas": sorted(set(fechas))})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+    
+
+
+import json as _json
+
+
+def _recinto_propio_o_404(recinto_id: int):
+    """Devuelve el Recinto si pertenece al usuario actual, o None."""
+    return Recinto.query.filter_by(
+        id_recinto=recinto_id,
+        id_propietario=current_user.id_usuario
+    ).first()
+
+
+@api_bp.get("/mis-recinto/<int:recinto_id>/subparcelas")
+@login_required
+def api_listar_subparcelas(recinto_id: int):
+    try:
+        recinto = _recinto_propio_o_404(recinto_id)
+        if not recinto:
+            return jsonify({"error": "Recinto no encontrado"}), 404
+
+        rows = db.session.execute(
+            text("""
+                SELECT
+                    s.id_subparcela,
+                    s.id_recinto,
+                    s.nombre,
+                    s.superficie_ha,
+                    s.cod_producto,
+                    pf.descripcion  AS cultivo_descripcion,
+                    ST_AsGeoJSON(s.geom) AS geom_json
+                FROM public.subparcelas s
+                LEFT JOIN public.productos_fega pf ON pf.codigo = s.cod_producto
+                WHERE s.id_recinto = :rid
+                ORDER BY s.id_subparcela
+            """),
+            {"rid": recinto_id}
+        ).mappings().all()
+
+        out = []
+        for r in rows:
+            d = {k: _jsonable(v) for k, v in dict(r).items()}
+            d["geom"] = _json.loads(d.pop("geom_json"))
+            out.append(d)
+
+        return jsonify(out)
+    except Exception:
+        current_app.logger.exception("Error en GET /api/mis-recinto/<id>/subparcelas")
+        return jsonify({"error": "Error interno en /api/mis-recinto/<id>/subparcelas"}), 500
+
+
+@api_bp.post("/mis-recinto/<int:recinto_id>/subparcelas")
+@login_required
+def api_crear_subparcelas(recinto_id: int):
+    """
+    Recibe un FeatureCollection con los polígonos dibujados por el usuario
+    y REEMPLAZA todas las subparcelas existentes del recinto por las nuevas
+    (operación atómica: borra todo y reinserda).
+
+    Body esperado:
+    {
+      "features": [
+        { "type": "Feature",
+          "geometry": { "type": "Polygon", "coordinates": [...] },
+          "properties": { "nombre": "Subparcela 1" } },
+        ...
+      ]
+    }
+    """
+    data = request.get_json(silent=True) or {}
+    features = data.get("features") or []
+
+    if not isinstance(features, list) or len(features) == 0:
+        return jsonify({"ok": False, "error": "No se han recibido subparcelas"}), 400
+
+    try:
+        recinto = _recinto_propio_o_404(recinto_id)
+        if not recinto:
+            return jsonify({"ok": False, "error": "Recinto no encontrado"}), 404
+
+        validadas = []
+
+        for i, feat in enumerate(features, start=1):
+            geometry = feat.get("geometry") if isinstance(feat, dict) else None
+            if not geometry:
+                return jsonify({"ok": False, "error": f"Subparcela {i}: geometría ausente"}), 400
+
+            try:
+                geom_shapely = shape(geometry)
+            except Exception:
+                return jsonify({"ok": False, "error": f"Subparcela {i}: geometría inválida"}), 400
+
+            if geom_shapely.is_empty or not geom_shapely.is_valid:
+                # Intentar reparar geometría inválida (artefactos de turf.js)
+                geom_shapely = geom_shapely.buffer(0)
+                if geom_shapely.is_empty or not geom_shapely.is_valid:
+                    return jsonify({"ok": False, "error": f"Subparcela {i}: polígono inválido"}), 400
+
+            # Si llegó un MultiPolygon (turf edge-case), usar la parte más grande
+            if geom_shapely.geom_type == "MultiPolygon":
+                from shapely.geometry import mapping as _shp_mapping
+                geom_shapely = max(geom_shapely.geoms, key=lambda g: g.area)
+                geometry = _shp_mapping(geom_shapely)
+
+            if geom_shapely.geom_type != "Polygon":
+                return jsonify({"ok": False, "error": f"Subparcela {i}: debe ser un polígono simple"}), 400
+
+            # Verificar que está dentro del recinto.
+            # Tolerancia ~10 m para absorber artefactos de corte turf.js.
+            # Se expande el RECINTO (no la subparcela) para que bordes compartidos pasen.
+            row = db.session.execute(
+                text("""
+                    SELECT
+                        ST_CoveredBy(
+                            ST_GeomFromGeoJSON(:geom),
+                            ST_Buffer(r.geom, 0.0001)
+                        ) AS dentro,
+                        ST_Area(geography(ST_GeomFromGeoJSON(:geom))) / 10000.0 AS ha
+                    FROM public.recintos r
+                    WHERE r.id_recinto = :rid
+                """),
+                {"geom": _json.dumps(geometry), "rid": recinto_id}
+            ).mappings().first()
+
+            if not row or not row["dentro"]:
+                return jsonify({"ok": False, "error": f"Subparcela {i} se sale de los límites del recinto"}), 400
+
+            # Verificar que no se solapa con las ya validadas en esta petición
+            for otra in validadas:
+                if geom_shapely.intersection(otra["geom_shapely"]).area > 1e-10:
+                    return jsonify({"ok": False, "error": "Hay subparcelas que se solapan entre sí"}), 400
+
+            nombre = None
+            if isinstance(feat.get("properties"), dict):
+                nombre = (feat["properties"].get("nombre") or "").strip() or None
+
+            validadas.append({
+                "geom_shapely": geom_shapely,
+                "nombre": nombre or f"Subparcela {i}",
+                "superficie_ha": round(float(row["ha"]), 2),
+            })
+
+        # Operación atómica: borrar las existentes e insertar las nuevas
+        db.session.execute(
+            text("DELETE FROM public.subparcelas WHERE id_recinto = :rid"),
+            {"rid": recinto_id}
+        )
+
+        creadas = []
+        for v in validadas:
+            row = db.session.execute(
+                text("""
+                    INSERT INTO public.subparcelas (id_recinto, nombre, geom, superficie_ha)
+                    VALUES (:rid, :nombre, ST_SetSRID(ST_GeomFromText(:wkt), 4326), :ha)
+                    RETURNING id_subparcela, id_recinto, nombre, superficie_ha
+                """),
+                {
+                    "rid": recinto_id,
+                    "nombre": v["nombre"],
+                    "wkt": v["geom_shapely"].wkt,
+                    "ha": v["superficie_ha"],
+                }
+            ).mappings().first()
+            creadas.append({k: _jsonable(val) for k, val in dict(row).items()})
+
+        db.session.commit()
+        return jsonify({"ok": True, "subparcelas": creadas}), 201
+
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Error en POST /api/mis-recinto/<id>/subparcelas")
+        return jsonify({"ok": False, "error": "Error interno al guardar la división"}), 500
+
+
+@api_bp.delete("/mis-recinto/<int:recinto_id>/subparcelas")
+@login_required
+def api_borrar_subparcelas(recinto_id: int):
+    """Deshace la división: elimina todas las subparcelas del recinto."""
+    try:
+        recinto = _recinto_propio_o_404(recinto_id)
+        if not recinto:
+            return jsonify({"ok": False, "error": "Recinto no encontrado"}), 404
+
+        db.session.execute(
+            text("DELETE FROM public.subparcelas WHERE id_recinto = :rid"),
+            {"rid": recinto_id}
+        )
+        db.session.commit()
+        return jsonify({"ok": True})
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Error en DELETE /api/mis-recinto/<id>/subparcelas")
+        return jsonify({"ok": False, "error": "Error interno al deshacer la división"}), 500
+
+
+@api_bp.patch("/subparcelas/<int:id_subparcela>/cultivo")
+@login_required
+def api_patch_cultivo_subparcela(id_subparcela: int):
+    """Asigna (o quita con null) el cultivo de una subparcela."""
+    data = request.get_json(silent=True) or {}
+    cod_producto = data.get("cod_producto", None)
+
+    try:
+        # Verificar propiedad vía join con recintos
+        row = db.session.execute(
+            text("""
+                SELECT s.id_subparcela
+                FROM public.subparcelas s
+                JOIN public.recintos r ON r.id_recinto = s.id_recinto
+                WHERE s.id_subparcela = :sid AND r.id_propietario = :uid
+            """),
+            {"sid": id_subparcela, "uid": current_user.id_usuario}
+        ).first()
+
+        if not row:
+            return jsonify({"ok": False, "error": "Subparcela no encontrada"}), 404
+
+        if cod_producto is not None:
+            existe = db.session.execute(
+                text("SELECT 1 FROM public.productos_fega WHERE codigo = :cp"),
+                {"cp": cod_producto}
+            ).first()
+            if not existe:
+                return jsonify({"ok": False, "error": "Código de producto no válido"}), 400
+
+        db.session.execute(
+            text("UPDATE public.subparcelas SET cod_producto = :cp WHERE id_subparcela = :sid"),
+            {"cp": cod_producto, "sid": id_subparcela}
+        )
+        db.session.commit()
+        return jsonify({"ok": True, "cod_producto": cod_producto})
+
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Error en PATCH /api/subparcelas/<id>/cultivo")
+        return jsonify({"ok": False, "error": "Error interno al asignar el cultivo"}), 500
+    
+
+
+
+
+EXTENSIONES_PERMITIDAS = {'png', 'jpg', 'jpeg', 'webp'}
+THUMB_SIZE = (400, 300)
+ 
+ 
+def _ext_ok(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in EXTENSIONES_PERMITIDAS
+ 
+ 
+def _slug(valor):
+    """Segmento de ruta seguro a partir de un valor numérico o texto."""
+    texto = str(valor or 'sin-dato').strip().lower().replace(' ', '-')
+    return ''.join(c for c in texto if c.isalnum() or c in ('-', '_')) or 'sin-dato'
+ 
+ 
+@api_bp.route('/contadores/recinto-por-gps', methods=['GET'])
+@login_required
+def contador_recinto_por_gps():
+    """Devuelve el recinto del usuario que contiene el punto GPS."""
+    lat = request.args.get('lat', type=float)
+    lon = request.args.get('lon', type=float)
+    if lat is None or lon is None:
+        return jsonify({'ok': False, 'error': 'Faltan coordenadas GPS'}), 400
+
+    try:
+        row = db.session.execute(
+            text("""
+                SELECT
+                    r.id_recinto,
+                    r.nombre,
+                    r.poligono,
+                    r.parcela,
+                    r.provincia,
+                    r.municipio
+                FROM public.recintos r
+                WHERE r.id_propietario = :uid
+                  AND r.geom IS NOT NULL
+                  AND ST_Intersects(
+                        r.geom,
+                        ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)
+                      )
+                ORDER BY ST_Area(r.geom::geography) ASC
+                LIMIT 1
+            """),
+            {'uid': current_user.id_usuario, 'lon': lon, 'lat': lat},
+        ).mappings().first()
+    except Exception:
+        current_app.logger.exception('Error en /api/contadores/recinto-por-gps')
+        return jsonify({'ok': False, 'error': 'Error al buscar recinto'}), 500
+
+    if not row:
+        return jsonify({'ok': True, 'found': False})
+
+    return jsonify({
+        'ok': True,
+        'found': True,
+        'recinto': {
+            'id_recinto': row['id_recinto'],
+            'nombre': row['nombre'],
+            'poligono': row['poligono'],
+            'parcela': row['parcela'],
+        },
+    })
+
+
+@api_bp.route('/contadores/subir', methods=['POST'])
+@login_required
+def subir_contador():
+    try:
+        if 'imagen' not in request.files:
+            return jsonify({'error': 'No se ha enviado ninguna imagen'}), 400
+ 
+        archivo = request.files['imagen']
+        if not archivo.filename or not _ext_ok(archivo.filename):
+            return jsonify({'error': 'Formato de imagen no válido'}), 400
+ 
+        recinto_id  = request.form.get('recinto_id')
+        titulo      = (request.form.get('titulo')      or '').strip()
+        lectura     = (request.form.get('lectura')     or '').strip()
+        descripcion = (request.form.get('descripcion') or '').strip()
+        lat         = request.form.get('lat')
+        lon         = request.form.get('lon')
+ 
+        if not recinto_id or not titulo:
+            return jsonify({'error': 'Faltan campos obligatorios'}), 400
+ 
+        geom_wkt = f"POINT({lon} {lat})" if lat and lon else None
+
+        recinto = Recinto.query.filter_by(
+            id_recinto=recinto_id,
+            id_propietario=current_user.id_usuario
+        ).first()
+ 
+        if not recinto:
+            return jsonify({'error': 'Recinto no encontrado o sin permisos'}), 404
+ 
+        # ── Ruta de carpeta: uploads/contadores/<usuario>/<poligono>/<parcela> ──
+        carpeta_rel = os.path.join(
+            'contadores',
+            _slug(current_user.username),
+            _slug(recinto.poligono),
+            _slug(recinto.parcela),
+        )
+        carpeta_abs = os.path.join(current_app.static_folder, 'uploads', carpeta_rel)
+        os.makedirs(carpeta_abs, exist_ok=True)
+ 
+        # ── Guardar imagen + thumbnail ───────────────────────────────
+        ext         = archivo.filename.rsplit('.', 1)[1].lower()
+        lectura_slug = _slug(lectura) if lectura else 'sin-lectura'
+        nombre_base  = f"{lectura_slug}_{uuid.uuid4().hex[:6]}"
+        nom_orig    = f"{nombre_base}.{ext}"
+        nom_thumb   = f"{nombre_base}_thumb.{ext}"
+        ruta_orig   = os.path.join(carpeta_abs, nom_orig)
+        ruta_thumb  = os.path.join(carpeta_abs, nom_thumb)
+ 
+        archivo.save(ruta_orig)
+ 
+        try:
+            with Image.open(ruta_orig) as img:
+                img = img.convert('RGB')
+                img.thumbnail(THUMB_SIZE)
+                img.save(ruta_thumb, quality=85, optimize=True)
+        except Exception as e:
+            current_app.logger.warning(f'Thumbnail fallido: {e}')
+            ruta_thumb = ruta_orig
+            nom_thumb  = nom_orig
+ 
+        url_orig  = f"/static/uploads/{carpeta_rel}/{nom_orig}".replace('\\', '/')
+        url_thumb = f"/static/uploads/{carpeta_rel}/{nom_thumb}".replace('\\', '/')
+ 
+        # ── Registro en BD ───────────────────────────────────────────
+        nuevo = Contador(
+            id_recinto     = recinto.id_recinto,
+            id_usuario     = current_user.id_usuario,
+            titulo         = titulo,
+            lectura        = lectura,
+            descripcion    = descripcion,
+            ruta_imagen    = url_orig,
+            ruta_thumb     = url_thumb,
+            geom           = geom_wkt or "POINT(0 0)",
+            poligono       = recinto.poligono,
+            parcela        = recinto.parcela,
+            fecha_creacion = datetime.now(timezone.utc),
+        )
+        db.session.add(nuevo)
+        db.session.commit()
+ 
+        return jsonify({
+            'id':              nuevo.id,
+            'titulo':          nuevo.titulo,
+            'lectura':         nuevo.lectura,
+            'thumb':           url_thumb,
+            'imagen':          url_orig,
+            'tiene_ubicacion': True,
+        }), 201
+ 
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error /api/contadores/subir: {e}')
+        return jsonify({'error': 'Error interno al guardar la lectura'}), 500

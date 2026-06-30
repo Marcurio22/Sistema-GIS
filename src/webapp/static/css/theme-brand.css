@@ -1,0 +1,65 @@
+/**
+ * Color corporativo — sobrescribe Bootstrap success sin tocar bootstrap.min.css
+0
+ */
+:root,
+[data-bs-theme="light"] {
+  --bs-success: #90bc05;
+  --bs-success-rgb: 144, 188, 5;
+  --bs-success-text-emphasis: #5a7503;
+  --bs-success-bg-subtle: #f4f9e6;
+  --bs-success-border-subtle: #d4e89a;
+  --bs-link-color: #6d9004;
+  --bs-link-hover-color: #5a7503;
+}
+
+.btn-success {
+  --bs-btn-bg: #90bc05;
+  --bs-btn-border-color: #90bc05;
+  --bs-btn-hover-bg: #7da304;
+  --bs-btn-hover-border-color: #749903;
+  --bs-btn-active-bg: #6d9004;
+  --bs-btn-active-border-color: #668f04;
+  --bs-btn-disabled-bg: #90bc05;
+  --bs-btn-disabled-border-color: #90bc05;
+}
+
+.btn-outline-success {
+  --bs-btn-color: #6d9004;
+  --bs-btn-border-color: #90bc05;
+  --bs-btn-hover-bg: #90bc05;
+  --bs-btn-hover-border-color: #90bc05;
+  --bs-btn-active-bg: #7da304;
+  --bs-btn-active-border-color: #749903;
+}
+
+.alert-success {
+  --bs-alert-color: #5a7503;
+  --bs-alert-bg: #f4f9e6;
+  --bs-alert-border-color: #d4e89a;
+}
+
+.badge.bg-success {
+  background-color: #90bc05 !important;
+}
+
+.text-success {
+  color: #6d9004 !important;
+}
+
+.border-success {
+  border-color: #90bc05 !important;
+}
+
+.bg-success {
+  background-color: #90bc05 !important;
+}
+
+.bg-success.bg-opacity-10 {
+  background-color: rgba(144, 188, 5, 0.1) !important;
+}
+
+.navbar-dark.bg-success,
+.offcanvas-header.bg-success {
+  background-color: #90bc05 !important;
+}

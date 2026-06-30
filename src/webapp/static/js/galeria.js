@@ -101,7 +101,7 @@ class GaleriaImagenes {
         if (e.target.files.length > 0) {
           this.archivoSeleccionado = true;
           archivoSeleccionado.textContent = `📷 ${e.target.files[0].name}`;
-          archivoSeleccionado.style.color = '#198754';
+          archivoSeleccionado.style.color = '#90bc05';
           archivoSeleccionado.style.fontWeight = '600';
         } else {
           this.archivoSeleccionado = false;

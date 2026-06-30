@@ -61,10 +61,10 @@ ROI_PATH = os.getenv(
 )
 
 # FECHA ESPECÍFICA
-TARGET_DATE = datetime(2026, 2, 14, tzinfo=timezone.utc)
+# TARGET_DATE = datetime(2026, 6, 23, tzinfo=timezone.utc)
 
 # Para fecha actual usar:
-# TARGET_DATE = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0)
+TARGET_DATE = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0)
 DATE_WINDOW_DAYS = 0 # no se usa va raro
 
 # Parámetros de búsqueda

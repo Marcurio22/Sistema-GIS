@@ -12,14 +12,20 @@
             <div class="col-12 col-xl-8 d-flex flex-column gap-4">
 
                 <div class="dashboard-card bg-white rounded-3 shadow-sm p-4 dashboard-welcome">
-                    <div class="d-flex align-items-center flex-wrap gap-3">
-                        <div class="bg-success bg-opacity-10 rounded-circle p-3 flex-shrink-0">
-                            <i class="bi bi-person-circle text-success" style="font-size: 3rem"></i>
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                        <div class="d-flex align-items-center flex-wrap gap-3 flex-grow-1 min-w-0">
+                            <div class="bg-success bg-opacity-10 rounded-circle p-3 flex-shrink-0">
+                                <i class="bi bi-person-circle text-success" style="font-size: 3rem"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <h1 class="h3 mb-0">
+                                    ¡Bienvenido/a, <span class="text-success fw-bold">{{ username }}</span>!
+                                </h1>
+                            </div>
                         </div>
-                        <div class="flex-grow-1">
-                            <h1 class="h3 mb-0">
-                                ¡Bienvenido/a, <span class="text-success fw-bold">{{ username }}</span>!
-                            </h1>
+                        <div class="dashboard-datetime-panel flex-shrink-0" aria-live="polite">
+                            <div class="dashboard-datetime-time" id="dashboard-clock-time">--:--</div>
+                            <div class="dashboard-datetime-date" id="dashboard-clock-date">—</div>
                         </div>
                     </div>
                 </div>
@@ -74,17 +80,25 @@
                         <div class="dashboard-card bg-white rounded-3 shadow-sm p-3 h-100 d-flex flex-column justify-content-between gap-3">
                             
                             <div class="d-flex flex-column gap-2">
-                                <a href="{{ url_for('dashboard.visor') }}" class="btn btn-primary w-100 text-truncate">
-                                    <i class="bi bi-map me-2"></i>Acceder al Mapa
+                                <a href="{{ url_for('dashboard.visor') }}" class="btn btn-dash-mapa w-100 text-truncate">
+                                    <i class="bi bi-map me-2"></i>Mapa
                                 </a>
-                                <a href="{{ url_for('auth.mis_recintos') }}" class="btn btn-success w-100 text-truncate">
+                                <a href="{{ url_for('auth.mis_recintos') }}" class="btn btn-dash-recintos w-100 text-truncate">
                                     <i class="bi bi-grid me-2"></i>Mis Recintos
                                 </a>
-                                <a class="btn btn-success disabled w-100 text-truncate" aria-disabled="true" tabindex="-1">
+                                <a href="{{ url_for('dashboard.plan_cultivo') }}" class="btn btn-success w-100 text-truncate">
                                     <i class="bi bi-journal-text me-2"></i>Plan de Cultivo
                                 </a>
+                                <a href="{{ url_for('dashboard.contadores') }}" class="btn btn-dash-contadores w-100 text-truncate">
+                                    <i class="bi bi-speedometer2 me-2"></i>Contadores
+                                </a>
+                                <a href="{{ url_for('dashboard.cuaderno_campo') }}" class="btn btn-dash-cuaderno w-100 text-truncate">
+                                    <i class="bi bi-journal-bookmark me-2"></i>Cuaderno de campo
+                                </a>
+                                <a href="{{ url_for('dashboard.dosis_riego') }}" class="btn btn-dash-dosis w-100 text-truncate">
+                                    <i class="bi bi-droplet-half me-2"></i>Recomendación de riego
+                                </a>
                             </div>
-
                             {% if is_admin %}
                             <div class="card border-0 bg-light shadow-sm mt-auto">
                                 <div class="card-body p-2 p-md-3">
@@ -113,63 +127,56 @@
                     </div>
 
                     <div class="col-12 col-lg-4">
-                        <div class="dashboard-card bg-white rounded-3 shadow-sm p-3 h-100">
+                        <div class="dashboard-card bg-white rounded-3 shadow-sm p-3 h-100 d-flex flex-column">
                             <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
                                 <div class="fw-bold text-primary d-flex align-items-center gap-2 fs-5">
                                     <i class="bi bi-droplet-half"></i>
                                     <span>Estimación Riego</span>
                                 </div>
-                                <a href="{{ url_for('dashboard.visor') }}?modo=etp" class="btn btn-primary btn-sm">Ver detalle</a>
+                                <a href="{{ url_for('dashboard.dosis_riego') }}" class="btn btn-primary btn-sm">Ver detalle</a>
                             </div>
 
-                            <div class="dashboard-map-frame dashboard-map-frame--placeholder border-0">
+                            <div class="dashboard-map-frame dashboard-map-frame--placeholder border-0 flex-shrink-0">
                                 <div class="dashboard-etp-placeholder w-100 h-100">
                                     <div class="d-flex flex-column align-items-center justify-content-center h-100 text-center p-3"
     style="background: linear-gradient(135deg, #1565c0 0%, #1976d2 100%); border-radius: 8px; color: white;">
     <i class="bi bi-cloud-sun fs-1 mb-2"></i>
     <p class="fw-bold mb-1">Predicción ET₀</p>
-    <p class="small opacity-75 mb-3">Consulta la estimación de riego diaria para los próximos 4 días</p>
+    <p class="small opacity-75 mb-0">Demanda hídrica (ETc) para hoy y próximos días</p>
 </div>      
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="w-100 mt-2">
-                    <p class="text-muted mb-2 text-center small">
-                        <i class="bi bi-info-circle me-1"></i> 
-                        {% if url_widget %}
-                            Mostrando el tiempo de {{ nombre_municipio }} (Municipio de referencia)
-                        {% else %}
-                            Información meteorológica
-                        {% endif %}
-                    </p>
-
-                    <div class="dashboard-aemet card shadow-sm border-0 overflow-auto">
-                        {% if url_widget %}
-                            <iframe
-                                name="iframe_aemet"
-                                tabindex="0"
-                                src="{{ url_widget }}"
-                                frameborder="0"
-                                scrolling="yes"
-                                class="aemet-iframe"
-                                style="width: 100%; min-height: 340px; display: block;">
-                            </iframe>
-                            </iframe>
-                        {% else %}
-                            <div class="d-flex flex-column align-items-center justify-content-center p-5 text-center bg-light" style="min-height: 200px;">
-                                <i class="bi bi-cloud-slash text-secondary mb-3" style="font-size: 3rem; opacity: 0.5;"></i>
-                                <h6 class="fw-bold text-secondary">Datos meteorológicos no disponibles</h6>
-                                <p class="text-muted small mb-0 max-w-md">
-                                    Para ver la previsión del tiempo de la AEMET, necesitas registrar al menos una parcela o recinto en el sistema.
+                            <div class="dashboard-aemet dashboard-aemet--inline mt-3 flex-grow-1">
+                                <p class="text-muted mb-2 small text-center">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    {% if url_widget %}
+                                        Tiempo en {{ nombre_municipio }}
+                                    {% else %}
+                                        Información meteorológica
+                                    {% endif %}
                                 </p>
-                                <a href="{{ url_for('auth.mis_recintos') }}" class="btn btn-sm btn-success mt-3">
-                                    <i class="bi bi-plus-lg me-1"></i>Registrar Recinto
-                                </a>
+                                {% if url_widget %}
+                                    <iframe
+                                        name="iframe_aemet"
+                                        tabindex="0"
+                                        src="{{ url_widget }}"
+                                        frameborder="0"
+                                        scrolling="yes"
+                                        class="aemet-iframe aemet-iframe--compact"
+                                        title="Previsión meteorológica AEMET">
+                                    </iframe>
+                                {% else %}
+                                    <div class="d-flex flex-column align-items-center justify-content-center p-3 text-center bg-light rounded" style="min-height: 160px;">
+                                        <i class="bi bi-cloud-slash text-secondary mb-2" style="font-size: 2rem; opacity: 0.5;"></i>
+                                        <p class="text-muted small mb-2">Sin datos meteorológicos</p>
+                                        <a href="{{ url_for('auth.mis_recintos') }}" class="btn btn-sm btn-success">
+                                            <i class="bi bi-plus-lg me-1"></i>Registrar recinto
+                                        </a>
+                                    </div>
+                                {% endif %}
                             </div>
-                        {% endif %}
+                        </div>
                     </div>
                 </div>
 
@@ -235,13 +242,13 @@
                             <div class="bg-light p-2 rounded border">
                             <div class="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-1">
                                 <span class="fw-bold text-dark text-truncate" style="max-width:60%">{{ a.nombre }}</span>
-                                <span class="badge bg-info text-dark">ET₀ {{ a.etp }} mm/día</span>
+                                <span class="badge bg-danger">ETc {{ a.etc }} mm/día</span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
                                 <div class="text-secondary small">
                                     {{ a.cultivo }} · {{ a.superficie_ha }} ha · {{ a.sistexp }}
                                 </div>
-                                <a href="{{ url_for('dashboard.visor', recinto_id=a.id_recinto, modo='etp') }}" 
+                                <a href="{{ url_for('dashboard.visor', recinto_id=a.id_recinto, modo='riego') }}"
                                 class="btn btn-outline-primary py-0 px-2 flex-shrink-0" 
                                 style="font-size: 0.75rem;">
                                     <i class="bi bi-map me-1"></i>Ver
@@ -268,7 +275,6 @@
                                 <div class="fw-bold d-flex align-items-center">
                                     <i class="fa-solid fa-chart-line me-2"></i>OPERACIONES
                                 </div>
-                                <button class="btn btn-sm btn-outline-success" disabled>Plan de Cultivo</button>
                             </div>
 
                             <div class="p-3">

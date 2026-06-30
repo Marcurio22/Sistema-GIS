@@ -1,15 +1,21 @@
 import pandas as pd
 import json
 import os
+import sys
 import requests
 import glob
 import geopandas as gpd
+from pathlib import Path
 from shapely import wkt
 from datetime import datetime
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
-load_dotenv()
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "src"))
+from project_paths import SALIDA_PRED_DIR, ETP_STATIC_DIR  # noqa: E402
+
+load_dotenv(ROOT / ".env")
 
 # ── Config ────────────────────────────────────────────────────────────────────
 GEOSERVER_BASE_URL = os.getenv("GEOSERVER_WMS_URL", "").replace("/wms", "").rstrip("/")
@@ -23,8 +29,8 @@ DB_HOST     = os.getenv("POSTGRES_HOST")
 DB_PORT     = os.getenv("POSTGRES_PORT")
 DB_NAME     = os.getenv("POSTGRES_DB")
 
-CARPETA_CSV = r"C:\Users\Instalador\Documents\Sistema-GIS-main\Prediccion\salidaPred"
-STATIC_DIR  = r"C:\Users\Instalador\Documents\Sistema-GIS-main\src\webapp\static\etp_prediccion"
+CARPETA_CSV = str(SALIDA_PRED_DIR)
+STATIC_DIR  = str(ETP_STATIC_DIR)
 os.makedirs(STATIC_DIR, exist_ok=True)
 
 AUTH         = (GEOSERVER_USER, GEOSERVER_PASSWORD)
@@ -37,8 +43,12 @@ engine = create_engine(
 
 # ── Lógica de color ───────────────────────────────────────────────────────────
 def calcular_color(row, etp_valor):
+    """
+    ET predicha mayor que ET de referencia actual → más calor/viento → más agua necesaria → rojo.
+    ET predicha menor o igual → condiciones más frescas → menor demanda hídrica → azul.
+    """
     ayer = row["Ev_t"]
-    return "green" if float(etp_valor) > float(ayer) else "red"
+    return "red" if float(etp_valor) > float(ayer) else "blue"
 
 # ── Buscar CSV más reciente ───────────────────────────────────────────────────
 def buscar_csv_reciente():
@@ -66,6 +76,13 @@ def generar_tablas_postgis():
 
     indice = {}
 
+    print("Cargando recintos para join espacial...")
+    recintos_gdf = gpd.read_postgis(
+        "SELECT id_propietario, geom FROM recintos",
+        engine,
+        geom_col="geom",
+        crs="EPSG:4326"
+    )
     for offset, col in enumerate(columnas_et):
         fecha_str = col.replace("ET_", "")
         tabla     = f"etp_prediccion_{offset}"
@@ -91,6 +108,30 @@ def generar_tablas_postgis():
 
         gdf = gpd.GeoDataFrame(filas, crs="EPSG:4326")
 
+        recintos_para_join = recintos_gdf[["id_propietario", "geom"]].copy()
+        recintos_para_join = recintos_para_join.set_geometry("geom")
+
+        # Calcular centroides en UTM (EPSG:25830, España) para mayor precisión
+        gdf_centroids = gdf.copy().set_geometry("geometry")
+        gdf_centroids["geometry"] = (
+            gdf_centroids["geometry"]
+            .to_crs("EPSG:25830")
+            .centroid
+            .to_crs("EPSG:4326")
+        )
+
+        joined = gpd.sjoin(
+            gdf_centroids,
+            recintos_para_join,
+            how="left",
+            predicate="within"
+        )
+
+        joined = joined[~joined.index.duplicated(keep="first")]
+        gdf["id_propietario"] = joined["id_propietario"].values
+
+        asignados = gdf["id_propietario"].notna().sum()
+        print(f"  Propietarios asignados: {asignados}/{len(gdf)}")
         gdf.to_postgis(
             tabla,
             engine,
@@ -216,23 +257,23 @@ def asegurar_estilo():
       <sld:FeatureTypeStyle>
         <sld:Name>name</sld:Name>
         <sld:Rule>
-          <sld:Name>Verde</sld:Name>
-          <ogc:Filter>
-            <ogc:PropertyIsEqualTo>
-              <ogc:PropertyName>color</ogc:PropertyName>
-              <ogc:Literal>green</ogc:Literal>
-            </ogc:PropertyIsEqualTo>
-          </ogc:Filter>
-          <sld:PolygonSymbolizer>
-            <sld:Fill>
-              <sld:CssParameter name="fill">#2e7d32</sld:CssParameter>
-              <sld:CssParameter name="fill-opacity">0.3</sld:CssParameter>
-            </sld:Fill>
-            <sld:Stroke>
-              <sld:CssParameter name="stroke">#1b5e20</sld:CssParameter>
-            </sld:Stroke>
-          </sld:PolygonSymbolizer>
-        </sld:Rule>
+            <sld:Name>Azul</sld:Name>
+            <ogc:Filter>
+                <ogc:PropertyIsEqualTo>
+                <ogc:PropertyName>color</ogc:PropertyName>
+                <ogc:Literal>blue</ogc:Literal>
+                </ogc:PropertyIsEqualTo>
+            </ogc:Filter>
+            <sld:PolygonSymbolizer>
+                <sld:Fill>
+                <sld:CssParameter name="fill">#1976d2</sld:CssParameter>
+                <sld:CssParameter name="fill-opacity">0.3</sld:CssParameter>
+                </sld:Fill>
+                <sld:Stroke>
+                <sld:CssParameter name="stroke">#0d47a1</sld:CssParameter>
+                </sld:Stroke>
+            </sld:PolygonSymbolizer>
+            </sld:Rule>
         <sld:Rule>
           <sld:Name>Rojo</sld:Name>
           <ogc:Filter>

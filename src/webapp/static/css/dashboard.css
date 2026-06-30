@@ -1,4 +1,156 @@
 /* =========================
+   Navbar / cabecera
+   ========================= */
+
+.app-top-header {
+  overflow: visible;
+  position: relative;
+  z-index: 1030;
+}
+
+.app-navbar {
+  min-height: 56px;
+  overflow: visible;
+  padding-top: 0.15rem;
+  padding-bottom: 0.15rem;
+}
+
+.app-navbar .container-fluid {
+  overflow: visible;
+  min-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+@media (min-width: 992px) {
+  .app-navbar {
+    min-height: 0;
+    padding-top: 0.2rem;
+    padding-bottom: 0.2rem;
+  }
+}
+
+.navbar-logo-main {
+  height: 36px;
+  width: auto;
+  max-width: 44px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.navbar-user-name {
+  max-width: 7rem;
+}
+
+@media (min-width: 576px) {
+  .navbar-user-name {
+    max-width: 10rem;
+  }
+}
+
+@media (min-width: 992px) {
+  .navbar-user-name {
+    max-width: none;
+  }
+
+  .navbar-logo-main {
+    height: 56px;
+    max-width: none;
+  }
+
+  .navbar-partner-logos {
+    margin-left: 0.75rem;
+  }
+
+  .navbar-partner-logo--inst {
+    height: 40px;
+    width: auto;
+    max-width: 140px;
+    object-fit: contain;
+    object-position: left center;
+    margin-left: 0.75rem;
+  }
+
+  .navbar-partner-logo--ayudas {
+    height: 58px;
+    width: auto;
+    min-width: 180px;
+    max-width: 400px;
+    object-fit: contain;
+    object-position: right center;
+  }
+}
+
+.navbar-center-slot {
+  pointer-events: none;
+}
+
+.navbar-center-slot .navbar-weather-widget {
+  pointer-events: auto;
+  max-width: 100%;
+}
+
+/* Tiempo compacto en móvil: alineado a la derecha del navbar */
+.navbar-weather-widget--mobile {
+  margin-left: auto;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+@media (max-width: 767.98px) {
+  .navbar-center-slot {
+    flex-grow: 1;
+    min-width: 0;
+  }
+
+  .navbar-center-slot:not(:has(.navbar-weather-widget)) {
+    flex-grow: 1;
+  }
+
+  .app-navbar .container-fluid > .d-flex.align-items-center.flex-shrink-0.gap-2 {
+    margin-left: 0;
+    flex-shrink: 0;
+  }
+}
+
+.navbar-ayudas-wrap {
+  margin-left: 0.25rem;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Franja de logos en móvil/tablet (debajo del navbar) */
+.navbar-partners-mobile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.3rem 0.75rem;
+  background: linear-gradient(180deg, #90bc05 0%, #7da304 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.navbar-partners-mobile img {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+  filter: brightness(1.05);
+}
+
+.navbar-partners-mobile--inst {
+  height: 28px !important;
+  max-width: 32vw;
+}
+
+.navbar-partners-mobile--ayudas {
+  height: 42px !important;
+  max-width: 60vw;
+  margin-left: auto;
+}
+
+/* =========================
    Dashboard - Layout Fluido
    ========================= */
 
@@ -23,6 +175,45 @@ body {
   border: 0;
   transition: transform 0.2s;
   min-width: 0; 
+}
+
+/* Panel fecha/hora en tarjeta de bienvenida */
+.dashboard-datetime-panel {
+  text-align: right;
+  padding: 0.65rem 1rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(144, 188, 5, 0.12) 0%, rgba(144, 188, 5, 0.05) 100%);
+  border: 1px solid rgba(144, 188, 5, 0.22);
+  min-width: 9.5rem;
+  line-height: 1.2;
+}
+
+.dashboard-datetime-time {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #3d5200;
+  letter-spacing: 0.02em;
+}
+
+.dashboard-datetime-date {
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: #5c6b3a;
+  text-transform: capitalize;
+}
+
+@media (max-width: 575.98px) {
+  .dashboard-welcome .d-flex.justify-content-between {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .dashboard-datetime-panel {
+    text-align: center;
+    min-width: 0;
+  }
 }
 
 /* =========================
@@ -77,8 +268,21 @@ body {
   width: 100%;
   background: white;
   border-radius: 12px;
-  /* Altura automática, controlada por el iframe o contenido */
   height: auto; 
+}
+
+.dashboard-aemet--inline {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.aemet-iframe--compact {
+  width: 100%;
+  min-height: 200px;
+  height: 240px;
+  border: 0;
+  display: block;
+  border-radius: 8px;
 }
 
 /* =========================
@@ -88,6 +292,68 @@ body {
 .dashboard-summary-header {
   font-size: 1.1rem;
   letter-spacing: 0.5px;
+}
+
+/* Botones de acceso rápido del dashboard */
+.btn-dash-mapa {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: #795548;
+  --bs-btn-border-color: #6d4c41;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #6d4c41;
+  --bs-btn-hover-border-color: #5d4037;
+  --bs-btn-active-bg: #5d4037;
+  --bs-btn-active-border-color: #4e342e;
+}
+
+.btn-dash-recintos {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: #6c757d;
+  --bs-btn-border-color: #5c636a;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #5c636a;
+  --bs-btn-hover-border-color: #565e64;
+  --bs-btn-active-bg: #565e64;
+  --bs-btn-active-border-color: #51585e;
+}
+
+.btn-dash-contadores {
+  --bs-btn-color: #fff;
+  --bs-btn-bg: #0d6efd;
+  --bs-btn-border-color: #0d6efd;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #0b5ed7;
+  --bs-btn-hover-border-color: #0a58ca;
+  --bs-btn-active-bg: #0a58ca;
+  --bs-btn-active-border-color: #0a53be;
+}
+
+.btn-dash-cuaderno {
+  --bs-btn-color: #212529;
+  --bs-btn-bg: #ffc107;
+  --bs-btn-border-color: #ffca2c;
+  --bs-btn-hover-color: #212529;
+  --bs-btn-hover-bg: #ffca2c;
+  --bs-btn-hover-border-color: #ffc720;
+  --bs-btn-active-bg: #ffcd39;
+  --bs-btn-active-border-color: #ffc720;
+}
+
+.btn-dash-cuaderno.disabled,
+.btn-dash-cuaderno:disabled {
+  opacity: 0.65;
+}
+
+.btn-dash-dosis {
+  --bs-btn-color: #0d6efd;
+  --bs-btn-bg: #ffffff;
+  --bs-btn-border-color: #dee2e6;
+  --bs-btn-hover-color: #0a58ca;
+  --bs-btn-hover-bg: #f8f9fa;
+  --bs-btn-hover-border-color: #ced4da;
+  --bs-btn-active-color: #0a58ca;
+  --bs-btn-active-bg: #e9ecef;
+  --bs-btn-active-border-color: #ced4da;
 }
 
 .dashboard-divider {
@@ -209,15 +475,26 @@ body {
 
 /* Mobile / pantallas pequeñas: contenedor con scroll vertical */
 @media (max-width: 991px){
-  .dashboard-aemet{
-    max-height: 60vh;        /* ajusta si quieres: 50vh, 70vh… */
+  .dashboard-aemet:not(.dashboard-aemet--inline){
+    max-height: 60vh;
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch; /* scroll suave en iOS */
+    -webkit-overflow-scrolling: touch;
   }
 
-  .dashboard-aemet .aemet-iframe{
-    height: 700px;           /* más alto que el contenedor => aparece scroll */
+  .dashboard-aemet:not(.dashboard-aemet--inline) .aemet-iframe{
+    height: 700px;
     min-height: 700px;
+  }
+
+  .dashboard-aemet--inline {
+    max-height: 42vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dashboard-aemet--inline .aemet-iframe--compact {
+    height: 320px;
+    min-height: 320px;
   }
 }
 

@@ -3,7 +3,26 @@
 {% block title %}Gestión de Variedades - Admin{% endblock %}
 
 {% block content %}
-    <h1>Gestión de Variedades</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="mb-3">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="mb-0">Gestión de Variedades</h1>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNuevaVariedad">
+            Nueva variedad
+        </button>
+    </div>
+
     <table id="tablaVariedades" class="table table-hover table-bordered align-middle">
         <thead>
             <tr>
@@ -12,11 +31,43 @@
                 <th>Cultivo</th>
             </tr>
         </thead>
-        <tbody>
-            <!-- DataTables cargará los datos vía AJAX -->
-        </tbody>
+        <tbody></tbody>
     </table>
-    {% endblock %}
+
+    <!-- Modal nueva variedad -->
+    <div class="modal fade" id="modalNuevaVariedad" tabindex="-1" aria-labelledby="modalNuevaVariedadLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="post" action="{{ url_for('admin.crear_variedad') }}">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalNuevaVariedadLabel">Nueva variedad</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="nombreVariedad" class="form-label">Nombre</label>
+                            <input type="text" class="form-control" id="nombreVariedad" name="nombre" maxlength="200" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="cultivoVariedad" class="form-label">Cultivo (opcional)</label>
+                            <select class="form-select" id="cultivoVariedad" name="producto_fega_id">
+                                <option value="">— Sin cultivo asociado —</option>
+                                {% for cultivo in productos_fega %}
+                                <option value="{{ cultivo.codigo }}">{{ cultivo.codigo }} — {{ cultivo.descripcion }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Crear</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
 {% block extra_js %}
 <script>
     $(document).ready(function () {
@@ -34,21 +85,16 @@
             columns: [
                 { data: 'id_variedad' },
                 { data: 'nombre' },
-                { 
+                {
                     data: 'cultivo',
                     render: function(data, type, row) {
-                        if (type === 'display' || type === 'filter') {
-                            return row.producto_fega_descripcion;
-                        }
-                        return row.producto_fega_descripcion;
+                        return row.producto_fega_descripcion || 'Sin cultivo';
                     }
                 }
             ],
-            language: {
-                url: '/static/js/vendor/es-ES.json'
-            },
+            language: { url: '/static/js/vendor/es-ES.json' },
             pageLength: 25,
-            order: [[0, 'asc']], 
+            order: [[0, 'asc']],
             responsive: true
         });
     });

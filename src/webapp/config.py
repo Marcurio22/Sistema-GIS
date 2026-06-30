@@ -39,6 +39,10 @@ class Config:
     GEOSERVER_WFS_URL = os.getenv("GEOSERVER_WFS_URL")
     GEOSERVER_USER = os.getenv("GEOSERVER_USER")
     GEOSERVER_PASSWORD = os.getenv("GEOSERVER_PASSWORD")
+    CHDUERO_MIRAME_WMS_URL = os.getenv(
+        "CHDUERO_MIRAME_WMS_URL",
+        "https://mirame.chduero.es/geoserver/mirame/wms",
+    )
     GEOSERVER_RECINTOS_TYPENAME = os.getenv("GEOSERVER_RECINTOS_TYPENAME", "gis_project:recintos_con_propietario")
 
 

@@ -2,13 +2,8 @@
 
 {% block title %}Visor SIG{% endblock %}
 
-{% block navbar_extra %}
-<div class="d-flex d-md-none align-items-center gap-1 bg-white bg-opacity-10 rounded-3 px-2 py-1 flex-shrink-0">
-  <i class="bi bi-{{ weather.icono }} text-white" style="font-size: 1.1rem;"></i>
-  <span class="fw-bold text-white">{{ weather.temperatura }}°</span>
-</div>
-
-<div class="d-none d-md-flex align-items-center gap-3 bg-white rounded-3 px-3 py-2 shadow-sm flex-shrink-0">
+{% block navbar_center %}
+<div class="d-none d-md-flex align-items-center gap-3 bg-white rounded-3 px-3 py-2 shadow-sm flex-shrink-0 navbar-weather-widget">
   <div class="d-flex align-items-center">
     <i class="bi bi-{{ weather.icono }} {{ weather.color_icono }}" style="font-size: 1.5rem;"></i>
     <span class="ms-2 fw-bold fs-5 text-dark">{{ weather.temperatura }}°</span>
@@ -43,7 +38,16 @@
     <i class="bi bi-geo-alt-fill"></i> {{ weather.municipio }}
   </div>
 </div>
+{% endblock %}
 
+{% block navbar_extra %}
+<div class="d-flex d-md-none align-items-center gap-1 bg-white bg-opacity-10 rounded-3 px-2 py-1 flex-shrink-0 navbar-weather-widget navbar-weather-widget--mobile">
+  <i class="bi bi-{{ weather.icono }} text-white" style="font-size: 1rem;"></i>
+  <span class="fw-bold text-white">{{ weather.temperatura }}°</span>
+</div>
+{% endblock %}
+
+{% block content %}
 <div id="notification-container"></div>
 <div id="lightbox" class="lightbox" style="display: none;">
   <span class="lightbox-close">&times;</span>
@@ -204,12 +208,11 @@
 
 
 
-{% endblock %}
 
-{% block content %}
-
-
-
+<!-- Leaflet.draw: el JS ya se carga en local desde base.html (js/vendor/leaflet.draw.js). -->
+<!-- El CSS no tiene aún versión local: hay que descargarla y servirla igual que el JS. -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/vendor/leaflet.draw.css') }}">
+<!-- Turf.js: auto-hospedado en js/vendor/turf.min.js (ver base.html) -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/visor.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/galeria.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ndvi.css') }}">
@@ -220,10 +223,30 @@
 <script src="{{ url_for('static', filename='js/lightbox-manager.js') }}"></script>
 <script src="{{ url_for('static', filename='js/galeria.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ndvi.js') }}"></script>
+<script src="{{ url_for('static', filename='js/contadores.js') }}"></script>
 
 
 
 <div id="map"></div>
+
+<!-- Barra fija en móvil — editor de subparcelas -->
+<div id="subparcelas-mobile-draw-bar" class="d-md-none" aria-hidden="true">
+  <p id="subparcelas-mobile-hint" class="small text-center mb-1" style="min-height:1.2em;opacity:.85"></p>
+  <div class="d-flex gap-2 align-items-center">
+    <button id="btn-mobile-cancelar-trazado" type="button" class="btn btn-sm btn-outline-light flex-shrink-0" title="Salir del editor">
+      <i class="fa-solid fa-xmark me-1"></i>Salir
+    </button>
+    <button id="btn-mobile-dibujar" type="button" class="btn btn-sm btn-warning flex-shrink-0" title="Trazar línea de corte">
+      <i class="fa-solid fa-slash me-1"></i>Trazar
+    </button>
+    <button id="btn-mobile-ver-panel" type="button" class="btn btn-sm btn-light flex-shrink-0">
+      Panel
+    </button>
+    <button id="btn-mobile-guardar-division" type="button" class="btn btn-sm btn-success ms-auto flex-shrink-0" disabled title="Guardar en el servidor">
+      <i class="bi bi-floppy"></i> Guardar
+    </button>
+  </div>
+</div>
 
 <div id="basemap-panel-container">
   <button id="basemap-toggle" title="Capas">
@@ -262,18 +285,13 @@
       <div class="basemap-option-label">Mapas ETP</div>
     </div>
 
-    <div class="basemap-option basemap-main" data-layer="prediccion-etp">
+    <div class="basemap-option basemap-main" data-layer="prediccion-riego">
       <div class="basemap-thumb">
-        <img src="{{ url_for('static', filename='img/thumb_prediccion_etp.png') }}" alt="Predicciones ETP" />
+        <img src="{{ url_for('static', filename='img/thumb_prediccion_etp.png') }}" alt="Recomendación riego" />
       </div>
-      <div class="basemap-option-label">Predicciones Evotranspiracción de referencia</div>
+      <div class="basemap-option-label">Recomendación de riego</div>
     </div>
-    <div class="basemap-option basemap-main" data-layer="prediccion-etp">
-      <div class="basemap-thumb">
-        <img src="{{ url_for('static', filename='img/thumb_prediccion_etp.png') }}" alt="Predicciones ETP" />
-      </div>
-      <div class="basemap-option-label">Predicciones Evotranspiracción potencial</div>
-    </div>
+    
   </div>
 
   <h6>Capas temáticas</h6>
@@ -322,6 +340,59 @@
     </div>
 
   </div>
+
+  <details class="chduero-panel" style="border: 1px solid #b8d4e8; border-radius: 8px; padding: 12px; margin-top: 15px; background: linear-gradient(135deg, #f0f7fc 0%, #e3f0fa 100%);">
+    <summary style="cursor: pointer; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; padding: 4px 0; color: #0d47a1;">
+      <i class="bi bi-water"></i>
+      <span>CH Duero</span>
+      <i class="bi bi-chevron-down" style="margin-left: auto; font-size: 0.8rem; transition: transform 0.2s;"></i>
+    </summary>
+
+    <p class="small text-muted mb-2 mt-2" style="line-height: 1.35;">
+      Capas de la
+      <a href="https://mirame.chduero.es/chduero/viewer" target="_blank" rel="noopener noreferrer">Confederación Hidrográfica del Duero (Mírame)</a>.
+    </p>
+
+    <details class="chduero-subpanel" style="border: 1px solid #cfe2f3; border-radius: 6px; padding: 10px; margin-bottom: 10px; background: rgba(255,255,255,0.7);">
+      <summary style="cursor: pointer; font-weight: 600; font-size: 0.88rem; color: #1565c0; list-style: none; display: flex; align-items: center; gap: 6px;">
+        <i class="bi bi-diagram-3"></i> Usos del agua
+      </summary>
+      <ul style="list-style: none; padding: 0; margin: 12px 0 0;">
+        <li>
+          <label class="soil-checkbox-label chduero-checkbox-label" style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px; cursor: pointer; border: 1px solid #e0e0e0;">
+            <input type="checkbox" data-chduero="regadiosSuperficiales" style="cursor: pointer; width: 18px; height: 18px;">
+            <span style="font-size: 0.9rem; flex: 1;">Regadíos superficiales</span>
+          </label>
+        </li>
+      </ul>
+    </details>
+
+    <details class="chduero-subpanel" style="border: 1px solid #cfe2f3; border-radius: 6px; padding: 10px; background: rgba(255,255,255,0.7);">
+      <summary style="cursor: pointer; font-weight: 600; font-size: 0.88rem; color: #1565c0; list-style: none; display: flex; align-items: center; gap: 6px;">
+        <i class="bi bi-layers"></i> Comunidades usuarios aguas subterráneas
+      </summary>
+      <ul style="list-style: none; padding: 0; margin: 12px 0 0;">
+        <li style="margin-bottom: 8px;">
+          <label class="soil-checkbox-label chduero-checkbox-label" style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px; cursor: pointer; border: 1px solid #e0e0e0;">
+            <input type="checkbox" data-chduero="parcelarioCuas2025" style="cursor: pointer; width: 18px; height: 18px;">
+            <span style="font-size: 0.9rem; flex: 1;">Parcelario CUAS - 2025</span>
+          </label>
+        </li>
+        <li style="margin-bottom: 8px;">
+          <label class="soil-checkbox-label chduero-checkbox-label" style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px; cursor: pointer; border: 1px solid #e0e0e0;">
+            <input type="checkbox" data-chduero="captacionesCuas2025" style="cursor: pointer; width: 18px; height: 18px;">
+            <span style="font-size: 0.9rem; flex: 1;">Captaciones CUAS - 2025</span>
+          </label>
+        </li>
+        <li>
+          <label class="soil-checkbox-label chduero-checkbox-label" style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px; cursor: pointer; border: 1px solid #e0e0e0;">
+            <input type="checkbox" data-chduero="puntosTomaCuas2025" style="cursor: pointer; width: 18px; height: 18px;">
+            <span style="font-size: 0.9rem; flex: 1;">Puntos de tomas CUAS 2025</span>
+          </label>
+        </li>
+      </ul>
+    </details>
+  </details>
 
   <details style="border: 1px solid #dee2e6; border-radius: 8px; padding: 12px; margin-top: 15px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
     <summary style="cursor: pointer; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; padding: 4px 0;">
@@ -452,6 +523,11 @@
     </div>
     
     <div id="contenido-detalles-adicionales" style="display: none; margin-top: 10px;">
+
+      <div class="basemap-option basemap-main basemap-option--plain" data-layer="prediccion-etp" role="button" tabindex="0">
+        <i class="bi bi-cloud-sun me-2 text-primary"></i>
+        Predicción evapotranspiración de referencia (ET₀)
+      </div>
       
       <div style="margin-top: 10px;">
         <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 8px 10px; background: #e9ecef; border-radius: 6px;" id="toggle-mapa-cultivos">
@@ -564,19 +640,66 @@
 
    <div class="side-section">
       <div class="side-section-head">
-        <div></div>
-    
-        <h2 class="side-section-title mb-4">
-          <i class="fa-solid fa-wheat-awn me-2" style="color:#198754"></i>
-          <span class="side-section-label">Cultivos</span>
-        </h2>
-    
-        <button id="btn-historico-cultivos" type="button" class="btn btn-success btn-historico">
-          Histórico de cultivos
-        </button>
-      </div>
+  <button id="btn-contadores" type="button" class="btn btn-success btn-contadores" data-bs-toggle="modal"
+    data-bs-target="#modalContador">
+    Contadores
+  </button>
+  
+  <h2 class="side-section-title mb-4">
+    <i class="fa-solid fa-wheat-awn me-2" style="color:#90bc05"></i>
+    <span class="side-section-label">Cultivos</span>
+  </h2>
+  
+  <button id="btn-historico-cultivos" type="button" class="btn btn-success btn-historico">
+    Histórico de cultivos
+  </button>
+  </div>
     
       <div id="cultivos-container"></div>
+    </div>
+
+    <div class="side-divider"></div>
+
+
+    <!-- SECCIÓN DIVIDIR RECINTO -->
+    <div class="side-section" id="divide-section">
+      <div class="side-section-head">
+        <div></div>
+        <h2 class="side-section-title mb-4">
+          <i class="fa-solid fa-scissors me-2" style="color:#90bc05"></i>
+          <span class="side-section-label">Dividir recinto</span>
+        </h2>
+        <div></div>
+      </div>
+      <div id="divide-container">
+        <p class="text-muted small mb-3">
+          Divide este recinto en subparcelas dibujando líneas sobre el mapa. Cada línea parte la zona en dos.
+        </p>
+        <button id="btn-iniciar-division" class="btn btn-outline-success btn-sm w-100">
+          <i class="fa-solid fa-slash me-1"></i> Iniciar división
+        </button>
+      </div>
+    </div>
+
+    <!-- SECCIÓN SUBPARCELAS (visible solo si hay subparcelas guardadas) -->
+    <div class="side-section d-none" id="subparcelas-section">
+      <div class="side-section-head">
+        <div></div>
+        <h2 class="side-section-title mb-4">
+          <i class="fa-solid fa-layer-group me-2" style="color:#90bc05"></i>
+          <span class="side-section-label">Subparcela</span>
+        </h2>
+        <button id="btn-editar-division" class="btn btn-outline-secondary btn-sm ms-auto" title="Modificar división">
+          <i class="bi bi-pencil"></i>
+        </button>
+      </div>
+      <div id="subparcelas-list-container"></div>
+      <div class="mt-3 d-flex flex-column gap-2">
+        <p class="text-muted small mb-0">Marca varias subparcelas que estén juntas para fusionarlas.</p>
+        <button id="btn-fusionar-subparcelas" type="button" class="btn btn-outline-primary btn-sm w-100" disabled>
+          <i class="fa-solid fa-object-group me-1"></i> Fusionar seleccionadas
+        </button>
+      </div>
     </div>
 
     <div class="side-divider"></div>
@@ -591,7 +714,7 @@
 
 
         <h2 class="side-section-title mb-4">
-          <i class="fa-solid fa-leaf me-2" style="color:#198754"></i>
+          <i class="fa-solid fa-leaf me-2" style="color:#90bc05"></i>
           <span class="side-section-label">NDVI</span>
         </h2>
 
@@ -611,7 +734,7 @@
         <div></div>
 
         <h2 class="side-section-title mb-4">
-          <i class="fa-solid fa-chart-line me-2" style="color:#198754"></i>
+          <i class="fa-solid fa-chart-line me-2" style="color:#90bc05"></i>
           <span class="side-section-label">Operaciones</span>
         </h2>
 
@@ -632,7 +755,7 @@
         </button>
 
         <div class="overlay-title">
-          <i class="fa-solid fa-chart-line" style="color:#198754"></i>
+          <i class="fa-solid fa-chart-line" style="color:#90bc05"></i>
           <span>Operaciones</span>
         </div>
 
@@ -647,7 +770,7 @@
     
     <div id="galeria-imagenes" class="galeria-container mt-4">
       <h2 class="side-section-title mb-3">
-        <i class="fa-solid fa-image me-2" style="color:#198754"></i>
+        <i class="fa-solid fa-image me-2" style="color:#90bc05"></i>
         Galería
       </h2>
 
@@ -670,7 +793,7 @@
         </button>
 
         <div class="overlay-title">
-          <i class="fa-solid fa-wheat-awn" style="color:#198754"></i>
+          <i class="fa-solid fa-wheat-awn" style="color:#90bc05"></i>
           <span>Cultivos</span>
         </div>
 
@@ -691,7 +814,7 @@
         </button>
 
         <div class="overlay-title">
-          <i class="fa-solid fa-leaf" style="color:#198754"></i>
+          <i class="fa-solid fa-leaf" style="color:#90bc05"></i>
           <span>NDVI</span>
         </div>
 
@@ -711,7 +834,7 @@
         </button>
 
         <div class="overlay-title">
-          <i class="fa-solid fa-image" style="color:#198754"></i>
+          <i class="fa-solid fa-image" style="color:#90bc05"></i>
           <span>Galería</span>
         </div>
 
@@ -732,6 +855,42 @@
     </div>
 
     <div id="side-alerts"></div>
+
+    <!-- OVERLAY DE EDICIÓN (cubre el panel durante el modo dibujo) -->
+    <div id="subparcelas-overlay" class="side-overlay d-none" aria-hidden="true">
+      <div class="overlay-topbar">
+        <button id="btn-cancelar-division" class="btn btn-outline-secondary" type="button">
+          <i class="bi bi-arrow-left me-1"></i> Cancelar
+        </button>
+        <div class="overlay-title">
+          <i class="fa-solid fa-slash" style="color:#90bc05"></i>
+          <span>Dividir recinto</span>
+        </div>
+        <div style="width:90px"></div>
+      </div>
+      <div class="side-divider"></div>
+      <div class="px-3 pt-3 pb-1">
+        <p class="text-muted small mb-2">
+          <i class="bi bi-info-circle me-1"></i>
+          Dibuja líneas que crucen el recinto. Cada línea divide la zona en dos partes.
+          Marca varias subparcelas y usa <strong>Fusionar</strong> para unirlas.
+        </p>
+      </div>
+      <div id="subparcelas-borradores" class="px-3 pb-2"></div>
+      <div class="px-3 pt-2 pb-3 d-flex flex-column gap-2">
+        <button id="btn-agregar-subparcela" class="btn btn-outline-success btn-sm">
+          <i class="fa-solid fa-slash me-1"></i> Dibujar línea divisoria
+        </button>
+        <button id="btn-fusionar-borradores" type="button" class="btn btn-outline-primary btn-sm" disabled>
+          <i class="fa-solid fa-object-group me-1"></i> Fusionar seleccionadas
+        </button>
+        <button id="btn-guardar-division" class="btn btn-success btn-sm" disabled>
+          <i class="bi bi-floppy me-1"></i> Guardar
+        </button>
+        <small id="guardar-division-hint" class="text-muted d-block text-center" style="font-size:0.78rem;min-height:1em;"></small>
+      </div>
+    </div>
+
   </div>
 
 
@@ -817,6 +976,40 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
           <button type="submit" class="btn btn-success">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="modalContador" tabindex="-1" aria-labelledby="modalContadorLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="form-contador" enctype="multipart/form-data">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalContadorLabel">Nueva Lectura de Contador</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="contador-file" class="form-label">Foto del contador</label>
+            <input class="form-control" type="file" id="contador-file" accept="image/*" required>
+          </div>
+          <div class="mb-3">
+            <label for="contador-titulo" class="form-label">Título</label>
+            <input type="text" class="form-control" id="contador-titulo" placeholder="Ej: Contador riego norte" required>
+          </div>
+          <div class="mb-3">
+            <label for="contador-lectura" class="form-label">Lectura del contador</label>
+            <input type="text" class="form-control" id="contador-lectura" placeholder="Ej: 12345.6 m³">
+          </div>
+          <div class="mb-3">
+            <label for="contador-descripcion" class="form-label">Notas (opcional)</label>
+            <textarea class="form-control" id="contador-descripcion" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success">Guardar Lectura</button>
         </div>
       </form>
     </div>
@@ -995,7 +1188,8 @@ async function aplicarVistaInicialUsuario() {
   }
 }
 
-  const CURRENT_USER_ID = {{ current_user.id_usuario if current_user.is_authenticated else 'null' }};
+  window.CURRENT_USER_ID = {{ current_user.id_usuario if current_user.is_authenticated else 'null' }};
+  const CURRENT_USER_ID = window.CURRENT_USER_ID;
   NotificationSystem.init();
 
   const roiBbox = [
@@ -1016,9 +1210,14 @@ async function aplicarVistaInicialUsuario() {
 
   const ZOOM_RECINTOS = 15;
 
+  /** true = el mapa no deja salir del ROI; false = sin límite de extensión */
+  const MAP_MAX_BOUNDS_ENABLED = true;
+  /** true = al activar capas CH Duero se quita temporalmente el límite del bbox */
+  const CHDUERO_RELAX_MAX_BOUNDS_WHEN_ACTIVE = true;
+
   const map = L.map("map", {
-    maxBounds: ROI_BOUNDS,
-    maxBoundsViscosity: 1.0,
+    maxBounds: MAP_MAX_BOUNDS_ENABLED ? ROI_BOUNDS : null,
+    maxBoundsViscosity: MAP_MAX_BOUNDS_ENABLED ? 1.0 : 0,
     zoomControl: true,
   });
 
@@ -1082,6 +1281,18 @@ async function aplicarVistaInicialUsuario() {
   map.createPane("humedadSaturacionPane");
   map.getPane("humedadSaturacionPane").style.zIndex = 200;
 
+  map.createPane("regadiosSuperficialesPane");
+  map.getPane("regadiosSuperficialesPane").style.zIndex = 200;
+
+  map.createPane("parcelarioCuas2025Pane");
+  map.getPane("parcelarioCuas2025Pane").style.zIndex = 200;
+
+  map.createPane("captacionesCuas2025Pane");
+  map.getPane("captacionesCuas2025Pane").style.zIndex = 200;
+
+  map.createPane("puntosTomaCuas2025Pane");
+  map.getPane("puntosTomaCuas2025Pane").style.zIndex = 200;
+
   map.createPane("catastroPane");
   map.getPane("catastroPane").style.zIndex = 510;
 
@@ -1143,7 +1354,13 @@ async function aplicarVistaInicialUsuario() {
 
       closeHistoricoPanel();
       closeOperacionesPanel();
+      window.closeSubparcelasEdicion?.();
       setSplitMode(false);
+
+      // Limpiar capa de subparcelas del mapa al cerrar el panel
+      if (window.renderSubparcelasForRecinto) {
+        window.renderSubparcelasForRecinto(null);
+      }
 
       window.currentSideRecintoId = null;
     });
@@ -1238,8 +1455,33 @@ async function aplicarVistaInicialUsuario() {
     return def;
   }
 
+  function areaHaFromGeojson(geojson) {
+    if (!geojson || typeof turf === "undefined") return null;
+    try {
+      let gj = geojson;
+      if (typeof gj === "string") gj = JSON.parse(gj);
+      let feat;
+      if (gj.type === "Feature") feat = gj;
+      else if (gj.type === "FeatureCollection" && gj.features?.length) feat = gj.features[0];
+      else if (gj.type === "Polygon" || gj.type === "MultiPolygon") feat = { type: "Feature", geometry: gj, properties: {} };
+      else return null;
+      const m2 = turf.area(feat);
+      if (!Number.isFinite(m2) || m2 <= 0) return null;
+      return m2 / 10000;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function displayHaStr(p) {
+    const ha = areaHaFromGeojson(p?.geojson) ?? p?.superficie_ha;
+    if (ha == null || !Number.isFinite(Number(ha))) return "-";
+    return `${Number(ha).toFixed(2)} ha`;
+  }
+
   function formatAreaHa(p) {
-    const a = p.superficie_ha ?? p.superficie ?? p.area_ha ?? p.area ?? null;
+    const geomHa = areaHaFromGeojson(p.geojson);
+    const a = geomHa ?? p.superficie_ha ?? p.superficie ?? p.area_ha ?? p.area ?? null;
     if (a === null || a === undefined || a === "") return "-";
     const n = Number(a);
     if (!Number.isFinite(n)) return safeText(a);
@@ -1261,10 +1503,12 @@ async function aplicarVistaInicialUsuario() {
 
   function renderSidePanelFromProps(p) {
     window.currentSideRecintoId = p.id || p.id_recinto;
+    window.currentRecintoData = p; // usado por visor-subparcelas.js
     document.getElementById("side-title").textContent = safeText(p.nombre, "Recinto");
-    document.getElementById("side-area").textContent = (p.superficie_ha == null)
+    const sideHa = areaHaFromGeojson(p.geojson) ?? p.superficie_ha;
+    document.getElementById("side-area").textContent = (sideHa == null)
       ? "-"
-      : `${Number(p.superficie_ha).toFixed(2).replace(".", ",")} ha`;
+      : `${Number(sideHa).toFixed(2).replace(".", ",")} ha`;
     document.getElementById("side-owner").textContent = safeText(p.propietario, "N/A");
     document.getElementById("side-active").checked = (p.activa == null) ? true : !!p.activa;
 
@@ -1278,10 +1522,22 @@ async function aplicarVistaInicialUsuario() {
 
     window.galeria.setRecintoId(window.currentSideRecintoId);
     window.ndviManager.setRecintoId(window.currentSideRecintoId);
+    window.contadoresManager?.setRecintoId(window.currentSideRecintoId);
     
 
     window.renderCultivosForRecinto?.(currentSideRecintoId);
     window.renderOperacionesForRecinto?.(currentSideRecintoId);
+    window.renderSubparcelasForRecinto?.(currentSideRecintoId);
+
+    const panelParam = urlParams.get('panel');
+    if (panelParam === 'operaciones') {
+      setTimeout(() => {
+        document.getElementById('operaciones-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (urlParams.get('op') === 'nueva') {
+          window.abrirNuevaOperacionInline?.(currentSideRecintoId);
+        }
+      }, 500);
+    }
   }
 
 
@@ -1437,6 +1693,8 @@ if (btnDelete) {
   document.querySelectorAll('.basemap-option.basemap-main')
     .forEach(opt => opt.classList.remove('active'));
 
+  if (!layerKey) return;
+
   const activeOption = document.querySelector(
     `.basemap-option.basemap-main[data-layer="${layerKey}"]`
   );
@@ -1450,6 +1708,7 @@ if (btnDelete) {
   window.setActiveHighLayerKey = (k) => { activeHighLayerKey = k; };
   actualizarBasemapUI(activeHighLayerKey);
   function getActiveHighLayer() {
+    if (!activeHighLayerKey) return null;
     return highZoomLayers[activeHighLayerKey];
   }
 
@@ -1515,7 +1774,7 @@ if (btnDelete) {
                 font-size: 0.85rem;
                 border-radius: 999px;
                 border: none;
-                background-color: #198754;
+                background-color: #90bc05;
                 color: white;
                 cursor: pointer;
                 ${disabledStyle}
@@ -1531,10 +1790,18 @@ if (btnDelete) {
       layer.bindPopup(html);
 
       layer.on("click", async function (e) {
+        if (modoEdicion || window.modoSubparcelas) {
+          try { L.DomEvent.stopPropagation(e); } catch (_) {}
+          return;
+        }
         if (typeof rectangleDrawer !== 'undefined' && rectangleDrawer && rectangleDrawer._enabled) {
           return;
         }
         if (typeof polygonDrawer !== 'undefined' && polygonDrawer && polygonDrawer._enabled) {
+          return;
+        }
+
+        if (await manejarPopupChdueroClick(e)) {
           return;
         }
         
@@ -1557,7 +1824,7 @@ if (btnDelete) {
             console.error("Error verificando suelo:", err);
           }
         }
-        
+
         if (selectedRecintoLayer && selectedRecintoLayer !== layer) {
           selectedRecintoLayer.setStyle(RECINTO_STYLE_DEFAULT);
         }
@@ -1575,10 +1842,12 @@ if (btnDelete) {
   const CULTIVO_HL_STYLE = { color: "#0077ff", weight: 3, fillColor: "#0077ff", fillOpacity: 0.20 };
   const CATASTRO_HL_STYLE = { color: "#0077ff", weight: 3, fillColor: "#0077ff", fillOpacity: 0.20 };
   const SUELOS_HL_STYLE = { color: "#FF8C00", weight: 3, fillColor: "#FFD700", fillOpacity: 0.8 };
+  const CHDUERO_HL_STYLE = { color: "#1565c0", weight: 3, fillColor: "#42a5f5", fillOpacity: 0.35 };
 
   let cultivoHighlightLayer = null;
   let catastroHighlightLayer = null;
   let suelosHighlightLayer = null;
+  let chdueroHighlightLayer = null;
 
   function clearCultivoHighlight() {
     if (cultivoHighlightLayer) {
@@ -1601,20 +1870,34 @@ if (btnDelete) {
     }
   }
 
+  function clearChdueroHighlight() {
+    if (chdueroHighlightLayer) {
+      try { map.removeLayer(chdueroHighlightLayer); } catch (_) {}
+      chdueroHighlightLayer = null;
+    }
+  }
+
   function highlightGeojson(geojson, which) {
     clearCultivoHighlight();
     clearCatastroHighlight();
     clearSuelosHighlight();
+    clearChdueroHighlight();
 
     if (!geojson) return;
 
-    if (which === "cultivo") { clearCatastroHighlight(); clearSuelosHighlight(); }
-    if (which === "catastro") { clearCultivoHighlight(); clearSuelosHighlight(); }
-    if (which === "suelos") { clearCultivoHighlight(); clearCatastroHighlight(); }
+    if (which === "cultivo") { clearCatastroHighlight(); clearSuelosHighlight(); clearChdueroHighlight(); }
+    if (which === "catastro") { clearCultivoHighlight(); clearSuelosHighlight(); clearChdueroHighlight(); }
+    if (which === "suelos") { clearCultivoHighlight(); clearCatastroHighlight(); clearChdueroHighlight(); }
+    if (which === "chduero") { clearCultivoHighlight(); clearCatastroHighlight(); clearSuelosHighlight(); }
+
+    const style = which === "cultivo" ? CULTIVO_HL_STYLE
+      : which === "catastro" ? CATASTRO_HL_STYLE
+      : which === "chduero" ? CHDUERO_HL_STYLE
+      : SUELOS_HL_STYLE;
 
     const layer = L.geoJSON(geojson, {
       pane: "wmsHighlightPane",
-      style: which === "cultivo" ? CULTIVO_HL_STYLE : (which === "catastro" ? CATASTRO_HL_STYLE : SUELOS_HL_STYLE)
+      style
     }).addTo(map);
 
     layer.bringToFront();
@@ -1622,12 +1905,14 @@ if (btnDelete) {
     if (which === "cultivo") cultivoHighlightLayer = layer;
     else if (which === "catastro") catastroHighlightLayer = layer;
     else if (which === "suelos") suelosHighlightLayer = layer;
+    else if (which === "chduero") chdueroHighlightLayer = layer;
   }
 
   map.on("popupclose", () => {
     clearCultivoHighlight();
     clearCatastroHighlight();
     clearSuelosHighlight();
+    clearChdueroHighlight();
   });
 
   function openSigpacPopupForKey(key) {
@@ -1742,6 +2027,7 @@ function actualizarNdviPanel() {
           dashArray: '10, 5'
         }
       }).addTo(map);
+      window.recintoResaltado = recintoResaltado;
       recintoResaltado.bringToFront();
 
       const popupContent = `
@@ -1752,7 +2038,7 @@ function actualizarNdviPanel() {
           <strong>Polígono:</strong> ${data.poligono}<br>
           <strong>Parcela:</strong> ${data.parcela}<br>
           <strong>Recinto:</strong> ${data.recinto}<br>
-          <strong>Superficie:</strong> ${data.superficie_ha.toFixed(2)} ha<br>
+          <strong>Superficie:</strong> ${displayHaStr(data)}<br>
           <strong>Propietario:</strong> ${data.propietario}
         </div>
       </div>
@@ -1764,8 +2050,12 @@ function actualizarNdviPanel() {
       });
 
       recintoResaltado.eachLayer((lyr) => {
-        lyr.on('click', () => {
-          try { lyr.closePopup(); } catch (e) { }
+        lyr.on('click', (e) => {
+          if (modoEdicion || window.modoSubparcelas) {
+            try { L.DomEvent.stopPropagation(e); } catch (_) {}
+            return;
+          }
+          try { lyr.closePopup(); } catch (err) { }
         });
       });
 
@@ -1827,8 +2117,11 @@ function actualizarNdviPanel() {
       layer.on("click", async function (e) {
         if (modoEdicion) return;
 
-       
-        
+        if (await manejarPopupChdueroClick(e)) {
+          try { L.DomEvent.stop(e); } catch (_) {}
+          return;
+        }
+
         try { L.DomEvent.stop(e); } catch (_) {}
 
         if (suelosActivos && map.getZoom() >= 13) {
@@ -2092,6 +2385,50 @@ function actualizarNdviPanel() {
     interactive: false  
   });
 
+  const regadiosSuperficialesLayer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:Regadios_Superficiales",
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    version: "1.1.1",
+    pane: "regadiosSuperficialesPane",
+    maxZoom: 22,
+    interactive: false
+  });
+
+  const parcelarioCuas2025Layer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:Parcelario_CUAS_2025",
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    version: "1.1.1",
+    pane: "parcelarioCuas2025Pane",
+    maxZoom: 22,
+    interactive: false
+  });
+
+  const captacionesCuas2025Layer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:Captaciones_CUAS_2025",
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    version: "1.1.1",
+    pane: "captacionesCuas2025Pane",
+    maxZoom: 22,
+    interactive: false
+  });
+
+  const puntosTomaCuas2025Layer = L.tileLayer.wms(GEOSERVER_WMS, {
+    layers: "gis_project:Puntos_de_Toma_CUAS_2025",
+    format: "image/png",
+    transparent: true,
+    tiled: true,
+    version: "1.1.1",
+    pane: "puntosTomaCuas2025Pane",
+    maxZoom: 22,
+    interactive: false
+  });
+
 
   
 
@@ -2249,6 +2586,225 @@ function actualizarNdviPanel() {
     });
   }
 
+  let capasActivasChduero = {
+    regadiosSuperficiales: false,
+    parcelarioCuas2025: false,
+    captacionesCuas2025: false,
+    puntosTomaCuas2025: false
+  };
+
+  const historialActivacionChduero = [];
+
+  const capasMapeoChduero = {
+    regadiosSuperficiales: {
+      layer: regadiosSuperficialesLayer,
+      pane: "regadiosSuperficialesPane",
+      wmsLayer: "gis_project:Regadios_Superficiales",
+      label: "Regadíos superficiales"
+    },
+    parcelarioCuas2025: {
+      layer: parcelarioCuas2025Layer,
+      pane: "parcelarioCuas2025Pane",
+      wmsLayer: "gis_project:Parcelario_CUAS_2025",
+      label: "Parcelario CUAS - 2025"
+    },
+    captacionesCuas2025: {
+      layer: captacionesCuas2025Layer,
+      pane: "captacionesCuas2025Pane",
+      wmsLayer: "gis_project:Captaciones_CUAS_2025",
+      label: "Captaciones CUAS - 2025"
+    },
+    puntosTomaCuas2025: {
+      layer: puntosTomaCuas2025Layer,
+      pane: "puntosTomaCuas2025Pane",
+      wmsLayer: "gis_project:Puntos_de_Toma_CUAS_2025",
+      label: "Puntos de tomas CUAS 2025"
+    }
+  };
+
+  Object.values(capasMapeoChduero).forEach((capa) => {
+    capa.layer.on("tileerror", function () {
+      console.warn("[CH-DUERO] No se pudo cargar tile WMS:", capa.label, "→ revisa que la capa esté publicada en GeoServer (gis_project)");
+    });
+  });
+
+  function algunaCapaChdueroActiva() {
+    return Object.values(capasActivasChduero).some(Boolean);
+  }
+
+  function actualizarRestriccionBBoxMapa() {
+    const restringir = MAP_MAX_BOUNDS_ENABLED
+      && !(CHDUERO_RELAX_MAX_BOUNDS_WHEN_ACTIVE && algunaCapaChdueroActiva());
+
+    if (restringir) {
+      map.setMaxBounds(ROI_BOUNDS);
+      map.options.maxBoundsViscosity = 1.0;
+    } else {
+      map.setMaxBounds(null);
+      map.options.maxBoundsViscosity = 0;
+    }
+  }
+
+  const CHDUERO_SKIP_ATTRS = new Set([
+    "shape", "geom", "the_geom", "geometry", "bbox", "msgeometry", "gid", "objectid", "fid"
+  ]);
+
+  function escapeHtmlChduero(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function sanitizeChdueroPopupHtml(html) {
+    return String(html || "")
+      .replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi, "$1")
+      .replace(/<a\b[^>]*>/gi, "")
+      .replace(/<\/a>/gi, "")
+      .replace(/\s+onclick\s*=\s*(['"])[\s\S]*?\1/gi, "");
+  }
+
+  function buildChdueroPopup(layerLabel, props) {
+    const html = props && props._gfi_html;
+    if (html) {
+      const safeHtml = sanitizeChdueroPopupHtml(html);
+      const hasCaption = /<caption/i.test(safeHtml);
+      const titleBlock = hasCaption
+        ? ""
+        : `<div style="font-weight:800;margin-bottom:8px;color:#212529;">${escapeHtmlChduero(layerLabel)}</div>`;
+      return `
+        <div class="popup-recinto chduero-gfi-html">
+          ${titleBlock}
+          <div class="chduero-gfi-content">${safeHtml}</div>
+        </div>
+      `;
+    }
+
+    const rows = Object.entries(props || {})
+      .filter(([k, v]) => {
+        if (CHDUERO_SKIP_ATTRS.has(String(k).toLowerCase())) return false;
+        if (v == null) return false;
+        const s = String(v).trim();
+        return s !== "" && s !== "null";
+      })
+      .map(([k, v]) => (
+        `<tr>`
+        + `<th style="width:42%;vertical-align:top;padding:3px 8px 3px 0;font-weight:600;">${escapeHtmlChduero(k)}</th>`
+        + `<td style="padding:3px 0;">${escapeHtmlChduero(v)}</td>`
+        + `</tr>`
+      ))
+      .join("");
+
+    if (!rows) {
+      return `<div style="min-width:220px;"><strong>${escapeHtmlChduero(layerLabel)}</strong><br><span style="color:#666;">Sin atributos en este punto</span></div>`;
+    }
+
+    return `
+      <div class="popup-recinto" style="min-width:260px;max-width:440px;font-size:0.9rem;">
+        <div style="font-weight:800;margin-bottom:8px;color:#0d47a1;">${escapeHtmlChduero(layerLabel)}</div>
+        <table style="width:100%;border-collapse:collapse;">${rows}</table>
+      </div>
+    `;
+  }
+
+  async function consultarChdueroEnClick(latlng) {
+    const size = map.getSize();
+    const bounds = map.getBounds();
+    const point = map.latLngToContainerPoint(latlng);
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    const bbox = `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`;
+
+    const orden = historialActivacionChduero.length
+      ? [...historialActivacionChduero].reverse()
+      : Object.keys(capasActivasChduero).filter((k) => capasActivasChduero[k]);
+
+    for (const capaNombre of orden) {
+      const capaData = capasMapeoChduero[capaNombre];
+      if (!capaData || !capasActivasChduero[capaNombre]) continue;
+
+      try {
+        const params = new URLSearchParams({
+          layer: capaData.wmsLayer,
+          lat: String(latlng.lat),
+          lng: String(latlng.lng),
+          bbox,
+          width: String(size.x),
+          height: String(size.y),
+          x: String(Math.round(point.x)),
+          y: String(Math.round(point.y)),
+        });
+        const r = await fetch(`/api/popup/chduero?${params}`, { credentials: "same-origin" });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j.ok === false) {
+          console.warn("[CH-DUERO]", capaData.label, j.error || r.status);
+          continue;
+        }
+        if (j.ok && j.found && j.feature) {
+          return { capaData, feature: j.feature };
+        }
+      } catch (err) {
+        console.warn("[CH-DUERO] GetFeatureInfo:", capaData.label, err);
+      }
+    }
+    return null;
+  }
+
+  async function manejarPopupChdueroClick(e) {
+    if (!algunaCapaChdueroActiva() || !e?.latlng) return false;
+
+    try {
+      const hit = await consultarChdueroEnClick(e.latlng);
+      if (hit) {
+        if (hit.feature.geometry) {
+          highlightGeojson(hit.feature.geometry, "chduero");
+        }
+        abrirPopupChduero(e.latlng, buildChdueroPopup(hit.capaData.label, hit.feature.properties));
+        if (e.originalEvent) e.originalEvent.stopPropagation();
+        L.DomEvent.stopPropagation(e);
+        return true;
+      }
+    } catch (err) {
+      console.error("Error popup CH Duero:", err);
+    }
+    return false;
+  }
+
+  window.manejarPopupChdueroClick = manejarPopupChdueroClick;
+
+  function cargarCapaChdueroSiProcede(capaNombre) {
+    const capaData = capasMapeoChduero[capaNombre];
+
+    if (!capaData || !capasActivasChduero[capaNombre]) {
+      if (capaData && map.hasLayer(capaData.layer)) {
+        map.removeLayer(capaData.layer);
+      }
+      return;
+    }
+
+    if (!map.hasLayer(capaData.layer)) {
+      capaData.layer.addTo(map);
+    }
+  }
+
+  function ponerCapaChdueroArriba(capaNombre) {
+    const capaData = capasMapeoChduero[capaNombre];
+    if (!capaData || !capaData.pane) return;
+
+    currentMaxZIndex++;
+    const pane = map.getPane(capaData.pane);
+    if (pane) {
+      pane.style.zIndex = currentMaxZIndex;
+    }
+  }
+
+  function cargarTodasCapasChdueroSiProcede() {
+    Object.keys(capasActivasChduero).forEach((capaNombre) => {
+      cargarCapaChdueroSiProcede(capaNombre);
+    });
+  }
+
 
   function fmt(v, fallback = "-") {
     if (v === null || v === undefined) return fallback;
@@ -2258,6 +2814,17 @@ function actualizarNdviPanel() {
 
   function abrirPopupHtml(latlng, html) {
     L.popup({ maxWidth: 320, autoPan: true })
+      .setLatLng(latlng)
+      .setContent(html)
+      .openOn(map);
+  }
+
+  function abrirPopupChduero(latlng, html) {
+    L.popup({
+      maxWidth: 420,
+      autoPan: true,
+      className: "chduero-popup",
+    })
       .setLatLng(latlng)
       .setContent(html)
       .openOn(map);
@@ -2452,7 +3019,7 @@ function actualizarNdviPanel() {
     return `
       <div class="popup-recinto" style="min-width: 280px; max-width: 420px;">
         <div class="popup-recinto-info" style="font-size: 0.9rem;">
-          <div style="font-weight: 800; margin-bottom: 10px; color: #198754; font-size: 1.1rem;">
+          <div style="font-weight: 800; margin-bottom: 10px; color: #90bc05; font-size: 1.1rem;">
             <i class="bi bi-clipboard-data"></i> Muestra #${idMuestra !== null && idMuestra !== undefined && idMuestra !== "" ? idMuestra : 'Sin ID'}
           </div>
           
@@ -2469,7 +3036,25 @@ function actualizarNdviPanel() {
 
   map.on("click", async (e) => {
   const t = e?.originalEvent?.target;
-  
+
+  try {
+    if (algunaCapaChdueroActiva()) {
+      if (await manejarPopupChdueroClick(e)) {
+        return;
+      }
+      abrirPopupChduero(
+        e.latlng,
+        `<div style="min-width:200px;font-size:0.9rem;color:#666;">
+          <i class="bi bi-info-circle"></i> No hay información en este punto para las capas CH Duero activas.
+        </div>`
+      );
+      if (e.originalEvent) e.originalEvent.stopPropagation();
+      return;
+    }
+  } catch (err) {
+    console.error("Error popup CH Duero:", err);
+  }
+
   if (map.getZoom() < 13) return;
 
   try {
@@ -2519,6 +3104,7 @@ function actualizarNdviPanel() {
     clearCultivoHighlight();
     clearCatastroHighlight();
     clearSuelosHighlight();
+    clearChdueroHighlight();
   } catch (err) {
     console.error("Error popup click:", err);
   }
@@ -2694,18 +3280,21 @@ function actualizarNdviPanel() {
     const activeHighLayer = getActiveHighLayer();
 
     if (z >= ZOOM_RECINTOS) {
-      if (map.hasLayer(baseOSM)) {
-        map.removeLayer(baseOSM);
-      }
-
       Object.values(highZoomLayers).forEach((layer) => {
-        if (layer && layer !== activeHighLayer && map.hasLayer(layer)) {
+        if (layer && map.hasLayer(layer)) {
           map.removeLayer(layer);
         }
       });
 
-      if (activeHighLayer && !map.hasLayer(activeHighLayer)) {
-        activeHighLayer.addTo(map);
+      if (activeHighLayer) {
+        if (map.hasLayer(baseOSM)) {
+          map.removeLayer(baseOSM);
+        }
+        if (!map.hasLayer(activeHighLayer)) {
+          activeHighLayer.addTo(map);
+        }
+      } else if (!map.hasLayer(baseOSM)) {
+        baseOSM.addTo(map);
       }
 
       if (!modoEdicion) {
@@ -2743,6 +3332,7 @@ function actualizarNdviPanel() {
   const cargarCultivosSigpacDebounced       = debounce(cargarCultivosSigpacSiProcede,    DEBOUNCE_MS);
   const cargarSuelosDebounced               = debounce(cargarSuelosSiProcede,            DEBOUNCE_MS);
   const cargarTodasCapasSuelosDebounced     = debounce(cargarTodasCapasSuelosSiProcede,  DEBOUNCE_MS);
+  const cargarTodasCapasChdueroDebounced    = debounce(cargarTodasCapasChdueroSiProcede, DEBOUNCE_MS);
   const cargarTodasCyLDebounced             = debounce(cargarTodasCyLSiProcede,          DEBOUNCE_MS);
 
   map.on("zoomend", () => {
@@ -2773,6 +3363,7 @@ function actualizarNdviPanel() {
     cargarCultivosSigpacDebounced();
     cargarSuelosDebounced();
     cargarTodasCapasSuelosDebounced();
+    cargarTodasCapasChdueroDebounced();
     cargarTodasCyLDebounced();
     if (splitOpen && currentSideRecintoId) {
       guardarEstadoMapa();
@@ -2786,6 +3377,7 @@ function actualizarNdviPanel() {
     cargarCultivosSigpacDebounced();
     cargarSuelosDebounced();
     cargarTodasCapasSuelosDebounced();
+    cargarTodasCapasChdueroDebounced();
     cargarTodasCyLDebounced();
   });
 
@@ -2796,12 +3388,13 @@ function actualizarNdviPanel() {
   cargarCultivosSigpacSiProcede();
   cargarSuelosSiProcede();
   cargarTodasCapasSuelosSiProcede();
+  cargarTodasCapasChdueroSiProcede();
+  actualizarRestriccionBBoxMapa();
   cargarTodasCyLSiProcede();
 
   const toggleBtn = document.getElementById("basemap-toggle");
   const panel = document.getElementById("basemap-panel");
   const basemapContainer = document.getElementById("basemap-panel-container");
-  const filtroContainer = document.getElementById("filtro-container");
 
   toggleBtn.addEventListener("click", () => {
     const isOpening = !panel.classList.contains("visible");
@@ -2811,10 +3404,8 @@ function actualizarNdviPanel() {
 
     if (isOpening) {
       basemapContainer.classList.add("panel-open");
-      filtroContainer.classList.add("panel-open");
     } else {
       basemapContainer.classList.remove("panel-open");
-      filtroContainer.classList.remove("panel-open");
     }
   });
 
@@ -2825,6 +3416,13 @@ function actualizarNdviPanel() {
       option.addEventListener("click", () => {
         const layerKey = option.dataset.layer;
         if (!highZoomLayers[layerKey]) {
+          return;
+        }
+
+        if (activeHighLayerKey === layerKey && option.classList.contains("active")) {
+          activeHighLayerKey = null;
+          actualizarBasemapUI(null);
+          actualizarMapaSegunZoom();
           return;
         }
 
@@ -2990,6 +3588,107 @@ function actualizarNdviPanel() {
     });
   });
 
+  function desactivarTodoMenosMisRecintosParaChduero() {
+    // Mantener MIS RECINTOS siempre activos
+    try {
+      misRecintosActivos = true;
+      const optMis = document.querySelector('.basemap-option.basemap-detail[data-detail="mis"]');
+      if (optMis) optMis.classList.add("active");
+      cargarMisRecintosSiProcede();
+    } catch (_) {}
+
+    // Mantener ESTACIONES activas
+    try {
+      const optEst = document.querySelector('.basemap-option.basemap-detail[data-detail="estaciones"]');
+      if (!window.estacionesActivas) {
+        if (optEst) optEst.classList.add("active");
+        if (window.estacionesLayer) map.addLayer(window.estacionesLayer);
+        window.estacionesActivas = true;
+      }
+    } catch (_) {}
+
+    // Desactivar capas "detalle" (excepto mis y estaciones)
+    try { desactivarDetalle("sigpac"); } catch (_) {}
+    try { desactivarDetalle("cultivosSigpac"); } catch (_) {}
+    try { desactivarDetalle("catastro"); } catch (_) {}
+
+    // Suelos (toggle general) + subcapas (checkboxes data-detail)
+    try {
+      const optSuelos = document.querySelector('.basemap-option.basemap-detail[data-detail="suelos"]');
+      suelosActivos = false;
+      if (optSuelos) optSuelos.classList.remove("active");
+      if (map.hasLayer(suelosLayer)) map.removeLayer(suelosLayer);
+    } catch (_) {}
+
+    try {
+      Object.keys(capasActivasSuelos).forEach((k) => { capasActivasSuelos[k] = false; });
+      document.querySelectorAll('input[type="checkbox"][data-detail]').forEach((cb) => {
+        if (cb.checked) {
+          cb.checked = false;
+          cb.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      });
+      const leyendasContainer = document.getElementById('leyendas-suelos-container');
+      if (leyendasContainer) leyendasContainer.style.display = 'none';
+    } catch (_) {}
+
+    // Capas CyL de cultivos (si están activas)
+    try {
+      if (window.cylLayersData) {
+        Object.keys(window.cylLayersData).forEach((year) => {
+          const d = window.cylLayersData[year];
+          if (!d) return;
+          d.active = false;
+          if (d.layer && map.hasLayer(d.layer)) map.removeLayer(d.layer);
+        });
+      }
+    } catch (_) {}
+  }
+
+  document.querySelectorAll('input[type="checkbox"][data-chduero]').forEach((checkbox) => {
+    checkbox.addEventListener("change", function () {
+      const capaNombre = this.dataset.chduero;
+      if (!capasMapeoChduero[capaNombre]) return;
+
+      capasActivasChduero[capaNombre] = this.checked;
+
+      if (this.checked) {
+        desactivarTodoMenosMisRecintosParaChduero();
+
+        document.querySelectorAll(".chduero-checkbox-label").forEach((label) => {
+          label.classList.remove("active-layer");
+        });
+
+        this.closest(".chduero-checkbox-label")?.classList.add("active-layer");
+
+        const idx = historialActivacionChduero.indexOf(capaNombre);
+        if (idx !== -1) historialActivacionChduero.splice(idx, 1);
+        historialActivacionChduero.push(capaNombre);
+
+        ponerCapaChdueroArriba(capaNombre);
+        cargarCapaChdueroSiProcede(capaNombre);
+      } else {
+        this.closest(".chduero-checkbox-label")?.classList.remove("active-layer");
+
+        const idx = historialActivacionChduero.indexOf(capaNombre);
+        if (idx !== -1) historialActivacionChduero.splice(idx, 1);
+
+        const capaData = capasMapeoChduero[capaNombre];
+        if (capaData && map.hasLayer(capaData.layer)) {
+          map.removeLayer(capaData.layer);
+        }
+
+        if (historialActivacionChduero.length > 0) {
+          const ultimaCapaActiva = historialActivacionChduero[historialActivacionChduero.length - 1];
+          const checkboxUltima = document.querySelector(`input[data-chduero="${ultimaCapaActiva}"]`);
+          checkboxUltima?.closest(".chduero-checkbox-label")?.classList.add("active-layer");
+        }
+      }
+
+      actualizarRestriccionBBoxMapa();
+    });
+  });
+
   function desactivarDetalle(key) {
     const opt = document.querySelector(`.basemap-option.basemap-detail[data-detail="${key}"]`);
     if (opt) opt.classList.remove("active");
@@ -3046,6 +3745,7 @@ function actualizarNdviPanel() {
         map.removeLayer(recintoResaltado);
       } catch (e) { }
       recintoResaltado = null;
+      window.recintoResaltado = null;
     }
   }
 
@@ -3122,6 +3822,7 @@ function actualizarNdviPanel() {
           dashArray: '10, 5'
         }
       }).addTo(map);
+      window.recintoResaltado = recintoResaltado;
       recintoResaltado.bringToFront();
 
 
@@ -3133,7 +3834,7 @@ function actualizarNdviPanel() {
           <strong>Polígono:</strong> ${data.poligono}<br>
           <strong>Parcela:</strong> ${data.parcela}<br>
           <strong>Recinto:</strong> ${data.recinto}<br>
-          <strong>Superficie:</strong> ${data.superficie_ha.toFixed(2)} ha<br>
+          <strong>Superficie:</strong> ${displayHaStr(data)}<br>
           <strong>Propietario:</strong> ${data.propietario}
         </div>
       </div>
@@ -3145,8 +3846,12 @@ function actualizarNdviPanel() {
       });
 
       recintoResaltado.eachLayer((lyr) => {
-        lyr.on('click', () => {
-          try { lyr.closePopup(); } catch (e) { }
+        lyr.on('click', (e) => {
+          if (modoEdicion || window.modoSubparcelas) {
+            try { L.DomEvent.stopPropagation(e); } catch (_) {}
+            return;
+          }
+          try { lyr.closePopup(); } catch (err) { }
         });
       });
 
@@ -3275,6 +3980,8 @@ if (recintoData) {
 <script src="{{ url_for('static', filename='js/visor/visor-estaciones.js') }}"></script>
 <script src="{{ url_for('static', filename='js/visor/visor-etp.js') }}"></script>
 <script src="{{ url_for('static', filename='js/visor/visor-prediccion-etp.js') }}"></script>
+<script src="{{ url_for('static', filename='js/visor/visor-prediccion-riego.js') }}"></script>
+<script src="{{ url_for('static', filename='js/visor/visor-subparcelas.js') }}"></script>
 
 
 {% endblock %}

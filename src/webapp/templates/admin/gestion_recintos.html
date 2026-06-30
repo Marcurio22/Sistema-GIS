@@ -199,7 +199,7 @@
               data-municipio="{{ recinto.municipio }}{% if recinto.nombre_municipio %} - {{ recinto.nombre_municipio }}{% endif %}"
               data-estado="{{ 'Activa' if recinto.activa else 'Inactiva' }}">
               <td>{{ recinto.nombre }}</td>
-              <td>{{ "%.2f"|format(recinto.superficie_ha|float) }}</td>
+              <td class="text-end">{{ "%.2f"|format(recinto.superficie_ha|float) }}</td>
               <td>
                 {% if recinto.propietario %}
                 <i class="bi bi-person-fill text-primary"></i> {{ recinto.propietario.username }}

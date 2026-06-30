@@ -1,160 +1,237 @@
 """
-descargar_sigpac_automatico.py
+descargar_sigpac_recintos.py
 
 Descarga todos los recintos SIGPAC que intersectan tu ROI,
-los vuelca a PostGIS usando una actualización "atómica" (estrategia B:
-tabla temporal + renombrado), y repite el proceso cada 7 días.
+los vuelca a PostGIS usando una actualización atómica
+(tabla temporal + renombrado).
 
-Autor: Marcos Zamorano Lasso
-Versión: 2.0.0
+Ejecutar manualmente o via cron cuando se necesite.
 """
 
-import os
-import time
+import sys
 from datetime import date
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import requests
 import geopandas as gpd
-from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
-# (Opcional pero recomendable para geometrías MultiPolygon)
+# ── Localizar raíz del proyecto y añadir al path ──────────────────────────────
+def find_project_root(start: Path) -> Path:
+    cur = start.resolve()
+    for _ in range(15):
+        if (cur / "data").exists() and (cur / "src").exists():
+            return cur
+        cur = cur.parent
+    return Path.cwd().resolve()
+
+THIS_DIR     = Path(__file__).resolve().parent
+PROJECT_ROOT = find_project_root(THIS_DIR)
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
+
+from webapp.config import Config  # usa el mismo Config que el resto de la app
+
 try:
     from geoalchemy2 import Geometry
     _HAS_GEOALCHEMY = True
 except ImportError:
     _HAS_GEOALCHEMY = False
 
+# ── Constantes ────────────────────────────────────────────────────────────────
+SIGPAC_BASE    = "https://sigpac-hubcloud.es/ogcapi"
+COLLECTION     = "recintos"           # ← cambia si el endpoint se llama distinto
+DEFAULT_ROI    = "data/processed/roi.gpkg"
+PAGE_LIMIT     = 250                  # tamaño de página seguro para la API
+TILE_DEGREES   = 0.05                 # misma estrategia de tiles que cultivo_declarado
+PAUSE_BETWEEN  = 2                    # segundos entre peticiones
 
-# -----------------------------
-# 1) Cargar ROI y calcular bbox
-# -----------------------------
-def obtener_bbox_roi(roi_path: str | Path) -> tuple[float, float, float, float]:
-    """
-    Lee un ROI (gpkg/shp) y devuelve su bbox en WGS84 (EPSG:4326)
-    como (minx, miny, maxx, maxy).
-    """
-    roi = gpd.read_file(roi_path).to_crs(4326)  # WGS84 / CRS84
-    minx, miny, maxx, maxy = roi.total_bounds
-    bbox = (float(minx), float(miny), float(maxx), float(maxy))
-    print("ROI bbox:", bbox)
-    return bbox
+MAX_RETRIES    = 5
+RETRY_WAIT_BASE = 20
+
+DEDUP_KEYS = ["provincia", "municipio", "poligono", "parcela", "recinto"]
 
 
-# -------------------------------------------
-# 2) Descargar TODOS los recintos por páginas
-# -------------------------------------------
-def descargar_todo_sigpac_recintos(bbox, limit=10000) -> gpd.GeoDataFrame:
-    """
-    Descarga todos los recintos SIGPAC que intersectan el bbox paginando con offset.
-    limit = tamaño de página (no total).
-    """
-    base_url = "https://sigpac-hubcloud.es/ogcapi/collections/recintos/items"
+# ══════════════════════════════════════════════════════════════════════════════
+# Helpers de descarga (misma estrategia de tiles que funciona en cultivo_declarado)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def check_collection_exists(collection: str) -> bool:
+    """Comprueba que la colección existe en la API antes de intentar descargar."""
+    url = f"{SIGPAC_BASE}/collections?f=json"
+    try:
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        ids = [c["id"] for c in resp.json().get("collections", [])]
+        if collection not in ids:
+            print(f"⚠️  Colección '{collection}' no encontrada.")
+            print(f"   Colecciones disponibles: {ids}")
+            return False
+        return True
+    except Exception as e:
+        print(f"⚠️  No se pudo verificar colecciones: {e}")
+        print("   Continuando de todas formas…")
+        return True  # intentar igualmente
+
+
+def get_one_page(base_url: str, params: dict) -> dict:
+    import time
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            resp = requests.get(base_url, params={**params, "f": "json"}, timeout=120)
+
+            if 400 <= resp.status_code < 500:
+                resp.raise_for_status()
+
+            if resp.status_code in (500, 502, 503, 504):
+                wait = RETRY_WAIT_BASE * attempt
+                print(f"      ⚠️  HTTP {resp.status_code} intento {attempt}/{MAX_RETRIES} — espero {wait}s…")
+                time.sleep(wait)
+                continue
+
+            resp.raise_for_status()
+            return resp.json()
+
+        except requests.exceptions.Timeout:
+            import time as t
+            wait = RETRY_WAIT_BASE * attempt
+            print(f"      ⚠️  Timeout intento {attempt}/{MAX_RETRIES} — espero {wait}s…")
+            t.sleep(wait)
+
+        except requests.exceptions.ConnectionError:
+            import time as t
+            wait = RETRY_WAIT_BASE * attempt
+            print(f"      ⚠️  ConnectionError intento {attempt}/{MAX_RETRIES} — espero {wait}s…")
+            t.sleep(wait)
+
+    raise RuntimeError(f"Petición falló {MAX_RETRIES} veces. Parámetros: {params}")
+
+
+def download_tile(base_url: str, bbox: tuple) -> gpd.GeoDataFrame:
+    import time
+    minx, miny, maxx, maxy = bbox
+    bbox_str = f"{minx},{miny},{maxx},{maxy}"
     offset = 0
-    pages: list[gpd.GeoDataFrame] = []
+    tile_pages = []
 
     while True:
-        url = (
-            f"{base_url}?f=json"
-            f"&bbox-crs=http://www.opengis.net/def/crs/OGC/1.3/CRS84"
-            f"&bbox={bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}"
-            f"&limit={limit}&offset={offset}"
-        )
+        params = {"bbox": bbox_str, "limit": PAGE_LIMIT, "offset": offset}
+        data = get_one_page(base_url, params)
 
-        print(f"→ Descargando página offset={offset}")
-        resp = requests.get(url, timeout=180)
-        resp.raise_for_status()
-        data = resp.json()
-
-        feats = data.get("features", [])
+        feats = data.get("features", []) or []
         if not feats:
             break
 
         gdf_page = gpd.GeoDataFrame.from_features(feats, crs="EPSG:4326")
-        pages.append(gdf_page)
+        if not gdf_page.empty:
+            tile_pages.append(gdf_page)
 
-        if len(feats) < limit:
+        offset += len(feats)
+        if len(feats) < PAGE_LIMIT:
             break
 
-        offset += limit
+        time.sleep(PAUSE_BETWEEN)
 
-    if not pages:
-        print("⚠ No se han descargado recintos para este bbox")
+    if not tile_pages:
         return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
 
-    gdf_all = gpd.GeoDataFrame(pd.concat(pages, ignore_index=True), crs="EPSG:4326")
-    print(f"✅ Total recintos descargados en bbox: {len(gdf_all)}")
+    return gpd.GeoDataFrame(
+        pd.concat(tile_pages, ignore_index=True),
+        crs="EPSG:4326"
+    )
+
+
+def download_sigpac_tiled(collection: str, bbox4326: tuple) -> gpd.GeoDataFrame:
+    import time
+    base_url = f"{SIGPAC_BASE}/collections/{collection}/items"
+    minx, miny, maxx, maxy = bbox4326
+
+    xs = np.arange(minx, maxx, TILE_DEGREES)
+    ys = np.arange(miny, maxy, TILE_DEGREES)
+    total_tiles = len(xs) * len(ys)
+
+    print(f"   Bbox dividido en {len(xs)} × {len(ys)} = {total_tiles} tiles de {TILE_DEGREES}°")
+
+    all_gdfs = []
+    for tile_n, (x0, y0) in enumerate(
+        ((x, y) for x in xs for y in ys), start=1
+    ):
+        x1 = min(x0 + TILE_DEGREES, maxx)
+        y1 = min(y0 + TILE_DEGREES, maxy)
+
+        print(f"   Tile {tile_n}/{total_tiles}: {x0:.4f},{y0:.4f} → {x1:.4f},{y1:.4f}", end=" ", flush=True)
+        gdf_tile = download_tile(base_url, (x0, y0, x1, y1))
+
+        if gdf_tile.empty:
+            print("(vacío)")
+        else:
+            print(f"→ {len(gdf_tile)} features")
+            all_gdfs.append(gdf_tile)
+
+        time.sleep(PAUSE_BETWEEN)
+
+    if not all_gdfs:
+        return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+
+    gdf_all = gpd.GeoDataFrame(
+        pd.concat(all_gdfs, ignore_index=True),
+        crs="EPSG:4326"
+    )
+    print(f"\n   Total antes de deduplicar: {len(gdf_all)} features")
+
+    keys = [k for k in DEDUP_KEYS if k in gdf_all.columns]
+    if keys:
+        gdf_all = gdf_all.drop_duplicates(subset=keys, keep="first").reset_index(drop=True)
+        print(f"   Total tras deduplicar:    {len(gdf_all)} features")
+    else:
+        print("   ⚠️  No se encontraron columnas clave para deduplicar.")
+
     return gdf_all
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Backup local
+# ══════════════════════════════════════════════════════════════════════════════
 
-# 3) Guardar backup local ROTATORIO (solo 2 últimos)
-
-def guardar_backup_rotatorio(gdf_recintos: gpd.GeoDataFrame, out_dir: Path) -> None:
+def guardar_backup_rotatorio(gdf: gpd.GeoDataFrame, out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = date.today().isoformat()
-    rec_path = out_dir / f"{stamp}_recintos.gpkg"
+    out_path = out_dir / f"{stamp}_recintos.gpkg"
+    gdf.to_file(out_path, driver="GPKG")
+    print(f"\nBackup guardado en: {out_path}")
 
-    gdf_recintos.to_file(rec_path, driver="GPKG")
-    print(f"\nBackup guardado en: {rec_path}")
-
-    # Mantener solo los 2 últimos backups
+    # Mantener solo los 2 últimos
     files = sorted(out_dir.glob("*_recintos.gpkg"))
     for f in files[:-2]:
         f.unlink(missing_ok=True)
         print(f"Backup antiguo eliminado: {f}")
 
 
-# ---------------------------------------------------
-# 4) Volcar a PostGIS (recintos + parcelas)
-# ---------------------------------------------------
-def actualizar_sigpac_y_parcelas_atomic(gdf_recintos: gpd.GeoDataFrame) -> None:
+# ══════════════════════════════════════════════════════════════════════════════
+# PostGIS — actualización atómica
+# ══════════════════════════════════════════════════════════════════════════════
+
+def actualizar_postgis_atomic(gdf: gpd.GeoDataFrame) -> None:
     """
-    Actualiza sigpac.recintos y public.parcelas de forma atómica:
-
-    1) Escribe gdf_recintos en sigpac.recintos_new (replace).
-    2) A partir de recintos_new recalcula/actualiza public.parcelas
-       (1 fila por combinación SIGPAC).
-       - UP SERT: NO toca id_propietario ni propietario (texto).
-       - No pisa nombres que haya podido editar el admin.
-    3) Asigna id_parcela a cada fila de sigpac.recintos_new.
-    4) Intercambia recintos_old/recintos_new -> recintos.
-    5) Crea FK + índices en la tabla final sigpac.recintos.
-
-    Si algo falla, se revierte la transacción.
+    1) Escribe en sigpac.recintos_new (tabla temporal).
+    2) UPSERT en public.parcelas.
+    3) Asigna id_parcela a recintos_new.
+    4) Intercambio atómico recintos_new → recintos.
+    5) FK + índices.
     """
+    engine = create_engine(
+        Config.SQLALCHEMY_DATABASE_URI,
+        **Config.SQLALCHEMY_ENGINE_OPTIONS,
+    )
 
-    if gdf_recintos.empty:
-        raise RuntimeError("No hay recintos para volcar a PostGIS (GeoDataFrame vacío).")
+    dtype = {"geometry": Geometry("POLYGON", srid=4326)} if _HAS_GEOALCHEMY else None
 
-    print("\nConectando a PostGIS…")
-    load_dotenv()
-
-    host = os.getenv("POSTGRES_HOST", "localhost")
-    port = os.getenv("POSTGRES_PORT", "5432")
-    db   = os.getenv("POSTGRES_DB")
-    user = os.getenv("POSTGRES_USER")
-    pwd  = os.getenv("POSTGRES_PASSWORD")
-
-    if not all([db, user, pwd]):
-        raise RuntimeError("Faltan POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD en .env")
-
-    db_url = f"postgresql+psycopg2://{user}:{pwd}@{host}:{port}/{db}"
-    engine = create_engine(db_url)
-
-    # Crear schema sigpac si no existe
     with engine.begin() as conn:
         conn.execute(text("CREATE SCHEMA IF NOT EXISTS sigpac"))
 
-    # Tipo de geometría para recintos
-    dtype = None
-    if _HAS_GEOALCHEMY:
-        dtype = {"geometry": Geometry("POLYGON", srid=4326)}
-
-    print("→ Escribiendo datos en tabla temporal sigpac.recintos_new…")
-    gdf_recintos.to_postgis(
+    print("→ Escribiendo en sigpac.recintos_new…")
+    gdf.to_postgis(
         name="recintos_new",
         con=engine,
         schema="sigpac",
@@ -164,187 +241,128 @@ def actualizar_sigpac_y_parcelas_atomic(gdf_recintos: gpd.GeoDataFrame) -> None:
         dtype=dtype,
     )
 
-    # A partir de aquí, todo en una transacción
     with engine.begin() as conn:
-        # 2) UPSERT de parcelas a partir de recintos_new
-        print("→ Actualizando public.parcelas (UPSERT)…")
-        conn.execute(
-            text(
-                """
-                INSERT INTO public.parcelas (
-                    nombre,
-                    superficie_ha,
-                    geom,
-                    provincia,
-                    municipio,
-                    agregado,
-                    zona,
-                    poligono,
-                    recinto
-                )
-                SELECT
-                    -- nombre por defecto SOLO para nuevas parcelas
-                    format(
-                        'recinto %s-%s-%s-%s-%s-%s',
-                        r.provincia,
-                        r.municipio,
-                        COALESCE(r.agregado, 0),
-                        COALESCE(r.zona, 0),
-                        r.poligono,
-                        r.recinto
-                    ) AS nombre,
-                    ST_Area(
-                        ST_Transform(ST_Union(r.geometry), 3857)
-                    ) / 10000.0 AS superficie_ha,
-                    ST_Multi(ST_Union(r.geometry)) AS geom,
-                    r.provincia,
-                    r.municipio,
-                    r.agregado,
-                    r.zona,
-                    r.poligono,
-                    r.recinto
-                FROM sigpac.recintos_new r
-                GROUP BY
-                    r.provincia,
-                    r.municipio,
-                    r.agregado,
-                    r.zona,
-                    r.poligono,
-                    r.recinto
-                ON CONFLICT (provincia, municipio, agregado, zona, poligono, recinto)
-                DO UPDATE SET
-                    geom          = EXCLUDED.geom,
-                    superficie_ha = EXCLUDED.superficie_ha;
-                """
+        print("→ UPSERT en public.parcelas…")
+        conn.execute(text("""
+            INSERT INTO public.parcelas (
+                nombre, superficie_ha, geom,
+                provincia, municipio, agregado, zona, poligono, recinto
             )
-        )
+            SELECT
+                format('recinto %s-%s-%s-%s-%s-%s',
+                    r.provincia, r.municipio,
+                    COALESCE(r.agregado, 0), COALESCE(r.zona, 0),
+                    r.poligono, r.recinto
+                ) AS nombre,
+                ST_Area(ST_Transform(ST_Union(r.geometry), 3857)) / 10000.0 AS superficie_ha,
+                ST_Multi(ST_Union(r.geometry)) AS geom,
+                r.provincia, r.municipio, r.agregado, r.zona, r.poligono, r.recinto
+            FROM sigpac.recintos_new r
+            GROUP BY r.provincia, r.municipio, r.agregado, r.zona, r.poligono, r.recinto
+            ON CONFLICT (provincia, municipio, agregado, zona, poligono, recinto)
+            DO UPDATE SET
+                geom          = EXCLUDED.geom,
+                superficie_ha = EXCLUDED.superficie_ha
+        """))
 
-        # 3) Añadir id_parcela a recintos_new y rellenarlo
-        print("→ Asignando id_parcela a sigpac.recintos_new…")
-        conn.execute(text("ALTER TABLE sigpac.recintos_new ADD COLUMN id_parcela integer;"))
+        print("→ Asignando id_parcela a recintos_new…")
+        conn.execute(text("ALTER TABLE sigpac.recintos_new ADD COLUMN id_parcela integer"))
+        conn.execute(text("""
+            UPDATE sigpac.recintos_new r
+            SET id_parcela = p.id_parcela
+            FROM public.parcelas p
+            WHERE
+                r.provincia = p.provincia
+                AND r.municipio = p.municipio
+                AND r.poligono  = p.poligono
+                AND r.recinto   = p.recinto
+                AND r.agregado  IS NOT DISTINCT FROM p.agregado
+                AND r.zona      IS NOT DISTINCT FROM p.zona
+        """))
 
-        conn.execute(
-            text(
-                """
-                UPDATE sigpac.recintos_new r
-                SET id_parcela = p.id_parcela
-                FROM public.parcelas p
-                WHERE
-                    r.provincia = p.provincia
-                    AND r.municipio = p.municipio
-                    AND r.poligono = p.poligono
-                    AND r.recinto  = p.recinto
-                    AND r.agregado IS NOT DISTINCT FROM p.agregado
-                    AND r.zona     IS NOT DISTINCT FROM p.zona;
-                """
-            )
-        )
-
-        # Comprobar que todos los recintos tienen recinto asociada
         missing = conn.execute(
-            text("SELECT COUNT(*) FROM sigpac.recintos_new WHERE id_parcela IS NULL;")
+            text("SELECT COUNT(*) FROM sigpac.recintos_new WHERE id_parcela IS NULL")
         ).scalar()
-
         if missing and missing > 0:
             raise RuntimeError(
-                f"Hay {missing} recintos en sigpac.recintos_new sin id_parcela asignado. "
-                "Revisa los códigos SIGPAC / la tabla public.parcelas."
+                f"{missing} recintos sin id_parcela. Revisa public.parcelas."
             )
 
-        # 4) Intercambio atómico de tablas
-        print("→ Intercambiando sigpac.recintos_old / sigpac.recintos_new…")
-        conn.execute(text("DROP TABLE IF EXISTS sigpac.recintos_old;"))
-        conn.execute(text("ALTER TABLE IF EXISTS sigpac.recintos RENAME TO recintos_old;"))
-        conn.execute(text("ALTER TABLE sigpac.recintos_new RENAME TO recintos;"))
-        conn.execute(text("DROP TABLE IF EXISTS sigpac.recintos_old;"))
+        print("→ Intercambio atómico de tablas…")
+        conn.execute(text("DROP TABLE IF EXISTS sigpac.recintos_old"))
+        conn.execute(text("ALTER TABLE IF EXISTS sigpac.recintos RENAME TO recintos_old"))
+        conn.execute(text("ALTER TABLE sigpac.recintos_new RENAME TO recintos"))
+        conn.execute(text("DROP TABLE IF EXISTS sigpac.recintos_old"))
 
-        # 5) FK + índices en la tabla final sigpac.recintos
-        print("→ Creando FK e índices en sigpac.recintos…")
-        conn.execute(
-            text(
-                """
-                ALTER TABLE sigpac.recintos
-                ALTER COLUMN id_parcela SET NOT NULL;
-                """
-            )
-        )
-
-        conn.execute(
-            text(
-                """
-                ALTER TABLE sigpac.recintos
-                ADD CONSTRAINT recintos_parcelas_fk
-                FOREIGN KEY (id_parcela)
-                REFERENCES public.parcelas(id_parcela)
-                ON DELETE RESTRICT;
-                """
-            )
-        )
-
-        conn.execute(
-            text(
-                """
-                CREATE INDEX IF NOT EXISTS idx_recintos_id_parcela
-                ON sigpac.recintos(id_parcela);
-                """
-            )
-        )
-
-        conn.execute(
-            text(
-                """
-                CREATE INDEX IF NOT EXISTS idx_recintos_geom
-                ON sigpac.recintos
-                USING GIST(geometry);
-                """
-            )
-        )
+        print("→ FK e índices…")
+        conn.execute(text("""
+            ALTER TABLE sigpac.recintos
+            ALTER COLUMN id_parcela SET NOT NULL
+        """))
+        conn.execute(text("""
+            ALTER TABLE sigpac.recintos
+            ADD CONSTRAINT recintos_parcelas_fk
+            FOREIGN KEY (id_parcela)
+            REFERENCES public.parcelas(id_parcela)
+            ON DELETE RESTRICT
+        """))
+        conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_recintos_id_parcela
+            ON sigpac.recintos(id_parcela)
+        """))
+        conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_recintos_geom
+            ON sigpac.recintos USING GIST(geometry)
+        """))
 
     print("✅ sigpac.recintos y public.parcelas actualizadas correctamente.")
 
 
-# ---------------------------------------------------
-# 5) Proceso completo de actualización
-# ---------------------------------------------------
+# ══════════════════════════════════════════════════════════════════════════════
+# Main
+# ══════════════════════════════════════════════════════════════════════════════
+
 def main():
     print("\n========================")
     print("  ACTUALIZACIÓN SIGPAC  ")
-    print("========================")
+    print("========================\n")
 
-    # Ruta del ROI (ajusta si hace falta)
-    roi_path = "../data/processed/roi.gpkg"
+    # ── ROI ──────────────────────────────────────────────────────────────────
+    roi_path = PROJECT_ROOT / DEFAULT_ROI
+    if not roi_path.exists():
+        raise FileNotFoundError(f"ROI no encontrado: {roi_path}")
 
-    # 1) BBOX del ROI
-    bbox = obtener_bbox_roi(roi_path)
+    roi = gpd.read_file(roi_path).to_crs(4326)
+    minx, miny, maxx, maxy = roi.total_bounds
+    bbox = (float(minx), float(miny), float(maxx), float(maxy))
+    print("ROI bbox:", bbox)
 
-    # 2) Descargar recintos del SIGPAC dentro del bbox
-    print("\nDescargando recintos del SIGPAC…")
-    gdf_recintos = descargar_todo_sigpac_recintos(bbox, limit=10000)
-
-    if gdf_recintos.empty:
-        print("⚠ No se descargaron recintos. No se actualiza PostGIS.")
+    # ── Verificar colección ───────────────────────────────────────────────────
+    if not check_collection_exists(COLLECTION):
+        print("\n❌ Abortando: colección no disponible.")
+        print("   Comprueba https://sigpac-hubcloud.es/ogcapi/collections?f=json")
+        print("   y actualiza la constante COLLECTION al nombre correcto.")
         return
 
-    # 3) Backup rotatorio
-    guardar_backup_rotatorio(gdf_recintos, Path("data/raw/sigpac"))
+    # ── Descarga por tiles ────────────────────────────────────────────────────
+    print(f"\nDescargando colección '{COLLECTION}' por tiles…\n")
+    gdf = download_sigpac_tiled(COLLECTION, bbox)
 
-    # 4) Actualizar PostGIS (recintos + parcelas)
-    actualizar_sigpac_y_parcelas_atomic(gdf_recintos)
+    if gdf.empty:
+        print("⚠️  Descarga vacía. No se actualiza PostGIS.")
+        return
 
-    print("\n✅ Proceso de actualización completado.\n")
+    gdf["geometry"] = gdf["geometry"].buffer(0)
+
+    # ── Backup ────────────────────────────────────────────────────────────────
+    guardar_backup_rotatorio(gdf, PROJECT_ROOT / "data" / "raw" / "sigpac")
+
+    # ── PostGIS ───────────────────────────────────────────────────────────────
+    print("\nActualizando PostGIS…")
+    actualizar_postgis_atomic(gdf)
+
+    print("\n✅ Proceso completado.\n")
 
 
-# ---------------------------------------------------
-# 6) Bucle de ejecución cada 7 días
-# ---------------------------------------------------
 if __name__ == "__main__":
-    # Con cron, se puede comentar todo el while y llamar solo a main().
-    while True:
-        try:
-            main()
-        except Exception as exc:
-            print(f"\n ERROR en la actualización: {exc}\n")
-
-        # Esperar 7 días (7 * 24 * 60 * 60 segundos)
-        print("Esperando 7 días para la próxima actualización…")
-        time.sleep(7 * 24 * 60 * 60)
+    main()

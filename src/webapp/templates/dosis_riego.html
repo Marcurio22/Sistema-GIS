@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Recomendación de riego{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <div class="row mb-3">
+        <div class="col d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <h1 class="mb-0 h3">
+                <i class="bi bi-droplet-half text-success me-2"></i>Recomendación de riego
+            </h1>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('dashboard.visor') }}?modo=riego" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-map me-1"></i>Ver en mapa
+                </a>
+                <a href="{{ url_for('dashboard.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left me-1"></i>Volver
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if fecha_ref %}
+    <div class="alert alert-light border d-flex flex-wrap gap-3 align-items-center mb-3">
+        <span><i class="bi bi-calendar3 me-1 text-success"></i><strong>Predicción para:</strong> {{ fecha_ref }}</span>
+        {% if urgentes %}<span class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>{{ urgentes }} urgente{{ 's' if urgentes != 1 }}</span>{% endif %}
+        {% if recomendados %}<span class="text-warning fw-semibold"><i class="bi bi-droplet me-1"></i>{{ recomendados }} recomendado{{ 's' if recomendados != 1 }}</span>{% endif %}
+    </div>
+    {% endif %}
+
+    <p class="text-muted small mb-3">
+        <i class="bi bi-info-circle me-1"></i>Solo se muestran parcelas declaradas en SIGPAC como <strong>regadío</strong>.
+    </p>
+
+    {% if not items %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        No hay recomendaciones de riego para tus parcelas de regadío en este momento.
+        Los datos se actualizan periódicamente según las previsiones meteorológicas.
+    </div>
+    {% else %}
+    <div class="row g-3">
+        {% for r in items %}
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body d-flex flex-column gap-2 p-3">
+
+                    {# Cabecera #}
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div class="min-w-0">
+                            <h2 class="h6 mb-0 text-truncate fw-bold" title="{{ r.nombre }}">{{ r.nombre }}</h2>
+                            <div class="text-muted small">Pol. {{ r.poligono }} · Parc. {{ r.parcela }} · {{ r.superficie_ha }} ha</div>
+                        </div>
+                        <span class="badge bg-{{ r.badge }} flex-shrink-0">{{ r.estado }}</span>
+                    </div>
+
+                    <div class="small">
+                        <span class="text-muted">Cultivo:</span> <strong>{{ r.cultivo }}</strong>
+                        <span class="text-muted ms-2">· {{ r.sistexp }}</span>
+                    </div>
+
+                    {# Bloque ETc / necesidades #}
+                    <div class="bg-light rounded p-2 small">
+                        <div class="fw-semibold text-muted mb-1" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.04em">Evapotranspiración</div>
+                        <div class="d-flex justify-content-between">
+                            <span>ET₀ (referencia)</span>
+                            <strong>{{ "%.2f"|format(r.etp) }} mm/día</strong>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>ETc{% if r.kc is not none %} · Kc = {{ "%.2f"|format(r.kc) }}{% endif %}</span>
+                            <strong>{{ "%.2f"|format(r.riego_mm) }} mm/día</strong>
+                        </div>
+                        {% if r.deficit_mm > 0 %}
+                        <div class="d-flex justify-content-between text-muted">
+                            <span>Déficit (ETc − lluvia)</span>
+                            <strong>{{ "%.2f"|format(r.deficit_mm) }} mm/día</strong>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {# Bloque aporte recomendado #}
+                    <div class="rounded p-2 small border border-success-subtle bg-success-subtle">
+                        <div class="fw-semibold text-success mb-1" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.04em">
+                            <i class="bi bi-droplet-fill me-1"></i>Aporte recomendado hoy
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Necesidad neta parcela</span>
+                            <strong>
+                                {% if r.litros_netos > 0 %}
+                                    {{ "{:,.0f}".format(r.litros_netos).replace(",", ".") }} L
+                                    <span class="text-muted fw-normal">({{ r.m3_total_neto }} m³)</span>
+                                {% else %}—{% endif %}
+                            </strong>
+                        </div>
+                        <div class="d-flex justify-content-between border-top pt-1 mt-1">
+                            <span>Aporte bruto
+                                <span class="text-muted" style="font-size:.7rem">(ef. {{ r.eficiencia_pct }}%)</span>
+                            </span>
+                            <strong class="text-success">
+                                {% if r.litros_brutos > 0 %}
+                                    {{ "{:,.0f}".format(r.litros_brutos).replace(",", ".") }} L
+                                    <span class="text-muted fw-normal">({{ r.m3_total_bruto }} m³)</span>
+                                {% else %}—{% endif %}
+                            </strong>
+                        </div>
+                        <div class="d-flex justify-content-between text-muted mt-1" style="font-size:.7rem">
+                            <span>Por hectárea</span>
+                            <span>{{ "%.1f"|format(r.m3_ha) }} m³/ha</span>
+                        </div>
+                    </div>
+
+                    <div class="mt-auto pt-1">
+                        <a href="{{ url_for('dashboard.visor', recinto_id=r.id_recinto, modo='riego') }}"
+                           class="btn btn-sm btn-outline-success w-100">
+                            <i class="bi bi-geo-alt me-1"></i>Localizar en mapa
+                        </a>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+   
+    {% endif %}
+</div>
+{% endblock %}

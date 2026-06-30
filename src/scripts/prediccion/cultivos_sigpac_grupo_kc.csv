@@ -1,0 +1,84 @@
+cultivo_SIGPAC,grupo_kc,nota
+ABETO,forestal,Árbol forestal excluir de ETp agrícola
+ADORMIDERA,industrial_anual,Cultivo industrial anual de primavera
+AJO,horticola,Hortícola extensiva
+ALBERJÓN,cereal_invierno,Leguminosa grano tipo veza/guisante
+ALFALFA,alfalfa_pradera,Cuidado con cortes Kc variable
+ALMENDRO,lenoso_frutal,Frutal de secano
+ALMORTA,cereal_invierno,Leguminosa grano de invierno
+ALUBIA,anual_suelo_visible,Leguminosa grano de verano
+ANÍS DULCE,industrial_anual,Cultivo aromático-industrial anual
+ANÍS ESTRELLADO,industrial_anual,Cultivo aromático-industrial anual
+AVELLANO,lenoso_frutal,Frutal de porte arbustivo
+AVENA,cereal_invierno,Cereal de invierno
+BARBECHO DE BIODIVERSIDAD (INCLUYE MELÍFERAS),barbecho,Suelo con cubierta vegetal baja
+BARBECHO MEDIOAMBIENTAL,barbecho,Suelo desnudo o con vegetación mínima
+BARBECHO TRADICIONAL,barbecho,Suelo desnudo/rastrojo
+CABECERA Y CONTORNOS DE CULTIVO PERMANENTE,sin_asignar,Zona auxiliar no cultivo principal
+CALABAZA,anual_suelo_visible,Hortícola extensiva anual
+CAMELINA,industrial_anual,Oleaginosa de invierno-primavera
+CEBADA,cereal_invierno,Cereal de invierno
+CEBOLLA,horticola,Hortícola extensiva
+CENTENO,cereal_invierno,Cereal de invierno
+CEREZO,lenoso_frutal,Frutal de hueso
+CHOPO,forestal,Forestal de ribera ciclo rápido
+CIRUELO,lenoso_frutal,Frutal de hueso
+COLZA,cereal_invierno,Oleaginosa de invierno ciclo similar
+CULTIVOS MIXTOS DE ESPECIES PRATENSES,alfalfa_pradera,Mezcla pratense similar a pradera
+CÁRTAMO,industrial_anual,Oleaginosa de primavera-verano
+ENCINA,lenoso_olivar,NDVI mezcla copa/suelo similar olivar
+ESPARCETA,alfalfa_pradera,Leguminosa forrajera perenne
+ESPELTA,cereal_invierno,Cereal de invierno
+ESPÁRRAGO,horticola,Hortícola perenne extensiva
+FESTUCA,alfalfa_pradera,Pratense perenne
+GARBANZO,cereal_invierno,Leguminosa grano de invierno-primavera
+GIRASOL,anual_suelo_visible,Oleaginosa de verano
+GUISANTE,cereal_invierno,Leguminosa grano de invierno
+HABA,cereal_invierno,Leguminosa grano de invierno
+HUERTA,horticola,Hortícola intensiva múltiples cultivos
+LAVANDA,industrial_anual,Aromática perenne de secano
+LAVANDÍN,industrial_anual,Aromática perenne de secano
+LENTEJA,cereal_invierno,Leguminosa grano de invierno
+MANZANO,lenoso_frutal,Frutal de pepita
+MAÍZ,maiz,Cultivo de verano ciclo largo
+MELOCOTONERO,lenoso_frutal,Frutal de hueso
+MEZCLA AVENA-CEBADA,cereal_invierno,Cereal de invierno
+MEZCLA AVENA-VEZA,cereal_invierno,Cereal-leguminosa invierno
+MEZCLA CEBADA-TRIGO,cereal_invierno,Cereal de invierno
+MEZCLA CEREAL-RAYGRASS,alfalfa_pradera,Mezcla con pratense comportamiento mixto
+MEZCLA DE FORESTALES,forestal,Uso forestal
+MEZCLA RAYGRASS,alfalfa_pradera,Pratense varios cortes
+MEZCLA RAYGRASS-TREBOL,alfalfa_pradera,Pratense leguminosa varios cortes
+MEZCLA TRIGO-VEZA,cereal_invierno,Cereal-leguminosa invierno
+MIJO,maiz,Cereal de verano similar a maíz en Kc
+MOSTAZA,industrial_anual,Oleaginosa / cubierta vegetal
+NOGAL,lenoso_frutal,Frutal de fruto seco
+OLIVO,lenoso_olivar,NDVI mezcla copa/suelo
+OTROS FRUTALES,lenoso_frutal,Usar límites genéricos frutal
+PASTOS DE MENOS DE 5 AÑOS,alfalfa_pradera,Pradera temporal similar esparceta
+PASTOS PERMANENTES DE 5 O MÁS AÑOS,alfalfa_pradera,Pradera permanente
+PATATA,anual_suelo_visible,Tubérculo de primavera-verano
+PEPINO,horticola,Hortícola extensiva
+PERAL,lenoso_frutal,Frutal de pepita
+PIMIENTO,horticola,Hortícola extensiva
+PINO,forestal,Árbol forestal excluir de ETp agrícola
+PISTACHO,lenoso_frutal,Frutal de fruto seco
+PLANTAS ORNAMENTALES,sin_asignar,No aplica ETp agrícola estándar
+QUINOA,anual_suelo_visible,Pseudocereal de primavera
+RAYGRASS ANUAL,alfalfa_pradera,Pratense anual varios cortes
+RAYGRASS PERENNE,alfalfa_pradera,Pratense perenne varios cortes
+REMOLACHA,anual_suelo_visible,Cultivo industrial de primavera
+REPOLLO,horticola,Hortícola extensiva
+ROBLE,forestal,Árbol forestal excluir de ETp agrícola
+TEFF,maiz,Cereal de verano de origen tropical
+TITARROS,cereal_invierno,Leguminosa grano de invierno similar yero
+TOMATE,horticola,Hortícola extensiva
+TRIGO BLANDO,cereal_invierno,Cereal de invierno
+TRIGO DURO,cereal_invierno,Cereal de invierno
+TRITICALE,cereal_invierno,Cereal de invierno
+VEZA,cereal_invierno,Leguminosa grano de invierno
+VEZA VELLOSA,cereal_invierno,Leguminosa grano de invierno
+VIVERO - PRODUCTOR MVR,sin_asignar,Material vegetal de reproducción no cultivo
+VIÑA,lenoso_vinedo,Limitar Kc NDVI copa variable
+YEROS,cereal_invierno,Leguminosa grano de invierno
+ZANAHORIA,horticola,Hortícola extensiva

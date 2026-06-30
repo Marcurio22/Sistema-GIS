@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/vendor/all.min.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/vendor/bootstrap-icons.min.css') }}" />
     <link href="{{ url_for('static', filename='css/vendor/bootstrap.min.css') }}" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme-brand.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/vendor/leaflet.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/vendor/leaflet.draw.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/vendor/montserrat.css') }}">
@@ -101,6 +102,9 @@
 
             {% if current_user.rol in ['admin', 'superadmin'] %}
             <!-- Panel de Administrador al final del sidebar -->
+            {% set admin_variedades_active = request.path == url_for('admin.gestion_variedades') %}
+            {% set admin_cultivos_active = request.path == url_for('admin.gestion_cultivos') %}
+            {% set admin_plan_active = request.path.startswith('/admin/plan-cultivo') %}
             <div class="mt-auto px-4 py-4 bg-success bg-opacity-10 rounded">
                 <!-- Separador / Título -->
                 <span class="text-uppercase text-dark fw-bold small">Panel de Administrador</span>
@@ -126,10 +130,28 @@
 
                 <div class="d-flex flex-column">
                     <a href="{{ url_for('admin.gestion_variedades') }}" class="text-decoration-none">
-                       <div class="d-flex align-items-center py-3 {% if request.path == url_for('admin.gestion_variedades') %}text-success fw-bold{% else %}text-dark{% endif %} hover-bg-light rounded px-2"
+                       <div class="d-flex align-items-center py-3 {% if admin_variedades_active %}text-success fw-bold{% else %}text-dark{% endif %} hover-bg-light rounded px-2"
                             style="cursor: pointer; transition: background-color 0.2s;">
                             <i class="bi bi-tags me-3 fs-4"></i>
                             <span class="fs-5">Gestión de variedades</span>
+                        </div>
+                    </a>
+                </div>
+                <div class="d-flex flex-column">
+                    <a href="{{ url_for('admin.gestion_cultivos') }}" class="text-decoration-none">
+                       <div class="d-flex align-items-center py-3 {% if admin_cultivos_active %}text-success fw-bold{% else %}text-dark{% endif %} hover-bg-light rounded px-2"
+                            style="cursor: pointer; transition: background-color 0.2s;">
+                            <i class="bi bi-flower1 me-3 fs-4"></i>
+                            <span class="fs-5">Gestión de cultivos</span>
+                        </div>
+                    </a>
+                </div>
+                <div class="d-flex flex-column">
+                    <a href="{{ url_for('admin.admin_plan_cultivo') }}" class="text-decoration-none">
+                       <div class="d-flex align-items-center py-3 {% if admin_plan_active %}text-success fw-bold{% else %}text-dark{% endif %} hover-bg-light rounded px-2"
+                            style="cursor: pointer; transition: background-color 0.2s;">
+                            <i class="bi bi-journal-text me-3 fs-4"></i>
+                            <span class="fs-5">Plan de cultivo (global)</span>
                         </div>
                     </a>
                 </div>
@@ -162,42 +184,66 @@
         </div>
     </div>
 
-    <!-- Navbar -->
-    <!-- Navbar -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-success shadow-sm">
-    <div class="container-fluid d-flex align-items-center flex-nowrap"> <!-- Añadir flex-nowrap -->
+    <!-- Navbar + logos institucionales (móvil) -->
+    <header class="app-top-header">
+     <nav class="navbar navbar-expand-lg navbar-dark bg-success shadow-sm app-navbar">
+    <div class="container-fluid d-flex align-items-center flex-nowrap gap-2">
         <!-- Botón del sidebar -->
-        <button class="btn btn-success me-2 flex-shrink-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar">
+        <button class="btn btn-success me-1 flex-shrink-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar">
             <i class="bi bi-list fs-4"></i>
         </button>
 
-        <!-- Logo y nombre -->
-        <div class="d-flex align-items-center flex-shrink-0"> <!-- Añadir flex-shrink-0 -->
-            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard.dashboard') }}">
-            <i class="bi bi-droplet-fill me-2 fs-4"></i>
-            <span class="fw-bold d-none d-md-inline">Comunidad de Regantes</span> 
-            <span class="fw-bold d-inline d-md-none">C. Regantes</span> 
+        <!-- Logo y nombre (izquierda) -->
+        <div class="d-flex align-items-center flex-shrink-1 min-w-0">
+            <a class="navbar-brand d-flex align-items-center min-w-0 mb-0 py-0" href="{{ url_for('dashboard.dashboard') }}">
+            <img src="{{ url_for('static', filename='img/gota.png') }}" alt="Logo" class="navbar-logo-main me-2">
+            <span class="fw-bold d-none d-md-inline text-truncate">Comunidad de Regantes</span>
+            <span class="fw-bold d-inline d-md-none text-truncate">C. Regantes</span>
 
             {% if current_user.is_authenticated %}
-                <span class="ms-2 fw-normal opacity-75 d-inline">-</span>
-                <span class="ms-2 d-flex align-items-center text-white profile-link" 
+                <span class="ms-1 ms-sm-2 fw-normal opacity-75 d-none d-sm-inline">-</span>
+                <span class="ms-1 ms-sm-2 d-none d-sm-flex align-items-center text-white profile-link navbar-user-name text-truncate"
                     data-href="{{ url_for('auth.perfil') }}"
                     role="link"
                     tabindex="0"
                     style="cursor:pointer;">
-                <i class="bi bi-person-circle me-2"></i>
-                {{ current_user.username }}
+                <i class="bi bi-person-circle me-1 flex-shrink-0"></i>
+                <span class="text-truncate">{{ current_user.username }}</span>
                 </span>
             {% endif %}
             </a>
+
+            {% if current_user.is_authenticated %}
+            <div class="navbar-partner-logos d-none d-lg-flex align-items-center flex-shrink-0">
+                <img src="{{ url_for('static', filename='img/logonofondo.png') }}" alt="Logo institucional" class="navbar-partner-logo navbar-partner-logo--inst">
+            </div>
+            {% endif %}
         </div>
 
-        <!-- Espaciador -->
-        <div class="flex-grow-1"></div> <!-- Cambiar ms-auto por flex-grow-1 -->
-        
-        {% block navbar_extra %}{% endblock %}
+        <!-- Centro (p. ej. tiempo en el visor) -->
+        <div class="navbar-center-slot flex-grow-1 d-flex justify-content-center align-items-center min-w-0">
+            {% block navbar_center %}{% endblock %}
+        </div>
+
+        <!-- Derecha: extras + ayudas -->
+        <div class="d-flex align-items-center flex-shrink-0 gap-2 ms-lg-1">
+            {% block navbar_extra %}{% endblock %}
+            {% if current_user.is_authenticated %}
+            <div class="navbar-ayudas-wrap d-none d-lg-flex align-items-center flex-shrink-0">
+                <img src="{{ url_for('static', filename='img/ayudas2.png') }}" alt="Ayudas" class="navbar-partner-logo navbar-partner-logo--ayudas">
+            </div>
+            {% endif %}
+        </div>
     </div>
 </nav>
+
+    {% if current_user.is_authenticated %}
+    <div class="navbar-partners-mobile d-lg-none" aria-label="Logos institucionales">
+        <img src="{{ url_for('static', filename='img/logonofondo.png') }}" alt="Logo institucional" class="navbar-partners-mobile--inst">
+        <img src="{{ url_for('static', filename='img/ayudas2.png') }}" alt="Financiación" class="navbar-partners-mobile--ayudas">
+    </div>
+    {% endif %}
+    </header>
     <!-- Contenido principal -->
     <main class="{% block main_class %}container mt-5{% endblock %}">
         {% block content %}{% endblock %}
@@ -222,6 +268,9 @@
     <script src="{{ url_for('static', filename='js/vendor/chartjs-adapter-date-fns.bundle.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/vendor/jspdf.umd.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/vendor/jspdf.plugin.autotable.min.js') }}"></script>
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Turf.js/6.5.0/turf.min.js"></script>
 
 
 

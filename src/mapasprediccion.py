@@ -1,15 +1,21 @@
 import pandas as pd
 import json
 import os
+import sys
 import requests
 import glob
 import geopandas as gpd
+from pathlib import Path
 from shapely import wkt
 from datetime import datetime
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
-load_dotenv()
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+from project_paths import SALIDA_PRED_DIR, ETP_STATIC_DIR  # noqa: E402
+
+load_dotenv(ROOT.parent / ".env")
 
 # ── Config ────────────────────────────────────────────────────────────────────
 GEOSERVER_BASE_URL = os.getenv("GEOSERVER_WMS_URL", "").replace("/wms", "").rstrip("/")
@@ -23,8 +29,8 @@ DB_HOST     = os.getenv("POSTGRES_HOST")
 DB_PORT     = os.getenv("POSTGRES_PORT")
 DB_NAME     = os.getenv("POSTGRES_DB")
 
-CARPETA_CSV = r"C:\Users\Instalador\Documents\Sistema-GIS-main\Prediccion\salidaPred"
-STATIC_DIR  = r"C:\Users\Instalador\Documents\Sistema-GIS-main\src\webapp\static\etp_prediccion"
+CARPETA_CSV = str(SALIDA_PRED_DIR)
+STATIC_DIR  = str(ETP_STATIC_DIR)
 os.makedirs(STATIC_DIR, exist_ok=True)
 
 AUTH         = (GEOSERVER_USER, GEOSERVER_PASSWORD)

@@ -1,18 +1,21 @@
 # -*- coding: utf-8-sig -*-
 import ctypes
 import os
-import pandas as pd
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 
-# ─────────────────────────────────────────
-# RUTAS — ajusta estas 4 variables
-# ─────────────────────────────────────────
-CARPETA_DLL    = r"C:\Users\Instalador\Documents\Sistema-GIS-main\Prediccion"
-CARPETA_MOD    = r"C:\Users\Instalador\Documents\Sistema-GIS-main\Prediccion\modelosPred"
-CARPETA_SALIDA = r"C:\Users\Instalador\Documents\Sistema-GIS-main\Prediccion\salidaPred"
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "src"))
+from project_paths import DATOS_SALIDA_DIR, MODELOS_PRED_DIR, PREDICCION_DLL_DIR, SALIDA_PRED_DIR  # noqa: E402
+
+CARPETA_DLL    = str(PREDICCION_DLL_DIR)
+CARPETA_MOD    = str(MODELOS_PRED_DIR)
+CARPETA_SALIDA = str(SALIDA_PRED_DIR)
 FECHA = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-CSV_ENTRADA =         r"C:\datos\salida\datoscultivospred" + FECHA + ".csv"
-#CSV_ENTRADA    = r"C:\datos\salida\datoscultivospred2026-06-03.csv"
+CSV_ENTRADA = str(DATOS_SALIDA_DIR / f"datoscultivospred{FECHA}.csv")
 
 # ─────────────────────────────────────────
 # FECHAS

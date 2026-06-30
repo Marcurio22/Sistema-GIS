@@ -302,7 +302,27 @@ def mis_recintos():
     solicitudes = Solicitudrecinto.query.filter_by(
         id_usuario=current_user.id_usuario
     ).order_by(Solicitudrecinto.fecha_solicitud.desc()).all()
-    return render_template('mis_recintos.html', recintos=recintos, solicitudes=solicitudes)
+
+    # Superficie geométrica (la "del mapa"), consistente con las subparcelas.
+    # Se adjunta como atributo no mapeado (no se persiste) para usarlo en la
+    # plantilla sin tocar la columna declarada SIGPAC.
+    from ..api.services import superficie_geom_por_recinto
+    areas_geom = superficie_geom_por_recinto([r.id_recinto for r in recintos])
+    total_superficie_geom = 0.0
+    for r in recintos:
+        g = areas_geom.get(r.id_recinto)
+        r.superficie_ha_geom = (
+            g if g is not None
+            else (float(r.superficie_ha) if r.superficie_ha else 0.0)
+        )
+        total_superficie_geom += r.superficie_ha_geom
+
+    return render_template(
+        'mis_recintos.html',
+        recintos=recintos,
+        solicitudes=solicitudes,
+        total_superficie_geom=total_superficie_geom,
+    )
 
 
 @auth_bp.route('/recinto/<int:id_recinto>/editar', methods=['POST'])

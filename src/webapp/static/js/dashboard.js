@@ -91,13 +91,13 @@
         [bbox[3], bbox[2]],
       ]);
       map.fitBounds(boundsToUse, { padding: [12, 12] });
-      L.rectangle(boundsToUse, { color: "#198754", weight: 2, fill: false }).addTo(map);
+      L.rectangle(boundsToUse, { color: "#90bc05", weight: 2, fill: false }).addTo(map);
     } else {
       map.setView(center, zoom);
     }
 
     const geo = L.geoJSON(null, {
-      style: { color: "#198754", weight: 2, fillOpacity: 0 },
+      style: { color: "#90bc05", weight: 2, fillOpacity: 0 },
     }).addTo(map);
 
     // MUY IMPORTANTE: invalidar size tras layout final (evita tiles rotos)
@@ -141,4 +141,32 @@
   } else {
     initSituacionMap();
   }
+})();
+
+(function initDashboardClock() {
+  const timeEl = document.getElementById("dashboard-clock-time");
+  const dateEl = document.getElementById("dashboard-clock-date");
+  if (!timeEl || !dateEl) return;
+
+  const timeFmt = new Intl.DateTimeFormat("es-ES", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const dateFmt = new Intl.DateTimeFormat("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  function tick() {
+    const now = new Date();
+    timeEl.textContent = timeFmt.format(now);
+    dateEl.textContent = dateFmt.format(now);
+  }
+
+  tick();
+  setInterval(tick, 1000);
 })();

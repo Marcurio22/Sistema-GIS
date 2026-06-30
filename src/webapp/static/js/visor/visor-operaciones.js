@@ -79,6 +79,8 @@ function opTipoLabel(tipo) {
     if (t === "RIEGO") return "Riego";
     if (t === "FERTILIZACION") return "Fertilización";
     if (t === "FITOSANITARIO") return "Fitosanitario";
+    if (t === "SIEMBRA") return "Siembra";
+    if (t === "RECOLECCION") return "Cosecha";
     if (t === "OTRAS") return "Otras";
     return safeText(tipo, "Operación");
 }
@@ -88,6 +90,8 @@ function opBadgeClass(tipo) {
     if (t === "RIEGO") return "bg-info";
     if (t === "FERTILIZACION") return "bg-success";
     if (t === "FITOSANITARIO") return "op-badge-fitos";
+    if (t === "SIEMBRA") return "bg-warning text-dark";
+    if (t === "RECOLECCION") return "bg-primary";
     if (t === "OTRAS") return "bg-secondary";
     return "bg-secondary";
 }
@@ -108,6 +112,13 @@ function procedenciaAguaToText(v) {
         .join(", ");
 }
 
+function isAspersionSistemaRiego(sisSel) {
+    if (!sisSel) return false;
+    const code = (sisSel.value || "").trim().toUpperCase();
+    const label = (sisSel.selectedOptions?.[0]?.textContent || "").trim().toUpperCase();
+    return /ASPERS/.test(code) || /ASPERS/.test(label);
+}
+
 function opResumen(op) {
     let d = op?.detalle;
     if (typeof d === "string") { try { d = JSON.parse(d); } catch (_) { } }
@@ -118,9 +129,10 @@ function opResumen(op) {
         const v = d?.volumen_m3 ?? d?.volumen ?? null;
         const sis = d?.sistema_riego?.label || d?.sistema_riego?.codigo || "";
         const proc = procedenciaAguaToText(d?.procedencia_agua);
+        const marco = d?.marco_riego || "";
         const obs = d?.observaciones || "";
         const txtV = (v != null && v !== "") ? `${Number(v).toFixed(0)} m³` : "—";
-        return `${txtV}${sis ? " · " + sis : ""}${proc ? " · " + proc : ""}${obs ? " — " + obs : ""}`;
+        return `${txtV}${sis ? " · " + sis : ""}${marco ? " · Marco " + marco + " m" : ""}${proc ? " · " + proc : ""}${obs ? " — " + obs : ""}`;
     }
 
     if (tipo === "FERTILIZACION") {
@@ -152,6 +164,23 @@ function opResumen(op) {
         const lab = d?.label || d?.codigo || "";
         const obs = d?.observaciones || "";
         return `${cat}${lab ? " · " + lab : ""}${obs ? " — " + obs : ""}`.trim() || "—";
+    }
+
+    if (tipo === "SIEMBRA") {
+        const fs = d?.fecha_siembra || op?.fecha || "";
+        const dosis = d?.dosis;
+        const uni = d?.unidad || "kg/ha";
+        const obs = d?.observaciones || "";
+        const doseTxt = (dosis != null && dosis !== "") ? `${dosis} ${uni}` : "";
+        return `Siembra${fs ? " · " + formatDateOnly(fs) : ""}${doseTxt ? " · " + doseTxt : ""}${obs ? " — " + obs : ""}`.trim();
+    }
+
+    if (tipo === "RECOLECCION") {
+        const fc = d?.fecha_cosecha || op?.fecha || "";
+        const dosis = d?.dosis_kg_ha ?? d?.dosis;
+        const obs = d?.observaciones || "";
+        const doseTxt = (dosis != null && dosis !== "") ? `${dosis} kg/ha` : "";
+        return `Cosecha${fc ? " · " + formatDateOnly(fc) : ""}${doseTxt ? " · " + doseTxt : ""}${obs ? " — " + obs : ""}`.trim();
     }
 
     return safeText(op?.descripcion, "—");
@@ -641,7 +670,7 @@ async function attachSistemaCultivoLabel(obj) {
 }
 
 
-function fillSelectFromCatalog(selectEl, catalogo, { selected = "", placeholder = "Selecciona...", parent = null, q = null, limit = 500 } = {}) {
+function fillSelectFromCatalog(selectEl, catalogo, { selected = "", placeholder = "Selecciona...", parent = null, q = null, limit = 500, onLoaded = null } = {}) {
     if (!selectEl) return;
 
     const sel = String(selected ?? "").trim();
@@ -686,6 +715,7 @@ function fillSelectFromCatalog(selectEl, catalogo, { selected = "", placeholder 
                 selectEl.appendChild(opt);
                 selectEl.value = sel;
             }
+            if (typeof onLoaded === "function") onLoaded();
         })
         .catch(err => {
             console.warn("No se pudo cargar catálogo", catalogo, err);
@@ -697,6 +727,7 @@ function fillSelectFromCatalog(selectEl, catalogo, { selected = "", placeholder 
                 selectEl.appendChild(opt);
                 selectEl.value = sel;
             }
+            if (typeof onLoaded === "function") onLoaded();
         });
 }
 
@@ -842,6 +873,8 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
                 <option value="RIEGO">Riego</option>
                 <option value="FERTILIZACION">Fertilización</option>
                 <option value="FITOSANITARIO">Tratamiento fitosanitario</option>
+                <option value="SIEMBRA">Siembra</option>
+                <option value="RECOLECCION">Cosecha</option>
                 <option value="OTRAS">Otras Operaciones</option>
               </select>
             </div>
@@ -884,6 +917,9 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
       const t = String(tipo || "").toUpperCase();
 
       const fechaLabelEl = container.querySelector("#op-fecha-label");
+      const fechaCol = fechaInp?.closest(".col-12");
+      const usaFechaEnDetalle = (t === "SIEMBRA" || t === "RECOLECCION");
+      if (fechaCol) fechaCol.style.display = usaFechaEnDetalle ? "none" : "";
       if (fechaLabelEl) fechaLabelEl.textContent = (t === "RIEGO") ? "Día *" : "Fecha *";
 
       // =========================
@@ -900,6 +936,7 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
         const li = det?.medicion?.lectura_inicial_m3 ?? "";
         const lf = det?.medicion?.lectura_final_m3 ?? "";
         const obs = det?.observaciones || "";
+        const marco = det?.marco_riego ?? "";
 
         slot.innerHTML = `
           <div class="row g-2">
@@ -921,6 +958,12 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
               <label class="form-label fw-bold">Sistema riego *</label>
               <select id="riego-sis" class="form-select"></select>
               <div class="form-text">Catálogo SIEX: RIEGO_SISTEMA</div>
+            </div>
+
+            <div class="col-12 col-md-4 d-none" id="riego-marco-row">
+              <label class="form-label fw-bold">Marco de riego (m) *</label>
+              <input id="riego-marco" class="form-control" type="text" placeholder="ej. 12 x 18" value="${escapeHtml(marco)}">
+              <div class="form-text">Distancia entre líneas y entre aspersores (metros)</div>
             </div>
 
             <div class="col-12 col-md-4">
@@ -955,7 +998,19 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
           </div>
         `;
 
-        fillSelectFromCatalog(slot.querySelector("#riego-sis"), "RIEGO_SISTEMA", { selected: sis, placeholder: "Sistema..." });
+        function updateMarcoRiegoVisibility() {
+          const row = slot.querySelector("#riego-marco-row");
+          const sisSel = slot.querySelector("#riego-sis");
+          if (!row) return;
+          row.classList.toggle("d-none", !isAspersionSistemaRiego(sisSel));
+        }
+
+        fillSelectFromCatalog(slot.querySelector("#riego-sis"), "RIEGO_SISTEMA", {
+          selected: sis,
+          placeholder: "Sistema...",
+          onLoaded: updateMarcoRiegoVisibility,
+        });
+        slot.querySelector("#riego-sis")?.addEventListener("change", updateMarcoRiegoVisibility);
 
         (async () => {
           const box = slot.querySelector("#riego-proc-box");
@@ -1366,6 +1421,44 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
       }
 
       // =========================
+      // SIEMBRA / COSECHA
+      // =========================
+      if (t === "SIEMBRA" || t === "RECOLECCION") {
+        const isSiembra = t === "SIEMBRA";
+        const fechaKey = isSiembra ? "fecha_siembra" : "fecha_cosecha";
+        const fechaVal = det?.[fechaKey] || op?.fecha || "";
+        const obs = det?.observaciones || "";
+        const inputId = isSiembra ? "siembra-fecha" : "cosecha-fecha";
+        const label = isSiembra ? "Fecha de siembra *" : "Fecha de cosecha *";
+        const dosisVal = isSiembra ? (det?.dosis ?? "") : (det?.dosis_kg_ha ?? det?.dosis ?? "");
+
+        slot.innerHTML = `
+          <div class="row g-2">
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-bold">${label}</label>
+              <input id="${inputId}" class="form-control" type="date" value="${escapeHtml(String(fechaVal).slice(0, 10))}">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label fw-bold">Dosis *</label>
+              <div class="input-group">
+                <input id="${isSiembra ? "siembra-dosis" : "cosecha-dosis"}" class="form-control" type="number" step="any" min="0" value="${escapeHtml(String(dosisVal))}" placeholder="Cantidad">
+                ${isSiembra ? `
+                <select id="siembra-unidad" class="form-select" style="max-width:8rem;">
+                  <option value="kg/ha" ${(det?.unidad || "kg/ha") === "kg/ha" ? "selected" : ""}>kg/ha</option>
+                  <option value="ud/ha" ${det?.unidad === "ud/ha" ? "selected" : ""}>ud/ha</option>
+                </select>` : `<span class="input-group-text">kg/ha</span>`}
+              </div>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold">Observaciones</label>
+              <input id="${isSiembra ? "siembra-obs" : "cosecha-obs"}" class="form-control" type="text" placeholder="(Opcional)" value="${escapeHtml(obs)}">
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      // =========================
       // OTRAS
       // =========================
       if (t === "OTRAS") {
@@ -1443,11 +1536,22 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
         msg.className = "text-muted";
 
         const tipo = String(tipoSel.value || "").toUpperCase();
-        const fecha = parseDateToISO(fechaInp.value);
+        let fecha = parseDateToISO(fechaInp.value);
         const descripcion = (descInp.value || "").trim() || null;
 
         if (!tipo) { msg.textContent = "Selecciona el tipo."; msg.className = "text-danger"; return; }
-        if (!fecha) { msg.textContent = "Selecciona la fecha."; msg.className = "text-danger"; return; }
+
+        if (tipo === "SIEMBRA") {
+            fecha = parseDateToISO(slot.querySelector("#siembra-fecha")?.value);
+            if (!fecha) { msg.textContent = "Selecciona la fecha de siembra."; msg.className = "text-danger"; return; }
+        } else if (tipo === "RECOLECCION") {
+            fecha = parseDateToISO(slot.querySelector("#cosecha-fecha")?.value);
+            if (!fecha) { msg.textContent = "Selecciona la fecha de cosecha."; msg.className = "text-danger"; return; }
+        } else if (!fecha) {
+            msg.textContent = "Selecciona la fecha.";
+            msg.className = "text-danger";
+            return;
+        }
 
         // Construir payload
         const payload = {
@@ -1482,6 +1586,15 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
             if (!sisCode) { msg.textContent = "Selecciona el sistema de riego."; msg.className = "text-danger"; return; }
             if (!procedencias.length) { msg.textContent = "Selecciona la procedencia del agua."; msg.className = "text-danger"; return; }
 
+            if (isAspersionSistemaRiego(sisSel)) {
+                const marco = (slot.querySelector("#riego-marco")?.value || "").trim();
+                if (!marco) {
+                    msg.textContent = "Indica el marco de riego (metros).";
+                    msg.className = "text-danger";
+                    return;
+                }
+            }
+
             const metodo = slot.querySelector("#riego-metodo")?.value || "MANUAL";
 
             const fi = slot.querySelector("#riego-fi")?.value || null;
@@ -1506,6 +1619,9 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
                     lectura_inicial_m3: (li !== "" && li != null) ? Number(li) : null,
                     lectura_final_m3: (lf !== "" && lf != null) ? Number(lf) : null
                 },
+                marco_riego: isAspersionSistemaRiego(sisSel)
+                    ? ((slot.querySelector("#riego-marco")?.value || "").trim() || null)
+                    : null,
                 observaciones: (slot.querySelector("#riego-obs")?.value || "").trim() || null
             };
         }
@@ -1634,6 +1750,35 @@ function renderOperacionForm(container, { recintoId, op = null, mode = "actual",
             };
         }
 
+        if (tipo === "SIEMBRA") {
+            payload.detalle = {
+                fecha_siembra: fecha,
+                dosis: Number(slot.querySelector("#siembra-dosis")?.value),
+                unidad: slot.querySelector("#siembra-unidad")?.value || "kg/ha",
+                observaciones: (slot.querySelector("#siembra-obs")?.value || "").trim() || null
+            };
+            const d = payload.detalle.dosis;
+            if (!Number.isFinite(d) || d <= 0) {
+                msg.textContent = "Indica la dosis de siembra.";
+                msg.className = "text-danger";
+                return;
+            }
+        }
+
+        if (tipo === "RECOLECCION") {
+            payload.detalle = {
+                fecha_cosecha: fecha,
+                dosis_kg_ha: Number(slot.querySelector("#cosecha-dosis")?.value),
+                observaciones: (slot.querySelector("#cosecha-obs")?.value || "").trim() || null
+            };
+            const d = payload.detalle.dosis_kg_ha;
+            if (!Number.isFinite(d) || d <= 0) {
+                msg.textContent = "Indica la dosis de cosecha (kg/ha).";
+                msg.className = "text-danger";
+                return;
+            }
+        }
+
         // ENDPOINTS
         try {
             if (op && op.id_operacion) {
@@ -1681,4 +1826,13 @@ window.renderOperacionesForRecinto = window.renderOperacionesForRecinto || rende
 window.openOperacionesPanel = window.openOperacionesPanel || openOperacionesPanel;
 window.closeOperacionesPanel = window.closeOperacionesPanel || closeOperacionesPanel;
 window.renderOperacionesHistorico = window.renderOperacionesHistorico || renderOperacionesHistorico;
+
+async function abrirNuevaOperacionInline(recintoId) {
+    if (!recintoId) return;
+    await renderOperacionesForRecinto(recintoId);
+    setTimeout(() => {
+        document.getElementById('btn-add-op-inline')?.click();
+    }, 300);
+}
+window.abrirNuevaOperacionInline = window.abrirNuevaOperacionInline || abrirNuevaOperacionInline;
 window.actualizarHistoricoOperaciones = window.actualizarHistoricoOperaciones || actualizarHistoricoOperaciones;
