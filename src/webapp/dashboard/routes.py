@@ -14,7 +14,12 @@ import logging
 import io
 import tempfile
 import zipfile
-from .utils_dashboard import leaflet_bounds_from_tif, obtener_datos_aemet, MunicipiosCodigosFinder
+from .utils_dashboard import (
+    leaflet_bounds_from_tif,
+    obtener_datos_aemet,
+    MunicipiosCodigosFinder,
+    get_roi_bbox_for_visor,
+)
 from ..models import Recinto, Contador
 import os
 from ..dashboard.utils_dashboard import municipios_finder
@@ -394,8 +399,8 @@ def dashboard():
 @login_required
 def visor():
     """
-    Vista del visor SIG. Calcula la bbox de la ROI a partir de sigpac.recintos
-    y la pasa al template como roi_bbox = [minx, miny, maxx, maxy].
+    Vista del visor SIG. Calcula la bbox de la ROI desde ROI_PATH (.env),
+    con fallback a sigpac.recintos y bbox por defecto.
     
     Si se recibe recinto_id como parámetro, también envía los datos de ese recinto específico.
     """
@@ -455,27 +460,7 @@ def visor():
                     'geojson': geom_row.geojson
                 }
     
-    # Calcular bbox general (para vista inicial si no hay recinto específico)
-    sql = text("""
-        SELECT
-            ST_XMin(extent) AS minx,
-            ST_YMin(extent) AS miny,
-            ST_XMax(extent) AS maxx,
-            ST_YMax(extent) AS maxy
-        FROM (
-            SELECT ST_Extent(geometry) AS extent
-            FROM sigpac.recintos
-        ) sub;
-    """)
-
-    row = db.session.execute(sql).fetchone()
-
-    if row and all(v is not None for v in row):
-        roi_bbox = [row.minx, row.miny, row.maxx, row.maxy]
-    else:
-        # Fallback por si la consulta no devuelve nada
-        roi_bbox = [-4.6718708208, 41.7248613835,
-                    -3.8314839480, 42.1274665349]
+    roi_bbox = get_roi_bbox_for_visor(db.session)
         
     project_root = Path(__file__).resolve().parents[3]  # 2 niveles arriba
 

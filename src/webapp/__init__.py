@@ -33,6 +33,24 @@ def create_app():
     def unauthorized():
         return redirect(url_for('auth.login'))
 
+    @app.context_processor
+    def inject_comunidad_branding():
+        nombre = (app.config.get("COMUNIDAD_REGANTES_NOMBRE") or "").strip()
+        titulo_base = "Comunidad de Regantes"
+        if nombre:
+            return {
+                "comunidad_nombre": nombre,
+                "comunidad_titulo": f"{titulo_base} {nombre}",
+                "comunidad_bienvenida": f"Bienvenido a la comunidad de regantes {nombre}",
+                "comunidad_titulo_corto": f"C. Regantes {nombre}",
+            }
+        return {
+            "comunidad_nombre": "",
+            "comunidad_titulo": titulo_base,
+            "comunidad_bienvenida": "Bienvenido a la comunidad de regantes",
+            "comunidad_titulo_corto": "C. Regantes",
+        }
+
     from .auth import auth_bp
     from .admin import admin_bp 
     from .dashboard import dashboard_bp

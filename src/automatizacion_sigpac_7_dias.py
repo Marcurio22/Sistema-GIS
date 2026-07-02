@@ -213,7 +213,6 @@ def guardar_backup_rotatorio(gdf: gpd.GeoDataFrame, out_dir: Path) -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def ensure_parcelas_table(conn) -> None:
-    """Crea public.parcelas si no existe (no viene en todos los dumps schema-only)."""
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS public.parcelas (
             id_parcela     SERIAL PRIMARY KEY,
@@ -240,6 +239,76 @@ def ensure_parcelas_table(conn) -> None:
     """))
 
 
+def _fetch_dependent_views(conn, schema: str, table: str) -> list[tuple[str, str, str]]:
+    rows = conn.execute(
+        text("""
+            SELECT DISTINCT
+                vn.nspname AS view_schema,
+                vc.relname AS view_name,
+                pg_get_viewdef(vc.oid, true) AS view_sql
+            FROM pg_depend d
+            JOIN pg_rewrite rw ON rw.oid = d.objid
+            JOIN pg_class vc ON vc.oid = rw.ev_class
+            JOIN pg_namespace vn ON vn.oid = vc.relnamespace
+            JOIN pg_class tc ON tc.oid = d.refobjid
+            JOIN pg_namespace tn ON tn.oid = tc.relnamespace
+            WHERE tn.nspname = :schema
+              AND tc.relname = :table
+              AND vc.relkind = 'v'
+        """),
+        {"schema": schema, "table": table},
+    ).fetchall()
+    return [(r.view_schema, r.view_name, r.view_sql) for r in rows]
+
+
+def _drop_views(conn, views: list[tuple[str, str, str]]) -> None:
+    for schema, name, _ in views:
+        conn.execute(text(f'DROP VIEW IF EXISTS "{schema}"."{name}"'))
+
+
+def _recreate_views(conn, views: list[tuple[str, str, str]]) -> None:
+    for schema, name, view_sql in views:
+        conn.execute(text(f'CREATE OR REPLACE VIEW "{schema}"."{name}" AS {view_sql}'))
+
+
+def cleanup_stale_sigpac_state(conn) -> None:
+    """Limpia restos de un swap interrumpido (recintos_old + vistas colgando)."""
+    views_old = _fetch_dependent_views(conn, "sigpac", "recintos_old")
+    if views_old:
+        print(f"→ Limpiando {len(views_old)} vista(s) sobre sigpac.recintos_old…")
+        _drop_views(conn, views_old)
+    conn.execute(text("DROP TABLE IF EXISTS sigpac.recintos_old CASCADE"))
+
+
+def ensure_default_recintos_view(conn) -> None:
+    exists = conn.execute(text("""
+        SELECT 1
+        FROM information_schema.views
+        WHERE table_schema = 'sigpac'
+          AND table_name = 'recintos_con_propietario'
+    """)).scalar()
+    if exists:
+        return
+    print("→ Creando vista sigpac.recintos_con_propietario (fallback)…")
+    conn.execute(text("""
+        CREATE OR REPLACE VIEW sigpac.recintos_con_propietario AS
+        SELECT
+            s.*,
+            r.id_recinto,
+            u.username AS propietario
+        FROM sigpac.recintos s
+        LEFT JOIN public.recintos r
+            ON r.provincia = s.provincia
+           AND r.municipio = s.municipio
+           AND r.poligono = s.poligono
+           AND r.recinto = s.recinto
+           AND r.agregado IS NOT DISTINCT FROM s.agregado
+           AND r.zona IS NOT DISTINCT FROM s.zona
+        LEFT JOIN public.usuarios u
+            ON u.id_usuario = r.id_propietario
+    """))
+
+
 def actualizar_postgis_atomic(gdf: gpd.GeoDataFrame) -> None:
     """
     1) Escribe en sigpac.recintos_new (tabla temporal).
@@ -257,6 +326,7 @@ def actualizar_postgis_atomic(gdf: gpd.GeoDataFrame) -> None:
 
     with engine.begin() as conn:
         conn.execute(text("CREATE SCHEMA IF NOT EXISTS sigpac"))
+        cleanup_stale_sigpac_state(conn)
 
     print("→ Escribiendo en sigpac.recintos_new…")
     gdf.to_postgis(
@@ -295,7 +365,19 @@ def actualizar_postgis_atomic(gdf: gpd.GeoDataFrame) -> None:
         """))
 
         print("→ Asignando id_parcela a recintos_new…")
-        conn.execute(text("ALTER TABLE sigpac.recintos_new ADD COLUMN id_parcela integer"))
+        conn.execute(text("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = 'sigpac'
+                      AND table_name = 'recintos_new'
+                      AND column_name = 'id_parcela'
+                ) THEN
+                    ALTER TABLE sigpac.recintos_new ADD COLUMN id_parcela integer;
+                END IF;
+            END $$;
+        """))
         conn.execute(text("""
             UPDATE sigpac.recintos_new r
             SET id_parcela = p.id_parcela
@@ -318,10 +400,19 @@ def actualizar_postgis_atomic(gdf: gpd.GeoDataFrame) -> None:
             )
 
         print("→ Intercambio atómico de tablas…")
+        saved_views = _fetch_dependent_views(conn, "sigpac", "recintos")
+        if saved_views:
+            print(f"→ Guardando y quitando {len(saved_views)} vista(s) sobre sigpac.recintos…")
+            _drop_views(conn, saved_views)
+
         conn.execute(text("DROP TABLE IF EXISTS sigpac.recintos_old"))
         conn.execute(text("ALTER TABLE IF EXISTS sigpac.recintos RENAME TO recintos_old"))
         conn.execute(text("ALTER TABLE sigpac.recintos_new RENAME TO recintos"))
         conn.execute(text("DROP TABLE IF EXISTS sigpac.recintos_old"))
+
+        if saved_views:
+            print("→ Recreando vistas SIGPAC…")
+            _recreate_views(conn, saved_views)
 
         print("→ FK e índices…")
         conn.execute(text("""
@@ -351,6 +442,7 @@ def actualizar_postgis_atomic(gdf: gpd.GeoDataFrame) -> None:
             CREATE INDEX IF NOT EXISTS idx_recintos_geom
             ON sigpac.recintos USING GIST(geometry)
         """))
+        ensure_default_recintos_view(conn)
 
     print("✅ sigpac.recintos y public.parcelas actualizadas correctamente.")
 

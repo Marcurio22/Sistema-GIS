@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{% block title %}Comunidad de Regantes{% endblock %}</title>
+    <title>{% block title %}{{ comunidad_titulo }}{% endblock %}</title>
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/vendor/all.min.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/vendor/bootstrap-icons.min.css') }}" />
@@ -40,7 +40,7 @@
             <svg class="water-drop" viewBox="0 0 30 42">
                 <path d="M15 3 Q15 3 25 18 A10 10 0 1 1 5 18 Q15 3 15 3z" />
             </svg>
-            <h1 class="welcome-text">Bienvenido a la comunidad de regantes</h1>
+            <h1 class="welcome-text">{{ comunidad_bienvenida }}</h1>
         </div>
     </div>
     {% endif %}
@@ -55,7 +55,7 @@
                 style="display:grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; column-gap:.75rem;">
 
                 <h5 class="mb-0 fw-bold" style="grid-column:1; grid-row:1;">
-                Comunidad de Regantes
+                {{ comunidad_titulo }}
                 </h5>
                 
                 <small class="opacity-75" style="grid-column:1; grid-row:2;">
@@ -197,8 +197,8 @@
         <div class="d-flex align-items-center flex-shrink-1 min-w-0">
             <a class="navbar-brand d-flex align-items-center min-w-0 mb-0 py-0" href="{{ url_for('dashboard.dashboard') }}">
             <img src="{{ url_for('static', filename='img/gota.png') }}" alt="Logo" class="navbar-logo-main me-2">
-            <span class="fw-bold d-none d-md-inline text-truncate">Comunidad de Regantes</span>
-            <span class="fw-bold d-inline d-md-none text-truncate">C. Regantes</span>
+            <span class="fw-bold d-none d-md-inline text-truncate">{{ comunidad_titulo }}</span>
+            <span class="fw-bold d-inline d-md-none text-truncate">{{ comunidad_titulo_corto }}</span>
 
             {% if current_user.is_authenticated %}
                 <span class="ms-1 ms-sm-2 fw-normal opacity-75 d-none d-sm-inline">-</span>

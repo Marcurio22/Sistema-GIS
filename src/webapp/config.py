@@ -56,4 +56,6 @@ class Config:
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER")
 
     INFORIEGO_API_KEY = os.getenv("INFORIEGO_API_KEY")
-    
+
+    # Nombre visible de la instancia (multi-comunidad)
+    COMUNIDAD_REGANTES_NOMBRE = (os.getenv("COMUNIDAD_REGANTES_NOMBRE") or "").strip()

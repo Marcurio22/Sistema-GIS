@@ -9,6 +9,16 @@ import json
 import rasterio
 from rasterio.warp import transform_bounds
 
+try:
+    import geopandas as gpd
+except ImportError:
+    gpd = None
+
+DEFAULT_ROI_BBOX = [
+    -4.6718708208, 41.7248613835,
+    -3.8314839480, 42.1274665349,
+]
+
 # Mapeo de descripción de AEMET a datos de visualización
 estados_clima = {
     # Despejado
@@ -725,6 +735,63 @@ class MunicipiosCodigosFinder:
     
     
 municipios_finder = MunicipiosCodigosFinder()
+
+
+def _resolve_roi_path() -> Path | None:
+    import os
+    from flask import has_app_context
+
+    roi_raw = os.getenv("ROI_PATH", "data/processed/ROI.gpkg")
+    path = Path(roi_raw)
+    if path.is_absolute():
+        return path if path.exists() else None
+
+    if has_app_context():
+        project_root = Path(current_app.root_path).parent.parent
+    else:
+        project_root = Path(__file__).resolve().parents[3]
+    path = (project_root / path).resolve()
+    return path if path.exists() else None
+
+
+def get_roi_bbox_from_gpkg() -> list[float] | None:
+    """BBox [minx, miny, maxx, maxy] del ROI.gpkg configurado en ROI_PATH."""
+    if gpd is None:
+        return None
+    roi_path = _resolve_roi_path()
+    if not roi_path:
+        return None
+    roi = gpd.read_file(roi_path).to_crs(4326)
+    minx, miny, maxx, maxy = roi.total_bounds
+    return [float(minx), float(miny), float(maxx), float(maxy)]
+
+
+def get_roi_bbox_for_visor(db_session) -> list[float]:
+    """
+    BBox del visor: ROI.gpkg (instancia) -> sigpac.recintos -> fallback fijo.
+    """
+    from sqlalchemy import text
+
+    bbox = get_roi_bbox_from_gpkg()
+    if bbox:
+        return bbox
+
+    row = db_session.execute(text("""
+        SELECT
+            ST_XMin(extent) AS minx,
+            ST_YMin(extent) AS miny,
+            ST_XMax(extent) AS maxx,
+            ST_YMax(extent) AS maxy
+        FROM (
+            SELECT ST_Extent(geometry) AS extent
+            FROM sigpac.recintos
+        ) sub
+    """)).fetchone()
+
+    if row and all(v is not None for v in row):
+        return [float(row.minx), float(row.miny), float(row.maxx), float(row.maxy)]
+
+    return DEFAULT_ROI_BBOX.copy()
 
 
 def leaflet_bounds_from_tif(tif_path: str):
