@@ -57,5 +57,5 @@ class Config:
 
     INFORIEGO_API_KEY = os.getenv("INFORIEGO_API_KEY")
 
-    # Nombre visible de la instancia (multi-comunidad)
-    COMUNIDAD_REGANTES_NOMBRE = (os.getenv("COMUNIDAD_REGANTES_NOMBRE") or "").strip()
+    # Nombre visible de la instancia (multi-comunidad). Vacío = solo "Comunidad de Regantes".
+    COMUNIDAD_REGANTES_NOMBRE = (os.getenv("COMUNIDAD_REGANTES_NOMBRE") or "").strip().strip('"').strip("'")
