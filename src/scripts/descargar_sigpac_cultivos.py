@@ -113,7 +113,7 @@ def build_engine_from_env():
 # Main
 # ============================================================
 def main():
-    load_dotenv()
+    load_dotenv(override=True)
 
     this_dir = Path(__file__).resolve().parent
     project_root = find_project_root(this_dir)
@@ -159,8 +159,10 @@ def main():
 
     with engine.begin() as conn:
         conn.execute(text("CREATE SCHEMA IF NOT EXISTS sigpac"))
+        # El dump schema-only crea la vista; hay que quitarla antes de replace en la tabla.
+        conn.execute(text("DROP VIEW IF EXISTS sigpac.v_cultivo_declarado_popup"))
 
-    # ✅ Tabla espejo (todas las columnas, mismos nombres, tipos compatibles)
+    # Tabla espejo (todas las columnas, mismos nombres, tipos compatibles)
     # Esto evita el problema de parc_producto=99.0 vs INTEGER
     gdf.to_postgis(
         name=SIGPAC_COLLECTION,

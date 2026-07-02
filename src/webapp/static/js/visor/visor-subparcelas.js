@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const len = Math.hypot(dx, dy);
     if (len < 1e-12) return null;
 
-    // Normal a la línea, escalada bien grande para cubrir todo el polígono
+  
     const bbox = turf.bbox(polyFeat);
     const big = Math.hypot(bbox[2] - bbox[0], bbox[3] - bbox[1]) * 3 + 0.01;
     const nx = (-dy / len) * big;

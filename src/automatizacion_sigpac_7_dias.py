@@ -42,7 +42,7 @@ except ImportError:
 # ── Constantes ────────────────────────────────────────────────────────────────
 SIGPAC_BASE    = "https://sigpac-hubcloud.es/ogcapi"
 COLLECTION     = "recintos"           # ← cambia si el endpoint se llama distinto
-DEFAULT_ROI    = "data/processed/roi.gpkg"
+DEFAULT_ROI    = "data/processed/ROI.gpkg"
 PAGE_LIMIT     = 250                  # tamaño de página seguro para la API
 TILE_DEGREES   = 0.05                 # misma estrategia de tiles que cultivo_declarado
 PAUSE_BETWEEN  = 2                    # segundos entre peticiones
@@ -212,6 +212,34 @@ def guardar_backup_rotatorio(gdf: gpd.GeoDataFrame, out_dir: Path) -> None:
 # PostGIS — actualización atómica
 # ══════════════════════════════════════════════════════════════════════════════
 
+def ensure_parcelas_table(conn) -> None:
+    """Crea public.parcelas si no existe (no viene en todos los dumps schema-only)."""
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS public.parcelas (
+            id_parcela     SERIAL PRIMARY KEY,
+            nombre         VARCHAR(200) NOT NULL,
+            superficie_ha  NUMERIC(12, 4),
+            geom           geometry(MultiPolygon, 4326) NOT NULL,
+            provincia      BIGINT NOT NULL,
+            municipio      BIGINT NOT NULL,
+            agregado       BIGINT,
+            zona           BIGINT,
+            poligono       BIGINT NOT NULL,
+            recinto        BIGINT NOT NULL,
+            fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            activa         BOOLEAN NOT NULL DEFAULT TRUE
+        )
+    """))
+    conn.execute(text("""
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_parcelas_sigpac_keys
+        ON public.parcelas (provincia, municipio, agregado, zona, poligono, recinto)
+    """))
+    conn.execute(text("""
+        CREATE INDEX IF NOT EXISTS idx_parcelas_geom
+        ON public.parcelas USING GIST (geom)
+    """))
+
+
 def actualizar_postgis_atomic(gdf: gpd.GeoDataFrame) -> None:
     """
     1) Escribe en sigpac.recintos_new (tabla temporal).
@@ -242,6 +270,7 @@ def actualizar_postgis_atomic(gdf: gpd.GeoDataFrame) -> None:
     )
 
     with engine.begin() as conn:
+        ensure_parcelas_table(conn)
         print("→ UPSERT en public.parcelas…")
         conn.execute(text("""
             INSERT INTO public.parcelas (
@@ -300,11 +329,19 @@ def actualizar_postgis_atomic(gdf: gpd.GeoDataFrame) -> None:
             ALTER COLUMN id_parcela SET NOT NULL
         """))
         conn.execute(text("""
-            ALTER TABLE sigpac.recintos
-            ADD CONSTRAINT recintos_parcelas_fk
-            FOREIGN KEY (id_parcela)
-            REFERENCES public.parcelas(id_parcela)
-            ON DELETE RESTRICT
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'recintos_parcelas_fk'
+                ) THEN
+                    ALTER TABLE sigpac.recintos
+                    ADD CONSTRAINT recintos_parcelas_fk
+                    FOREIGN KEY (id_parcela)
+                    REFERENCES public.parcelas(id_parcela)
+                    ON DELETE RESTRICT;
+                END IF;
+            END $$;
         """))
         conn.execute(text("""
             CREATE INDEX IF NOT EXISTS idx_recintos_id_parcela

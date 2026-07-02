@@ -48,7 +48,7 @@ load_dotenv()
 
 ROI_PATH = os.getenv(
     "ROI_PATH",
-    str(Path(__file__).resolve().parents[1] / "data" / "processed" / "roi.gpkg")
+    str(Path(__file__).resolve().parents[1] / "data" / "processed" / "ROI.gpkg")
 )
 
 # VENTANA TEMPORAL

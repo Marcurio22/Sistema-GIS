@@ -1183,7 +1183,7 @@ def contadores():
         .order_by(Contador.fecha_creacion.desc())
         .all()
     )
-
+ 
     return render_template("contadores.html", contadores=contadores)
 
 
