@@ -38,6 +38,7 @@ def dashboard():
     # ---------------------------
     municipios_codigos_finder = MunicipiosCodigosFinder()
     url_widget = municipios_codigos_finder.obtener_url_municipio_usuario(current_user.id_usuario)
+    codigo_municipio = municipios_codigos_finder.codigo_recintos(current_user.id_usuario)
     codigo_municipio_ine = municipios_codigos_finder.codigo_recintos_ine(current_user.id_usuario)
     weather = obtener_datos_aemet(codigo_municipio_ine) if codigo_municipio_ine else None
 

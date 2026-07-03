@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Iniciar Sesión - Comunidad de Regantes</title>
+    <title>Iniciar Sesión - Comunidad de Regantes{% if comunidad_nombre %} {{ comunidad_nombre }}{% endif %}</title>
     <link href="{{ url_for('static', filename='css/vendor/bootstrap.min.css') }}" rel="stylesheet" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/theme-brand.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/vendor/bootstrap-icons.min.css') }}" />
@@ -25,9 +25,9 @@
                 <div class="mb-4">
                     <i class="bi bi-droplet-fill text-success" style="font-size: 4rem;"></i>
                 </div>
-                <h1 class="h2 fw-bold mb-4 text-dark">BIENVENIDO A LA<br>COMUNIDAD DE REGANTES</h1>
+                <h1 class="h2 fw-bold mb-4 text-dark">BIENVENIDO A LA<br>COMUNIDAD DE REGANTES{% if comunidad_nombre %} {{ comunidad_nombre }}{% endif %}</h1>
                 <p class="text-muted mb-4">
-                    En esta web podrás visualizar y obtener información acerca de todas los recintos dentro de la comunidad de regantes a la que pertenece.
+                    En esta web podrás visualizar y obtener información acerca de todos los recintos dentro de la comunidad de regantes{% if comunidad_nombre %} {{ comunidad_nombre }}{% endif %} a la que pertenece.
                 </p>
                 <p class="text-muted">
                     Para acceder a la misma, por favor, inicie sesión con su usuario y contraseña.

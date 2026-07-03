@@ -3083,7 +3083,9 @@ function actualizarNdviPanel() {
     if (cultivosSigpacActivos) {
       const r = await fetch(`/api/popup/cultivo-sigpac?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
       const j = await r.json().catch(() => ({}));
-      if (j.ok && j.found) {
+      if (!r.ok || j.ok === false) {
+        console.warn("Popup cultivo SIGPAC:", j.error || r.status);
+      } else if (j.found) {
         highlightGeojson(j.data.geojson, "cultivo"); 
         abrirPopupHtml(e.latlng, buildCultivoPopup(j.data));
         return;

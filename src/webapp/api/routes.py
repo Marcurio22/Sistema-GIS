@@ -321,12 +321,11 @@ def popup_cultivo_sigpac():
             parcela,
             recinto,
             parc_producto,
-            cultivo_actual_nombre AS parc_producto_nombre,
+            cultivo_actual_nombre,
             parc_sistexp,
             cultsecun_producto,
             cultsecun_ayudasol,
             parc_ayudasol,
-            cultivo_actual_nombre,
             ST_AsGeoJSON(geometry)::json AS geojson
         FROM sigpac.v_cultivo_declarado_popup
         WHERE ST_Intersects(
@@ -337,7 +336,11 @@ def popup_cultivo_sigpac():
         LIMIT 1
     """)
 
-    row = db.session.execute(sql, {"lat": lat, "lng": lng}).mappings().first()
+    try:
+        row = db.session.execute(sql, {"lat": lat, "lng": lng}).mappings().first()
+    except Exception as exc:
+        current_app.logger.exception("popup_cultivo_sigpac")
+        return jsonify({"ok": False, "error": str(exc)}), 500
     if not row:
         return jsonify({"ok": True, "found": False})
 
@@ -353,6 +356,7 @@ def popup_cultivo_sigpac():
         pass
 
     data = dict(row)
+    data["parc_producto_nombre"] = data.get("cultivo_actual_nombre") or ""
     data["nombre_provincia"] = nombre_provincia
     data["nombre_municipio"] = nombre_municipio
 
