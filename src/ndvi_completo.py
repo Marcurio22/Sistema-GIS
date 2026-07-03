@@ -462,15 +462,15 @@ def create_temporal_weighted_composite(items_por_fecha, bbox_4326, dst_transform
     tiles_procesados = 0
     tiles_validos = 0
     
-    print(f"\n[COMPOSITE] Procesando {total_tiles} tiles...")
+    print(f"\n[COMPOSITE] Procesando {total_tiles} tiles...", flush=True)
     
     for fecha in fechas_ordenadas:
         for img_info in items_por_fecha[fecha]:
             item = img_info['item']
             tiles_procesados += 1
             
-            if tiles_procesados % 10 == 0:
-                print(f"[COMPOSITE] Progreso: {tiles_procesados}/{total_tiles}...")
+            if tiles_procesados % 5 == 0 or tiles_procesados == total_tiles:
+                print(f"[COMPOSITE] Progreso: {tiles_procesados}/{total_tiles}...", flush=True)
             
             ndvi, quality_weights, valid_mask = process_item_to_ndvi_temporal(
                 item, bbox_4326, dst_transform, dst_crs, width, height
@@ -491,8 +491,8 @@ def create_temporal_weighted_composite(items_por_fecha, bbox_4326, dst_transform
             weight_sum += weights
             pixel_count[valid_mask] += 1
     
-    print(f"\n[COMPOSITE] Tiles procesados: {tiles_procesados}")
-    print(f"[COMPOSITE] Tiles válidos: {tiles_validos}")
+    print(f"\n[COMPOSITE] Tiles procesados: {tiles_procesados}", flush=True)
+    print(f"[COMPOSITE] Tiles válidos: {tiles_validos}", flush=True)
     
     # Calcular composite final
     composite = np.where(weight_sum > 0, ndvi_sum / weight_sum, np.nan)

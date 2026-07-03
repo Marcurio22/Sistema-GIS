@@ -2264,8 +2264,8 @@ function actualizarNdviPanel() {
   });
 
   const cultivosSigpacLayer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:cultivo_declarado", 
-    styles: "cultivos_verde", 
+    layers: "{{ config.get('GEOSERVER_CULTIVOS_LAYER', 'gis_project:cultivo_declarado') }}",
+    styles: "{{ config.get('GEOSERVER_CULTIVOS_STYLE', 'gis_project:cultivos_verde') }}",
     format: "image/png",
     transparent: true,
     tiled: true,

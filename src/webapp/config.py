@@ -44,6 +44,8 @@ class Config:
         "https://mirame.chduero.es/geoserver/mirame/wms",
     )
     GEOSERVER_RECINTOS_TYPENAME = os.getenv("GEOSERVER_RECINTOS_TYPENAME", "gis_project:recintos_con_propietario")
+    GEOSERVER_CULTIVOS_LAYER = os.getenv("GEOSERVER_CULTIVOS_LAYER", "gis_project:cultivo_declarado")
+    GEOSERVER_CULTIVOS_STYLE = os.getenv("GEOSERVER_CULTIVOS_STYLE", "gis_project:cultivos_verde")
 
 
     # Configuración de correo electrónico
