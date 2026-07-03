@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Copia tablas de referencia compartidas desde la BD maestra (gisdb) a la BD de la instancia.
+Deduplica filas en origen (gisdb puede tener PK repetidas en algunas tablas).
 """
 from __future__ import annotations
 
@@ -16,14 +17,15 @@ from psycopg2 import sql
 ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(ROOT / ".env")
 
-TABLES: list[tuple[str, list[str], bool]] = [
-    ("public.productos_fega", ["codigo"], False),
-    ("public.usos_sigpac", ["codigo"], False),
-    ("public.tipos_operacion", ["id_tipo_operacion"], False),
-    ("public.catalogos_operaciones", ["catalogo", "codigo", "codigo_padre"], True),
-    ("public.estaciones", ["id"], False),
-    ("public.variedades", ["id_variedad"], False),
-    ("public.datos_diarios", ["id"], False),
+# table, pk columns
+TABLES: list[tuple[str, list[str]]] = [
+    ("public.productos_fega", ["codigo"]),
+    ("public.usos_sigpac", ["codigo"]),
+    ("public.tipos_operacion", ["id_tipo_operacion"]),
+    ("public.catalogos_operaciones", ["catalogo", "codigo", "codigo_padre"]),
+    ("public.estaciones", ["id"]),
+    ("public.variedades", ["id_variedad"]),
+    ("public.datos_diarios", ["id"]),
 ]
 
 TRUNCATE_TABLES = [t[0] for t in TABLES]
@@ -84,18 +86,14 @@ def truncate_tables(conn) -> None:
     existing = [t for t in TRUNCATE_TABLES if table_exists(conn, t)]
     if not existing:
         return
-    parts = sql.SQL(", ").join(
-        sql.Identifier(*tbl.split(".")) for tbl in existing
-    )
+    parts = sql.SQL(", ").join(sql.Identifier(*tbl.split(".")) for tbl in existing)
     with conn.cursor() as cur:
-        cur.execute(
-            sql.SQL("TRUNCATE TABLE {} RESTART IDENTITY CASCADE").format(parts)
-        )
+        cur.execute(sql.SQL("TRUNCATE TABLE {} RESTART IDENTITY CASCADE").format(parts))
     conn.commit()
     print(f"  - Tablas vaciadas: {', '.join(existing)}")
 
 
-def copy_table(src, dst, table: str, pk_cols: list[str], dedupe: bool) -> int:
+def copy_table(src, dst, table: str, pk_cols: list[str]) -> int:
     schema, name = table.split(".", 1)
     if not table_exists(src, table):
         print(f"  [omit] {table} no existe en origen")
@@ -104,51 +102,58 @@ def copy_table(src, dst, table: str, pk_cols: list[str], dedupe: bool) -> int:
         print(f"  [omit] {table} no existe en destino")
         return 0
 
-    copy_sql = sql.SQL("COPY {} TO STDOUT").format(sql.Identifier(schema, name)).as_string(src)
+    copy_out = sql.SQL("COPY {} TO STDOUT").format(sql.Identifier(schema, name)).as_string(src)
 
     with src.cursor() as sc:
         buf = io.BytesIO()
-        sc.copy_expert(copy_sql, buf)
+        sc.copy_expert(copy_out, buf)
         data = buf.getvalue()
 
     if not data:
         print(f"  - {table}: 0 filas (origen vacio)")
         return 0
 
+    pk_sql = sql.SQL(", ").join(sql.Identifier(c) for c in pk_cols)
+
     with dst.cursor() as dc:
-        if dedupe:
-            dc.execute(
-                sql.SQL("CREATE TEMP TABLE {} (LIKE {} INCLUDING ALL) ON COMMIT DROP").format(
-                    sql.Identifier("tmp_ref_copy"),
-                    sql.Identifier(schema, name),
-                )
+        dc.execute(
+            sql.SQL("CREATE TEMP TABLE {} (LIKE {} INCLUDING ALL) ON COMMIT DROP").format(
+                sql.Identifier("tmp_ref_copy"),
+                sql.Identifier(schema, name),
             )
-            dc.copy_expert(
-                sql.SQL("COPY {} FROM STDIN").format(sql.Identifier("tmp_ref_copy")).as_string(dst),
-                io.BytesIO(data),
-            )
-            pk_sql = sql.SQL(", ").join(sql.Identifier(c) for c in pk_cols)
-            dc.execute(
-                sql.SQL(
-                    """
-                    INSERT INTO {target}
-                    SELECT DISTINCT ON ({pk}) *
-                    FROM tmp_ref_copy
-                    ORDER BY {pk}
-                    ON CONFLICT ({pk}) DO UPDATE SET
-                      nombre = EXCLUDED.nombre,
-                      descripcion = EXCLUDED.descripcion,
-                      fecha_baja = EXCLUDED.fecha_baja,
-                      fuente = EXCLUDED.fuente,
-                      extra = EXCLUDED.extra
-                    """
-                ).format(target=sql.Identifier(schema, name), pk=pk_sql)
+        )
+        dc.copy_expert(
+            sql.SQL("COPY {} FROM STDIN").format(sql.Identifier("tmp_ref_copy")).as_string(dst),
+            io.BytesIO(data),
+        )
+
+        if table == "public.catalogos_operaciones":
+            insert_sql = sql.SQL(
+                """
+                INSERT INTO {target}
+                SELECT DISTINCT ON ({pk}) *
+                FROM tmp_ref_copy
+                ORDER BY {pk}
+                ON CONFLICT ({pk}) DO UPDATE SET
+                  nombre = EXCLUDED.nombre,
+                  descripcion = EXCLUDED.descripcion,
+                  fecha_baja = EXCLUDED.fecha_baja,
+                  fuente = EXCLUDED.fuente,
+                  extra = EXCLUDED.extra
+                """
             )
         else:
-            dc.copy_expert(
-                sql.SQL("COPY {} FROM STDIN").format(sql.Identifier(schema, name)).as_string(dst),
-                io.BytesIO(data),
+            insert_sql = sql.SQL(
+                """
+                INSERT INTO {target}
+                SELECT DISTINCT ON ({pk}) *
+                FROM tmp_ref_copy
+                ORDER BY {pk}
+                ON CONFLICT ({pk}) DO NOTHING
+                """
             )
+
+        dc.execute(insert_sql.format(target=sql.Identifier(schema, name), pk=pk_sql))
 
     dst.commit()
 
@@ -176,8 +181,8 @@ def main() -> int:
         src = connect(source_url)
         dst = connect(target_url)
         truncate_tables(dst)
-        for table, pk_cols, dedupe in TABLES:
-            copy_table(src, dst, table, pk_cols, dedupe)
+        for table, pk_cols in TABLES:
+            copy_table(src, dst, table, pk_cols)
         print("OK: datos de referencia listos")
         return 0
     except Exception as exc:
