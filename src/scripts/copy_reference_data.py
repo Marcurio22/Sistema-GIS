@@ -17,7 +17,6 @@ from psycopg2 import sql
 ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(ROOT / ".env")
 
-# table, pk columns
 TABLES: list[tuple[str, list[str]]] = [
     ("public.productos_fega", ["codigo"]),
     ("public.usos_sigpac", ["codigo"]),
@@ -93,6 +92,22 @@ def truncate_tables(conn) -> None:
     print(f"  - Tablas vaciadas: {', '.join(existing)}")
 
 
+def create_temp_staging(dc, schema: str, name: str) -> None:
+    # SIN restricciones PK: el origen (gisdb) puede traer filas duplicadas en el COPY.
+    dc.execute(
+        sql.SQL(
+            """
+            CREATE TEMP TABLE {tmp} (
+              LIKE {target} INCLUDING DEFAULTS EXCLUDING CONSTRAINTS EXCLUDING INDEXES
+            ) ON COMMIT DROP
+            """
+        ).format(
+            tmp=sql.Identifier("tmp_ref_copy"),
+            target=sql.Identifier(schema, name),
+        )
+    )
+
+
 def copy_table(src, dst, table: str, pk_cols: list[str]) -> int:
     schema, name = table.split(".", 1)
     if not table_exists(src, table):
@@ -116,12 +131,7 @@ def copy_table(src, dst, table: str, pk_cols: list[str]) -> int:
     pk_sql = sql.SQL(", ").join(sql.Identifier(c) for c in pk_cols)
 
     with dst.cursor() as dc:
-        dc.execute(
-            sql.SQL("CREATE TEMP TABLE {} (LIKE {} INCLUDING ALL) ON COMMIT DROP").format(
-                sql.Identifier("tmp_ref_copy"),
-                sql.Identifier(schema, name),
-            )
-        )
+        create_temp_staging(dc, schema, name)
         dc.copy_expert(
             sql.SQL("COPY {} FROM STDIN").format(sql.Identifier("tmp_ref_copy")).as_string(dst),
             io.BytesIO(data),
