@@ -7,13 +7,16 @@ from __future__ import annotations
 import io
 import os
 import sys
+from pathlib import Path
 
 import psycopg2
 from dotenv import load_dotenv
 from psycopg2 import sql
 
+ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(ROOT / ".env")
+
 TABLES: list[tuple[str, list[str], bool]] = [
-    # table, pk columns, dedupe on insert (catalogos puede tener filas repetidas en origen)
     ("public.productos_fega", ["codigo"], False),
     ("public.usos_sigpac", ["codigo"], False),
     ("public.tipos_operacion", ["id_tipo_operacion"], False),
@@ -23,15 +26,41 @@ TABLES: list[tuple[str, list[str], bool]] = [
     ("public.datos_diarios", ["id"], False),
 ]
 
-TRUNCATE_ORDER = [
-    "public.datos_diarios",
-    "public.variedades",
-    "public.catalogos_operaciones",
-    "public.estaciones",
-    "public.tipos_operacion",
-    "public.usos_sigpac",
-    "public.productos_fega",
-]
+TRUNCATE_TABLES = [t[0] for t in TABLES]
+
+
+def normalize_pg_url(url: str | None) -> str | None:
+    if not url:
+        return None
+    u = url.strip().strip('"').strip("'")
+    for prefix in ("postgresql+psycopg2://", "postgresql+asyncpg://", "postgres://"):
+        if u.startswith(prefix):
+            u = "postgresql://" + u.split("://", 1)[1]
+            break
+    return u
+
+
+def build_url_from_parts() -> str | None:
+    host = (os.getenv("POSTGRES_HOST") or "127.0.0.1").strip().strip('"').strip("'")
+    port = (os.getenv("POSTGRES_PORT") or "5432").strip().strip('"').strip("'")
+    user = (os.getenv("POSTGRES_USER") or "").strip().strip('"').strip("'")
+    pwd = (os.getenv("POSTGRES_PASSWORD") or "").strip().strip('"').strip("'")
+    db = (os.getenv("POSTGRES_DB") or "").strip().strip('"').strip("'")
+    if not all([user, pwd, db]):
+        return None
+    from urllib.parse import quote_plus
+
+    return f"postgresql://{quote_plus(user)}:{quote_plus(pwd)}@{host}:{port}/{db}"
+
+
+def get_urls() -> tuple[str, str]:
+    target = normalize_pg_url(os.getenv("DATABASE_URL")) or build_url_from_parts()
+    source = normalize_pg_url(os.getenv("REFERENCE_SOURCE_DATABASE_URL"))
+    if not target:
+        raise RuntimeError("DATABASE_URL / POSTGRES_* no definidos en .env de la instancia")
+    if not source:
+        raise RuntimeError("REFERENCE_SOURCE_DATABASE_URL no definido (lo pasa crear-comunidad.ps1)")
+    return source, target
 
 
 def connect(url: str):
@@ -52,19 +81,18 @@ def table_exists(conn, table: str) -> bool:
 
 
 def truncate_tables(conn) -> None:
+    existing = [t for t in TRUNCATE_TABLES if table_exists(conn, t)]
+    if not existing:
+        return
+    parts = sql.SQL(", ").join(
+        sql.Identifier(*tbl.split(".")) for tbl in existing
+    )
     with conn.cursor() as cur:
-        cur.execute("SET session_replication_role = replica")
-        for table in TRUNCATE_ORDER:
-            if not table_exists(conn, table):
-                print(f"  [omit] {table} no existe en destino")
-                continue
-            cur.execute(
-                sql.SQL("TRUNCATE TABLE {} RESTART IDENTITY").format(
-                    sql.Identifier(*table.split("."))
-                )
-            )
-        cur.execute("SET session_replication_role = DEFAULT")
+        cur.execute(
+            sql.SQL("TRUNCATE TABLE {} RESTART IDENTITY CASCADE").format(parts)
+        )
     conn.commit()
+    print(f"  - Tablas vaciadas: {', '.join(existing)}")
 
 
 def copy_table(src, dst, table: str, pk_cols: list[str], dedupe: bool) -> int:
@@ -76,12 +104,11 @@ def copy_table(src, dst, table: str, pk_cols: list[str], dedupe: bool) -> int:
         print(f"  [omit] {table} no existe en destino")
         return 0
 
+    copy_sql = sql.SQL("COPY {} TO STDOUT").format(sql.Identifier(schema, name)).as_string(src)
+
     with src.cursor() as sc:
         buf = io.BytesIO()
-        sc.copy_expert(
-            sql.SQL("COPY {} TO STDOUT").format(sql.Identifier(schema, name)).as_string(src),
-            buf,
-        )
+        sc.copy_expert(copy_sql, buf)
         data = buf.getvalue()
 
     if not data:
@@ -133,35 +160,39 @@ def copy_table(src, dst, table: str, pk_cols: list[str], dedupe: bool) -> int:
 
 
 def main() -> int:
-    load_dotenv()
-    target_url = os.getenv("DATABASE_URL")
-    source_url = os.getenv("REFERENCE_SOURCE_DATABASE_URL")
-    if not target_url:
-        print("ERROR: DATABASE_URL no definido")
-        return 1
-    if not source_url:
-        print("ERROR: REFERENCE_SOURCE_DATABASE_URL no definido")
+    try:
+        source_url, target_url = get_urls()
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}")
         return 1
 
     print("Copiando datos de referencia desde BD maestra...")
-    src = connect(source_url)
-    dst = connect(target_url)
+    print(f"  Origen:  {source_url.split('@')[-1]}")
+    print(f"  Destino: {target_url.split('@')[-1]}")
+
+    src = None
+    dst = None
     try:
+        src = connect(source_url)
+        dst = connect(target_url)
         truncate_tables(dst)
-        total = 0
         for table, pk_cols, dedupe in TABLES:
-            total += copy_table(src, dst, table, pk_cols, dedupe)
-        print(f"OK: datos de referencia listos")
+            copy_table(src, dst, table, pk_cols, dedupe)
+        print("OK: datos de referencia listos")
         return 0
     except Exception as exc:
-        dst.rollback()
+        if dst is not None:
+            dst.rollback()
         print(f"ERROR: {exc}")
         import traceback
+
         traceback.print_exc()
         return 1
     finally:
-        src.close()
-        dst.close()
+        if src is not None:
+            src.close()
+        if dst is not None:
+            dst.close()
 
 
 if __name__ == "__main__":
