@@ -464,6 +464,8 @@ def create_temporal_weighted_composite(items_por_fecha, bbox_4326, dst_transform
     
     print(f"\n[COMPOSITE] Procesando {total_tiles} tiles...", flush=True)
     
+    import gc
+
     for fecha in fechas_ordenadas:
         for img_info in items_por_fecha[fecha]:
             item = img_info['item']
@@ -472,11 +474,16 @@ def create_temporal_weighted_composite(items_por_fecha, bbox_4326, dst_transform
             if tiles_procesados % 5 == 0 or tiles_procesados == total_tiles:
                 print(f"[COMPOSITE] Progreso: {tiles_procesados}/{total_tiles}...", flush=True)
             
-            ndvi, quality_weights, valid_mask = process_item_to_ndvi_temporal(
-                item, bbox_4326, dst_transform, dst_crs, width, height
-            )
+            try:
+                ndvi, quality_weights, valid_mask = process_item_to_ndvi_temporal(
+                    item, bbox_4326, dst_transform, dst_crs, width, height
+                )
+            except Exception as exc:
+                print(f"[COMPOSITE] [AVISO] Tile {tiles_procesados} omitido: {exc}", flush=True)
+                continue
             
             if ndvi is None or not np.any(valid_mask):
+                del ndvi, quality_weights, valid_mask
                 continue
             
             tiles_validos += 1
@@ -490,6 +497,10 @@ def create_temporal_weighted_composite(items_por_fecha, bbox_4326, dst_transform
             ndvi_sum += ndvi_safe * weights
             weight_sum += weights
             pixel_count[valid_mask] += 1
+
+            del ndvi, quality_weights, valid_mask, ndvi_safe, weights
+            if tiles_procesados % 3 == 0:
+                gc.collect()
     
     print(f"\n[COMPOSITE] Tiles procesados: {tiles_procesados}", flush=True)
     print(f"[COMPOSITE] Tiles válidos: {tiles_validos}", flush=True)

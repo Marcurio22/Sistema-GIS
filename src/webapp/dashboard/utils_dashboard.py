@@ -1,4 +1,5 @@
 from flask import current_app
+import os
 import requests
 import pandas as pd
 from pathlib import Path
@@ -18,6 +19,10 @@ DEFAULT_ROI_BBOX = [
     -4.6718708208, 41.7248613835,
     -3.8314839480, 42.1274665349,
 ]
+
+# Burgos (SIGPAC 09900 / INE-AEMET 09059). Sobrescribir en .env si hace falta.
+MUNICIPIO_SIGPAC_POR_DEFECTO = os.getenv("MUNICIPIO_SIGPAC_POR_DEFECTO", "09900")
+MUNICIPIO_INE_POR_DEFECTO = os.getenv("MUNICIPIO_INE_POR_DEFECTO", "09059")
 
 # Mapeo de descripción de AEMET a datos de visualización
 estados_clima = {
@@ -655,8 +660,7 @@ class MunicipiosCodigosFinder:
         recintos = Recinto.query.filter_by(id_propietario=user_id).all()
         
         if not recintos:
-            MUNICIPIO_POR_DEFECTO = "34900"
-            return MUNICIPIO_POR_DEFECTO
+            return MUNICIPIO_SIGPAC_POR_DEFECTO
         
         # Contar recintos por municipio (asegurando formato correcto)
         contador = {}
@@ -691,7 +695,6 @@ class MunicipiosCodigosFinder:
         codigo_normal = self.codigo_recintos(user_id)
         
         if codigo_normal is None:
-            MUNICIPIO_INE_POR_DEFECTO = "34900"  
             return MUNICIPIO_INE_POR_DEFECTO
         
         try:

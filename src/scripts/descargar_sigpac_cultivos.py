@@ -209,9 +209,9 @@ def main():
         cat_sql text;
         BEGIN
         -- Busca una tabla catálogo existente (ajusta/añade aquí si tu catálogo tiene otro nombre)
-        cat_reg := to_regclass('sigpac.productos_fea');
+        cat_reg := to_regclass('public.productos_fega');
         IF cat_reg IS NULL THEN
-            cat_reg := to_regclass('public.productos_fea');
+            cat_reg := to_regclass('sigpac.productos_fega');
         END IF;
 
         IF cat_reg IS NULL THEN
@@ -224,11 +224,12 @@ def main():
                 parc_sistexp, parc_supcult, parc_ayudasol, tipo_aprovecha, pdr_rec,
                 cultsecun_producto, cultsecun_ayudasol, parc_indcultapro,
                 NULL::text AS cultivo_actual_nombre,
+                NULL::text AS parc_producto_nombre,
                 geometry
             FROM sigpac.{SIGPAC_COLLECTION}
             ';
         ELSE
-            -- Hay catálogo: vista con join a catálogo
+            -- Hay catálogo: vista con join a productos_fega
             cat_sql := format('
             CREATE OR REPLACE VIEW sigpac.v_cultivo_declarado_popup AS
             SELECT
@@ -237,6 +238,7 @@ def main():
                 c.parc_sistexp, c.parc_supcult, c.parc_ayudasol, c.tipo_aprovecha, c.pdr_rec,
                 c.cultsecun_producto, c.cultsecun_ayudasol, c.parc_indcultapro,
                 p.descripcion AS cultivo_actual_nombre,
+                p.descripcion AS parc_producto_nombre,
                 c.geometry
             FROM sigpac.{SIGPAC_COLLECTION} c
             LEFT JOIN %s p

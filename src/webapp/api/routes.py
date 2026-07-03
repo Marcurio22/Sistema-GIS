@@ -321,7 +321,7 @@ def popup_cultivo_sigpac():
             parcela,
             recinto,
             parc_producto,
-            parc_producto_nombre, 
+            cultivo_actual_nombre AS parc_producto_nombre,
             parc_sistexp,
             cultsecun_producto,
             cultsecun_ayudasol,

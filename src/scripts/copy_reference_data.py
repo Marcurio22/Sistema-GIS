@@ -137,32 +137,15 @@ def copy_table(src, dst, table: str, pk_cols: list[str]) -> int:
             io.BytesIO(data),
         )
 
-        if table == "public.catalogos_operaciones":
-            insert_sql = sql.SQL(
-                """
-                INSERT INTO {target}
-                SELECT DISTINCT ON ({pk}) *
-                FROM tmp_ref_copy
-                ORDER BY {pk}
-                ON CONFLICT ({pk}) DO UPDATE SET
-                  nombre = EXCLUDED.nombre,
-                  descripcion = EXCLUDED.descripcion,
-                  fecha_baja = EXCLUDED.fecha_baja,
-                  fuente = EXCLUDED.fuente,
-                  extra = EXCLUDED.extra
-                """
-            )
-        else:
-            insert_sql = sql.SQL(
-                """
-                INSERT INTO {target}
-                SELECT DISTINCT ON ({pk}) *
-                FROM tmp_ref_copy
-                ORDER BY {pk}
-                ON CONFLICT ({pk}) DO NOTHING
-                """
-            )
-
+        # Tablas vacias tras TRUNCATE: DISTINCT ON basta (sin ON CONFLICT; el dump de esquema puede no traer PKs).
+        insert_sql = sql.SQL(
+            """
+            INSERT INTO {target}
+            SELECT DISTINCT ON ({pk}) *
+            FROM tmp_ref_copy
+            ORDER BY {pk}
+            """
+        )
         dc.execute(insert_sql.format(target=sql.Identifier(schema, name), pk=pk_sql))
 
     dst.commit()
@@ -172,6 +155,37 @@ def copy_table(src, dst, table: str, pk_cols: list[str]) -> int:
         n = int(cur.fetchone()[0])
     print(f"  - {table}: {n} filas")
     return n
+
+
+def sync_sequences(conn) -> None:
+    """Tras copiar con IDs explicitos, alinear secuencias serial."""
+    specs = [
+        ("public.estaciones", "id"),
+        ("public.variedades", "id_variedad"),
+        ("public.datos_diarios", "id"),
+        ("public.tipos_operacion", "id_tipo_operacion"),
+    ]
+    with conn.cursor() as cur:
+        for table, col in specs:
+            schema, name = table.split(".", 1)
+            if not table_exists(conn, table):
+                continue
+            cur.execute(
+                sql.SQL(
+                    """
+                    SELECT setval(
+                      pg_get_serial_sequence({fq}, {col}),
+                      GREATEST(COALESCE((SELECT MAX({c}) FROM {tbl}), 1), 1)
+                    )
+                    """
+                ).format(
+                    fq=sql.Literal(table),
+                    col=sql.Literal(col),
+                    c=sql.Identifier(col),
+                    tbl=sql.Identifier(schema, name),
+                )
+            )
+    conn.commit()
 
 
 def main() -> int:
@@ -193,6 +207,7 @@ def main() -> int:
         truncate_tables(dst)
         for table, pk_cols in TABLES:
             copy_table(src, dst, table, pk_cols)
+        sync_sequences(dst)
         print("OK: datos de referencia listos")
         return 0
     except Exception as exc:
