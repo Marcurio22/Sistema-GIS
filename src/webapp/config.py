@@ -34,18 +34,35 @@ class Config:
 
     AEMET_API_KEY = os.getenv("AEMET_API_KEY")
 
-    # cambiar por lo del server
+      # GeoServer: instancia (workspace de la comunidad) vs capas regionales comunes
     GEOSERVER_WMS_URL = os.getenv("GEOSERVER_WMS_URL")
     GEOSERVER_WFS_URL = os.getenv("GEOSERVER_WFS_URL")
+    GEOSERVER_COMMON_WMS_URL = os.getenv("GEOSERVER_COMMON_WMS_URL") or GEOSERVER_WMS_URL
+    GEOSERVER_COMMON_WFS_URL = os.getenv("GEOSERVER_COMMON_WFS_URL") or GEOSERVER_WFS_URL
     GEOSERVER_USER = os.getenv("GEOSERVER_USER")
     GEOSERVER_PASSWORD = os.getenv("GEOSERVER_PASSWORD")
+    GEOSERVER_WORKSPACE = os.getenv("GEOSERVER_WORKSPACE", "gis_project")
+    GEOSERVER_COMMON_WORKSPACE = os.getenv("GEOSERVER_COMMON_WORKSPACE", "gis_project")
     CHDUERO_MIRAME_WMS_URL = os.getenv(
         "CHDUERO_MIRAME_WMS_URL",
         "https://mirame.chduero.es/geoserver/mirame/wms",
     )
-    GEOSERVER_RECINTOS_TYPENAME = os.getenv("GEOSERVER_RECINTOS_TYPENAME", "gis_project:recintos_con_propietario")
-    GEOSERVER_CULTIVOS_LAYER = os.getenv("GEOSERVER_CULTIVOS_LAYER", "gis_project:cultivo_declarado")
+    GEOSERVER_RECINTOS_TYPENAME = os.getenv(
+        "GEOSERVER_RECINTOS_TYPENAME",
+        f"{GEOSERVER_WORKSPACE}:recintos_con_propietario",
+    )
+    GEOSERVER_CULTIVOS_LAYER = os.getenv(
+        "GEOSERVER_CULTIVOS_LAYER",
+        f"{GEOSERVER_WORKSPACE}:cultivo_declarado",
+    )
     GEOSERVER_CULTIVOS_STYLE = os.getenv("GEOSERVER_CULTIVOS_STYLE", "gis_project:cultivos_verde")
+    GEOSERVER_PARCELAS_LAYER = os.getenv(
+        "GEOSERVER_PARCELAS_LAYER",
+        f"{GEOSERVER_WORKSPACE}:parcelasCatastro",
+    )
+    GEOSERVER_PARCELAS_STYLE = os.getenv("GEOSERVER_PARCELAS_STYLE", "catastro_fucsia")
+    # db = PostGIS directo (recomendado multi-comunidad); wfs = solo GeoServer
+    GEOSERVER_RECINTOS_SOURCE = os.getenv("GEOSERVER_RECINTOS_SOURCE", "db").lower()
 
 
     # Configuración de correo electrónico

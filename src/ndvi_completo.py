@@ -17,21 +17,10 @@ Fecha: 2025
 """
 
 import os
-import sys
 import json
-import shutil
-import time
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
-
-# PROJ/GDAL del conda antes de geopandas/rasterio
-_SRC_DIR = Path(__file__).resolve().parent
-if str(_SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(_SRC_DIR))
-from gis_runtime_env import setup_gis_runtime_env  # noqa: E402
-
-setup_gis_runtime_env()
 
 import numpy as np
 import geopandas as gpd
@@ -540,104 +529,10 @@ def create_temporal_weighted_composite(items_por_fecha, bbox_4326, dst_transform
 # FUNCIÓN PRINCIPAL
 # ============================================================================
 
-def clear_ndvi_latest_outputs(ndvi_dir: Path) -> int:
-    """Elimina ndvi_latest.* (p. ej. copiados de otra instancia o ejecución fallida)."""
-    removed = 0
-    for fname in (
-        "ndvi_latest_utm.tif",
-        "ndvi_latest_3857.tif",
-        "ndvi_latest.png",
-        "ndvi_latest.json",
-    ):
-        p = ndvi_dir / fname
-        if p.exists():
-            try:
-                p.unlink()
-                removed += 1
-                print(f"[INIT] Eliminado residual: {fname}", flush=True)
-            except OSError as e:
-                print(f"[INIT] [AVISO] No se pudo borrar {fname}: {e}", flush=True)
-    return removed
-
-
-def _old_latest_date_suffix(ndvi_dir: Path) -> str | None:
-    latest_json = ndvi_dir / "ndvi_latest.json"
-    if not latest_json.is_file():
-        return None
-    try:
-        meta = json.loads(latest_json.read_text(encoding="utf-8"))
-        ts = meta.get("generated_utc", "")
-        if ts:
-            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            return dt.strftime("%Y%m%d")
-    except Exception:
-        pass
-    return datetime.fromtimestamp(latest_json.stat().st_mtime).strftime("%Y%m%d")
-
-
-def _archive_previous_latest(ndvi_dir: Path, old_date_suffix: str) -> None:
-    """Copia latest → histórico (sin renombrar; evita WinError 5 si hay bloqueo)."""
-    pairs = [
-        ("ndvi_latest_utm.tif", f"ndvi_{old_date_suffix}_utm.tif"),
-        ("ndvi_latest_3857.tif", f"ndvi_{old_date_suffix}_3857.tif"),
-        ("ndvi_latest.png", f"ndvi_{old_date_suffix}.png"),
-        ("ndvi_latest.json", f"ndvi_{old_date_suffix}.json"),
-    ]
-    for src_name, dst_name in pairs:
-        src = ndvi_dir / src_name
-        dst = ndvi_dir / dst_name
-        if not src.is_file() or dst.is_file():
-            continue
-        try:
-            shutil.copy2(src, dst)
-            print(f"[ARCHIVO] Copia histórica: {dst_name}", flush=True)
-        except OSError as e:
-            print(f"[ARCHIVO] [AVISO] {src_name}: {e}", flush=True)
-
-
-def _publish_latest_files(ndvi_dir: Path, dated: dict[str, Path]) -> bool:
-    """Publica ndvi_latest.* copiando desde los archivos fechados (reintentos Windows)."""
-    mapping = {
-        "utm": "ndvi_latest_utm.tif",
-        "3857": "ndvi_latest_3857.tif",
-        "png": "ndvi_latest.png",
-        "json": "ndvi_latest.json",
-    }
-    ok_all = True
-    for key, latest_name in mapping.items():
-        src = dated[key]
-        dst = ndvi_dir / latest_name
-        published = False
-        for attempt in range(6):
-            try:
-                shutil.copy2(src, dst)
-                published = True
-                print(f"[PUBLICAR] {src.name} → {latest_name}", flush=True)
-                break
-            except OSError as e:
-                if attempt < 5:
-                    print(f"[PUBLICAR] Reintento {attempt + 1}/5 ({latest_name})...", flush=True)
-                    time.sleep(2)
-                else:
-                    print(f"[PUBLICAR] [AVISO] Sin acceso a {latest_name}: {e}", flush=True)
-                    ok_all = False
-        if not published:
-            ok_all = False
-    return ok_all
-
-
 def main():
     app = create_app()
     
     with app.app_context():
-        ndvi_dir = Path(__file__).resolve().parents[1] / "data" / "raw" / "ndvi_composite"
-        ndvi_dir.mkdir(parents=True, exist_ok=True)
-
-        if os.getenv("NDVI_CLEAR_LATEST", "").strip() in ("1", "true", "yes"):
-            n = clear_ndvi_latest_outputs(ndvi_dir)
-            if n:
-                print(f"[INIT] Limpieza previa: {n} archivo(s) ndvi_latest.*", flush=True)
-
         print(f"\n{'='*70}")
         print("CONFIGURACIÓN")
         print(f"{'='*70}")
@@ -696,25 +591,145 @@ def main():
         print(f"  NDVI mediana:    {np.median(valid_ndvi):.3f}")
         
         # Directorio de salida
+        ndvi_dir = Path(__file__).resolve().parents[1] / "data" / "raw" / "ndvi_composite"
         ndvi_dir.mkdir(parents=True, exist_ok=True)
         
         fecha_str = END_DATE.strftime("%Y%m%d")
         date_display = f"{START_DATE.strftime('%Y-%m-%d')} a {END_DATE.strftime('%Y-%m-%d')}"
-
-        old_suffix = _old_latest_date_suffix(ndvi_dir)
-        if old_suffix and old_suffix != fecha_str:
-            _archive_previous_latest(ndvi_dir, old_suffix)
-
-        tif_dated = ndvi_dir / f"ndvi_{fecha_str}_utm.tif"
-        tif_3857_dated = ndvi_dir / f"ndvi_{fecha_str}_3857.tif"
-        png_dated = ndvi_dir / f"ndvi_{fecha_str}.png"
-        meta_dated = ndvi_dir / f"ndvi_{fecha_str}.json"
-
+        
+        # ========================================================================
+        # SISTEMA DE ROTACIÓN: Mantener solo 1 latest + máximo 2 copias históricas
+        # ========================================================================
+        latest_json = ndvi_dir / "ndvi_latest.json"
+        
+        # Verificar que existen TODOS los archivos "latest" antes de hacer rotación
+        expected_files = [
+            ndvi_dir / "ndvi_latest_utm.tif",
+            ndvi_dir / "ndvi_latest_3857.tif",
+            ndvi_dir / "ndvi_latest.png",
+            ndvi_dir / "ndvi_latest.json"
+        ]
+        
+        all_files_exist = all(f.exists() for f in expected_files)
+        
+        if all_files_exist:
+            print(f"\n[ROTACIÓN] Detectado set completo de archivos 'latest' existentes")
+            try:
+                # Leer metadata del archivo actual para obtener su fecha
+                old_date_suffix = None
+                
+                try:
+                    with open(latest_json, 'r') as f:
+                        old_metadata = json.load(f)
+                    
+                    old_timestamp = old_metadata.get('generated_utc', '')
+                    if old_timestamp:
+                        # Extraer SOLO LA FECHA: 2025-02-03T10:30:00+00:00 -> 20250203
+                        old_dt = datetime.fromisoformat(old_timestamp.replace('Z', '+00:00'))
+                        old_date_suffix = old_dt.strftime("%Y%m%d")
+                except Exception as e:
+                    print(f"[ROTACIÓN] ⚠ No se pudo leer metadata: {e}")
+                
+                # Fallback: usar fecha de modificación del archivo
+                if not old_date_suffix:
+                    old_date_suffix = datetime.fromtimestamp(
+                        latest_json.stat().st_mtime
+                    ).strftime("%Y%m%d")
+                
+                print(f"[ROTACIÓN] Renombrando archivos anteriores con fecha: {old_date_suffix}")
+                
+                # Mapa de rotación
+                rotation_map = {
+                    "ndvi_latest_utm.tif":  f"ndvi_{old_date_suffix}_utm.tif",
+                    "ndvi_latest_3857.tif": f"ndvi_{old_date_suffix}_3857.tif",
+                    "ndvi_latest.png":      f"ndvi_{old_date_suffix}.png",
+                    "ndvi_latest.json":     f"ndvi_{old_date_suffix}.json",
+                }
+                
+                renamed_count = 0
+                for old_name, new_name in rotation_map.items():
+                    old_file = ndvi_dir / old_name
+                    if not old_file.exists():
+                        continue
+                    
+                    new_path = ndvi_dir / new_name
+                    
+                    try:
+                        old_file.rename(new_path)
+                        print(f"[ROTACIÓN]   {old_name} → {new_name}")
+                        renamed_count += 1
+                    except Exception as e:
+                        print(f"[ROTACIÓN]   ✗ Error renombrando {old_name}: {e}")
+                
+                print(f"[ROTACIÓN] ✓ {renamed_count} archivo(s) renombrado(s)")
+                
+                # ====================================================================
+                # LIMPIEZA: Mantener solo las 2 copias históricas más recientes
+                # ====================================================================
+                print(f"\n[LIMPIEZA] Verificando archivos históricos...")
+                
+                # Buscar todos los archivos con fecha (excluyendo "latest")
+                historical_files = {}
+                for pattern in ["ndvi_*_utm.tif", "ndvi_*_3857.tif", "ndvi_*.png", "ndvi_*.json"]:
+                    for f in ndvi_dir.glob(pattern):
+                        if "latest" not in f.name:
+                            # Extraer fecha del nombre: ndvi_20250203_utm.tif -> 20250203
+                            parts = f.stem.split('_')
+                            if len(parts) >= 2 and parts[1].isdigit() and len(parts[1]) == 8:
+                                date_key = parts[1]
+                                if date_key not in historical_files:
+                                    historical_files[date_key] = []
+                                historical_files[date_key].append(f)
+                
+                # Si hay más de 2 fechas históricas, borrar la(s) más antigua(s)
+                if len(historical_files) > 2:
+                    print(f"[LIMPIEZA] Encontradas {len(historical_files)} versiones históricas (máximo: 2)")
+                    
+                    # Ordenar por fecha (más antigua primero)
+                    sorted_dates = sorted(historical_files.keys())
+                    
+                    # Borrar las más antiguas (todas excepto las últimas 2)
+                    dates_to_delete = sorted_dates[:-2]
+                    
+                    for date_to_delete in dates_to_delete:
+                        print(f"[LIMPIEZA] Borrando versión antigua: {date_to_delete}")
+                        for file_to_delete in historical_files[date_to_delete]:
+                            try:
+                                file_to_delete.unlink()
+                                print(f"[LIMPIEZA]   ✓ Borrado: {file_to_delete.name}")
+                            except Exception as e:
+                                print(f"[LIMPIEZA]   ✗ Error borrando {file_to_delete.name}: {e}")
+                    
+                    print(f"[LIMPIEZA] ✓ Limpieza completada - Se mantienen {len(sorted_dates[-2:])} versiones históricas")
+                else:
+                    print(f"[LIMPIEZA] ✓ {len(historical_files)} versión(es) histórica(s) - No requiere limpieza")
+            
+            except Exception as e:
+                print(f"[ROTACIÓN] ⚠ Error durante rotación: {e}")
+                print(f"[ROTACIÓN] Continuando con la generación del nuevo composite...")
+        else:
+            print(f"\n[ROTACIÓN] No se encontró set completo de archivos previos (primera ejecución o archivos incompletos)")
+            # Limpiar cualquier archivo "latest" suelto
+            for fname in ["ndvi_latest_utm.tif", "ndvi_latest_3857.tif", "ndvi_latest.png", "ndvi_latest.json"]:
+                stale = ndvi_dir / fname
+                if stale.exists():
+                    try:
+                        stale.unlink()
+                        print(f"[ROTACIÓN] Limpiando archivo incompleto: {fname}")
+                    except Exception:
+                        pass
+        
+        # Nuevos archivos siempre se llaman "ndvi_latest.*"
+        tif_path = ndvi_dir / "ndvi_latest_utm.tif"
+        tif_path_3857 = ndvi_dir / "ndvi_latest_3857.tif"
+        png_path = ndvi_dir / "ndvi_latest.png"
+        meta_path = ndvi_dir / "ndvi_latest.json"
+        
         print(f"\n{'='*70}")
         print("GUARDANDO ARCHIVOS")
         print(f"{'='*70}")
-        print(f"[OUTPUT] Generación fechada: {fecha_str}")
-
+        
+        # GeoTIFF UTM
         profile = {
             "driver": "GTiff",
             "height": height,
@@ -726,26 +741,29 @@ def main():
             "nodata": np.nan,
             "compress": "deflate",
         }
-
-        with rasterio.open(str(tif_dated), "w", **profile) as dst:
+        
+        with rasterio.open(str(tif_path), "w", **profile) as dst:
             dst.write(composite.astype(np.float32), 1)
-        print(f"[OUTPUT] ✓ GeoTIFF UTM -> {tif_dated.name}")
+        print(f"[OUTPUT] ✓ GeoTIFF UTM -> {tif_path.name}")
+        
+        # EPSG:3857
+        warp_tif_to_3857(str(tif_path), str(tif_path_3857))
+        print(f"[OUTPUT] ✓ GeoTIFF 3857 -> {tif_path_3857.name}")
 
-        warp_tif_to_3857(str(tif_dated), str(tif_3857_dated))
-        print(f"[OUTPUT] ✓ GeoTIFF 3857 -> {tif_3857_dated.name}")
-
+        # PNG - Generado desde el composite en EPSG:3857
         print(f"[OUTPUT] Generando PNG desde EPSG:3857...")
-        with rasterio.open(str(tif_3857_dated)) as src_3857:
+        with rasterio.open(str(tif_path_3857)) as src_3857:
             composite_3857 = src_3857.read(1)
 
         rgba = ndvi_to_rgba(composite_3857)
-        Image.fromarray(rgba, mode="RGBA").save(str(png_dated), format="PNG", optimize=True)
-        print(f"[OUTPUT] ✓ PNG (EPSG:3857) -> {png_dated.name}")
-
-        with rasterio.open(str(tif_3857_dated)) as ds:
+        Image.fromarray(rgba, mode="RGBA").save(str(png_path), format="PNG", optimize=True)
+        print(f"[OUTPUT] ✓ PNG (EPSG:3857) -> {png_path.name}")
+        
+        # Metadata
+        with rasterio.open(str(tif_path_3857)) as ds:
             b = transform_bounds(ds.crs, "EPSG:4326", *ds.bounds, densify_pts=21)
             minx2, miny2, maxx2, maxy2 = map(float, b)
-
+        
         metadata = {
             "generated_utc": datetime.now(timezone.utc).isoformat(),
             "temporal_range": {
@@ -779,37 +797,16 @@ def main():
                 "coverage_pct": float(100 * len(valid_ndvi) / composite.size),
             },
             "files": {
-                "utm_tif": tif_dated.name,
-                "epsg3857_tif": tif_3857_dated.name,
-                "png": png_dated.name,
-                "metadata": meta_dated.name,
-                "dated_utm_tif": tif_dated.name,
-                "dated_3857_tif": tif_3857_dated.name,
-                "dated_png": png_dated.name,
-                "latest_utm_tif": "ndvi_latest_utm.tif",
-                "latest_3857_tif": "ndvi_latest_3857.tif",
-                "latest_png": "ndvi_latest.png",
-            },
+                "utm_tif": tif_path.name,
+                "epsg3857_tif": tif_path_3857.name,
+                "png": png_path.name,
+                "metadata": meta_path.name
+            }
         }
-
-        meta_dated.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"[OUTPUT] ✓ Metadata -> {meta_dated.name}")
-
-        dated_files = {
-            "utm": tif_dated,
-            "3857": tif_3857_dated,
-            "png": png_dated,
-            "json": meta_dated,
-        }
-        if not _publish_latest_files(ndvi_dir, dated_files):
-            print(
-                "[AVISO] ndvi_latest.* bloqueado (¿servicio GIS en marcha?). "
-                "Para el servicio NSSM y vuelve a ejecutar, o usa los archivos fechados.",
-                flush=True,
-            )
-
-        tif_path = tif_dated
-        meta_path = meta_dated
+        
+        meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2))
+        print(f"[OUTPUT] ✓ Metadata -> {meta_path.name}")
+        
         # ========================================================================
         # GUARDAR SOLO IMAGEN EN BBDD (NO índices_raster)
         # ========================================================================
@@ -868,11 +865,10 @@ def main():
             display_path = ndvi_dir
         
         print(f"\n📁 ARCHIVOS GUARDADOS EN: {display_path}")
-        print(f"   ├── {tif_dated.name}          (GeoTIFF UTM)")
-        print(f"   ├── {tif_3857_dated.name}     (GeoTIFF Web Mercator)")
-        print(f"   ├── {png_dated.name}          (Visualización)")
-        print(f"   └── {meta_dated.name}         (Metadata)")
-        print(f"   (+ copia a ndvi_latest.* si no hay bloqueo de archivos)")
+        print(f"   ├── ndvi_latest_utm.tif     (GeoTIFF UTM)")
+        print(f"   ├── ndvi_latest_3857.tif    (GeoTIFF Web Mercator)")
+        print(f"   ├── ndvi_latest.png         (Visualización)")
+        print(f"   └── ndvi_latest.json        (Metadata)")
         
         # Mostrar archivos históricos si existen
         historical_files = sorted([f for f in ndvi_dir.glob("ndvi_*.tif") if "latest" not in f.name])

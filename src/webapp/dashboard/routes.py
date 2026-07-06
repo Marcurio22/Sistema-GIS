@@ -20,7 +20,6 @@ from .utils_dashboard import (
     MunicipiosCodigosFinder,
     get_roi_bbox_for_visor,
 )
-from ..utils.ndvi_paths import resolve_ndvi_latest_3857, resolve_ndvi_latest_png
 from ..models import Recinto, Contador
 import os
 from ..dashboard.utils_dashboard import municipios_finder
@@ -467,13 +466,8 @@ def visor():
     project_root = Path(__file__).resolve().parents[3]  # 2 niveles arriba
 
 
-    ndvi_tif_path = resolve_ndvi_latest_3857(project_root)
-    if ndvi_tif_path and ndvi_tif_path.is_file():
-        ndvi_bounds = leaflet_bounds_from_tif(str(ndvi_tif_path))
-    else:
-        ndvi_bounds = leaflet_bounds_from_tif(
-            os.path.join(project_root, "data", "raw", "ndvi_composite", "ndvi_latest_3857.tif")
-        )
+    ndvi_tif = os.path.join(project_root, "data", "raw", "ndvi_composite", "ndvi_latest_3857.tif")
+    ndvi_bounds = leaflet_bounds_from_tif(ndvi_tif)
 
     municipios_codigos_finder = MunicipiosCodigosFinder()
     codigo_municipio_ine = municipios_codigos_finder.codigo_recintos_ine(current_user.id_usuario)
@@ -488,16 +482,8 @@ def visor():
     s2_version = meta["updated_utc"]  # para bust cache
     
     # --- NDVI (mosaico reciente) ---
-    ndvi_png_path = resolve_ndvi_latest_png(project_root)
-    if ndvi_png_path and ndvi_png_path.is_file():
-        ndvi_version = int(ndvi_png_path.stat().st_mtime)
-    else:
-        ndvi_composite_dir = project_root / "data" / "raw" / "ndvi_composite"
-        ndvi_meta_path = ndvi_composite_dir / "ndvi_latest.json"
-        if ndvi_meta_path.exists():
-            ndvi_version = int(ndvi_meta_path.stat().st_mtime)
-        else:
-            ndvi_version = 0
+    ndvi_path = os.path.join(current_app.root_path, "static", "ndvi", "ndvi_latest.png")
+    ndvi_version = int(os.path.getmtime(ndvi_path)) if os.path.exists(ndvi_path) else 0
     
     # Pasar recinto_data al template
     return render_template("visor.html", 

@@ -13,7 +13,7 @@
     if (!GEOSERVER_WMS) { console.error("[PRED-RIEGO] window.GEOSERVER_WMS no encontrado."); return; }
 
     const BASE_URL  = "/static/riego_prediccion";
-    const WORKSPACE = "gis_project";
+    const WORKSPACE = window.GEOSERVER_WORKSPACE || "gis_project";
 
     const btnPrediccion = document.querySelector('.basemap-option.basemap-main[data-layer="prediccion-riego"]');
     if (!btnPrediccion) { console.warn("[PRED-RIEGO] Botón no encontrado."); return; }

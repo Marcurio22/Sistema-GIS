@@ -30,8 +30,10 @@
     let fechasDisponibles = new Set();
     let calMes            = null; // { year, month } mostrado en el calendario
 
+    const WORKSPACE = window.GEOSERVER_WORKSPACE || "gis_project";
+
     const etpLayer = L.tileLayer.wms(GEOSERVER_WMS, {
-      layers:      "gis_project:mapascontinuos",
+      layers:      `${WORKSPACE}:mapascontinuos`,
       format:      "image/png",
       transparent: true,
       tiled:       true,

@@ -21,7 +21,7 @@ load_dotenv(ROOT / ".env")
 GEOSERVER_BASE_URL = os.getenv("GEOSERVER_WMS_URL", "").replace("/wms", "").rstrip("/")
 GEOSERVER_USER     = os.getenv("GEOSERVER_USER")
 GEOSERVER_PASSWORD = os.getenv("GEOSERVER_PASSWORD")
-WORKSPACE          = "gis_project"
+WORKSPACE          = os.getenv("GEOSERVER_WORKSPACE", "gis_project")
 
 DB_USER     = os.getenv("POSTGRES_USER")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")

@@ -2247,14 +2247,19 @@ function actualizarNdviPanel() {
   }
 
   const GEOSERVER_WMS = "{{ config['GEOSERVER_WMS_URL'] }}";
+  const GEOSERVER_COMMON_WMS = "{{ config.get('GEOSERVER_COMMON_WMS_URL', config['GEOSERVER_WMS_URL']) }}";
+  const GEOSERVER_WS = "{{ config.get('GEOSERVER_WORKSPACE', 'gis_project') }}";
+  const GEOSERVER_COMMON_WS = "{{ config.get('GEOSERVER_COMMON_WORKSPACE', 'gis_project') }}";
   window.GEOSERVER_WMS = GEOSERVER_WMS;
+  window.GEOSERVER_COMMON_WMS = GEOSERVER_COMMON_WMS;
+  window.GEOSERVER_WORKSPACE = GEOSERVER_WS;
 
   let parcelasCatastroActivas = false;
   let cultivosSigpacActivos = false;
 
   const parcelasCatastroLayer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:parcelasCatastro",
-    styles: "catastro_fucsia", 
+    layers: "{{ config.get('GEOSERVER_PARCELAS_LAYER', 'gis_project:parcelasCatastro') }}",
+    styles: "{{ config.get('GEOSERVER_PARCELAS_STYLE', 'catastro_fucsia') }}", 
     format: "image/png",
     transparent: true,
     tiled: true,
@@ -2275,8 +2280,8 @@ function actualizarNdviPanel() {
   });
 
 
-  const capacidadCampoLayer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:Capacidad_de_campo", 
+  const capacidadCampoLayer = L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
+    layers: `${GEOSERVER_COMMON_WS}:Capacidad_de_campo`, 
     format: "image/png",
     transparent: true,
     tiled: true,
@@ -2286,8 +2291,8 @@ function actualizarNdviPanel() {
     interactive: false  
   });
 
-  const capacidadRetencionLayer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:Capacidad_retencion_agua", 
+  const capacidadRetencionLayer = L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
+    layers: `${GEOSERVER_COMMON_WS}:Capacidad_retencion_agua`, 
     format: "image/png",
     transparent: true,
     tiled: true,
@@ -2297,8 +2302,8 @@ function actualizarNdviPanel() {
     interactive: false  
   });
 
-  const clasificacionTexturalLayer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:Clasificacion_textural", 
+  const clasificacionTexturalLayer = L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
+    layers: `${GEOSERVER_COMMON_WS}:Clasificacion_textural`, 
     format: "image/png",
     transparent: true,
     tiled: true,
@@ -2308,8 +2313,8 @@ function actualizarNdviPanel() {
     interactive: false  
   });
 
-  const contenidoArcillaLayer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:Contenido_arcilla", 
+  const contenidoArcillaLayer = L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
+    layers: `${GEOSERVER_COMMON_WS}:Contenido_arcilla`, 
     format: "image/png",
     transparent: true,
     tiled: true,
@@ -2319,8 +2324,8 @@ function actualizarNdviPanel() {
     interactive: false  
   });
 
-  const contenidoArenaLayer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:Contenido_arena", 
+  const contenidoArenaLayer = L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
+    layers: `${GEOSERVER_COMMON_WS}:Contenido_arena`, 
     format: "image/png",
     transparent: true,
     tiled: true,
@@ -2330,8 +2335,8 @@ function actualizarNdviPanel() {
     interactive: false  
   });
 
-  const contenidoLimoLayer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:Contenido_lima", 
+  const contenidoLimoLayer = L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
+    layers: `${GEOSERVER_COMMON_WS}:Contenido_lima`, 
     format: "image/png",
     transparent: true,
     tiled: true,
@@ -2341,8 +2346,8 @@ function actualizarNdviPanel() {
     interactive: false  
   });
 
-  const materiaOrganicaLayer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:Contenido_materia_organica", 
+  const materiaOrganicaLayer = L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
+    layers: `${GEOSERVER_COMMON_WS}:Contenido_materia_organica`, 
     format: "image/png",
     transparent: true,
     tiled: true,
@@ -2352,8 +2357,8 @@ function actualizarNdviPanel() {
     interactive: false  
   });
 
-  const nitrogenoLayer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:Contenido_nitratos_agua", 
+  const nitrogenoLayer = L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
+    layers: `${GEOSERVER_COMMON_WS}:Contenido_nitratos_agua`, 
     format: "image/png",
     transparent: true,
     tiled: true,
@@ -2363,8 +2368,8 @@ function actualizarNdviPanel() {
     interactive: false  
   });
 
-  const fosforoOlsenLayer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:Nivel_fosforo", 
+  const fosforoOlsenLayer = L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
+    layers: `${GEOSERVER_COMMON_WS}:Nivel_fosforo`, 
     format: "image/png",
     transparent: true,
     tiled: true,
@@ -2374,8 +2379,8 @@ function actualizarNdviPanel() {
     interactive: false  
   });
 
-  const humedadSaturacionLayer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:Humedad_de_saturacion", 
+  const humedadSaturacionLayer = L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
+    layers: `${GEOSERVER_COMMON_WS}:Humedad_de_saturacion`, 
     format: "image/png",
     transparent: true,
     tiled: true,
@@ -2385,8 +2390,8 @@ function actualizarNdviPanel() {
     interactive: false  
   });
 
-  const regadiosSuperficialesLayer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:Regadios_Superficiales",
+  const regadiosSuperficialesLayer = L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
+    layers: `${GEOSERVER_COMMON_WS}:Regadios_Superficiales`,
     format: "image/png",
     transparent: true,
     tiled: true,
@@ -2396,8 +2401,8 @@ function actualizarNdviPanel() {
     interactive: false
   });
 
-  const parcelarioCuas2025Layer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:Parcelario_CUAS_2025",
+  const parcelarioCuas2025Layer = L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
+    layers: `${GEOSERVER_COMMON_WS}:Parcelario_CUAS_2025`,
     format: "image/png",
     transparent: true,
     tiled: true,
@@ -2407,8 +2412,8 @@ function actualizarNdviPanel() {
     interactive: false
   });
 
-  const captacionesCuas2025Layer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:Captaciones_CUAS_2025",
+  const captacionesCuas2025Layer = L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
+    layers: `${GEOSERVER_COMMON_WS}:Captaciones_CUAS_2025`,
     format: "image/png",
     transparent: true,
     tiled: true,
@@ -2418,8 +2423,8 @@ function actualizarNdviPanel() {
     interactive: false
   });
 
-  const puntosTomaCuas2025Layer = L.tileLayer.wms(GEOSERVER_WMS, {
-    layers: "gis_project:Puntos_de_Toma_CUAS_2025",
+  const puntosTomaCuas2025Layer = L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
+    layers: `${GEOSERVER_COMMON_WS}:Puntos_de_Toma_CUAS_2025`,
     format: "image/png",
     transparent: true,
     tiled: true,
@@ -2432,7 +2437,7 @@ function actualizarNdviPanel() {
 
   
 
-  const suelosLayer = L.tileLayer.wms(GEOSERVER_WMS, {
+  const suelosLayer = L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
     layers: "ne:PtosMuestrasSuelosCyL_Etrs89_H30",  
     styles: "suelos",
     format: "image/png",
@@ -2445,16 +2450,16 @@ function actualizarNdviPanel() {
 
 
 
-  const leyendaCapacidadCampo = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Capacidad_de_campo`;
-  const leyendaCapacidadRetencionAgua = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Capacidad_retencion_agua`;
-  const leyendaClasificacionTextural = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Clasificacion_textural`;
-  const leyendaContenidoArcilla = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Contenido_arcilla`;
-  const leyendaContenidoArena = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Contenido_arena`;
-  const leyendaContenidoLimo = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Contenido_lima`;
-  const leyendaContenidoMateriaOrganica = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Contenido_materia_organica`;
-  const leyendaContenidoNitrogeno = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Contenido_nitratos_agua`;
-  const leyendaFosforo = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Nivel_fosforo`;
-  const leyendaHumedadSaturacion = `${GEOSERVER_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=gis_project:Humedad_de_saturacion`;
+  const leyendaCapacidadCampo = `${GEOSERVER_COMMON_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=${GEOSERVER_COMMON_WS}:Capacidad_de_campo`;
+  const leyendaCapacidadRetencionAgua = `${GEOSERVER_COMMON_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=${GEOSERVER_COMMON_WS}:Capacidad_retencion_agua`;
+  const leyendaClasificacionTextural = `${GEOSERVER_COMMON_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=${GEOSERVER_COMMON_WS}:Clasificacion_textural`;
+  const leyendaContenidoArcilla = `${GEOSERVER_COMMON_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=${GEOSERVER_COMMON_WS}:Contenido_arcilla`;
+  const leyendaContenidoArena = `${GEOSERVER_COMMON_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=${GEOSERVER_COMMON_WS}:Contenido_arena`;
+  const leyendaContenidoLimo = `${GEOSERVER_COMMON_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=${GEOSERVER_COMMON_WS}:Contenido_lima`;
+  const leyendaContenidoMateriaOrganica = `${GEOSERVER_COMMON_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=${GEOSERVER_COMMON_WS}:Contenido_materia_organica`;
+  const leyendaContenidoNitrogeno = `${GEOSERVER_COMMON_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=${GEOSERVER_COMMON_WS}:Contenido_nitratos_agua`;
+  const leyendaFosforo = `${GEOSERVER_COMMON_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=${GEOSERVER_COMMON_WS}:Nivel_fosforo`;
+  const leyendaHumedadSaturacion = `${GEOSERVER_COMMON_WMS}?REQUEST=GetLegendGraphic&VERSION=1.0.0&FORMAT=image/png&LAYER=${GEOSERVER_COMMON_WS}:Humedad_de_saturacion`;
 
 
   function cargarParcelasCatastroSiProcede() {
@@ -3123,8 +3128,8 @@ function actualizarNdviPanel() {
   cultivosYearsForLayers.forEach(year => {
     cylLayersData[year] = {
       active: false,
-      layer: L.tileLayer.wms(GEOSERVER_WMS, {
-        layers: `gis_project:Cultivos_y_Ocupación_del_suelo_${year}`,
+      layer: L.tileLayer.wms(GEOSERVER_COMMON_WMS, {
+        layers: `${GEOSERVER_COMMON_WS}:Cultivos_y_Ocupación_del_suelo_${year}`,
         format: "image/png",
         transparent: true,
         pane: `cultivos${year}`,

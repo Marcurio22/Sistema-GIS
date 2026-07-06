@@ -121,19 +121,7 @@ def ensure_recinto_from_sigpac(
     return Recinto.query.get(int(new_id))
 
 
-def recintos_geojson(bbox_str: str | None) -> dict:
-    """
-    Devuelve un FeatureCollection GeoJSON con los recintos obtenidos desde
-    GeoServer (WFS), filtrados por un bounding box en WGS84.
-    """
-    if not bbox_str:
-        return {"type": "FeatureCollection", "features": []}
-
-    try:
-        minx, miny, maxx, maxy = map(float, bbox_str.split(","))
-    except ValueError:
-        raise ValueError(f"Formato de bbox no válido: {bbox_str!r}")
-
+def _recintos_geojson_from_wfs(minx: float, miny: float, maxx: float, maxy: float) -> dict:
     cfg = current_app.config
     wfs_url = cfg.get("GEOSERVER_WFS_URL")
     type_name = cfg.get("GEOSERVER_RECINTOS_TYPENAME", "gis_project:recintos_con_propietario")
@@ -154,18 +142,71 @@ def recintos_geojson(bbox_str: str | None) -> dict:
         "bbox": f"{minx},{miny},{maxx},{maxy},EPSG:4326",
     }
 
-    try:
-        resp = requests.get(wfs_url, params=params, auth=auth, timeout=20)
-        resp.raise_for_status()
-    except requests.RequestException as exc:
-        raise RuntimeError(f"Error al consultar GeoServer WFS: {exc}") from exc
-
+    resp = requests.get(wfs_url, params=params, auth=auth, timeout=20)
+    resp.raise_for_status()
     data = resp.json()
 
     if not isinstance(data, dict) or data.get("type") != "FeatureCollection":
         raise RuntimeError("Respuesta de GeoServer no es un FeatureCollection válido")
 
-    # Enriquecer con nombres de provincia y municipio
+    return data
+
+
+def _recintos_geojson_from_db(minx: float, miny: float, maxx: float, maxy: float) -> dict:
+    sql = text("""
+        SELECT
+            s.provincia, s.municipio, s.agregado, s.zona,
+            s.poligono, s.parcela, s.recinto,
+            r.id_recinto,
+            u.username AS propietario,
+            ST_AsGeoJSON(ST_MakeValid(s.geometry))::json AS geom_json
+        FROM sigpac.recintos s
+        LEFT JOIN public.recintos r
+            ON r.provincia = s.provincia
+           AND r.municipio = s.municipio
+           AND COALESCE(r.agregado, 0) = COALESCE(s.agregado, 0)
+           AND COALESCE(r.zona, 0) = COALESCE(s.zona, 0)
+           AND r.poligono = s.poligono
+           AND r.parcela = s.parcela
+           AND r.recinto = s.recinto
+        LEFT JOIN public.usuarios u ON u.id_usuario = r.id_propietario
+        WHERE ST_Intersects(
+            ST_MakeValid(s.geometry),
+            ST_MakeEnvelope(:minx, :miny, :maxx, :maxy, 4326)
+        )
+        LIMIT 8000
+    """)
+
+    rows = db.session.execute(sql, {
+        "minx": minx, "miny": miny, "maxx": maxx, "maxy": maxy,
+    }).mappings().all()
+
+    features = []
+    for r in rows:
+        nombre_provincia = municipios_finder.obtener_nombre_provincia(r["provincia"])
+        nombre_municipio = municipios_finder.obtener_nombre_municipio(r["provincia"], r["municipio"])
+        features.append({
+            "type": "Feature",
+            "geometry": r["geom_json"],
+            "properties": {
+                "id_recinto": r["id_recinto"],
+                "provincia": r["provincia"],
+                "municipio": r["municipio"],
+                "nombre_provincia": nombre_provincia,
+                "nombre_municipio": nombre_municipio,
+                "agregado": r["agregado"],
+                "zona": r["zona"],
+                "poligono": r["poligono"],
+                "parcela": r["parcela"],
+                "recinto": r["recinto"],
+                "propietario": r["propietario"],
+            },
+        })
+
+    return {"type": "FeatureCollection", "features": features}
+
+
+def _enrich_recintos_fc(data: dict) -> dict:
     if data.get("features"):
         for feature in data["features"]:
             props = feature.get("properties", {})
@@ -175,8 +216,40 @@ def recintos_geojson(bbox_str: str | None) -> dict:
                 props["nombre_municipio"] = municipios_finder.obtener_nombre_municipio(
                     props["provincia"], props["municipio"]
                 )
-
     return data
+
+
+def recintos_geojson(bbox_str: str | None) -> dict:
+    """
+    FeatureCollection GeoJSON de recintos SIGPAC en el bbox.
+    Por defecto lee de PostGIS (sigpac.recintos); opcionalmente WFS de GeoServer.
+    """
+    if not bbox_str:
+        return {"type": "FeatureCollection", "features": []}
+
+    try:
+        minx, miny, maxx, maxy = map(float, bbox_str.split(","))
+    except ValueError:
+        raise ValueError(f"Formato de bbox no válido: {bbox_str!r}")
+
+    source = (current_app.config.get("GEOSERVER_RECINTOS_SOURCE") or "db").lower()
+
+    if source == "wfs":
+        try:
+            data = _recintos_geojson_from_wfs(minx, miny, maxx, maxy)
+            return _enrich_recintos_fc(data)
+        except requests.RequestException as exc:
+            raise RuntimeError(f"Error al consultar GeoServer WFS: {exc}") from exc
+
+    try:
+        return _recintos_geojson_from_db(minx, miny, maxx, maxy)
+    except Exception as exc:
+        current_app.logger.warning("PostGIS recintos falló, probando WFS: %s", exc)
+        try:
+            data = _recintos_geojson_from_wfs(minx, miny, maxx, maxy)
+            return _enrich_recintos_fc(data)
+        except Exception as wfs_exc:
+            raise RuntimeError(f"Error cargando recintos: {exc}; WFS: {wfs_exc}") from exc
 
 def mis_recintos_geojson(bbox: str | None, user_id: int):
     """
