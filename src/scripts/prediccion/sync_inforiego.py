@@ -224,8 +224,13 @@ def sync(fecha_inicio, fecha_fin):
         session.commit()
         log.info(f"Sincronización completa: {total_insert} insertados, {total_skip} omitidos")
         if total_insert == 0:
-            log.error("No se han insertado datos nuevos.")
-            sys.exit(1)
+            if total_skip > 0:
+                # Reejecución el mismo día: los datos del rango ya estaban
+                # en la BD (ON CONFLICT DO NOTHING). No es un error.
+                log.info("Sin datos nuevos, pero el rango ya estaba en la BD. Continuando.")
+            else:
+                log.error("No se han insertado datos nuevos ni había datos previos en el rango.")
+                sys.exit(1)
 
     except Exception as e:
         session.rollback()

@@ -39,7 +39,6 @@ ok, err, skip = 0, 0, 0
 for cultivo, grupo in df.groupby("Cl"):
     grupo_limpio = grupo[cols_entrada + cols_salida].dropna()
     if len(grupo_limpio)  < 6:
-        print(f"⚠️  {cultivo}: solo {len(grupo_limpio)} filas válidas, saltando")
         skip += 1
         continue
 
@@ -49,16 +48,16 @@ for cultivo, grupo in df.groupby("Cl"):
     grupo_limpio = grupo_limpio.round(3)
     grupo_limpio.to_csv(dat_tmp, sep=" ", index=False, header=False, 
                         decimal=".", float_format="%.3f")
-    r = func(
+    func(
         ctypes.create_unicode_buffer(dat_tmp, 512),
         ctypes.create_unicode_buffer(bin_mod, 512),
         ctypes.create_unicode_buffer(txt_mod, 512),
     )
-    if r == 0:
-        print(f"✅ {cultivo}")
+    # El codigo de retorno de la DLL no es fiable (devuelve valores no-cero
+    # aunque el modelo se genere). Nos fiamos de que el .bin exista y tenga datos.
+    if os.path.exists(bin_mod) and os.path.getsize(bin_mod) > 0:
         ok += 1
     else:
-        print(f"❌ {cultivo} (código {r})")
         err += 1
 
 print(f"\nResumen: {ok} OK, {err} error, {skip} omitidos")

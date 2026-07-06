@@ -100,13 +100,10 @@ for cultivo, grupo in df.groupby("Cl"):
     if len(grupo_limpio) == 0:
         print(f"  ⚠️  {cultivo}: todas las filas tienen NaN, saltando")
         continue
-    r = func(
-        False,
-        ctypes.create_unicode_buffer(modelo_bin, 512),
-        ctypes.create_unicode_buffer(dat_tmp, 512),
-        4,
-        ctypes.create_unicode_buffer(sal_tmp, 512),
-    )
+
+    # Escribir SIEMPRE el .dat de entrada antes de llamar al DLL.
+    # (Si se llama al DLL sin que exista el .dat, la DLL Delphi lanza
+    #  la excepcion 0xEEDFADE y aborta el proceso.)
     df_tmp = grupo_limpio[cols_entrada].round(3)
     df_tmp.to_csv(
         dat_tmp, sep=" ", index=False, header=False, float_format="%.3f"
