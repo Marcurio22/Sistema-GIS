@@ -315,13 +315,48 @@ def compute_grid_from_bbox_meters(bbox4326, dst_crs, res_m, max_dim=None):
     return width, height, dst_transform, (minx_p, miny_p, maxx_p, maxy_p)
 
 
+def _read_roi_gdf(roi_path):
+    """
+    Lee el ROI eligiendo la capa de poligonos.
+
+    Algunos ROI.gpkg (derivados de OSM/GeoJSON) traen varias capas
+    (points, lines, multilinestrings, multipolygons, other_relations).
+    Por defecto geopandas lee 'points', que da un bbox incorrecto.
+    Aqui se prioriza la capa de poligonos.
+    """
+    try:
+        import pyogrio
+        layers = [l[0] for l in pyogrio.list_layers(str(roi_path))]
+    except Exception:
+        layers = []
+
+    for cand in ("multipolygons", "polygons", "roi"):
+        for l in layers:
+            if l.lower() == cand:
+                gdf = gpd.read_file(roi_path, layer=l)
+                if not gdf.empty:
+                    print(f"[ROI] Usando capa '{l}'")
+                    return gdf
+
+    for l in layers:
+        try:
+            gdf = gpd.read_file(roi_path, layer=l)
+        except Exception:
+            continue
+        if not gdf.empty and gdf.geom_type.isin(["Polygon", "MultiPolygon"]).any():
+            print(f"[ROI] Usando capa '{l}' (poligonos)")
+            return gdf
+
+    return gpd.read_file(roi_path)
+
+
 def get_roi_bbox_from_gpkg():
     """Leer ROI desde GeoPackage"""
     roi_path = Path(ROI_PATH)
     if not roi_path.exists():
         raise FileNotFoundError(f"ROI no existe: {roi_path.resolve()}")
 
-    roi = gpd.read_file(roi_path).to_crs(4326)
+    roi = _read_roi_gdf(roi_path).to_crs(4326)
     minx, miny, maxx, maxy = roi.total_bounds
     bbox = (float(minx), float(miny), float(maxx), float(maxy))
     print(f"[ROI] BBox: {bbox}")
