@@ -20,6 +20,14 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 from multiprocessing import shared_memory
+from pathlib import Path
+
+_SRC_DIR = Path(__file__).resolve().parent
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+from gis_runtime_env import setup_gis_runtime_env  # noqa: E402
+
+setup_gis_runtime_env()
 
 import numpy as np
 import rasterio

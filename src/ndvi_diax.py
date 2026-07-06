@@ -16,8 +16,18 @@ Fecha: 2025
 """
 
 import os
-import json
+import sys
 from pathlib import Path
+
+# PROJ/GDAL del conda ANTES de geopandas/rasterio/pyproj
+_SRC_DIR = Path(__file__).resolve().parent
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+from gis_runtime_env import setup_gis_runtime_env  # noqa: E402
+
+setup_gis_runtime_env()
+
+import json
 from datetime import datetime, timedelta, timezone
 
 import numpy as np

@@ -35,8 +35,15 @@ def find_project_root(start: Path) -> Path:
 
 
 PROJECT_ROOT = find_project_root(Path(__file__).resolve())
+SRC_DIR = PROJECT_ROOT / "src"
 NDVI_DIR = PROJECT_ROOT / "data" / "processed" / "ndvi_composite"
 LOG_DIR = PROJECT_ROOT / "logs"
+
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+from gis_runtime_env import setup_gis_runtime_env, gis_subprocess_env  # noqa: E402
+
+setup_gis_runtime_env()
 
 
 def log(msg: str, fp) -> None:
@@ -55,8 +62,7 @@ def run_script(rel_path: str, extra_args: list[str], fp) -> int:
 
     cmd = [sys.executable, "-u", str(script), *extra_args]
     log(f"\n>> {' '.join(cmd)}", fp)
-    env = os.environ.copy()
-    env.setdefault("PYTHONUNBUFFERED", "1")
+    env = gis_subprocess_env()
     proc = subprocess.run(cmd, cwd=str(PROJECT_ROOT), env=env)
     code = int(proc.returncode or 0)
     log(f">> código salida: {code}", fp)
