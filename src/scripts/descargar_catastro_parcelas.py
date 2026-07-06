@@ -189,7 +189,7 @@ with app.app_context():
     dtype = {"geometry": Geometry("MULTIPOLYGON", srid=4326)} if _HAS_GEOALCHEMY else None
 
     parcelas_min.to_postgis(
-        name="parcelas2",
+        name="parcelas",
         con=db.engine,            
         schema="catastro",
         if_exists="replace",
@@ -198,4 +198,4 @@ with app.app_context():
         dtype=dtype,
     )
 
-    print("Tabla catastro.parcelas2 cargada.")
+    print("Tabla catastro.parcelas cargada.")

@@ -282,8 +282,12 @@ def cleanup_stale_sigpac_state(conn) -> None:
 
 def ensure_default_recintos_view(conn) -> None:
     print("→ Actualizando vista sigpac.recintos_con_propietario…")
+    # DROP + CREATE (no CREATE OR REPLACE): al recrear la tabla sigpac.recintos
+    # el orden/nombre de columnas puede cambiar (p.ej. dn_pk primero), y
+    # CREATE OR REPLACE VIEW falla si cambian las columnas de cabecera.
+    conn.execute(text("DROP VIEW IF EXISTS sigpac.recintos_con_propietario CASCADE"))
     conn.execute(text("""
-        CREATE OR REPLACE VIEW sigpac.recintos_con_propietario AS
+        CREATE VIEW sigpac.recintos_con_propietario AS
         SELECT
             s.*,
             r.id_recinto,
