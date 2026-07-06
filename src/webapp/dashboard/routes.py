@@ -482,8 +482,15 @@ def visor():
     s2_version = meta["updated_utc"]  # para bust cache
     
     # --- NDVI (mosaico reciente) ---
-    ndvi_path = os.path.join(current_app.root_path, "static", "ndvi", "ndvi_latest.png")
-    ndvi_version = int(os.path.getmtime(ndvi_path)) if os.path.exists(ndvi_path) else 0
+    ndvi_composite_dir = project_root / "data" / "raw" / "ndvi_composite"
+    ndvi_meta_path = ndvi_composite_dir / "ndvi_latest.json"
+    ndvi_png_path = ndvi_composite_dir / "ndvi_latest.png"
+    if ndvi_meta_path.exists():
+        ndvi_version = int(ndvi_meta_path.stat().st_mtime)
+    elif ndvi_png_path.exists():
+        ndvi_version = int(ndvi_png_path.stat().st_mtime)
+    else:
+        ndvi_version = 0
     
     # Pasar recinto_data al template
     return render_template("visor.html", 

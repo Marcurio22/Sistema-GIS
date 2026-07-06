@@ -17,10 +17,19 @@ Fecha: 2025
 """
 
 import os
+import sys
 import json
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
+
+# PROJ/GDAL del conda antes de geopandas/rasterio
+_SRC_DIR = Path(__file__).resolve().parent
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+from gis_runtime_env import setup_gis_runtime_env  # noqa: E402
+
+setup_gis_runtime_env()
 
 import numpy as np
 import geopandas as gpd
@@ -529,10 +538,35 @@ def create_temporal_weighted_composite(items_por_fecha, bbox_4326, dst_transform
 # FUNCIÓN PRINCIPAL
 # ============================================================================
 
+def clear_ndvi_latest_outputs(ndvi_dir: Path) -> int:
+    """Elimina ndvi_latest.* (p. ej. copiados de otra instancia o ejecución fallida)."""
+    removed = 0
+    for fname in (
+        "ndvi_latest_utm.tif",
+        "ndvi_latest_3857.tif",
+        "ndvi_latest.png",
+        "ndvi_latest.json",
+    ):
+        p = ndvi_dir / fname
+        if p.exists():
+            p.unlink()
+            removed += 1
+            print(f"[INIT] Eliminado residual: {fname}", flush=True)
+    return removed
+
+
 def main():
     app = create_app()
     
     with app.app_context():
+        ndvi_dir = Path(__file__).resolve().parents[1] / "data" / "raw" / "ndvi_composite"
+        ndvi_dir.mkdir(parents=True, exist_ok=True)
+
+        if os.getenv("NDVI_CLEAR_LATEST", "").strip() in ("1", "true", "yes"):
+            n = clear_ndvi_latest_outputs(ndvi_dir)
+            if n:
+                print(f"[INIT] Limpieza previa: {n} archivo(s) ndvi_latest.*", flush=True)
+
         print(f"\n{'='*70}")
         print("CONFIGURACIÓN")
         print(f"{'='*70}")
@@ -591,7 +625,6 @@ def main():
         print(f"  NDVI mediana:    {np.median(valid_ndvi):.3f}")
         
         # Directorio de salida
-        ndvi_dir = Path(__file__).resolve().parents[1] / "data" / "raw" / "ndvi_composite"
         ndvi_dir.mkdir(parents=True, exist_ok=True)
         
         fecha_str = END_DATE.strftime("%Y%m%d")
