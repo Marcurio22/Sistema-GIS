@@ -462,28 +462,47 @@ def visor():
                 }
     
     roi_bbox = get_roi_bbox_for_visor(db.session)
-        
-    project_root = Path(__file__).resolve().parents[3]  # 2 niveles arriba
+    roi_bounds_leaflet = [[roi_bbox[1], roi_bbox[0]], [roi_bbox[3], roi_bbox[2]]]
 
+    project_root = Path(__file__).resolve().parents[3]
 
     ndvi_tif = os.path.join(project_root, "data", "raw", "ndvi_composite", "ndvi_latest_3857.tif")
-    ndvi_bounds = leaflet_bounds_from_tif(ndvi_tif)
+    try:
+        ndvi_bounds = (
+            leaflet_bounds_from_tif(ndvi_tif)
+            if os.path.isfile(ndvi_tif)
+            else roi_bounds_leaflet
+        )
+    except Exception:
+        ndvi_bounds = roi_bounds_leaflet
 
     municipios_codigos_finder = MunicipiosCodigosFinder()
     codigo_municipio_ine = municipios_codigos_finder.codigo_recintos_ine(current_user.id_usuario)
 
-    weather = obtener_datos_aemet(codigo_municipio_ine)
+    weather = obtener_datos_aemet(codigo_municipio_ine) if codigo_municipio_ine else None
 
-    # --- Sentinel-2 RGB (mosaico reciente) ---
     meta_path = Path(current_app.root_path) / "static" / "sentinel2" / "s2_rgb_latest.json"
-    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    if meta_path.is_file():
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            s2_bounds = meta.get("bounds_leaflet", roi_bounds_leaflet)
+            s2_version = meta.get("updated_utc", "")
+        except (OSError, json.JSONDecodeError, TypeError):
+            s2_bounds = roi_bounds_leaflet
+            s2_version = ""
+    else:
+        s2_bounds = roi_bounds_leaflet
+        s2_version = ""
 
-    s2_bounds = meta["bounds_leaflet"]
-    s2_version = meta["updated_utc"]  # para bust cache
-    
-    # --- NDVI (mosaico reciente) ---
-    ndvi_path = os.path.join(current_app.root_path, "static", "ndvi", "ndvi_latest.png")
-    ndvi_version = int(os.path.getmtime(ndvi_path)) if os.path.exists(ndvi_path) else 0
+    ndvi_png_candidates = [
+        os.path.join(project_root, "data", "raw", "ndvi_composite", "ndvi_latest.png"),
+        os.path.join(current_app.root_path, "static", "ndvi", "ndvi_latest.png"),
+    ]
+    ndvi_version = 0
+    for ndvi_path in ndvi_png_candidates:
+        if os.path.exists(ndvi_path):
+            ndvi_version = int(os.path.getmtime(ndvi_path))
+            break
     
     # Pasar recinto_data al template
     return render_template("visor.html", 

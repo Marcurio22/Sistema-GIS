@@ -17,6 +17,7 @@ Fecha: 2025
 """
 
 import os
+import sys
 import json
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
@@ -46,8 +47,15 @@ from webapp import create_app, db
 from pystac_client import Client
 import planetary_computer as pc
 
+if sys.platform == "win32":
+    for _stream in (sys.stdout, sys.stderr):
+        if hasattr(_stream, "reconfigure"):
+            try:
+                _stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
 
-print("[NDVI-TEMPORAL] Script de NDVI - COMPOSITE TEMPORAL ÓPTIMO v1.4")
+print("[NDVI-TEMPORAL] Script de NDVI - COMPOSITE TEMPORAL OPTIMO v1.4")
 print("="*70)
 
 load_dotenv()
@@ -103,7 +111,7 @@ def search_planetary_computer_temporal(bbox, start_date, end_date, cloud_max):
     """Buscar TODAS las imágenes Sentinel-2 L2A en la ventana temporal."""
     try:
         print(f"[SEARCH] Conectando con Planetary Computer...")
-        print(f"[SEARCH] Período: {start_date.strftime('%Y-%m-%d')} → {end_date.strftime('%Y-%m-%d')}")
+        print(f"[SEARCH] Periodo: {start_date.strftime('%Y-%m-%d')} -> {end_date.strftime('%Y-%m-%d')}")
         
         catalog = Client.open(
             "https://planetarycomputer.microsoft.com/api/stac/v1",
@@ -538,7 +546,7 @@ def main():
         print(f"{'='*70}")
         print(f"Fuente: Planetary Computer")
         print(f"Modo: TEMPORAL WEIGHTED COMPOSITE")
-        print(f"Período: {START_DATE.strftime('%Y-%m-%d')} → {END_DATE.strftime('%Y-%m-%d')}")
+        print(f"Periodo: {START_DATE.strftime('%Y-%m-%d')} -> {END_DATE.strftime('%Y-%m-%d')}")
         print(f"Duración: {TEMPORAL_WINDOW_DAYS} días")
         print(f"Buffer nubes: {CLOUD_BUFFER_PIXELS}px (~{CLOUD_BUFFER_PIXELS*10}m)")
         print(f"Resolución: {NDVI_RES_M}m/píxel")
@@ -656,7 +664,7 @@ def main():
                     
                     try:
                         old_file.rename(new_path)
-                        print(f"[ROTACIÓN]   {old_name} → {new_name}")
+                        print(f"[ROTACION]   {old_name} -> {new_name}")
                         renamed_count += 1
                     except Exception as e:
                         print(f"[ROTACIÓN]   ✗ Error renombrando {old_name}: {e}")

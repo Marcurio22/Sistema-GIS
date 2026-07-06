@@ -152,14 +152,33 @@ def _recintos_geojson_from_wfs(minx: float, miny: float, maxx: float, maxy: floa
     return data
 
 
+def _sigpac_recintos_geom_column() -> str:
+    cached = current_app.config.get("_SIGPAC_RECINTOS_GEOM_COL")
+    if cached:
+        return cached
+    row = db.session.execute(text("""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'sigpac'
+          AND table_name = 'recintos'
+          AND column_name IN ('geometry', 'geom')
+        ORDER BY CASE column_name WHEN 'geometry' THEN 0 ELSE 1 END
+        LIMIT 1
+    """)).scalar()
+    col = row or "geometry"
+    current_app.config["_SIGPAC_RECINTOS_GEOM_COL"] = col
+    return col
+
+
 def _recintos_geojson_from_db(minx: float, miny: float, maxx: float, maxy: float) -> dict:
-    sql = text("""
+    geom_col = _sigpac_recintos_geom_column()
+    sql = text(f"""
         SELECT
             s.provincia, s.municipio, s.agregado, s.zona,
             s.poligono, s.parcela, s.recinto,
             r.id_recinto,
             u.username AS propietario,
-            ST_AsGeoJSON(ST_MakeValid(s.geometry))::json AS geom_json
+            ST_AsGeoJSON(ST_MakeValid(s.{geom_col}))::json AS geom_json
         FROM sigpac.recintos s
         LEFT JOIN public.recintos r
             ON r.provincia = s.provincia
@@ -171,7 +190,7 @@ def _recintos_geojson_from_db(minx: float, miny: float, maxx: float, maxy: float
            AND r.recinto = s.recinto
         LEFT JOIN public.usuarios u ON u.id_usuario = r.id_propietario
         WHERE ST_Intersects(
-            ST_MakeValid(s.geometry),
+            ST_MakeValid(s.{geom_col}),
             ST_MakeEnvelope(:minx, :miny, :maxx, :maxy, 4326)
         )
         LIMIT 8000
@@ -242,7 +261,19 @@ def recintos_geojson(bbox_str: str | None) -> dict:
             raise RuntimeError(f"Error al consultar GeoServer WFS: {exc}") from exc
 
     try:
-        return _recintos_geojson_from_db(minx, miny, maxx, maxy)
+        data = _recintos_geojson_from_db(minx, miny, maxx, maxy)
+        if data.get("features"):
+            return data
+        current_app.logger.warning(
+            "sigpac.recintos vacio para bbox; probando WFS (%s)",
+            current_app.config.get("GEOSERVER_RECINTOS_TYPENAME"),
+        )
+        try:
+            wfs_data = _recintos_geojson_from_wfs(minx, miny, maxx, maxy)
+            return _enrich_recintos_fc(wfs_data)
+        except Exception as wfs_exc:
+            current_app.logger.warning("WFS recintos tambien fallo: %s", wfs_exc)
+            return data
     except Exception as exc:
         current_app.logger.warning("PostGIS recintos falló, probando WFS: %s", exc)
         try:
