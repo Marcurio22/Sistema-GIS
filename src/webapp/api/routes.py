@@ -58,7 +58,7 @@ from .services import (
     create_operacion_recinto,
     patch_operacion_by_id,
     delete_operacion_by_id,
-    _sistema_cultivo_obj,
+    ensure_recinto_from_sigpac,
     visor_start_view_usuario
 )
 
@@ -103,40 +103,19 @@ def crear_solicitud_recinto():
 
     if id_recinto:
         recinto_obj = Recinto.query.get(id_recinto)
-    else:
-        provincia = data.get("provincia")
-        municipio = data.get("municipio")
-        poligono = data.get("poligono")
-        parcela = data.get("parcela")
-        recinto = data.get("recinto")
-        agregado = data.get("agregado")
-        zona = data.get("zona")
 
-        if not all([provincia, municipio, poligono, parcela, recinto]):
-            return jsonify({
-                "ok": False,
-                "error": "Faltan datos para identificar el recinto",
-            }), 400
+    provincia = data.get("provincia")
+    municipio = data.get("municipio")
+    poligono = data.get("poligono")
+    parcela = data.get("parcela")
+    recinto = data.get("recinto")
+    agregado = data.get("agregado")
+    zona = data.get("zona")
 
-        q = Recinto.query.filter_by(
-            provincia=provincia,
-            municipio=municipio,
-            poligono=poligono,
-            parcela=parcela,
-            recinto=recinto,
+    if not recinto_obj and all([provincia, municipio, poligono, parcela, recinto]):
+        recinto_obj = ensure_recinto_from_sigpac(
+            provincia, municipio, poligono, parcela, recinto, agregado, zona
         )
-
-        if agregado is not None:
-            q = q.filter(Recinto.agregado == agregado)
-        else:
-            q = q.filter(Recinto.agregado.is_(None))
-            
-        if zona is not None:
-            q = q.filter(Recinto.zona == zona)
-        else:
-            q = q.filter(Recinto.zona.is_(None))
-
-        recinto_obj = q.first()
 
     if not recinto_obj:
         return jsonify({"ok": False, "error": "Recinto no encontrado"}), 404

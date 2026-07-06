@@ -3179,7 +3179,7 @@ function actualizarNdviPanel() {
     const ds = btn.dataset;
 
     const payload = {
-      id_recinto: ds.idrecinto || null,
+      id_recinto: ds.idRecinto ? Number(ds.idRecinto) : null,
       provincia: ds.provincia ? Number(ds.provincia) : null,
       municipio: ds.municipio ? Number(ds.municipio) : null,
       nombre_municipio: ds.nombre_municipio ? ds.nombre_municipio : null,

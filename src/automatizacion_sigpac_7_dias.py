@@ -281,15 +281,7 @@ def cleanup_stale_sigpac_state(conn) -> None:
 
 
 def ensure_default_recintos_view(conn) -> None:
-    exists = conn.execute(text("""
-        SELECT 1
-        FROM information_schema.views
-        WHERE table_schema = 'sigpac'
-          AND table_name = 'recintos_con_propietario'
-    """)).scalar()
-    if exists:
-        return
-    print("→ Creando vista sigpac.recintos_con_propietario (fallback)…")
+    print("→ Actualizando vista sigpac.recintos_con_propietario…")
     conn.execute(text("""
         CREATE OR REPLACE VIEW sigpac.recintos_con_propietario AS
         SELECT
@@ -300,13 +292,66 @@ def ensure_default_recintos_view(conn) -> None:
         LEFT JOIN public.recintos r
             ON r.provincia = s.provincia
            AND r.municipio = s.municipio
+           AND COALESCE(r.agregado, 0) = COALESCE(s.agregado, 0)
+           AND COALESCE(r.zona, 0) = COALESCE(s.zona, 0)
            AND r.poligono = s.poligono
+           AND r.parcela = s.parcela
            AND r.recinto = s.recinto
-           AND r.agregado IS NOT DISTINCT FROM s.agregado
-           AND r.zona IS NOT DISTINCT FROM s.zona
         LEFT JOIN public.usuarios u
             ON u.id_usuario = r.id_propietario
     """))
+
+
+def sync_public_recintos_from_sigpac(conn) -> None:
+    """
+    Copia sigpac.recintos → public.recintos (sin propietario).
+    Necesario para que el visor pueda solicitar recintos tras la descarga SIGPAC.
+    """
+    print("→ Sincronizando public.recintos desde sigpac.recintos…")
+    inserted = conn.execute(text("""
+        INSERT INTO public.recintos (
+            nombre, superficie_ha, geom,
+            provincia, municipio, agregado, zona, poligono, parcela, recinto,
+            id_propietario, activa
+        )
+        SELECT
+            format('Recinto %s-%s-%s-%s-%s',
+                s.provincia, s.municipio, s.poligono, s.parcela, s.recinto),
+            ST_Area(geography(ST_MakeValid(s.geometry))) / 10000.0,
+            ST_Multi(ST_MakeValid(s.geometry))::geometry(MultiPolygon, 4326),
+            s.provincia, s.municipio, s.agregado, s.zona,
+            s.poligono, s.parcela, s.recinto,
+            NULL,
+            TRUE
+        FROM sigpac.recintos s
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM public.recintos r
+            WHERE r.provincia = s.provincia
+              AND r.municipio = s.municipio
+              AND COALESCE(r.agregado, 0) = COALESCE(s.agregado, 0)
+              AND COALESCE(r.zona, 0) = COALESCE(s.zona, 0)
+              AND r.poligono = s.poligono
+              AND r.parcela = s.parcela
+              AND r.recinto = s.recinto
+        )
+    """)).rowcount
+    updated = conn.execute(text("""
+        UPDATE public.recintos r
+        SET
+            geom = ST_Multi(ST_MakeValid(s.geometry))::geometry(MultiPolygon, 4326),
+            superficie_ha = ST_Area(geography(ST_MakeValid(s.geometry))) / 10000.0
+        FROM sigpac.recintos s
+        WHERE r.id_propietario IS NULL
+          AND r.provincia = s.provincia
+          AND r.municipio = s.municipio
+          AND COALESCE(r.agregado, 0) = COALESCE(s.agregado, 0)
+          AND COALESCE(r.zona, 0) = COALESCE(s.zona, 0)
+          AND r.poligono = s.poligono
+          AND r.parcela = s.parcela
+          AND r.recinto = s.recinto
+    """)).rowcount
+    print(f"   Insertados: {inserted} | Geometrías actualizadas (sin propietario): {updated}")
 
 
 def actualizar_postgis_atomic(gdf: gpd.GeoDataFrame) -> None:
@@ -442,6 +487,7 @@ def actualizar_postgis_atomic(gdf: gpd.GeoDataFrame) -> None:
             CREATE INDEX IF NOT EXISTS idx_recintos_geom
             ON sigpac.recintos USING GIST(geometry)
         """))
+        sync_public_recintos_from_sigpac(conn)
         ensure_default_recintos_view(conn)
 
     print("✅ sigpac.recintos y public.parcelas actualizadas correctamente.")

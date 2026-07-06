@@ -7,7 +7,7 @@ import requests
 import json
 from datetime import date, datetime
 from ..dashboard.utils_dashboard import municipios_finder
-from ..models import Variedad
+from ..models import Variedad, Recinto
 
 
 def superficie_geom_por_recinto(ids) -> dict[int, float]:
@@ -29,6 +29,96 @@ def superficie_geom_por_recinto(ids) -> dict[int, float]:
         {"ids": ids},
     ).mappings().all()
     return {int(r["id_recinto"]): float(r["ha"]) for r in rows if r["ha"] is not None}
+
+
+def find_recinto_by_sigpac_keys(
+    provincia,
+    municipio,
+    poligono,
+    parcela,
+    recinto,
+    agregado=None,
+    zona=None,
+) -> Recinto | None:
+    from sqlalchemy import func
+
+    agr = 0 if agregado is None else agregado
+    zon = 0 if zona is None else zona
+    return (
+        Recinto.query.filter(
+            Recinto.provincia == provincia,
+            Recinto.municipio == municipio,
+            Recinto.poligono == poligono,
+            Recinto.parcela == parcela,
+            Recinto.recinto == recinto,
+            func.coalesce(Recinto.agregado, 0) == agr,
+            func.coalesce(Recinto.zona, 0) == zon,
+        )
+        .first()
+    )
+
+
+def ensure_recinto_from_sigpac(
+    provincia,
+    municipio,
+    poligono,
+    parcela,
+    recinto,
+    agregado=None,
+    zona=None,
+) -> Recinto | None:
+    """
+    Busca el recinto en public.recintos; si no existe, lo crea desde sigpac.recintos.
+    """
+    found = find_recinto_by_sigpac_keys(
+        provincia, municipio, poligono, parcela, recinto, agregado, zona
+    )
+    if found:
+        return found
+
+    new_id = db.session.execute(
+        text("""
+            INSERT INTO public.recintos (
+                nombre, superficie_ha, geom,
+                provincia, municipio, agregado, zona, poligono, parcela, recinto,
+                id_propietario, activa
+            )
+            SELECT
+                format('Recinto %s-%s-%s-%s-%s',
+                    s.provincia, s.municipio, s.poligono, s.parcela, s.recinto),
+                ST_Area(geography(ST_MakeValid(s.geometry))) / 10000.0,
+                ST_Multi(ST_MakeValid(s.geometry))::geometry(MultiPolygon, 4326),
+                s.provincia, s.municipio, s.agregado, s.zona,
+                s.poligono, s.parcela, s.recinto,
+                NULL,
+                TRUE
+            FROM sigpac.recintos s
+            WHERE s.provincia = :prov
+              AND s.municipio = :mun
+              AND s.poligono = :pol
+              AND s.parcela = :par
+              AND s.recinto = :rec
+              AND COALESCE(s.agregado, 0) = COALESCE(:agr, 0)
+              AND COALESCE(s.zona, 0) = COALESCE(:zon, 0)
+            LIMIT 1
+            RETURNING id_recinto
+        """),
+        {
+            "prov": provincia,
+            "mun": municipio,
+            "pol": poligono,
+            "par": parcela,
+            "rec": recinto,
+            "agr": agregado,
+            "zon": zona,
+        },
+    ).scalar()
+
+    if not new_id:
+        return None
+
+    db.session.commit()
+    return Recinto.query.get(int(new_id))
 
 
 def recintos_geojson(bbox_str: str | None) -> dict:
