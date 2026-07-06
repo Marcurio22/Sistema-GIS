@@ -48,7 +48,7 @@ TEST_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 # -----------------------------
 # Config (por entorno)
 # -----------------------------
-ROI_PATH = os.getenv("ROI_PATH", str(Path(__file__).resolve().parents[1] / "data" / "processed" / "roi.gpkg"))
+ROI_PATH = os.getenv("ROI_PATH", str(Path(__file__).resolve().parents[1] / "data" / "processed" / "ROI.gpkg"))
 
 DAYS_BACK = int(os.getenv("S2_DAYS_BACK", "180"))
 CLOUD_MAX = float(os.getenv("S2_CLOUD_MAX", "60"))

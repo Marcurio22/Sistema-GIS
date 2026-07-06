@@ -8,7 +8,7 @@ solicitudes de recintos.
 from __future__ import annotations
 from fileinput import filename
 
-from flask import Response, jsonify, request, send_from_directory, current_app
+from flask import Response, jsonify, request, send_from_directory, send_file, current_app
 from xml.etree import ElementTree as ET
 from pathlib import Path
 from flask_login import login_required, current_user
@@ -37,6 +37,7 @@ from .. import db
 from ..models import ImagenDibujada, IndicesRaster, Recinto, Solicitudrecinto, Variedad, Estacion, DatosDiarios, Recinto, Contador
 from ..dashboard.utils_dashboard import municipios_finder
 from ..utils.legend_loader import load_legend_from_csv
+from ..utils.ndvi_paths import resolve_ndvi_latest_3857, resolve_ndvi_latest_png
 
 from . import api_bp, legend_bp
 from .services import (
@@ -1477,7 +1478,10 @@ def calcular_ndvi(geometry, tiff_path=None):
 
     BASE_DIR = Path(__file__).resolve().parents[3]
     if tiff_path is None:
-        tiff_path = BASE_DIR / "data" / "raw" / "ndvi_composite" / "ndvi_latest_3857.tif"
+        resolved = resolve_ndvi_latest_3857(BASE_DIR)
+        tiff_path = resolved or (
+            BASE_DIR / "data" / "raw" / "ndvi_composite" / "ndvi_latest_3857.tif"
+        )
     else:
         tiff_path = Path(tiff_path) 
 
@@ -1647,6 +1651,15 @@ NDVI_DIR = Path(
 )
 @api_bp.route("/ndvi/<path:filename>")
 def serve_ndvi(filename):
+    project_root = NDVI_DIR.parent.parent.parent
+    if filename == "ndvi_latest.png":
+        resolved = resolve_ndvi_latest_png(project_root)
+        if resolved:
+            return send_file(resolved)
+    elif filename == "ndvi_latest_3857.tif":
+        resolved = resolve_ndvi_latest_3857(project_root)
+        if resolved:
+            return send_file(resolved)
     return send_from_directory(NDVI_DIR, filename)
 
 
