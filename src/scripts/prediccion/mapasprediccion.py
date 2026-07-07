@@ -1,6 +1,7 @@
 import pandas as pd
 import json
 import os
+import stat
 import sys
 import requests
 import glob
@@ -32,6 +33,28 @@ DB_NAME     = os.getenv("POSTGRES_DB")
 CARPETA_CSV = str(SALIDA_PRED_DIR)
 STATIC_DIR  = str(ETP_STATIC_DIR)
 os.makedirs(STATIC_DIR, exist_ok=True)
+
+
+def escribir_json(ruta, datos):
+    """
+    Escribe un JSON de forma robusta:
+    - crea el directorio si falta,
+    - quita el atributo de solo-lectura si el fichero venia de una copia
+      de plantilla (evita PermissionError [Errno 13] en Windows),
+    - escritura atomica (fichero temporal + replace).
+    """
+    ruta = str(ruta)
+    os.makedirs(os.path.dirname(ruta), exist_ok=True)
+    if os.path.exists(ruta):
+        try:
+            os.chmod(ruta, stat.S_IWRITE)
+            os.remove(ruta)
+        except OSError:
+            pass
+    tmp = ruta + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(datos, f)
+    os.replace(tmp, ruta)
 
 AUTH         = (GEOSERVER_USER, GEOSERVER_PASSWORD)
 HEADERS_JSON = {"Content-Type": "application/json"}
@@ -150,8 +173,7 @@ def generar_tablas_postgis():
         indice[str(offset)] = fecha_str
         print(f"  → tabla {tabla}  ({fecha_str}, {len(filas)} registros)")
 
-    with open(os.path.join(STATIC_DIR, "indice.json"), "w") as f:
-        json.dump(indice, f)
+    escribir_json(os.path.join(STATIC_DIR, "indice.json"), indice)
     print(f"  → indice.json guardado")
 
     print("Tablas PostGIS generadas.\n")

@@ -11,6 +11,7 @@ import glob
 import json
 import os
 import re
+import stat
 import sys
 import time
 from contextlib import nullcontext
@@ -52,6 +53,28 @@ CARPETA_CSV = ROOT / "Prediccion" / "salidaPred"
 STATIC_DIR  = ROOT / "src" / "webapp" / "static" / "riego_prediccion"
 NDVI_DIR    = ROOT / "data" / "processed" / "ndvi_composite"
 os.makedirs(STATIC_DIR, exist_ok=True)
+
+
+def escribir_json(ruta, datos):
+    """
+    Escribe un JSON de forma robusta:
+    - crea el directorio si falta,
+    - quita el atributo de solo-lectura si el fichero venia de una copia
+      de plantilla (evita PermissionError [Errno 13] en Windows),
+    - escritura atomica (fichero temporal + replace).
+    """
+    ruta = str(ruta)
+    os.makedirs(os.path.dirname(ruta), exist_ok=True)
+    if os.path.exists(ruta):
+        try:
+            os.chmod(ruta, stat.S_IWRITE)
+            os.remove(ruta)
+        except OSError:
+            pass
+    tmp = ruta + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(datos, f)
+    os.replace(tmp, ruta)
 
 AUTH         = (GEOSERVER_USER, GEOSERVER_PASSWORD)
 HEADERS_JSON = {"Content-Type": "application/json"}
@@ -395,8 +418,7 @@ def generar_tablas_postgis():
 
             indice[str(offset)] = fecha_str
 
-    with open(STATIC_DIR / "indice.json", "w", encoding="utf-8") as f:
-        json.dump(indice, f)
+    escribir_json(STATIC_DIR / "indice.json", indice)
     print(f"  → indice.json guardado en {STATIC_DIR}")
 
     return list(range(len(columnas_et)))
