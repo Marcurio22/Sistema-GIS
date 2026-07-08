@@ -37,9 +37,13 @@ goto :fin_ok
 :fin_error
 echo.
 echo [ERROR] Revisa el log en %DIR%\logs\pack-ndvi-diario-*.log
+if "%NO_PAUSE%"=="1" goto :fin_error_nopause
 pause
+:fin_error_nopause
 exit /b 1
 
 :fin_ok
+if "%NO_PAUSE%"=="1" goto :fin_ok_nopause
 pause
+:fin_ok_nopause
 exit /b 0
