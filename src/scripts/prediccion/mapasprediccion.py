@@ -2,6 +2,7 @@ import pandas as pd
 import json
 import os
 import stat
+import time
 import sys
 import requests
 import glob
@@ -54,7 +55,28 @@ def escribir_json(ruta, datos):
     tmp = ruta + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(datos, f)
-    os.replace(tmp, ruta)
+
+    # En Windows, os.replace puede fallar con "Acceso denegado" si el destino
+    # esta temporalmente bloqueado (AV/backup/servicio). Reintentar y, si no,
+    # escribir en el propio fichero como plan B.
+    for attempt in range(6):
+        try:
+            os.replace(tmp, ruta)
+            return
+        except PermissionError:
+            if attempt == 5:
+                break
+            time.sleep(0.4)
+
+    try:
+        with open(ruta, "w", encoding="utf-8") as f:
+            json.dump(datos, f)
+    finally:
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except OSError:
+            pass
 
 AUTH         = (GEOSERVER_USER, GEOSERVER_PASSWORD)
 HEADERS_JSON = {"Content-Type": "application/json"}

@@ -2,7 +2,8 @@ import subprocess
 import sys
 
 scripts = [
-    "scripts.prediccion.sync_inforiego",
+    # Meteorologia compartida: copia desde gisdb (la API se llama una vez con sync_meteo_global)
+    "scripts.prediccion.replicate_datos_diarios",
     "scripts.prediccion.evotranspiracion_archivo2",
     "scripts.prediccion.generarmodelos",
     "scripts.prediccion.predecir",

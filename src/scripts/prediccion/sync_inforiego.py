@@ -154,10 +154,31 @@ def sync(fecha_inicio, fecha_fin):
     session = Session()
     total_insert = 0
     total_skip = 0
+    total_api_skip = 0
     try:
         estaciones = get_estaciones(session)
+        dias_esperados = {
+            fecha_inicio + timedelta(days=i)
+            for i in range((fecha_fin - fecha_inicio).days + 1)
+        }
+
         for prov, est_codigo, est_id in estaciones:
-            log.info(f"Sincronizando estación {est_codigo} (provincia {prov}) — {fecha_inicio} → {fecha_fin}")
+            fechas_existentes = get_fechas_existentes(
+                session, est_id, fecha_inicio, fecha_fin
+            )
+            if dias_esperados.issubset(fechas_existentes):
+                log.info(
+                    f"Estación {est_codigo} (provincia {prov}): "
+                    f"rango {fecha_inicio} → {fecha_fin} ya en BD, omitiendo API"
+                )
+                total_skip += len(dias_esperados)
+                total_api_skip += 1
+                continue
+
+            log.info(
+                f"Sincronizando estación {est_codigo} (provincia {prov}) — "
+                f"{fecha_inicio} → {fecha_fin}"
+            )
 
             registros = fetch_diarios(prov, est_codigo, fecha_inicio, fecha_fin)
             if not registros:
@@ -222,7 +243,10 @@ def sync(fecha_inicio, fecha_fin):
                     total_skip += 1
 
         session.commit()
-        log.info(f"Sincronización completa: {total_insert} insertados, {total_skip} omitidos")
+        log.info(
+            f"Sincronización completa: {total_insert} insertados, "
+            f"{total_skip} omitidos, {total_api_skip} estaciones sin llamada API"
+        )
         if total_insert == 0:
             if total_skip > 0:
                 # Reejecución el mismo día: los datos del rango ya estaban
