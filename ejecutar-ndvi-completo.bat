@@ -1,5 +1,5 @@
 @echo off
-REM NDVI composite completo (ndvi_completo.py). Requiere admin por bloqueos de ficheros en Windows.
+REM NDVI composite completo (ndvi_completo.py).
 REM Uso desde la carpeta de la comunidad:
 REM   ejecutar-ndvi-completo.bat
 REM Tambien acepta ruta explicita:
@@ -12,20 +12,9 @@ if "%DIR%"=="" (
   if "%DIR:~-1%"=="\" set "DIR=%DIR:~0,-1%"
 )
 
-net session >nul 2>&1
-if %errorlevel% neq 0 (
-  echo Solicitando permisos de administrador...
-  set "VBS=%TEMP%\_gis_uac_ndvi.vbs"
-  > "%VBS%" echo Set UAC = CreateObject^("Shell.Application"^)
-  >>"%VBS%" echo UAC.ShellExecute "%~f0", "%DIR%", "", "runas", 1
-  cscript //nologo "%VBS%" >nul 2>&1
-  del "%VBS%" >nul 2>&1
-  exit /b
-)
-
-if not exist "%DIR%\server.py" (
+if not exist "%DIR%\src\ndvi_completo.py" (
   echo.
-  echo No es una comunidad GIS ^(falta server.py^): %DIR%
+  echo No es una comunidad GIS ^(falta src\ndvi_completo.py^): %DIR%
   echo Uso: cd C:\GIS\comunidades\mi_comunidad ^&^& ejecutar-ndvi-completo.bat
   goto :fin_error
 )
@@ -43,37 +32,23 @@ if not exist "%DIR%\logs" mkdir "%DIR%\logs"
 for /f "tokens=1-4 delims=/-. " %%a in ("%date%") do set "STAMP=%%d-%%b-%%c"
 set "LOG=%DIR%\logs\ndvi-completo-%STAMP%.log"
 
-cd /d "%DIR%"
+cd /d "%DIR%\src"
 echo === NDVI completo ===
 echo Carpeta: %DIR%
 echo Python:  %PY%
 echo Log:     %LOG%
 echo.
 
-if "%NO_PAUSE%"=="1" (
-  powershell.exe -NoProfile -Command ^
-    "& { $py = '%PY%'; $log = '%LOG%'; " ^
-    "'=== NDVI completo ===' | Out-File -FilePath $log -Encoding utf8; " ^
-    "'Carpeta: %DIR%' | Out-File -FilePath $log -Append -Encoding utf8; " ^
-    "& $py -u src\ndvi_completo.py 2>&1 | Tee-Object -FilePath $log -Append; " ^
-    "exit $LASTEXITCODE }"
-  set "EC=%ERRORLEVEL%"
-) else (
-  echo === NDVI completo === >> "%LOG%"
-  echo Carpeta: %DIR% >> "%LOG%"
-  echo Python: %PY% >> "%LOG%"
-  echo. >> "%LOG%"
-  "%PY%" -u src\ndvi_completo.py >> "%LOG%" 2>&1
-  set "EC=%ERRORLEVEL%"
-)
+"%PY%" -u ndvi_completo.py
+set "EC=%ERRORLEVEL%"
 
-echo ExitCode: %EC% >> "%LOG%"
+echo ExitCode: %EC%>> "%LOG%"
 if %EC% neq 0 goto :fin_error
-echo [OK] Terminado. Log: %LOG%
+echo [OK] Terminado.
 goto :fin_ok
 
 :fin_error
-echo [ERROR] Revisa %LOG%
+echo [ERROR] NDVI completo fallo.
 if "%NO_PAUSE%"=="1" exit /b 1
 pause
 exit /b 1
