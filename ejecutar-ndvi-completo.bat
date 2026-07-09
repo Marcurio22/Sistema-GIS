@@ -6,17 +6,21 @@ REM Tambien acepta ruta explicita:
 REM   ejecutar-ndvi-completo.bat C:\GIS\comunidades\mi_comunidad
 setlocal EnableExtensions
 
-net session >nul 2>&1
-if %errorlevel% neq 0 (
-  echo Solicitando permisos de administrador...
-  powershell.exe -NoProfile -Command "Start-Process -FilePath '%~f0' -ArgumentList '%~1' -Verb RunAs"
-  exit /b
-)
-
 set "DIR=%~1"
 if "%DIR%"=="" (
   set "DIR=%~dp0"
   if "%DIR:~-1%"=="\" set "DIR=%DIR:~0,-1%"
+)
+
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+  echo Solicitando permisos de administrador...
+  set "VBS=%TEMP%\_gis_uac_ndvi.vbs"
+  > "%VBS%" echo Set UAC = CreateObject^("Shell.Application"^)
+  >>"%VBS%" echo UAC.ShellExecute "%~f0", "%DIR%", "", "runas", 1
+  cscript //nologo "%VBS%" >nul 2>&1
+  del "%VBS%" >nul 2>&1
+  exit /b
 )
 
 if not exist "%DIR%\server.py" (
