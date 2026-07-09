@@ -3,7 +3,10 @@ REM Pack diario: ndvi_diax + generate_thumbnails
 REM Uso: ejecutar-ndvi-diario.bat C:\GIS\comunidades\arlanz
 setlocal EnableExtensions
 set "DIR=%~1"
-if "%DIR%"=="" set "DIR=%CD%"
+if "%DIR%"=="" (
+  set "DIR=%~dp0"
+  if "%DIR:~-1%"=="\" set "DIR=%DIR:~0,-1%"
+)
 if not exist "%DIR%\server.py" (
   echo.
   echo No es una instancia GIS ^(falta server.py^): %DIR%
