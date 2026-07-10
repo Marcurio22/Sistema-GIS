@@ -924,7 +924,11 @@ def api_create_cultivo(recinto_id: int):
         print ("Cultivo creado:", cultivo)
         return jsonify({"ok": True, "cultivo": cultivo}), 201
 
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
     except Exception:
+        current_app.logger.exception("POST /api/mis-recinto/%s/cultivo", recinto_id)
         return jsonify({"ok": False, "error": "Error interno en POST /api/mis-recinto/<id>/cultivo"}), 500
 
 

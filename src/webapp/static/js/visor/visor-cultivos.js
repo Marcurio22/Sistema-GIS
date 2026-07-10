@@ -2027,8 +2027,7 @@ function renderCultivoForm(container, args) {
             }
         }
 
-        // Previsión de cosecha en kg (no fecha automática)
-        let cosechaAuto = false;
+        # Previsión de cosecha en kg (va en avanzado; no activa cosecha_estimada_auto de BD)
         const nombreCult = selectedProd?.descripcion || cultivo_custom || "";
         let supHa = 0;
         try {
@@ -2042,7 +2041,6 @@ function renderCultivoForm(container, args) {
             kg_total: supHa ? Math.round(prevKgHa * supHa) : null,
             auto: true,
         } : null;
-        if (previsionCosecha) cosechaAuto = true;
 
         const observaciones = container.querySelector("#observaciones")?.value || null;
 
@@ -2059,7 +2057,7 @@ function renderCultivoForm(container, args) {
             cod_producto: cod_producto,
             cultivo_custom: cultivo_custom,
             observaciones: observaciones,
-            cosecha_estimada_auto: cosechaAuto,
+            cosecha_estimada_auto: false,
         };
 
         // Fechas según tipo_registro

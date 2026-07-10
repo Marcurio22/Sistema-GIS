@@ -755,6 +755,17 @@ def normalize_cultivo_payload(data: dict, existing: dict | None = None) -> dict:
     d["tipo_registro"] = tr
     return d
 
+
+def _sanitize_cosecha_auto_fields(data: dict) -> dict:
+    """
+    chk_auto_necesita_estimada: cosecha_estimada_auto solo si hay fecha_cosecha_estimada.
+    La previsión en kg/ha va en avanzado.prevision_cosecha, no activa este flag.
+    """
+    d = dict(data or {})
+    if d.get("cosecha_estimada_auto") and not d.get("fecha_cosecha_estimada"):
+        d["cosecha_estimada_auto"] = False
+    return d
+
 def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
     """
     Crea el único cultivo del recinto. Si ya existe, error.
@@ -764,6 +775,7 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
 
     # Normaliza antes de insertar
     data = normalize_cultivo_payload(data)
+    data = _sanitize_cosecha_auto_fields(data)
 
     # ============================================
     # Crear variedad si es nueva
@@ -878,6 +890,7 @@ def create_cultivo_recinto(recinto_id: int, data: dict) -> dict:
 def create_cultivo_historico_recinto(recinto_id: int, data: dict) -> dict:
     # Normaliza fechas/campaña
     data = normalize_cultivo_payload(data)
+    data = _sanitize_cosecha_auto_fields(data)
 
     # Fecha inicio nueva
     new_inicio = data.get("fecha_siembra") or data.get("fecha_implantacion")
@@ -976,6 +989,7 @@ def patch_cultivo_recinto(recinto_id: int, data: dict) -> dict:
 
     # normaliza fechas/campaña si hace falta
     merged = normalize_cultivo_payload(merged, existing=prev)
+    merged = _sanitize_cosecha_auto_fields(merged)
 
     merged["sistema_cultivo_codigo"] = _extract_sistema_cultivo_codigo(merged)
     merged["avanzado"] = _normalize_avanzado(merged.get("avanzado")) or {}
@@ -1161,6 +1175,7 @@ def patch_cultivo_by_id(id_cultivo: int, user_id: int, data: dict) -> dict:
 
     # normaliza fechas/campaña si hace falta
     merged = normalize_cultivo_payload(merged, existing=prev)
+    merged = _sanitize_cosecha_auto_fields(merged)
 
     merged["sistema_cultivo_codigo"] = _extract_sistema_cultivo_codigo(merged)
     merged["avanzado"] = _normalize_avanzado(merged.get("avanzado"))
