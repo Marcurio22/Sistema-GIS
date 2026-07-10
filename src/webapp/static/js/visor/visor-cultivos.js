@@ -2027,7 +2027,7 @@ function renderCultivoForm(container, args) {
             }
         }
 
-        # Previsión de cosecha en kg (va en avanzado; no activa cosecha_estimada_auto de BD)
+        // Previsión de cosecha en kg (va en avanzado; no activa cosecha_estimada_auto de BD)
         const nombreCult = selectedProd?.descripcion || cultivo_custom || "";
         let supHa = 0;
         try {
