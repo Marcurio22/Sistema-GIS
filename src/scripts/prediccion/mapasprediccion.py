@@ -25,6 +25,8 @@ GEOSERVER_USER     = os.getenv("GEOSERVER_USER")
 GEOSERVER_PASSWORD = os.getenv("GEOSERVER_PASSWORD")
 WORKSPACE          = os.getenv("GEOSERVER_WORKSPACE", "gis_project")
 
+GEOSERVER_TIMEOUT = int(os.getenv("GEOSERVER_TIMEOUT", "30"))
+
 DB_USER     = os.getenv("POSTGRES_USER")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
 DB_HOST     = os.getenv("POSTGRES_HOST")
@@ -100,88 +102,6 @@ def guardar_indice(indice: dict) -> None:
         )
 
 
-def bbox_desde_geometrias(geoms, pad: float = 0.01):
-    minx = miny = float("inf")
-    maxx = maxy = float("-inf")
-    for geom in geoms:
-        bx = geom.bounds
-        minx = min(minx, bx[0])
-        miny = min(miny, bx[1])
-        maxx = max(maxx, bx[2])
-        maxy = max(maxy, bx[3])
-    return minx - pad, miny - pad, maxx + pad, maxy + pad
-
-
-def cargar_recintos_propietarios(bbox=None) -> gpd.GeoDataFrame:
-    """Recintos con propietario; opcionalmente acotados al bbox de la predicción."""
-    if bbox is None:
-        sql = """
-            SELECT id_recinto, id_propietario, geom
-            FROM recintos
-            WHERE id_propietario IS NOT NULL
-              AND geom IS NOT NULL
-        """
-        gdf = gpd.read_postgis(sql, engine, geom_col="geom", crs="EPSG:4326")
-    else:
-        minx, miny, maxx, maxy = bbox
-        sql = f"""
-            SELECT id_recinto, id_propietario, geom
-            FROM recintos
-            WHERE id_propietario IS NOT NULL
-              AND geom IS NOT NULL
-              AND geom && ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326)
-        """
-        gdf = gpd.read_postgis(sql, engine, geom_col="geom", crs="EPSG:4326")
-    print(f"  Recintos con propietario en área: {len(gdf)}")
-    return gdf
-
-
-def asignar_propietarios(gdf: gpd.GeoDataFrame, recintos_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """
-    Asigna id_propietario por intersección de polígonos (no por centroide).
-    Las parcelas SIGPAC suelen ser más grandes que el recinto del usuario.
-    """
-    gdf_out = gdf.copy()
-    if recintos_gdf.empty:
-        gdf_out["id_propietario"] = None
-        return gdf_out
-
-    rec = recintos_gdf.set_geometry("geom")
-    gdf_p = gdf_out.to_crs(25830)
-    rec_p = rec.to_crs(25830)
-    sidx = rec_p.sindex
-
-    propietarios = []
-    for geom in gdf_p.geometry:
-        if geom is None or geom.is_empty:
-            propietarios.append(None)
-            continue
-        cand = list(sidx.intersection(geom.bounds))
-        if not cand:
-            propietarios.append(None)
-            continue
-        hits = rec_p.iloc[cand]
-        hits = hits[hits.intersects(geom)]
-        if hits.empty:
-            propietarios.append(None)
-            continue
-        if len(hits) == 1:
-            propietarios.append(int(hits.iloc[0]["id_propietario"]))
-            continue
-        best_uid = None
-        best_area = -1.0
-        for _, row in hits.iterrows():
-            inter = geom.intersection(row.geometry)
-            area = inter.area if not inter.is_empty else 0.0
-            if area > best_area:
-                best_area = area
-                best_uid = row["id_propietario"]
-        propietarios.append(int(best_uid) if best_uid is not None else None)
-
-    gdf_out["id_propietario"] = propietarios
-    return gdf_out
-
-
 AUTH         = (GEOSERVER_USER, GEOSERVER_PASSWORD)
 HEADERS_JSON = {"Content-Type": "application/json"}
 HEADERS_XML  = {"Content-Type": "application/xml"}
@@ -226,14 +146,12 @@ def generar_tablas_postgis():
     indice = {}
 
     print("Cargando recintos para join espacial...")
-    geoms_preview = []
-    for _, row in df.iterrows():
-        try:
-            geoms_preview.append(wkt.loads(row["geometry_wkt"]))
-        except Exception:
-            pass
-    bbox = bbox_desde_geometrias(geoms_preview) if geoms_preview else None
-    recintos_gdf = cargar_recintos_propietarios(bbox)
+    recintos_gdf = gpd.read_postgis(
+        "SELECT id_propietario, geom FROM recintos",
+        engine,
+        geom_col="geom",
+        crs="EPSG:4326",
+    )
 
     for offset, col in enumerate(columnas_et):
         fecha_str = col.replace("ET_", "")
@@ -259,9 +177,29 @@ def generar_tablas_postgis():
             })
 
         gdf = gpd.GeoDataFrame(filas, crs="EPSG:4326")
-        gdf = asignar_propietarios(gdf, recintos_gdf)
 
-        asignados = sum(p is not None for p in gdf["id_propietario"])
+        recintos_para_join = recintos_gdf[["id_propietario", "geom"]].copy()
+        recintos_para_join = recintos_para_join.set_geometry("geom")
+
+        gdf_centroids = gdf.copy().set_geometry("geometry")
+        gdf_centroids["geometry"] = (
+            gdf_centroids["geometry"]
+            .to_crs("EPSG:25830")
+            .centroid
+            .to_crs("EPSG:4326")
+        )
+
+        joined = gpd.sjoin(
+            gdf_centroids,
+            recintos_para_join,
+            how="left",
+            predicate="within",
+        )
+
+        joined = joined[~joined.index.duplicated(keep="first")]
+        gdf["id_propietario"] = joined["id_propietario"].values
+
+        asignados = int(gdf["id_propietario"].notna().sum())
         print(f"  Propietarios asignados: {asignados}/{len(gdf)}")
         gdf.to_postgis(
             tabla,
@@ -289,7 +227,7 @@ def generar_tablas_postgis():
 # ── GeoServer: comprobar si existe el datastore PostGIS ──────────────────────
 def datastore_postgis_existe():
     url = f"{GEOSERVER_BASE_URL}/rest/workspaces/{WORKSPACE}/datastores/postgis_etp.json"
-    return requests.get(url, auth=AUTH).status_code == 200
+    return requests.get(url, auth=AUTH, timeout=GEOSERVER_TIMEOUT).status_code == 200
 
 # ── GeoServer: crear datastore PostGIS ───────────────────────────────────────
 def crear_datastore_postgis():
@@ -314,7 +252,7 @@ def crear_datastore_postgis():
     })
     r = requests.post(
         f"{GEOSERVER_BASE_URL}/rest/workspaces/{WORKSPACE}/datastores",
-        auth=AUTH, headers=HEADERS_JSON, data=ds_body
+        auth=AUTH, headers=HEADERS_JSON, data=ds_body, timeout=GEOSERVER_TIMEOUT,
     )
     print(f"  Datastore PostGIS: {r.status_code} — {r.text[:200]}")
     return r.status_code in (200, 201)
@@ -322,7 +260,7 @@ def crear_datastore_postgis():
 # ── GeoServer: comprobar si existe la capa ───────────────────────────────────
 def capa_existe(nombre):
     url = f"{GEOSERVER_BASE_URL}/rest/workspaces/{WORKSPACE}/datastores/postgis_etp/featuretypes/{nombre}.json"
-    return requests.get(url, auth=AUTH).status_code == 200
+    return requests.get(url, auth=AUTH, timeout=GEOSERVER_TIMEOUT).status_code == 200
 
 # ── GeoServer: publicar capa desde PostGIS ───────────────────────────────────
 def crear_capa(nombre, offset):
@@ -340,7 +278,7 @@ def crear_capa(nombre, offset):
     })
     r = requests.post(
         f"{GEOSERVER_BASE_URL}/rest/workspaces/{WORKSPACE}/datastores/postgis_etp/featuretypes",
-        auth=AUTH, headers=HEADERS_JSON, data=ft_body
+        auth=AUTH, headers=HEADERS_JSON, data=ft_body, timeout=GEOSERVER_TIMEOUT,
     )
     print(f"  [FT] {r.status_code} — {r.text[:300]}")
     if r.status_code not in (200, 201):
@@ -352,7 +290,7 @@ def crear_capa(nombre, offset):
 def recargar_capa(nombre):
     url  = f"{GEOSERVER_BASE_URL}/rest/workspaces/{WORKSPACE}/datastores/postgis_etp/featuretypes/{nombre}.json"
     body = json.dumps({"featureType": {"enabled": True}})
-    r    = requests.put(url, auth=AUTH, headers=HEADERS_JSON, data=body)
+    r    = requests.put(url, auth=AUTH, headers=HEADERS_JSON, data=body, timeout=GEOSERVER_TIMEOUT)
     print(f"  Recarga {nombre}: {r.status_code}")
 
 # ── GeoServer: asignar estilo a la capa ──────────────────────────────────────
@@ -365,13 +303,13 @@ def asignar_estilo(nombre):
             }
         }
     })
-    r = requests.put(url, auth=AUTH, headers=HEADERS_JSON, data=body)
+    r = requests.put(url, auth=AUTH, headers=HEADERS_JSON, data=body, timeout=GEOSERVER_TIMEOUT)
     print(f"  Estilo asignado {nombre}: {r.status_code}")
 
 # ── GeoServer: limpiar caché ──────────────────────────────────────────────────
 def limpiar_cache(nombre):
     url = f"{GEOSERVER_BASE_URL}/gwc/rest/layers/{WORKSPACE}:{nombre}.json"
-    r   = requests.delete(url, auth=AUTH)
+    r   = requests.delete(url, auth=AUTH, timeout=GEOSERVER_TIMEOUT)
     print(f"  Cache {nombre}: {r.status_code}")
 
 # ── GeoServer: crear estilo SLD ───────────────────────────────────────────────
@@ -465,7 +403,9 @@ def asegurar_estilo():
 """
 
     existe = requests.get(
-        f"{GEOSERVER_BASE_URL}/rest/styles/{nombre}.json", auth=AUTH
+        f"{GEOSERVER_BASE_URL}/rest/styles/{nombre}.json",
+        auth=AUTH,
+        timeout=GEOSERVER_TIMEOUT,
     ).status_code == 200
 
     if not existe:
@@ -473,7 +413,8 @@ def asegurar_estilo():
             f"{GEOSERVER_BASE_URL}/rest/styles",
             auth=AUTH,
             headers={"Content-Type": "application/json"},
-            data=json.dumps({"style": {"name": nombre, "filename": f"{nombre}.sld"}})
+            data=json.dumps({"style": {"name": nombre, "filename": f"{nombre}.sld"}}),
+            timeout=GEOSERVER_TIMEOUT,
         )
         print(f"  Estilo creado: {r.status_code}")
     else:
@@ -483,9 +424,45 @@ def asegurar_estilo():
         f"{GEOSERVER_BASE_URL}/rest/styles/{nombre}",
         auth=AUTH,
         headers={"Content-Type": "application/vnd.ogc.sld+xml"},
-        data=sld.encode("utf-8")
+        data=sld.encode("utf-8"),
+        timeout=GEOSERVER_TIMEOUT,
     )
     print(f"  SLD subido: {r.status_code} — {r.text[:200]}")
+
+
+def publicar_geoserver(offsets):
+    if not GEOSERVER_BASE_URL:
+        print("[WARN] GEOSERVER_WMS_URL no configurado; omitiendo publicación en GeoServer.")
+        return
+
+    try:
+        print("Comprobando estilo GeoServer...")
+        asegurar_estilo()
+
+        print("\nComprobando datastore PostGIS...")
+        if not datastore_postgis_existe():
+            print("  Creando datastore PostGIS...")
+            if not crear_datastore_postgis():
+                print("  [ERROR] No se pudo crear el datastore.")
+                return
+        else:
+            print("  Datastore PostGIS ya existe.")
+
+        print("\nPublicando capas en GeoServer...")
+        for offset in offsets:
+            nombre = f"etp_prediccion_{offset}"
+            if capa_existe(nombre):
+                print(f"  {nombre} ya existe → recargando...")
+                recargar_capa(nombre)
+            else:
+                print(f"  {nombre} no existe → creando...")
+                crear_capa(nombre, offset)
+            asignar_estilo(nombre)
+            limpiar_cache(nombre)
+    except requests.RequestException as exc:
+        print(f"\n[WARN] GeoServer no alcanzable ({GEOSERVER_BASE_URL}): {exc}")
+        print("  Las tablas PostGIS ya están actualizadas.")
+        print("  Publica capas ejecutando mapasprediccion en el servidor.")
 
 
 def main():
@@ -493,35 +470,8 @@ def main():
     print(f"Iniciando generación ETP — {datetime.now().strftime('%Y-%m-%d %H:%M')}")
     print("=" * 50)
 
-    # 1. Escribir tablas en PostGIS
     offsets = generar_tablas_postgis()
-
-    # 2. Asegurar estilo
-    print("Comprobando estilo GeoServer...")
-    asegurar_estilo()
-
-    # 3. Asegurar datastore PostGIS
-    print("\nComprobando datastore PostGIS...")
-    if not datastore_postgis_existe():
-        print("  Creando datastore PostGIS...")
-        if not crear_datastore_postgis():
-            print("  [ERROR] No se pudo crear el datastore, abortando.")
-            return
-    else:
-        print("  Datastore PostGIS ya existe.")
-
-    # 4. Crear o recargar capas y asignar estilo
-    print("\nPublicando capas en GeoServer...")
-    for offset in offsets:
-        nombre = f"etp_prediccion_{offset}"
-        if capa_existe(nombre):
-            print(f"  {nombre} ya existe → recargando...")
-            recargar_capa(nombre)
-        else:
-            print(f"  {nombre} no existe → creando...")
-            crear_capa(nombre, offset)
-        asignar_estilo(nombre)
-        limpiar_cache(nombre)
+    publicar_geoserver(offsets)
 
     print("\nFinalizado.")
 

@@ -843,6 +843,24 @@ def api_etp_prediccion_indice():
     return jsonify({}), 404
 
 
+@api_bp.get("/prediccion/riego/indice")
+@login_required
+def api_riego_prediccion_indice():
+    from project_paths import RIEGO_DATA_DIR
+
+    candidates = [
+        RIEGO_DATA_DIR / "indice.json",
+        Path(current_app.root_path) / "static" / "riego_prediccion" / "indice.json",
+    ]
+    for path in candidates:
+        if path.is_file():
+            try:
+                return jsonify(json.loads(path.read_text(encoding="utf-8")))
+            except (OSError, json.JSONDecodeError):
+                continue
+    return jsonify({}), 404
+
+
 @api_bp.get("/catalogos/usos-sigpac")
 @login_required
 def api_catalogo_usos_sigpac():

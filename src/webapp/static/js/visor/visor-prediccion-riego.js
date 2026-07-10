@@ -12,7 +12,7 @@
     const GEOSERVER_WMS = window.GEOSERVER_WMS;
     if (!GEOSERVER_WMS) { console.error("[PRED-RIEGO] window.GEOSERVER_WMS no encontrado."); return; }
 
-    const BASE_URL  = "/static/riego_prediccion";
+    const INDICE_URL = "/api/prediccion/riego/indice";
     const WORKSPACE = window.GEOSERVER_WORKSPACE || "gis_project";
 
     const btnPrediccion = document.querySelector('.basemap-option.basemap-main[data-layer="prediccion-riego"]');
@@ -33,7 +33,7 @@
 
     async function cargarIndice() {
       try {
-        const r = await fetch(`${BASE_URL}/indice.json`);
+        const r = await fetch(INDICE_URL);
         indice = await r.json();
         actualizarBotonesDias();
       } catch (e) {

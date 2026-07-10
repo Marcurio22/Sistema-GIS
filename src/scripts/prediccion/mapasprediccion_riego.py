@@ -31,17 +31,23 @@ from shapely import wkt
 from shapely.geometry import mapping, shape
 from sqlalchemy import create_engine, text
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from kc_calculo import calc_kc, load_kc_catalog, lookup_cultivo
-
-load_dotenv()
-
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "src"))
+from project_paths import (  # noqa: E402
+    NDVI_COMPOSITE_DIR,
+    RIEGO_DATA_DIR,
+    RIEGO_STATIC_DIR,
+    SALIDA_PRED_DIR,
+)
+from scripts.prediccion.kc_calculo import calc_kc, load_kc_catalog, lookup_cultivo  # noqa: E402
+
+load_dotenv(ROOT / ".env")
 
 GEOSERVER_BASE_URL = os.getenv("GEOSERVER_WMS_URL", "").replace("/wms", "").rstrip("/")
 GEOSERVER_USER     = os.getenv("GEOSERVER_USER")
 GEOSERVER_PASSWORD = os.getenv("GEOSERVER_PASSWORD")
 WORKSPACE          = os.getenv("GEOSERVER_WORKSPACE", "gis_project")
+GEOSERVER_TIMEOUT  = int(os.getenv("GEOSERVER_TIMEOUT", "30"))
 
 DB_USER     = os.getenv("POSTGRES_USER")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD")
@@ -49,13 +55,15 @@ DB_HOST     = os.getenv("POSTGRES_HOST")
 DB_PORT     = os.getenv("POSTGRES_PORT")
 DB_NAME     = os.getenv("POSTGRES_DB")
 
-CARPETA_CSV = ROOT / "Prediccion" / "salidaPred"
-STATIC_DIR  = ROOT / "src" / "webapp" / "static" / "riego_prediccion"
-NDVI_DIR    = ROOT / "data" / "processed" / "ndvi_composite"
+CARPETA_CSV = SALIDA_PRED_DIR
+STATIC_DIR  = RIEGO_STATIC_DIR
+DATA_DIR    = RIEGO_DATA_DIR
+NDVI_DIR    = NDVI_COMPOSITE_DIR
 os.makedirs(STATIC_DIR, exist_ok=True)
+os.makedirs(DATA_DIR, exist_ok=True)
 
 
-def escribir_json(ruta, datos):
+def escribir_json(ruta, datos) -> bool:
     """
     Escribe un JSON de forma robusta:
     - crea el directorio si falta,
@@ -72,30 +80,52 @@ def escribir_json(ruta, datos):
         except OSError:
             pass
     tmp = ruta + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(datos, f)
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(datos, f)
+    except OSError:
+        return False
 
-    # En Windows, os.replace puede fallar con "Acceso denegado" si el destino
-    # esta temporalmente bloqueado (AV/backup/servicio). Reintentar y, si no,
-    # escribir en el propio fichero como plan B.
     for attempt in range(6):
         try:
             os.replace(tmp, ruta)
-            return
+            return True
         except PermissionError:
             if attempt == 5:
                 break
             time.sleep(0.4)
+        except OSError:
+            break
 
     try:
         with open(ruta, "w", encoding="utf-8") as f:
             json.dump(datos, f)
+        return True
+    except OSError:
+        return False
     finally:
         try:
             if os.path.exists(tmp):
                 os.remove(tmp)
         except OSError:
             pass
+
+
+def guardar_indice(indice: dict) -> None:
+    data_path = DATA_DIR / "indice.json"
+    if not escribir_json(data_path, indice):
+        raise OSError(f"No se pudo escribir el índice en {data_path}")
+    print(f"  → indice.json → {data_path}")
+
+    static_path = STATIC_DIR / "indice.json"
+    if escribir_json(static_path, indice):
+        print(f"  → indice.json → {static_path}")
+    else:
+        print(
+            "  [WARN] No se pudo escribir en static (servicio web en marcha). "
+            "El visor usará /api/prediccion/riego/indice."
+        )
+
 
 AUTH         = (GEOSERVER_USER, GEOSERVER_PASSWORD)
 HEADERS_JSON = {"Content-Type": "application/json"}
@@ -439,8 +469,7 @@ def generar_tablas_postgis():
 
             indice[str(offset)] = fecha_str
 
-    escribir_json(STATIC_DIR / "indice.json", indice)
-    print(f"  → indice.json guardado en {STATIC_DIR}")
+    guardar_indice(indice)
 
     return list(range(len(columnas_et)))
 
@@ -449,7 +478,7 @@ def generar_tablas_postgis():
 
 def datastore_postgis_existe() -> bool:
     url = f"{GEOSERVER_BASE_URL}/rest/workspaces/{WORKSPACE}/datastores/postgis_etp.json"
-    return requests.get(url, auth=AUTH).status_code == 200
+    return requests.get(url, auth=AUTH, timeout=GEOSERVER_TIMEOUT).status_code == 200
 
 
 def capa_existe(nombre: str) -> bool:
@@ -457,7 +486,7 @@ def capa_existe(nombre: str) -> bool:
         f"{GEOSERVER_BASE_URL}/rest/workspaces/{WORKSPACE}/"
         f"datastores/postgis_etp/featuretypes/{nombre}.json"
     )
-    return requests.get(url, auth=AUTH).status_code == 200
+    return requests.get(url, auth=AUTH, timeout=GEOSERVER_TIMEOUT).status_code == 200
 
 
 def crear_capa(nombre: str, offset: int):
@@ -473,7 +502,7 @@ def crear_capa(nombre: str, offset: int):
     })
     r = requests.post(
         f"{GEOSERVER_BASE_URL}/rest/workspaces/{WORKSPACE}/datastores/postgis_etp/featuretypes",
-        auth=AUTH, headers=HEADERS_JSON, data=ft_body,
+        auth=AUTH, headers=HEADERS_JSON, data=ft_body, timeout=GEOSERVER_TIMEOUT,
     )
     print(f"  [FT] {nombre}: {r.status_code}")
 
@@ -484,20 +513,20 @@ def recargar_capa(nombre: str):
         f"datastores/postgis_etp/featuretypes/{nombre}.json"
     )
     body = json.dumps({"featureType": {"enabled": True}})
-    r    = requests.put(url, auth=AUTH, headers=HEADERS_JSON, data=body)
+    r    = requests.put(url, auth=AUTH, headers=HEADERS_JSON, data=body, timeout=GEOSERVER_TIMEOUT)
     print(f"  Recarga {nombre}: {r.status_code}")
 
 
 def asignar_estilo(nombre: str):
     url  = f"{GEOSERVER_BASE_URL}/rest/layers/{WORKSPACE}:{nombre}.json"
     body = json.dumps({"layer": {"defaultStyle": {"name": "riego_prediccion_estilo"}}})
-    r = requests.put(url, auth=AUTH, headers=HEADERS_JSON, data=body)
+    r = requests.put(url, auth=AUTH, headers=HEADERS_JSON, data=body, timeout=GEOSERVER_TIMEOUT)
     print(f"  Estilo {nombre}: {r.status_code}")
 
 
 def limpiar_cache(nombre: str):
     url = f"{GEOSERVER_BASE_URL}/gwc/rest/layers/{WORKSPACE}:{nombre}.json"
-    r   = requests.delete(url, auth=AUTH)
+    r   = requests.delete(url, auth=AUTH, timeout=GEOSERVER_TIMEOUT)
     print(f"  Cache {nombre}: {r.status_code}")
 
 
@@ -561,7 +590,9 @@ def asegurar_estilo():
 </sld:StyledLayerDescriptor>"""
 
     existe = requests.get(
-        f"{GEOSERVER_BASE_URL}/rest/styles/{nombre}.json", auth=AUTH
+        f"{GEOSERVER_BASE_URL}/rest/styles/{nombre}.json",
+        auth=AUTH,
+        timeout=GEOSERVER_TIMEOUT,
     ).status_code == 200
     if not existe:
         requests.post(
@@ -569,14 +600,43 @@ def asegurar_estilo():
             auth=AUTH,
             headers=HEADERS_JSON,
             data=json.dumps({"style": {"name": nombre, "filename": f"{nombre}.sld"}}),
+            timeout=GEOSERVER_TIMEOUT,
         )
     r = requests.put(
         f"{GEOSERVER_BASE_URL}/rest/styles/{nombre}",
         auth=AUTH,
         headers={"Content-Type": "application/vnd.ogc.sld+xml"},
         data=sld.encode("utf-8"),
+        timeout=GEOSERVER_TIMEOUT,
     )
     print(f"  SLD riego: {r.status_code}")
+
+
+def publicar_geoserver(offsets):
+    if not GEOSERVER_BASE_URL:
+        print("[WARN] GEOSERVER_WMS_URL no configurado; omitiendo publicación en GeoServer.")
+        return
+
+    try:
+        print("\nComprobando estilo GeoServer...")
+        asegurar_estilo()
+
+        if not datastore_postgis_existe():
+            print("[WARN] Datastore postgis_etp no existe. Ejecuta mapasprediccion primero.")
+            return
+
+        print("\nPublicando capas riego en GeoServer...")
+        for offset in offsets:
+            nombre = f"riego_prediccion_{offset}"
+            if capa_existe(nombre):
+                recargar_capa(nombre)
+            else:
+                crear_capa(nombre, offset)
+            asignar_estilo(nombre)
+            limpiar_cache(nombre)
+    except requests.RequestException as exc:
+        print(f"\n[WARN] GeoServer no alcanzable ({GEOSERVER_BASE_URL}): {exc}")
+        print("  Las tablas PostGIS de riego ya están actualizadas.")
 
 
 def main():
@@ -585,23 +645,7 @@ def main():
     print("=" * 50)
 
     offsets = generar_tablas_postgis()
-
-    print("\nComprobando estilo GeoServer...")
-    asegurar_estilo()
-
-    if not datastore_postgis_existe():
-        print("[ERROR] Datastore postgis_etp no existe. Ejecuta mapasprediccion.py primero.")
-        return
-
-    print("\nPublicando capas riego en GeoServer...")
-    for offset in offsets:
-        nombre = f"riego_prediccion_{offset}"
-        if capa_existe(nombre):
-            recargar_capa(nombre)
-        else:
-            crear_capa(nombre, offset)
-        asignar_estilo(nombre)
-        limpiar_cache(nombre)
+    publicar_geoserver(offsets)
 
     print("\nFinalizado.")
 
