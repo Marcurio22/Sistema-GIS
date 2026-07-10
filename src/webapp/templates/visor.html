@@ -264,7 +264,8 @@
       <div class="basemap-option-label">Imagen Satelital<br>(OSM Standard)</div>
     </div>
 
-    <div class="basemap-option basemap-main {% if sentinel2_version == 0 %}disabled{% endif %}" data-layer="sentinel_recent">
+    {# Oculto temporalmente: Satélite más reciente (Sentinel-2) #}
+    <div class="basemap-option basemap-main d-none {% if sentinel2_version == 0 %}disabled{% endif %}" data-layer="sentinel_recent">
       <div class="basemap-thumb">
         <img src="{{ url_for('static', filename='img/thumb_sentinel2.png') }}" alt="Sentinel-2 reciente" />
       </div>
