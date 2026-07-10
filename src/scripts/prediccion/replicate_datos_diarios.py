@@ -78,18 +78,34 @@ def replicate_datos_diarios(
     batch_size = 500
     written = 0
 
-    with tgt_engine.begin() as conn:
-        for i in range(0, len(payloads), batch_size):
-            chunk = payloads[i : i + batch_size]
-            stmt = pg_insert(DatosDiarios).values(chunk)
-            stmt = stmt.on_conflict_do_update(
-                constraint="uq_estacion_fecha",
-                set_=update_cols,
-            )
-            result = conn.execute(stmt)
-            written += result.rowcount if result.rowcount and result.rowcount > 0 else len(chunk)
+    try:
+        with tgt_engine.begin() as conn:
+            for i in range(0, len(payloads), batch_size):
+                chunk = payloads[i : i + batch_size]
+                stmt = pg_insert(DatosDiarios).values(chunk)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["estacion_id", "fecha"],
+                    set_=update_cols,
+                )
+                result = conn.execute(stmt)
+                written += result.rowcount if result.rowcount and result.rowcount > 0 else len(chunk)
+    except Exception as exc:
+        log.error("Error escribiendo en destino: %s", exc)
+        raise
 
-    log.info(f"Replicados {written} registros (upsert estacion_id+fecha)")
+    with tgt_engine.connect() as conn:
+        n_dest = conn.execute(
+            text(
+                "SELECT COUNT(*) FROM datos_diarios "
+                "WHERE fecha >= :ini AND fecha <= :fin"
+            ),
+            {"ini": fecha_inicio, "fin": fecha_fin},
+        ).scalar()
+
+    log.info(
+        f"Replicados {written} registros (upsert estacion_id+fecha); "
+        f"destino tiene {n_dest} filas en el rango"
+    )
     return written, 0
 
 

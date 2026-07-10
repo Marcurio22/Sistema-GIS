@@ -34,11 +34,16 @@ cols_salida = ["Ev_t-3", "Ev_t-2", "Ev_t-1", "Ev_t"]
 df  = pd.read_csv(CSV)
 dat_tmp = os.path.join(CARPETA_DLL, "_tmp_ent.dat")
 
+n_ev_t = int(df["Ev_t"].notna().sum()) if "Ev_t" in df.columns else 0
+print(f"CSV: {CSV}")
+print(f"Parcelas: {len(df):,} | Cultivos: {df['Cl'].nunique()} | Filas con Ev_t: {n_ev_t:,}")
+
 ok, err, skip = 0, 0, 0
 
 for cultivo, grupo in df.groupby("Cl"):
     grupo_limpio = grupo[cols_entrada + cols_salida].dropna()
     if len(grupo_limpio)  < 6:
+        print(f"  [AVISO] {cultivo}: {len(grupo_limpio)} filas completas (min 6), omitido")
         skip += 1
         continue
 
@@ -59,5 +64,6 @@ for cultivo, grupo in df.groupby("Cl"):
         ok += 1
     else:
         err += 1
+        print(f"  [ERROR] {cultivo}: la DLL no genero {bin_mod}")
 
 print(f"\nResumen: {ok} OK, {err} error, {skip} omitidos")

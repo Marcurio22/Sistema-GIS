@@ -1,7 +1,18 @@
 import os
+from pathlib import Path
+
 from dotenv import load_dotenv
 
-load_dotenv()
+
+def _project_root() -> Path:
+    here = Path(__file__).resolve()
+    for base in (here.parent.parent.parent, here.parent.parent):
+        if (base / "server.py").is_file() or (base / ".env").is_file():
+            return base
+    return Path.cwd()
+
+
+load_dotenv(_project_root() / ".env")
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY")

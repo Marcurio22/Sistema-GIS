@@ -1,5 +1,12 @@
 import subprocess
 import sys
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "src"))
+load_dotenv(ROOT / ".env")
 
 scripts = [
     # Meteorologia compartida: copia desde gisdb (la API se llama una vez con sync_meteo_global)
@@ -17,7 +24,8 @@ for script in scripts:
 
     subprocess.run(
         [sys.executable, "-m", script],
-        check=True
+        check=True,
+        cwd=str(ROOT),
     )
 
 print("\nTodos los scripts terminaron correctamente.")
