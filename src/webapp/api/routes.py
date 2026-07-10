@@ -27,6 +27,7 @@ from decimal import Decimal
 from geoalchemy2.shape import from_shape, to_shape
 import os
 import uuid
+import json
 
 from PIL import Image
 import numpy as np
@@ -821,6 +822,26 @@ def popup_chduero():
         return jsonify({'ok': False, 'found': False, 'error': str(e)})
 
 # Catálogos para el frontend
+
+# Predicción ETP — índice de fechas (evita escribir en static si el servicio lo bloquea)
+
+@api_bp.get("/prediccion/etp/indice")
+@login_required
+def api_etp_prediccion_indice():
+    from project_paths import ETP_DATA_DIR
+
+    candidates = [
+        ETP_DATA_DIR / "indice.json",
+        Path(current_app.root_path) / "static" / "etp_prediccion" / "indice.json",
+    ]
+    for path in candidates:
+        if path.is_file():
+            try:
+                return jsonify(json.loads(path.read_text(encoding="utf-8")))
+            except (OSError, json.JSONDecodeError):
+                continue
+    return jsonify({}), 404
+
 
 @api_bp.get("/catalogos/usos-sigpac")
 @login_required

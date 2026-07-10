@@ -13,7 +13,7 @@
     const GEOSERVER_WMS = window.GEOSERVER_WMS;
     if (!GEOSERVER_WMS) { console.error("[PRED-ETP] window.GEOSERVER_WMS no encontrado."); return; }
 
-    const BASE_URL = "/static/etp_prediccion"; // solo para el indice.json
+    const INDICE_URL = "/api/prediccion/etp/indice";
     const WORKSPACE = window.GEOSERVER_WORKSPACE || "gis_project";
 
     const btnPrediccion = document.querySelector('.basemap-option.basemap-main[data-layer="prediccion-etp"]');
@@ -36,7 +36,7 @@
     // ── Cargar índice de fechas ───────────────────────────────────────────────
     async function cargarIndice() {
       try {
-        const r = await fetch(`${BASE_URL}/indice.json`);
+        const r = await fetch(INDICE_URL);
         indice = await r.json();
         actualizarBotonesDias();
       } catch (e) {

@@ -34,6 +34,7 @@ DATOS_SALIDA_DIR = Path(os.getenv("GIS_DATOS_SALIDA", str(PROJECT_ROOT / "data" 
 
 NDVI_COMPOSITE_DIR = PROJECT_ROOT / "data" / "processed" / "ndvi_composite"
 ETP_STATIC_DIR = PROJECT_ROOT / "src" / "webapp" / "static" / "etp_prediccion"
+ETP_DATA_DIR = PROJECT_ROOT / "data" / "processed" / "etp_prediccion"
 RIEGO_STATIC_DIR = PROJECT_ROOT / "src" / "webapp" / "static" / "riego_prediccion"
 
 _DEFAULT_GEOSERVER_MAPAS = (

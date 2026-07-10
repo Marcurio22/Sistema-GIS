@@ -15,7 +15,7 @@ from sqlalchemy import create_engine, text
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
-from project_paths import SALIDA_PRED_DIR, ETP_STATIC_DIR  # noqa: E402
+from project_paths import SALIDA_PRED_DIR, ETP_STATIC_DIR, ETP_DATA_DIR  # noqa: E402
 
 load_dotenv(ROOT / ".env")
 
@@ -33,19 +33,18 @@ DB_NAME     = os.getenv("POSTGRES_DB")
 
 CARPETA_CSV = str(SALIDA_PRED_DIR)
 STATIC_DIR  = str(ETP_STATIC_DIR)
+DATA_DIR    = ETP_DATA_DIR
 os.makedirs(STATIC_DIR, exist_ok=True)
+os.makedirs(DATA_DIR, exist_ok=True)
 
 
-def escribir_json(ruta, datos):
+def escribir_json(ruta, datos) -> bool:
     """
-    Escribe un JSON de forma robusta:
-    - crea el directorio si falta,
-    - quita el atributo de solo-lectura si el fichero venia de una copia
-      de plantilla (evita PermissionError [Errno 13] en Windows),
-    - escritura atomica (fichero temporal + replace).
+    Escribe un JSON de forma robusta. Devuelve False si no pudo escribir
+  (p. ej. fichero bloqueado por el servicio web en Windows).
     """
     ruta = str(ruta)
-    os.makedirs(os.path.dirname(ruta), exist_ok=True)
+    os.makedirs(os.path.dirname(ruta) or ".", exist_ok=True)
     if os.path.exists(ruta):
         try:
             os.chmod(ruta, stat.S_IWRITE)
@@ -53,30 +52,135 @@ def escribir_json(ruta, datos):
         except OSError:
             pass
     tmp = ruta + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(datos, f)
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(datos, f)
+    except OSError:
+        return False
 
-    # En Windows, os.replace puede fallar con "Acceso denegado" si el destino
-    # esta temporalmente bloqueado (AV/backup/servicio). Reintentar y, si no,
-    # escribir en el propio fichero como plan B.
     for attempt in range(6):
         try:
             os.replace(tmp, ruta)
-            return
+            return True
         except PermissionError:
             if attempt == 5:
                 break
             time.sleep(0.4)
+        except OSError:
+            break
 
     try:
         with open(ruta, "w", encoding="utf-8") as f:
             json.dump(datos, f)
+        return True
+    except OSError:
+        return False
     finally:
         try:
             if os.path.exists(tmp):
                 os.remove(tmp)
         except OSError:
             pass
+
+
+def guardar_indice(indice: dict) -> None:
+    """Escribe indice.json en data/ (obligatorio) y en static/ (opcional)."""
+    data_path = DATA_DIR / "indice.json"
+    if not escribir_json(data_path, indice):
+        raise OSError(f"No se pudo escribir el índice en {data_path}")
+    print(f"  → indice.json → {data_path}")
+
+    static_path = Path(STATIC_DIR) / "indice.json"
+    if escribir_json(static_path, indice):
+        print(f"  → indice.json → {static_path}")
+    else:
+        print(
+            "  [WARN] No se pudo escribir en static (servicio web en marcha). "
+            "El visor usará /api/prediccion/etp/indice."
+        )
+
+
+def bbox_desde_geometrias(geoms, pad: float = 0.01):
+    minx = miny = float("inf")
+    maxx = maxy = float("-inf")
+    for geom in geoms:
+        bx = geom.bounds
+        minx = min(minx, bx[0])
+        miny = min(miny, bx[1])
+        maxx = max(maxx, bx[2])
+        maxy = max(maxy, bx[3])
+    return minx - pad, miny - pad, maxx + pad, maxy + pad
+
+
+def cargar_recintos_propietarios(bbox=None) -> gpd.GeoDataFrame:
+    """Recintos con propietario; opcionalmente acotados al bbox de la predicción."""
+    if bbox is None:
+        sql = """
+            SELECT id_recinto, id_propietario, geom
+            FROM recintos
+            WHERE id_propietario IS NOT NULL
+              AND geom IS NOT NULL
+        """
+        gdf = gpd.read_postgis(sql, engine, geom_col="geom", crs="EPSG:4326")
+    else:
+        minx, miny, maxx, maxy = bbox
+        sql = f"""
+            SELECT id_recinto, id_propietario, geom
+            FROM recintos
+            WHERE id_propietario IS NOT NULL
+              AND geom IS NOT NULL
+              AND geom && ST_MakeEnvelope({minx}, {miny}, {maxx}, {maxy}, 4326)
+        """
+        gdf = gpd.read_postgis(sql, engine, geom_col="geom", crs="EPSG:4326")
+    print(f"  Recintos con propietario en área: {len(gdf)}")
+    return gdf
+
+
+def asignar_propietarios(gdf: gpd.GeoDataFrame, recintos_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Asigna id_propietario por intersección de polígonos (no por centroide).
+    Las parcelas SIGPAC suelen ser más grandes que el recinto del usuario.
+    """
+    gdf_out = gdf.copy()
+    if recintos_gdf.empty:
+        gdf_out["id_propietario"] = None
+        return gdf_out
+
+    rec = recintos_gdf.set_geometry("geom")
+    gdf_p = gdf_out.to_crs(25830)
+    rec_p = rec.to_crs(25830)
+    sidx = rec_p.sindex
+
+    propietarios = []
+    for geom in gdf_p.geometry:
+        if geom is None or geom.is_empty:
+            propietarios.append(None)
+            continue
+        cand = list(sidx.intersection(geom.bounds))
+        if not cand:
+            propietarios.append(None)
+            continue
+        hits = rec_p.iloc[cand]
+        hits = hits[hits.intersects(geom)]
+        if hits.empty:
+            propietarios.append(None)
+            continue
+        if len(hits) == 1:
+            propietarios.append(int(hits.iloc[0]["id_propietario"]))
+            continue
+        best_uid = None
+        best_area = -1.0
+        for _, row in hits.iterrows():
+            inter = geom.intersection(row.geometry)
+            area = inter.area if not inter.is_empty else 0.0
+            if area > best_area:
+                best_area = area
+                best_uid = row["id_propietario"]
+        propietarios.append(int(best_uid) if best_uid is not None else None)
+
+    gdf_out["id_propietario"] = propietarios
+    return gdf_out
+
 
 AUTH         = (GEOSERVER_USER, GEOSERVER_PASSWORD)
 HEADERS_JSON = {"Content-Type": "application/json"}
@@ -122,12 +226,15 @@ def generar_tablas_postgis():
     indice = {}
 
     print("Cargando recintos para join espacial...")
-    recintos_gdf = gpd.read_postgis(
-        "SELECT id_propietario, geom FROM recintos",
-        engine,
-        geom_col="geom",
-        crs="EPSG:4326"
-    )
+    geoms_preview = []
+    for _, row in df.iterrows():
+        try:
+            geoms_preview.append(wkt.loads(row["geometry_wkt"]))
+        except Exception:
+            pass
+    bbox = bbox_desde_geometrias(geoms_preview) if geoms_preview else None
+    recintos_gdf = cargar_recintos_propietarios(bbox)
+
     for offset, col in enumerate(columnas_et):
         fecha_str = col.replace("ET_", "")
         tabla     = f"etp_prediccion_{offset}"
@@ -152,30 +259,9 @@ def generar_tablas_postgis():
             })
 
         gdf = gpd.GeoDataFrame(filas, crs="EPSG:4326")
+        gdf = asignar_propietarios(gdf, recintos_gdf)
 
-        recintos_para_join = recintos_gdf[["id_propietario", "geom"]].copy()
-        recintos_para_join = recintos_para_join.set_geometry("geom")
-
-        # Calcular centroides en UTM (EPSG:25830, España) para mayor precisión
-        gdf_centroids = gdf.copy().set_geometry("geometry")
-        gdf_centroids["geometry"] = (
-            gdf_centroids["geometry"]
-            .to_crs("EPSG:25830")
-            .centroid
-            .to_crs("EPSG:4326")
-        )
-
-        joined = gpd.sjoin(
-            gdf_centroids,
-            recintos_para_join,
-            how="left",
-            predicate="within"
-        )
-
-        joined = joined[~joined.index.duplicated(keep="first")]
-        gdf["id_propietario"] = joined["id_propietario"].values
-
-        asignados = gdf["id_propietario"].notna().sum()
+        asignados = sum(p is not None for p in gdf["id_propietario"])
         print(f"  Propietarios asignados: {asignados}/{len(gdf)}")
         gdf.to_postgis(
             tabla,
@@ -195,8 +281,7 @@ def generar_tablas_postgis():
         indice[str(offset)] = fecha_str
         print(f"  → tabla {tabla}  ({fecha_str}, {len(filas)} registros)")
 
-    escribir_json(os.path.join(STATIC_DIR, "indice.json"), indice)
-    print(f"  → indice.json guardado")
+    guardar_indice(indice)
 
     print("Tablas PostGIS generadas.\n")
     return list(range(len(columnas_et)))
