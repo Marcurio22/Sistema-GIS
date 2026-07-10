@@ -85,6 +85,8 @@ MIN_VALID_COVERAGE_PER_IMAGE = 0.01
 # Parámetros de procesamiento
 NDVI_RES_M = float(os.getenv("NDVI_RES_M", "10"))
 NDVI_MAX_DIM = int(os.getenv("NDVI_MAX_DIM", "12000"))
+# Margen alrededor del ROI para evitar bordes blancos al desplazar el mapa (15% por lado)
+ROI_BBOX_PADDING_PCT = float(os.getenv("ROI_BBOX_PADDING_PCT", "0.15"))
 DEBUG_MODE = os.getenv("DEBUG_MODE", "1") == "1"
 
 # Clasificación SCL
@@ -350,16 +352,36 @@ def _read_roi_gdf(roi_path):
     return gpd.read_file(roi_path)
 
 
+def _expand_bbox(bbox, padding_pct):
+    """Amplía el bbox un porcentaje por cada lado (p. ej. 0.05 = 5%)."""
+    minx, miny, maxx, maxy = bbox
+    if padding_pct <= 0:
+        return bbox
+    dx = (maxx - minx) * padding_pct
+    dy = (maxy - miny) * padding_pct
+    return (
+        float(minx - dx),
+        float(miny - dy),
+        float(maxx + dx),
+        float(maxy + dy),
+    )
+
+
 def get_roi_bbox_from_gpkg():
-    """Leer ROI desde GeoPackage"""
+    """Leer ROI desde GeoPackage y ampliar ligeramente el bbox de trabajo."""
     roi_path = Path(ROI_PATH)
     if not roi_path.exists():
         raise FileNotFoundError(f"ROI no existe: {roi_path.resolve()}")
 
     roi = _read_roi_gdf(roi_path).to_crs(4326)
     minx, miny, maxx, maxy = roi.total_bounds
-    bbox = (float(minx), float(miny), float(maxx), float(maxy))
-    print(f"[ROI] BBox: {bbox}")
+    bbox_raw = (float(minx), float(miny), float(maxx), float(maxy))
+    bbox = _expand_bbox(bbox_raw, ROI_BBOX_PADDING_PCT)
+    if ROI_BBOX_PADDING_PCT > 0:
+        print(f"[ROI] BBox original: {bbox_raw}")
+        print(f"[ROI] BBox con margen {ROI_BBOX_PADDING_PCT * 100:.0f}%: {bbox}")
+    else:
+        print(f"[ROI] BBox: {bbox}")
     return bbox
 
 
