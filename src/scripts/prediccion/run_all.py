@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -5,8 +6,17 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / "src"))
+SRC = ROOT / "src"
+sys.path.insert(0, str(SRC))
 load_dotenv(ROOT / ".env")
+
+
+def _subprocess_env() -> dict:
+    env = os.environ.copy()
+    src = str(SRC)
+    prev = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = src + (os.pathsep + prev if prev else "")
+    return env
 
 scripts = [
     # Meteorologia compartida: copia desde gisdb (la API se llama una vez con sync_meteo_global)
@@ -26,6 +36,7 @@ for script in scripts:
         [sys.executable, "-m", script],
         check=True,
         cwd=str(ROOT),
+        env=_subprocess_env(),
     )
 
 print("\nTodos los scripts terminaron correctamente.")
