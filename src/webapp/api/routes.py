@@ -823,42 +823,47 @@ def popup_chduero():
 
 # Catálogos para el frontend
 
-# Predicción ETP — índice de fechas (evita escribir en static si el servicio lo bloquea)
+# Predicción ETP / riego — índice de fechas (no tumba el visor si falta el fichero)
+
+def _prediccion_indice_paths(nombre: str) -> list[Path]:
+    """Rutas candidatas de indice.json sin depender de import project_paths."""
+    webapp_root = Path(current_app.root_path)  # .../src/webapp
+    project_root = webapp_root.parent.parent   # raíz comunidad
+    return [
+        project_root / "data" / "processed" / nombre / "indice.json",
+        webapp_root / "static" / nombre / "indice.json",
+    ]
+
+
+def _leer_indice_prediccion(nombre: str):
+    for path in _prediccion_indice_paths(nombre):
+        if not path.is_file():
+            continue
+        try:
+            return jsonify(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            continue
+    return jsonify({}), 404
+
 
 @api_bp.get("/prediccion/etp/indice")
 @login_required
 def api_etp_prediccion_indice():
-    from project_paths import ETP_DATA_DIR
-
-    candidates = [
-        ETP_DATA_DIR / "indice.json",
-        Path(current_app.root_path) / "static" / "etp_prediccion" / "indice.json",
-    ]
-    for path in candidates:
-        if path.is_file():
-            try:
-                return jsonify(json.loads(path.read_text(encoding="utf-8")))
-            except (OSError, json.JSONDecodeError):
-                continue
-    return jsonify({}), 404
+    try:
+        return _leer_indice_prediccion("etp_prediccion")
+    except Exception:
+        current_app.logger.exception("Error leyendo indice prediccion ETP")
+        return jsonify({}), 404
 
 
 @api_bp.get("/prediccion/riego/indice")
 @login_required
 def api_riego_prediccion_indice():
-    from project_paths import RIEGO_DATA_DIR
-
-    candidates = [
-        RIEGO_DATA_DIR / "indice.json",
-        Path(current_app.root_path) / "static" / "riego_prediccion" / "indice.json",
-    ]
-    for path in candidates:
-        if path.is_file():
-            try:
-                return jsonify(json.loads(path.read_text(encoding="utf-8")))
-            except (OSError, json.JSONDecodeError):
-                continue
-    return jsonify({}), 404
+    try:
+        return _leer_indice_prediccion("riego_prediccion")
+    except Exception:
+        current_app.logger.exception("Error leyendo indice prediccion riego")
+        return jsonify({}), 404
 
 
 @api_bp.get("/catalogos/usos-sigpac")

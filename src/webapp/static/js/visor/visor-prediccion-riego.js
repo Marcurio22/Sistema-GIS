@@ -34,10 +34,20 @@
     async function cargarIndice() {
       try {
         const r = await fetch(INDICE_URL);
-        indice = await r.json();
+        const text = await r.text();
+        try {
+          indice = JSON.parse(text);
+        } catch (_) {
+          indice = {};
+          if (!r.ok) {
+            console.warn("[PRED-RIEGO] Indice no disponible (HTTP " + r.status + "). Ejecuta predicción para generarlo.");
+          }
+          return;
+        }
         actualizarBotonesDias();
       } catch (e) {
-        console.error("[PRED-RIEGO] No se pudo cargar indice.json", e);
+        console.warn("[PRED-RIEGO] No se pudo cargar indice.json", e);
+        indice = {};
       }
     }
 
