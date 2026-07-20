@@ -157,14 +157,13 @@ def calcular_color_riego(etp_valor: float, ev_ref: float) -> str:
 
 
 def formato_volumen_mapa(deficit_mm: float) -> str:
-    """Etiqueta compacta en m³/ha (1 mm de déficit ≈ 10 m³/ha)."""
+    """Etiqueta en L/m² (1 mm de déficit = 1 L/m²)."""
     d = float(deficit_mm)
     if d <= 0:
         return ""
-    m3_ha = d * 10
-    if m3_ha >= 100:
-        return f"{m3_ha:.0f} m³/ha"
-    return f"{m3_ha:.1f} m³/ha"
+    if d >= 10:
+        return f"{d:.0f} L/m²"
+    return f"{d:.1f} L/m²"
 
 
 def area_superficie_desde_geom(geom) -> tuple[float, float]:
@@ -177,6 +176,46 @@ def area_superficie_desde_geom(geom) -> tuple[float, float]:
 def litros_desde_deficit_y_area(deficit_mm: float, area_m2: float) -> int:
     """Déficit (mm) × m² = litros a aportar ese día."""
     return int(round(float(deficit_mm) * float(area_m2)))
+
+
+def anclar_a_recintos(gdf: gpd.GeoDataFrame, recintos_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Une cada parcela SIGPAC al recinto que contiene su centroide y sustituye
+    la geometría por la del recinto. Así el mapa no pinta polígonos SIGPAC
+    grandes que envuelven parcelas vecinas.
+    Si varias parcelas caen en el mismo recinto, se queda la de mayor área.
+    """
+    empty = gdf.iloc[0:0].copy()
+    for col in ("id_recinto", "id_propietario"):
+        if col not in empty.columns:
+            empty[col] = pd.Series(dtype="float64")
+
+    if gdf.empty or recintos_gdf.empty:
+        return empty
+
+    rec = recintos_gdf[["id_recinto", "id_propietario", "geom"]].copy()
+    rec = rec.set_geometry("geom")
+
+    left = gdf.copy()
+    left["_area_m2"] = left.geometry.to_crs("EPSG:25830").area.values
+    left_cent = left.copy()
+    left_cent["geometry"] = (
+        left.geometry.to_crs("EPSG:25830").centroid.to_crs("EPSG:4326")
+    )
+
+    joined = gpd.sjoin(left_cent, rec, how="inner", predicate="within")
+    if joined.empty:
+        return empty
+
+    joined = joined.sort_values("_area_m2", ascending=False)
+    joined = joined[~joined.index.duplicated(keep="first")]
+    joined = joined.drop_duplicates(subset=["id_recinto"], keep="first")
+
+    geom_lookup = rec.set_index("id_recinto").geometry
+    drop_cols = [c for c in ("geometry", "index_right", "_area_m2", "geom") if c in joined.columns]
+    attrs = joined.drop(columns=drop_cols, errors="ignore").copy()
+    attrs["geometry"] = attrs["id_recinto"].map(geom_lookup)
+    return gpd.GeoDataFrame(attrs, geometry="geometry", crs="EPSG:4326").reset_index(drop=True)
 
 
 def buscar_csv_reciente() -> Path:
@@ -352,7 +391,6 @@ def generar_tablas_postgis():
         f"(bbox {bbox_pred[0]:.3f},{bbox_pred[1]:.3f} → {bbox_pred[2]:.3f},{bbox_pred[3]:.3f})..."
     )
     recintos_gdf = cargar_recintos_en_bbox(bbox_pred)
-    recintos_para_join = recintos_gdf[["id_propietario", "geom"]].copy().set_geometry("geom")
 
     indice = {}
     cache_ndvi: dict[int, float | None] = {}
@@ -414,7 +452,7 @@ def generar_tablas_postgis():
                         cache_area[idx] = (0.0, 0.0)
                 area_m2, sup_ha = cache_area[idx]
                 litros_dia = litros_desde_deficit_y_area(deficit, area_m2)
-                m3_ha = round(deficit * 10, 2)
+                litros_m2 = round(deficit, 2)  # 1 mm = 1 L/m²
 
                 filas.append({
                     "cultivo":  cultivo_nombre,
@@ -424,7 +462,7 @@ def generar_tablas_postgis():
                     "ndvi":     round(ndvi_eff, 3) if ndvi_eff is not None else None,
                     "riego_mm": riego_val,
                     "deficit_mm": deficit,
-                    "m3_ha":    m3_ha,
+                    "litros_m2": litros_m2,
                     "superficie_ha": sup_ha,
                     "litros_dia": litros_dia,
                     "litros_txt": formato_volumen_mapa(deficit),
@@ -434,27 +472,21 @@ def generar_tablas_postgis():
                 })
 
             gdf = gpd.GeoDataFrame(filas, crs="EPSG:4326")
+            n_sigpac = len(gdf)
+            gdf = anclar_a_recintos(gdf, recintos_gdf)
 
-            gdf_centroids = gdf.copy().set_geometry("geometry")
-            gdf_centroids["geometry"] = (
-                gdf_centroids["geometry"]
-                .to_crs("EPSG:25830")
-                .centroid
-                .to_crs("EPSG:4326")
-            )
+            if not gdf.empty:
+                areas = gdf.geometry.to_crs("EPSG:25830").area
+                gdf["superficie_ha"] = (areas / 10000.0).round(4)
+                gdf["litros_dia"] = [
+                    litros_desde_deficit_y_area(d, a)
+                    for d, a in zip(gdf["deficit_mm"], areas)
+                ]
+                gdf["litros_m2"] = gdf["deficit_mm"].astype(float).round(2)
+                gdf["litros_txt"] = gdf["deficit_mm"].map(formato_volumen_mapa)
 
-            joined = gpd.sjoin(
-                gdf_centroids,
-                recintos_para_join,
-                how="left",
-                predicate="within",
-            )
-            joined = joined[~joined.index.duplicated(keep="first")]
-            gdf["id_propietario"] = joined["id_propietario"].values
-
-            asignados = gdf["id_propietario"].notna().sum()
             print(
-                f"  {tabla}: propietarios {asignados}/{len(gdf)}  ({fecha_str}) "
+                f"  {tabla}: recintos {len(gdf)}/{n_sigpac} SIGPAC  ({fecha_str}) "
                 f"en {time.perf_counter() - t_dia:.1f}s"
             )
 

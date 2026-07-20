@@ -119,6 +119,44 @@ def calcular_color(row, etp_valor):
     ayer = row["Ev_t"]
     return "red" if float(etp_valor) > float(ayer) else "blue"
 
+
+def anclar_a_recintos(gdf: gpd.GeoDataFrame, recintos_gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """
+    Une cada parcela SIGPAC al recinto que contiene su centroide y sustituye
+    la geometría por la del recinto (evita pintar parcelas SIGPAC que rodean).
+    """
+    empty = gdf.iloc[0:0].copy()
+    for col in ("id_recinto", "id_propietario"):
+        if col not in empty.columns:
+            empty[col] = pd.Series(dtype="float64")
+
+    if gdf.empty or recintos_gdf.empty:
+        return empty
+
+    rec = recintos_gdf[["id_recinto", "id_propietario", "geom"]].copy().set_geometry("geom")
+
+    left = gdf.copy()
+    left["_area_m2"] = left.geometry.to_crs("EPSG:25830").area.values
+    left_cent = left.copy()
+    left_cent["geometry"] = (
+        left.geometry.to_crs("EPSG:25830").centroid.to_crs("EPSG:4326")
+    )
+
+    joined = gpd.sjoin(left_cent, rec, how="inner", predicate="within")
+    if joined.empty:
+        return empty
+
+    joined = joined.sort_values("_area_m2", ascending=False)
+    joined = joined[~joined.index.duplicated(keep="first")]
+    joined = joined.drop_duplicates(subset=["id_recinto"], keep="first")
+
+    geom_lookup = rec.set_index("id_recinto").geometry
+    drop_cols = [c for c in ("geometry", "index_right", "_area_m2", "geom") if c in joined.columns]
+    attrs = joined.drop(columns=drop_cols, errors="ignore").copy()
+    attrs["geometry"] = attrs["id_recinto"].map(geom_lookup)
+    return gpd.GeoDataFrame(attrs, geometry="geometry", crs="EPSG:4326").reset_index(drop=True)
+
+
 # ── Buscar CSV más reciente ───────────────────────────────────────────────────
 def buscar_csv_reciente():
     archivos = glob.glob(os.path.join(CARPETA_CSV, "predicciones_*.csv"))
@@ -147,7 +185,7 @@ def generar_tablas_postgis():
 
     print("Cargando recintos para join espacial...")
     recintos_gdf = gpd.read_postgis(
-        "SELECT id_propietario, geom FROM recintos",
+        "SELECT id_recinto, id_propietario, geom FROM recintos",
         engine,
         geom_col="geom",
         crs="EPSG:4326",
@@ -177,30 +215,10 @@ def generar_tablas_postgis():
             })
 
         gdf = gpd.GeoDataFrame(filas, crs="EPSG:4326")
+        n_sigpac = len(gdf)
+        gdf = anclar_a_recintos(gdf, recintos_gdf)
+        print(f"  Recintos anclados: {len(gdf)}/{n_sigpac} parcelas SIGPAC")
 
-        recintos_para_join = recintos_gdf[["id_propietario", "geom"]].copy()
-        recintos_para_join = recintos_para_join.set_geometry("geom")
-
-        gdf_centroids = gdf.copy().set_geometry("geometry")
-        gdf_centroids["geometry"] = (
-            gdf_centroids["geometry"]
-            .to_crs("EPSG:25830")
-            .centroid
-            .to_crs("EPSG:4326")
-        )
-
-        joined = gpd.sjoin(
-            gdf_centroids,
-            recintos_para_join,
-            how="left",
-            predicate="within",
-        )
-
-        joined = joined[~joined.index.duplicated(keep="first")]
-        gdf["id_propietario"] = joined["id_propietario"].values
-
-        asignados = int(gdf["id_propietario"].notna().sum())
-        print(f"  Propietarios asignados: {asignados}/{len(gdf)}")
         gdf.to_postgis(
             tabla,
             engine,
@@ -217,7 +235,7 @@ def generar_tablas_postgis():
             conn.commit()
 
         indice[str(offset)] = fecha_str
-        print(f"  → tabla {tabla}  ({fecha_str}, {len(filas)} registros)")
+        print(f"  → tabla {tabla}  ({fecha_str}, {len(gdf)} registros)")
 
     guardar_indice(indice)
 

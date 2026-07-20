@@ -115,7 +115,12 @@
         const ndviTxt = (p.ndvi != null && p.ndvi !== "") ? p.ndvi : "—";
         const riegoMm = parseFloat(p.riego_mm);
         const deficitMm = parseFloat(p.deficit_mm);
-        const m3Ha = parseFloat(p.m3_ha);
+        let litrosM2 = parseFloat(p.litros_m2);
+        if (!Number.isFinite(litrosM2) && Number.isFinite(deficitMm)) {
+          // 1 mm = 1 L/m²; compatibilidad con capas antiguas (m3_ha = mm × 10)
+          const m3Ha = parseFloat(p.m3_ha);
+          litrosM2 = Number.isFinite(m3Ha) ? m3Ha / 10 : deficitMm;
+        }
         const supHa = parseFloat(p.superficie_ha);
         let litros = parseInt(p.litros_dia, 10);
         if (!Number.isFinite(litros) && Number.isFinite(deficitMm) && Number.isFinite(supHa)) {
@@ -124,8 +129,8 @@
         const deficitTxt = Number.isFinite(deficitMm)
           ? `${deficitMm.toLocaleString("es-ES", { maximumFractionDigits: 2 })} mm/día`
           : "—";
-        const m3HaTxt = Number.isFinite(m3Ha) && m3Ha > 0
-          ? `${m3Ha.toLocaleString("es-ES", { maximumFractionDigits: 1 })} m³/ha`
+        const litrosM2Txt = Number.isFinite(litrosM2) && litrosM2 > 0
+          ? `${litrosM2.toLocaleString("es-ES", { maximumFractionDigits: 2 })} L/m²`
           : "—";
         const litrosTxt = Number.isFinite(litros) && litros > 0
           ? litros.toLocaleString("es-ES") + " L/día (total parcela)"
@@ -145,7 +150,7 @@
             ET₀: ${p.etp} mm/día<br>
             ETc: <strong>${p.riego_mm} mm/día</strong><br>
             Déficit: <strong>${deficitTxt}</strong><br>
-            Aporte recomendado: <strong>${m3HaTxt}</strong><br>
+            Aporte recomendado: <strong>${litrosM2Txt}</strong><br>
             Volumen total: ${litrosTxt}<br>
             Estado: <strong>${urgencia}</strong><br>
             Fecha: ${p.fecha}
@@ -326,7 +331,7 @@
         <span><i style="background:#d32f2f;"></i> Regar hoy/mañana</span>
         <span><i style="background:#f57c00;"></i> Regar +2/+3 días</span>
         <span><i style="background:#1976d2;"></i> Sin recomendación</span>
-        <span style="opacity:0.85;">Etiqueta: m³/ha</span>
+        <span style="opacity:0.85;">Etiqueta: L/m²</span>
       </div>
       <div class="pred-riego-opciones">
         <div class="pred-riego-opcion seleccionada" data-offset="0">
@@ -348,13 +353,19 @@
       </div>
     </div>`;
 
-    const etpPanel = document.getElementById("pred-etp-panel");
-    if (etpPanel) {
-      etpPanel.insertAdjacentHTML("afterend", html);
-    } else {
-      const grid = document.querySelector("#basemap-panel .basemap-grid");
-      if (grid) grid.insertAdjacentHTML("afterend", html);
+    const riegoBtn = document.querySelector(
+      '#basemap-panel .basemap-option[data-layer="prediccion-riego"]'
+    );
+    if (riegoBtn) {
+      // Tras el botón de riego en Mapa Principal
+      const grid = riegoBtn.closest(".basemap-grid");
+      if (grid) {
+        grid.insertAdjacentHTML("afterend", html);
+        return;
+      }
     }
+    const grid = document.querySelector("#basemap-panel .basemap-grid");
+    if (grid) grid.insertAdjacentHTML("afterend", html);
   }
 
 })();

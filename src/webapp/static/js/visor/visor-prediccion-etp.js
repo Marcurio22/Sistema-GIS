@@ -335,6 +335,19 @@
       </div>
     </div>`;
 
+    // Junto al botón de ET₀ en "Detalles Adicionales" (no arriba en Mapa Principal)
+    const etpBtn = document.querySelector(
+      '#contenido-detalles-adicionales .basemap-option[data-layer="prediccion-etp"]'
+    );
+    if (etpBtn) {
+      etpBtn.insertAdjacentHTML("afterend", html);
+      return;
+    }
+    const detalles = document.getElementById("contenido-detalles-adicionales");
+    if (detalles) {
+      detalles.insertAdjacentHTML("beforeend", html);
+      return;
+    }
     const grid = document.querySelector("#basemap-panel .basemap-grid");
     if (grid) grid.insertAdjacentHTML("afterend", html);
   }
