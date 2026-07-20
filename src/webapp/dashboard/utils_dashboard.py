@@ -290,9 +290,41 @@ def obtener_info_clima(descripcion, es_noche=False):
 _weather_cache = {}
 
 
+def _fix_mojibake(s):
+    """Corrige texto UTF-8 mal interpretado como Latin-1 (p.ej. AdriÃ¡n → Adrián)."""
+    if not isinstance(s, str) or not s:
+        return s
+    if "Ã" not in s and "Â" not in s:
+        return s
+    try:
+        return s.encode("latin-1").decode("utf-8")
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        return s
+
+
+def _aemet_json(response):
+    """Parsea JSON de AEMET forzando UTF-8 (el charset del header suele ser erróneo)."""
+    response.encoding = "utf-8"
+    try:
+        return response.json()
+    except ValueError:
+        return json.loads(response.content.decode("utf-8", errors="replace"))
+
+
 def _weather_cache_dir() -> Path:
     """Directorio de caché en disco (lazy: no falla al importar el módulo)."""
     return Path(__file__).resolve().parents[3] / "data" / "cache" / "weather"
+
+
+def _sanitize_weather(data):
+    """Repara tildes corruptas en datos de clima (caché antigua o API)."""
+    if not isinstance(data, dict):
+        return data
+    out = dict(data)
+    for key in ("municipio", "provincia", "descripcion"):
+        if key in out:
+            out[key] = _fix_mojibake(out[key])
+    return out
 
 
 def _weather_disk_read(codigo: str):
@@ -305,7 +337,7 @@ def _weather_disk_read(codigo: str):
         ts = datetime.fromisoformat(payload["timestamp"])
         age = datetime.now() - ts
         if age <= timedelta(hours=6):
-            return {"data": payload["data"], "timestamp": ts, "age": age}
+            return {"data": _sanitize_weather(payload["data"]), "timestamp": ts, "age": age}
     except Exception:
         pass
     return None
@@ -317,7 +349,7 @@ def _weather_disk_write(codigo: str, data: dict) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({
             "timestamp": datetime.now().isoformat(),
-            "data": data,
+            "data": _sanitize_weather(data),
         }, ensure_ascii=False), encoding="utf-8")
     except OSError:
         pass
@@ -326,7 +358,7 @@ def _weather_disk_write(codigo: str, data: dict) -> None:
 def _weather_fallback(cache_key: str, codigo: str):
     """Último recurso: memoria o disco (hasta 6 h)."""
     if cache_key in _weather_cache:
-        return _weather_cache[cache_key].get("data")
+        return _sanitize_weather(_weather_cache[cache_key].get("data"))
     disk = _weather_disk_read(str(codigo))
     if disk:
         return disk["data"]
@@ -347,14 +379,15 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
         # Si el caché tiene menos de 1 hora, devolver datos guardados
         if tiempo_cache and (now - tiempo_cache) < timedelta(hours=1):
             print(f"✅ Usando caché para municipio {CODIGO_MUNICIPIO}")
-            return cached_data.get('data')
+            return _sanitize_weather(cached_data.get('data'))
 
     # 1b. Caché en disco (sobrevive reinicios del servidor)
     disk = _weather_disk_read(str(CODIGO_MUNICIPIO))
     if disk and disk["age"] < timedelta(hours=1):
-        _weather_cache[cache_key] = {"data": disk["data"], "timestamp": disk["timestamp"]}
+        cleaned = _sanitize_weather(disk["data"])
+        _weather_cache[cache_key] = {"data": cleaned, "timestamp": disk["timestamp"]}
         print(f"✅ Usando caché en disco para municipio {CODIGO_MUNICIPIO}")
-        return disk["data"]
+        return cleaned
     
     # 2. Si no hay caché válido, pedir datos nuevos a AEMET
     try:
@@ -362,7 +395,7 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
         
         url_solicitud = f'https://opendata.aemet.es/opendata/api/prediccion/especifica/municipio/horaria/{CODIGO_MUNICIPIO}?api_key={AEMET_API_KEY}'
         response1 = requests.get(url_solicitud, timeout=5)
-        data1 = response1.json()
+        data1 = _aemet_json(response1)
         
         # Si hay error de rate limit (429), usar último dato guardado
         if data1.get('estado') == 429:
@@ -374,10 +407,10 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
             return _weather_fallback(cache_key, CODIGO_MUNICIPIO)
         
         response2 = requests.get(data1['datos'], timeout=5)
-        datos = response2.json()
+        datos = _aemet_json(response2)
         
-        provincia = datos[0].get('provincia', '')
-        municipio = datos[0].get('nombre', '')
+        provincia = _fix_mojibake(datos[0].get('provincia', ''))
+        municipio = _fix_mojibake(datos[0].get('nombre', ''))
         
         fecha_hoy = datetime.now().strftime('%Y-%m-%d')
         hora_actual = datetime.now().hour
@@ -423,7 +456,7 @@ def obtener_datos_aemet(CODIGO_MUNICIPIO):
         
         if estado_cielo:
             codigo = estado_cielo.get('value', '')
-            descripcion = estado_cielo.get('descripcion', 'Desconocido').strip()
+            descripcion = _fix_mojibake(estado_cielo.get('descripcion', 'Desconocido').strip())
             es_noche = 'n' in codigo
             info_clima = obtener_info_clima(descripcion, es_noche)
         else:

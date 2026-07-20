@@ -9,7 +9,9 @@ Ejecutar manualmente o via cron cuando se necesite.
 """
 
 import sys
-from datetime import date
+import os
+import stat
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -32,6 +34,7 @@ PROJECT_ROOT = find_project_root(THIS_DIR)
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from webapp.config import Config  # usa el mismo Config que el resto de la app
+from project_paths import PROJECT_ROOT as _PP_ROOT, resolve_writable_dir, SIGPAC_BACKUP_DIR
 
 try:
     from geoalchemy2 import Geometry
@@ -194,18 +197,51 @@ def download_sigpac_tiled(collection: str, bbox4326: tuple) -> gpd.GeoDataFrame:
 # Backup local
 # ══════════════════════════════════════════════════════════════════════════════
 
-def guardar_backup_rotatorio(gdf: gpd.GeoDataFrame, out_dir: Path) -> None:
-    out_dir.mkdir(parents=True, exist_ok=True)
-    stamp = date.today().isoformat()
-    out_path = out_dir / f"{stamp}_recintos.gpkg"
-    gdf.to_file(out_path, driver="GPKG")
-    print(f"\nBackup guardado en: {out_path}")
+def _make_file_writable(path: Path) -> None:
+    if not path.exists():
+        return
+    try:
+        os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+    except OSError:
+        pass
 
-    # Mantener solo los 2 últimos
-    files = sorted(out_dir.glob("*_recintos.gpkg"))
+
+def guardar_backup_rotatorio(gdf: gpd.GeoDataFrame, out_dir: Path) -> None:
+    """Backup local opcional; no debe bloquear la actualización PostGIS."""
+    candidates = [
+        SIGPAC_BACKUP_DIR,
+        out_dir,
+        _PP_ROOT / "logs" / "sigpac_backup",
+    ]
+    backup_dir = resolve_writable_dir(candidates)
+    if backup_dir is None:
+        print(
+            "⚠️  Backup GPKG omitido: sin permiso de escritura "
+            "(ejecuta la tarea con el mismo usuario que creó la comunidad, "
+            "o define SIGPAC_BACKUP_DIR en .env)."
+        )
+        return
+
+    stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    out_path = backup_dir / f"{stamp}_recintos.gpkg"
+    try:
+        _make_file_writable(out_path)
+        if out_path.exists():
+            out_path.unlink(missing_ok=True)
+        gdf.to_file(out_path, driver="GPKG")
+        print(f"\nBackup guardado en: {out_path}")
+    except OSError as exc:
+        print(f"⚠️  Backup GPKG omitido ({exc}). Se continúa con PostGIS.")
+        return
+
+    files = sorted(backup_dir.glob("*_recintos.gpkg"))
     for f in files[:-2]:
-        f.unlink(missing_ok=True)
-        print(f"Backup antiguo eliminado: {f}")
+        try:
+            _make_file_writable(f)
+            f.unlink(missing_ok=True)
+            print(f"Backup antiguo eliminado: {f}")
+        except OSError as exc:
+            print(f"⚠️  No se pudo eliminar backup antiguo {f}: {exc}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -278,6 +314,11 @@ def cleanup_stale_sigpac_state(conn) -> None:
         print(f"→ Limpiando {len(views_old)} vista(s) sobre sigpac.recintos_old…")
         _drop_views(conn, views_old)
     conn.execute(text("DROP TABLE IF EXISTS sigpac.recintos_old CASCADE"))
+    conn.execute(text("DROP TABLE IF EXISTS sigpac.recintos_new CASCADE"))
+    # Tras renombrar recintos_new → recintos, PostgreSQL conserva el nombre del
+    # índice espacial (idx_recintos_new_geometry). La siguiente ejecución de
+    # to_postgis vuelve a crear recintos_new y choca con ese nombre en el schema.
+    conn.execute(text("DROP INDEX IF EXISTS sigpac.idx_recintos_new_geometry"))
 
 
 def ensure_default_recintos_view(conn) -> None:
@@ -458,6 +499,8 @@ def actualizar_postgis_atomic(gdf: gpd.GeoDataFrame) -> None:
         conn.execute(text("ALTER TABLE IF EXISTS sigpac.recintos RENAME TO recintos_old"))
         conn.execute(text("ALTER TABLE sigpac.recintos_new RENAME TO recintos"))
         conn.execute(text("DROP TABLE IF EXISTS sigpac.recintos_old"))
+        # Índice GiST de geopandas conserva el nombre *_new_* tras el RENAME.
+        conn.execute(text("DROP INDEX IF EXISTS sigpac.idx_recintos_new_geometry"))
 
         if saved_views:
             print("→ Recreando vistas SIGPAC…")

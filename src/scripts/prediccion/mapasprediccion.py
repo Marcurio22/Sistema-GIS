@@ -362,7 +362,7 @@ def asegurar_estilo():
         <sld:Rule>
           <sld:Name>ETP Label</sld:Name>
 		  <MinScaleDenominator>1</MinScaleDenominator>
-          <MaxScaleDenominator>25000</MaxScaleDenominator>
+          <MaxScaleDenominator>150000</MaxScaleDenominator>
           <sld:TextSymbolizer>
             <sld:Label>
               <ogc:PropertyName>etp</ogc:PropertyName>
@@ -393,7 +393,7 @@ def asegurar_estilo():
             </sld:Fill>
             <sld:VendorOption name="autoWrap">60</sld:VendorOption>
             <sld:VendorOption name="maxDisplacement">10</sld:VendorOption>
-            <sld:VendorOption name="conflictResolution">true</sld:VendorOption>
+            <sld:VendorOption name="conflictResolution">false</sld:VendorOption>
           </sld:TextSymbolizer>
         </sld:Rule>
       </sld:FeatureTypeStyle>

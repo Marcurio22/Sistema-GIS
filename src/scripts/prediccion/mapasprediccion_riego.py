@@ -565,7 +565,7 @@ def asegurar_estilo():
         <sld:Rule>
           <sld:Name>Volumen Label</sld:Name>
           <MinScaleDenominator>1</MinScaleDenominator>
-          <MaxScaleDenominator>25000</MaxScaleDenominator>
+          <MaxScaleDenominator>150000</MaxScaleDenominator>
           <ogc:Filter>
             <ogc:Or>
               <ogc:PropertyIsEqualTo><ogc:PropertyName>color</ogc:PropertyName><ogc:Literal>red</ogc:Literal></ogc:PropertyIsEqualTo>
@@ -582,6 +582,7 @@ def asegurar_estilo():
             <sld:LabelPlacement><sld:PointPlacement><sld:AnchorPoint><sld:AnchorPointX>0.5</sld:AnchorPointX><sld:AnchorPointY>0.5</sld:AnchorPointY></sld:AnchorPoint></sld:PointPlacement></sld:LabelPlacement>
             <sld:Halo><sld:Radius>2</sld:Radius><sld:Fill><sld:CssParameter name="fill">#000000</sld:CssParameter><sld:CssParameter name="fill-opacity">0.55</sld:CssParameter></sld:Fill></sld:Halo>
             <sld:Fill><sld:CssParameter name="fill">#ffffff</sld:CssParameter></sld:Fill>
+            <sld:VendorOption name="conflictResolution">false</sld:VendorOption>
           </sld:TextSymbolizer>
         </sld:Rule>
       </sld:FeatureTypeStyle>

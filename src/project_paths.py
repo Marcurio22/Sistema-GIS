@@ -38,6 +38,32 @@ ETP_DATA_DIR = PROJECT_ROOT / "data" / "processed" / "etp_prediccion"
 RIEGO_STATIC_DIR = PROJECT_ROOT / "src" / "webapp" / "static" / "riego_prediccion"
 RIEGO_DATA_DIR = PROJECT_ROOT / "data" / "processed" / "riego_prediccion"
 
+SIGPAC_BACKUP_DIR = Path(
+    os.getenv("SIGPAC_BACKUP_DIR", str(PROJECT_ROOT / "data" / "raw" / "sigpac"))
+)
+
+
+def resolve_writable_dir(candidates: list[Path]) -> Path | None:
+    """Primera carpeta donde el proceso actual puede crear y borrar ficheros."""
+    seen: set[str] = set()
+    for raw in candidates:
+        d = raw.expanduser()
+        if not d.is_absolute():
+            d = (PROJECT_ROOT / d).resolve()
+        key = str(d).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+            probe = d / ".write_probe"
+            probe.write_text("1", encoding="utf-8")
+            probe.unlink(missing_ok=True)
+            return d
+        except OSError:
+            continue
+    return None
+
 _DEFAULT_GEOSERVER_MAPAS = (
     r"C:\ProgramData\GeoServer\data\mapascontinuos"
     if os.name == "nt"

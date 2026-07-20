@@ -58,6 +58,7 @@
     function crearCapaWMS(offset) {
       const params = {
         layers:      `${WORKSPACE}:etp_prediccion_${offset}`,
+        styles:      "etp_prediccion_estilo",
         format:      "image/png",
         transparent: true,
         tiled:       true,
