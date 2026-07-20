@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import argparse
 import os
 import sys
 import warnings
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import requests
@@ -11,16 +13,27 @@ from requests.auth import HTTPBasicAuth
 import numpy as np
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from webapp.config import Config
 from scipy.spatial import cKDTree
 from scipy.interpolate import Rbf, LinearNDInterpolator
 import pyproj
 import rasterio
 from rasterio.transform import from_origin
-from datetime import datetime
 
-ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT))
+# src/ en el path antes de importar webapp / project_paths
+_SRC = Path(__file__).resolve().parent
+_ROOT = _SRC.parent
+sys.path.insert(0, str(_SRC))
+
+from dotenv import load_dotenv
+
+# Plantilla / gisdb: METEO_ENV_FILE o .env de la raíz
+_meteo_env = os.getenv("METEO_ENV_FILE", "").strip()
+if _meteo_env and Path(_meteo_env).is_file():
+    load_dotenv(_meteo_env, override=True)
+elif (_ROOT / ".env").is_file():
+    load_dotenv(_ROOT / ".env", override=True)
+
+from webapp.config import Config  # noqa: E402
 from project_paths import GEOSERVER_MAPAS_DIR  # noqa: E402
 
 warnings.filterwarnings("ignore")
@@ -34,16 +47,14 @@ except ImportError:
     print("⚠️  scikit-learn no instalado. El método KRIGING no estará disponible.")
 
 # ============================================================
-# PARÁMETROS DE CONFIGURACIÓN (CÁMBIALOS AQUÍ)
+# PARÁMETROS DE CONFIGURACIÓN
 # ============================================================
 
-# ── CAMBIO: motor SQLAlchemy en lugar de DB_CONFIG dict ─────────────────────
 engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
 Session = sessionmaker(bind=engine)
-# ────────────────────────────────────────────────────────────────────────────
 
 VARIABLE = "etpmon"
-FECHA = "2026-04-21"
+FECHA = None  # se resuelve en main (ayer por defecto)
 METODO = "IDW"
 POTENCIA_IDW = 2.0
 KRIGING_KERNEL = None
@@ -68,34 +79,48 @@ RESOLUCION_M = 5000
 MARGEN_M = 20000
 EPSG_UTM = 32630
 
-# ============================================================
-# GEOSERVER 
-# ============================================================
 
-GEOSERVER_URL  = "http://localhost:8080/geoserver"
-GEOSERVER_USER = "admin"
-GEOSERVER_PASS = "geoserver"   
-WORKSPACE      = "gis_project"
-STORE          = "mapascontinuos"
+def _geoserver_base_url() -> str:
+    wms = (
+        os.getenv("GEOSERVER_COMMON_WMS_URL")
+        or os.getenv("GEOSERVER_WMS_URL")
+        or "http://localhost:8080/geoserver/wms"
+    )
+    return wms.replace("/wms", "").rstrip("/")
+
+
+GEOSERVER_URL = _geoserver_base_url()
+GEOSERVER_USER = os.getenv("GEOSERVER_USER", "admin")
+GEOSERVER_PASS = os.getenv("GEOSERVER_PASSWORD", "geoserver")
+WORKSPACE = os.getenv("GEOSERVER_COMMON_WORKSPACE", "gis_project")
+STORE = "mapascontinuos"
 
 # ============================================================
 # FIN DE LA CONFIGURACIÓN
 # ============================================================
 
-# ── CAMBIO: conectar_bd ahora devuelve una sesión SQLAlchemy ─────────────────
+
+def resolver_fecha(cli: str | None) -> str:
+    if cli:
+        return cli.strip()
+    env = os.getenv("ETP_MAPA_FECHA", "").strip()
+    if env:
+        return env
+    # Dato diario completo = normalmente el día anterior
+    return (date.today() - timedelta(days=1)).isoformat()
+
+
 def conectar_bd():
     try:
         session = Session()
-        session.execute(text("SELECT 1"))  # ping de comprobación
+        session.execute(text("SELECT 1"))
         print("✅ Conexión exitosa a la base de datos.")
         return session
     except Exception as e:
         print(f"❌ Error al conectar a la base de datos: {e}")
         return None
-# ────────────────────────────────────────────────────────────────────────────
 
-# ── CAMBIO: obtener_datos usa session.execute(text(...)) ─────────────────────
-# ── CAMBIO: obtener_datos usa session.execute(text(...)) ─────────────────────
+
 def obtener_datos(session, variable, fecha):
     query = text(f"""
         SELECT ST_X(e.geom) AS lon, ST_Y(e.geom) AS lat, d.{variable} AS valor
@@ -113,7 +138,6 @@ def obtener_datos(session, variable, fecha):
         datos = np.array([(f[0], f[1], f[2]) for f in filas],
                          dtype=[('lon', float), ('lat', float), ('valor', float)])
 
-        # ── Excluir estaciones sin dato real (valor == 0) ─────────────────
         n_antes = len(datos)
         datos = datos[datos['valor'] != 0]
         n_excluidas = n_antes - len(datos)
@@ -121,7 +145,7 @@ def obtener_datos(session, variable, fecha):
             print(f"⚠️  {n_excluidas} estación(es) excluida(s) por valor 0.")
 
         if len(datos) == 0:
-            print(f"⚠️ No quedan estaciones con datos válidos (todas eran NULL o 0) para '{variable}' en {fecha}.")
+            print(f"⚠️ No quedan estaciones con datos válidos para '{variable}' en {fecha}.")
             return None
 
         print(f"✅ {len(datos)} estaciones con datos válidos.")
@@ -129,7 +153,8 @@ def obtener_datos(session, variable, fecha):
     except Exception as e:
         print(f"❌ Error en la consulta: {e}")
         return None
-# ────────────────────────────────────────────────────────────────────────────
+
+
 def reproyectar_a_utm(datos, epsg_origen=4326, epsg_destino=32630):
     transformer = pyproj.Transformer.from_crs(epsg_origen, epsg_destino, always_xy=True)
     x_utm, y_utm = transformer.transform(datos['lon'], datos['lat'])
@@ -282,8 +307,13 @@ def actualizar_imagemosaic():
     else:
         print(f"❌ HTTP {r.status_code}: {r.text[:200]}")
 
-def main():
+def main(fecha: str | None = None):
+    global FECHA
+    FECHA = resolver_fecha(fecha)
     print("\n🌍 Interpolador meteorológico\n")
+    print(f"Fecha: {FECHA}  |  Variable: {VARIABLE}  |  Método: {METODO}")
+    print(f"Salida: {CARPETA_SALIDA}")
+    print(f"GeoServer: {GEOSERVER_URL}  workspace={WORKSPACE}")
 
     if METODO.upper() == "KRIGING" and not KRIGING_DISPONIBLE:
         print("❌ El método KRIGING requiere scikit-learn.")
@@ -295,13 +325,11 @@ def main():
         print("❌ La fecha debe tener formato YYYY-MM-DD")
         return None
 
-    # ── CAMBIO: se usa sesión SQLAlchemy y se cierra con session.close() ─────
     session = conectar_bd()
     if not session:
         return None
     datos = obtener_datos(session, VARIABLE, FECHA)
     session.close()
-    # ─────────────────────────────────────────────────────────────────────────
     if datos is None:
         return None
 
@@ -356,8 +384,6 @@ def main():
     else:
         nombre_base = f"{VARIABLE}_{FECHA}_{METODO}"
 
-    # ── CAMBIO: el nombre del archivo debe contener la fecha para que el
-    #    ImageMosaic la detecte via timeregex.properties (regex: [0-9]{4}-[0-9]{2}-[0-9]{2})
     archivo_salida = os.path.join(CARPETA_SALIDA, f"{nombre_base}.tif")
     guardar_geotiff(Z, bounds, resol_x, resol_y, crs_epsg=crs_destino, filename=archivo_salida)
 
@@ -367,13 +393,19 @@ def main():
 
     print("\n✨ Proceso completado.")
     print(f"📁 Archivo: {os.path.abspath(archivo_salida)}")
-
-    # ── CAMBIO: devolver la ruta para que el bloque principal pueda pasarla
-    #    a actualizar_imagemosaic()
     return archivo_salida
 
 
 if __name__ == "__main__":
-    archivo = main()
+    parser = argparse.ArgumentParser(description="Genera GeoTIFF ETP (mapascontinuos) y recarga GeoServer")
+    parser.add_argument(
+        "--fecha",
+        default=None,
+        help="YYYY-MM-DD (por defecto: ayer, o ETP_MAPA_FECHA en .env)",
+    )
+    args = parser.parse_args()
+    archivo = main(args.fecha)
     if archivo:
         actualizar_imagemosaic()
+    else:
+        sys.exit(1)
