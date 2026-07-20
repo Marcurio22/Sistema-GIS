@@ -2046,7 +2046,14 @@ def api_estacion_datos(estacion_id, fecha):
 @api_bp.route('/etp/fechas')
 @login_required
 def etp_fechas():
-    geoserver_url = current_app.config["GEOSERVER_WMS_URL"]
+    # Capas regionales (mapascontinuos) viven en el workspace común, no en cr_xxx
+    geoserver_url = (
+        current_app.config.get("GEOSERVER_COMMON_WMS_URL")
+        or current_app.config["GEOSERVER_WMS_URL"]
+    )
+    common_ws = (
+        current_app.config.get("GEOSERVER_COMMON_WORKSPACE") or "gis_project"
+    ).strip()
     try:
         r = requests.get(geoserver_url, params={
             "SERVICE": "WMS",
@@ -2056,25 +2063,38 @@ def etp_fechas():
         root = ET.fromstring(r.content)
 
         fechas = []
+        layer_candidates = (
+            f"{common_ws}:mapascontinuos",
+            "mapascontinuos",
+        )
         for layer in root.iter("Layer"):
             name = layer.find("Name")
-            if name is not None and "mapascontinuos" in name.text:
-                for extent in layer.iter("Extent"):
-                    if extent.get("name") == "time" and extent.text:  # ← añadir "and extent.text"
-                        fechas = [
-                            f.strip()[:10]
-                            for f in extent.text.strip().split(",")
-                            if f.strip()
-                        ]
-                        break
-                for dim in layer.iter("Dimension"):
-                    if dim.get("name") == "time" and dim.text and not fechas:  # ← igual aquí
-                        fechas = [
-                            f.strip()[:10]
-                            for f in dim.text.strip().split(",")
-                            if f.strip()
-                        ]
-                        break
+            if name is None or not name.text:
+                continue
+            lname = name.text.strip()
+            if lname not in layer_candidates and "mapascontinuos" not in lname:
+                continue
+            # Preferir la capa del workspace común si aparece calificada
+            if ":" in lname and not lname.startswith(f"{common_ws}:"):
+                continue
+            for extent in layer.iter("Extent"):
+                if extent.get("name") == "time" and extent.text:
+                    fechas = [
+                        f.strip()[:10]
+                        for f in extent.text.strip().split(",")
+                        if f.strip()
+                    ]
+                    break
+            for dim in layer.iter("Dimension"):
+                if dim.get("name") == "time" and dim.text and not fechas:
+                    fechas = [
+                        f.strip()[:10]
+                        for f in dim.text.strip().split(",")
+                        if f.strip()
+                    ]
+                    break
+            if fechas:
+                break
 
         return jsonify({"ok": True, "fechas": sorted(set(fechas))})
     except Exception as e:

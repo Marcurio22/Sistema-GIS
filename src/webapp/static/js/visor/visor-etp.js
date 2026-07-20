@@ -14,7 +14,7 @@
     const map = window.map;
     if (!map) { console.error("[ETP] window.map no encontrado."); return; }
 
-    const GEOSERVER_WMS = window.GEOSERVER_WMS;
+    const GEOSERVER_WMS = window.GEOSERVER_COMMON_WMS || window.GEOSERVER_WMS;
     if (!GEOSERVER_WMS) { console.error("[ETP] window.GEOSERVER_WMS no encontrado."); return; }
 
     const btnEtp = document.querySelector('.basemap-option.basemap-main[data-layer="etp"]');
@@ -30,7 +30,8 @@
     let fechasDisponibles = new Set();
     let calMes            = null; // { year, month } mostrado en el calendario
 
-    const WORKSPACE = window.GEOSERVER_WORKSPACE || "gis_project";
+    // Mapa global regional (mismo ImageMosaic para todas las comunidades)
+    const WORKSPACE = window.GEOSERVER_COMMON_WORKSPACE || "gis_project";
 
     const etpLayer = L.tileLayer.wms(GEOSERVER_WMS, {
       layers:      `${WORKSPACE}:mapascontinuos`,
