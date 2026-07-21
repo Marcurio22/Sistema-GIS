@@ -19,9 +19,8 @@ import json
 import os
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from multiprocessing import shared_memory
 from pathlib import Path
 
 _SRC_DIR = Path(__file__).resolve().parent
@@ -56,7 +55,7 @@ MIN_VALID_PIXELS_PERCENT = 5.0
 engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
 Session = sessionmaker(bind=engine)
 
-# Estado por proceso hijo (shared memory del raster)
+# Estado compartido por hilos (raster en memoria del proceso)
 _WORKER: dict = {}
 
 
@@ -279,22 +278,19 @@ def generar_thumbnail_pil(
 
 # ==================== WORKERS ====================
 
-def _worker_init(
-    shm_name: str,
-    shape: tuple[int, int],
-    dtype_str: str,
-    transform_vals: tuple,
+def _worker_bind(
+    data: np.ndarray,
+    transform,
     crs: int,
     output_dir: str,
     skip_existing: bool,
-    geom_srid: int,
-):
-    shm = shared_memory.SharedMemory(name=shm_name)
-    _WORKER["data"] = np.ndarray(shape, dtype=np.dtype(dtype_str), buffer=shm.buf)
-    _WORKER["transform"] = rasterio.Affine(*transform_vals)
+    geom_srid: int = 4326,
+) -> None:
+    _WORKER["data"] = data
+    _WORKER["transform"] = transform
     _WORKER["crs"] = crs
-    _WORKER["width"] = shape[1]
-    _WORKER["height"] = shape[0]
+    _WORKER["width"] = int(data.shape[1])
+    _WORKER["height"] = int(data.shape[0])
     _WORKER["output_dir"] = output_dir
     _WORKER["skip_existing"] = skip_existing
     _WORKER["geom_srid"] = geom_srid
@@ -396,11 +392,6 @@ def procesar_fecha(
         transform = src.transform
         crs = src.crs.to_epsg()
 
-    shm = shared_memory.SharedMemory(create=True, size=data.nbytes)
-    shared = np.ndarray(data.shape, dtype=data.dtype, buffer=shm.buf)
-    np.copyto(shared, data)
-    del data
-
     stats = {
         "success": 0,
         "skipped": 0,
@@ -409,20 +400,13 @@ def procesar_fecha(
         "error": 0,
     }
 
-    transform_vals = (transform.a, transform.b, transform.c, transform.d, transform.e, transform.f)
+    _worker_bind(data, transform, crs, output_dir, skip_existing, 4326)
 
     try:
-        if workers <= 1:
-            _worker_init(
-                shm.name,
-                shared.shape,
-                str(shared.dtype),
-                transform_vals,
-                crs,
-                output_dir,
-                skip_existing,
-                4326,
-            )
+        # Hilos (no procesos): en Windows ProcessPool+SharedMemory suele matar
+        # todos los workers al arrancar (OOM / spawn GDAL).
+        n_workers = max(1, workers)
+        if n_workers <= 1:
             for idx, item in enumerate(recintos, 1):
                 try:
                     result = _worker_process(item)
@@ -433,20 +417,7 @@ def procesar_fecha(
                 if idx % LOG_INTERVAL == 0 or idx == len(recintos):
                     _log_progreso(idx, len(recintos), stats)
         else:
-            with ProcessPoolExecutor(
-                max_workers=workers,
-                initializer=_worker_init,
-                initargs=(
-                    shm.name,
-                    shared.shape,
-                    str(shared.dtype),
-                    transform_vals,
-                    crs,
-                    output_dir,
-                    skip_existing,
-                    4326,
-                ),
-            ) as pool:
+            with ThreadPoolExecutor(max_workers=n_workers) as pool:
                 futures = {pool.submit(_worker_process, item): item[0] for item in recintos}
                 done = 0
                 for fut in as_completed(futures):
@@ -461,8 +432,8 @@ def procesar_fecha(
                     if done % LOG_INTERVAL == 0 or done == len(recintos):
                         _log_progreso(done, len(recintos), stats)
     finally:
-        shm.close()
-        shm.unlink()
+        _WORKER.clear()
+        del data
         gc.collect()
 
     elapsed = time.perf_counter() - t0
@@ -495,8 +466,8 @@ def main() -> int:
     parser.add_argument(
         "--workers",
         type=int,
-        default=max(1, (os.cpu_count() or 4) - 1),
-        help="Procesos en paralelo (por fecha)",
+        default=max(1, min(8, (os.cpu_count() or 4) - 1)),
+        help="Hilos en paralelo (por fecha). Por defecto hasta 8.",
     )
     parser.add_argument(
         "--force",
@@ -521,7 +492,7 @@ def main() -> int:
         return 1
 
     print("=" * 70)
-    print("GENERADOR DE THUMBNAILS NDVI — MULTI-FECHA + PARALELO (PIL)")
+    print("GENERADOR DE THUMBNAILS NDVI — MULTI-FECHA + PARALELO (hilos/PIL)")
     print("=" * 70)
     print(f"Fechas:   {', '.join(fechas)}")
     print(f"Recintos: {len(recintos)}")
