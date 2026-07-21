@@ -1,11 +1,13 @@
 """
 Generador de Thumbnail NDVI — varias fechas y procesamiento paralelo.
 
+Sin --fechas usa todos los mosaicos en data/processed/ndvi_composite.
+
 Uso:
   cd src
   python generate_thumbnails.py
-  python generate_thumbnails.py --fechas 20260219,20260224,20260301
-  python generate_thumbnails.py --fechas 19/02/2026,24/02/2026,01/03/2026 --force
+  python generate_thumbnails.py --fechas 20260719
+  python generate_thumbnails.py --fechas 19/07/2026 --force
   python generate_thumbnails.py --recintos 12,45,78 --workers 8
 """
 
@@ -47,9 +49,6 @@ from webapp.config import Config
 
 THUMBNAILS_BASE_DIR = PROJECT_ROOT / "src" / "webapp" / "static" / "thumbnails"
 
-# Fechas por defecto (capturas galería NDVI)
-FECHAS_DEFECTO = ("20260219", "20260224", "20260301")
-
 START_FROM_ID = 0
 LOG_INTERVAL = 500
 MIN_VALID_PIXELS_PERCENT = 5.0
@@ -63,6 +62,19 @@ _WORKER: dict = {}
 
 # ==================== FECHAS Y RUTAS ====================
 
+def fechas_mosaicos_disponibles() -> list[str]:
+    """YYYYMMDD de los mosaicos presentes en data/processed/ndvi_composite."""
+    if not NDVI_COMPOSITE_DIR.is_dir():
+        return []
+    fechas: set[str] = set()
+    for p in NDVI_COMPOSITE_DIR.glob("ndvi_pc_*_mosaic_*.tif"):
+        # ndvi_pc_20260719_mosaic_utm.tif / _3857.tif
+        parts = p.name.split("_")
+        if len(parts) >= 3 and parts[2].isdigit() and len(parts[2]) == 8:
+            fechas.add(parts[2])
+    return sorted(fechas)
+
+
 def parse_fecha(s: str) -> str:
     s = s.strip()
     for fmt in ("%Y%m%d", "%d-%m-%Y", "%d/%m/%Y", "%Y-%m-%d", "%d %b %Y", "%d %b. %Y"):
@@ -74,8 +86,14 @@ def parse_fecha(s: str) -> str:
 
 
 def parse_fechas_list(raw: str | None) -> list[str]:
-    if not raw:
-        return list(FECHAS_DEFECTO)
+    if not raw or not str(raw).strip():
+        dispon = fechas_mosaicos_disponibles()
+        if not dispon:
+            raise ValueError(
+                f"No hay mosaicos NDVI en {NDVI_COMPOSITE_DIR}. "
+                "Ejecuta ndvi_diax o pasa --fechas YYYYMMDD."
+            )
+        return dispon
     out: list[str] = []
     for part in raw.replace(";", ",").split(","):
         part = part.strip()
@@ -465,9 +483,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Genera thumbnails NDVI por fecha")
     parser.add_argument(
         "--fechas",
-        default=",".join(FECHAS_DEFECTO),
+        default="",
         help="Fechas separadas por coma (YYYYMMDD o DD/MM/YYYY). "
-        f"Por defecto: {','.join(FECHAS_DEFECTO)}",
+        "Si se omite, usa todos los mosaicos en data/processed/ndvi_composite.",
     )
     parser.add_argument(
         "--recintos",
