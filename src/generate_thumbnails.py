@@ -35,7 +35,6 @@ import rasterio
 from PIL import Image, ImageDraw
 from pyproj import Transformer
 from rasterio.windows import Window
-from scipy.ndimage import gaussian_filter
 from shapely import wkb
 from shapely.ops import transform as shapely_transform
 from sqlalchemy import create_engine, text
@@ -51,6 +50,10 @@ THUMBNAILS_BASE_DIR = PROJECT_ROOT / "src" / "webapp" / "static" / "thumbnails"
 START_FROM_ID = 0
 LOG_INTERVAL = 500
 MIN_VALID_PIXELS_PERCENT = 5.0
+# Antes (matplotlib): figsize 6×6 @ 75 dpi ≈ 450 px. PIL a resolución nativa
+# dejaba parcelas chicas en 15–30 px → borde grueso y aspecto borroso al ampliar.
+TARGET_THUMB_PX = 450
+BORDER_PX = 2
 
 engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
 Session = sessionmaker(bind=engine)
@@ -140,9 +143,8 @@ def rellenar_ndvi_inteligente(ndvi_array: np.ndarray) -> np.ndarray | None:
     filled = ndvi_array.copy()
     media = np.nanmean(filled)
     nan_mask = np.isnan(filled)
+    # Solo relleno de huecos (sin gaussian sobre todo el recorte: eso lo dejaba borroso)
     filled[nan_mask] = media
-    if np.any(nan_mask):
-        filled = gaussian_filter(filled, sigma=1.0)
     return filled
 
 
@@ -218,9 +220,10 @@ def generar_thumbnail_pil(
     window_transform,
     geometria,
     output_path: str,
-    border_px: int = 2,
+    border_px: int = BORDER_PX,
+    target_px: int = TARGET_THUMB_PX,
 ) -> float | None:
-    """Genera PNG con PIL (mucho más rápido que matplotlib)."""
+    """Genera PNG con PIL a tamaño comparable al de matplotlib (~450 px)."""
     ndvi_filled = rellenar_ndvi_inteligente(ndvi_data)
     if ndvi_filled is None:
         return None
@@ -249,19 +252,33 @@ def generar_thumbnail_pil(
     right = int(max(c0, c1)) + 1
     bottom = int(max(r0, r1)) + 1
 
-    pad = border_px + 1
+    # Padding mínimo en coords nativas; el borde se dibuja tras el upscale
+    pad = 1
     left = max(0, left - pad)
     top = max(0, top - pad)
     right = min(w, right + pad)
     bottom = min(h, bottom + pad)
 
     cropped = img.crop((left, top, right, bottom))
-    draw = ImageDraw.Draw(cropped)
+    cw, ch = cropped.size
+    if cw < 1 or ch < 1:
+        return None
 
+    # Ampliar a ~TARGET_THUMB_PX (NEAREST = colores discretos nítidos)
+    long_side = max(cw, ch)
+    scale = 1.0
+    if long_side < target_px:
+        scale = target_px / float(long_side)
+        new_size = (max(1, int(round(cw * scale))), max(1, int(round(ch * scale))))
+        cropped = cropped.resize(new_size, Image.Resampling.NEAREST)
+
+    draw = ImageDraw.Draw(cropped)
     for poly in polygons:
         pts = [
-            (geo_to_pixel(x, y, window_transform)[0] - left,
-             geo_to_pixel(x, y, window_transform)[1] - top)
+            (
+                (geo_to_pixel(x, y, window_transform)[0] - left) * scale,
+                (geo_to_pixel(x, y, window_transform)[1] - top) * scale,
+            )
             for x, y in poly.exterior.coords
         ]
         if len(pts) >= 2:
