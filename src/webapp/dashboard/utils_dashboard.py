@@ -568,18 +568,41 @@ class MunicipiosCodigosFinder:
     
     @staticmethod
     def _slug_aemet(nombre_municipio):
-        return (
-            nombre_municipio
-            .lower()
-            .replace(' ', '-')
-            .replace('á', 'a')
-            .replace('é', 'e')
-            .replace('í', 'i')
-            .replace('ó', 'o')
-            .replace('ú', 'u')
-            .replace('ñ', 'n')
-            .replace('ü', 'u')
+        """
+        Slug AEMET para mostrarwidget.
+        Acepta formatos INE ('Quintanillas, Las') y SIGPAC ('LAS QUINTANILLAS'):
+        ambos deben acabar en 'quintanillas-las'.
+        """
+        import re
+        import unicodedata
+
+        s = (nombre_municipio or "").strip()
+        if not s:
+            return ""
+
+        # INE: "Quintanillas, Las" → nombre + artículo
+        m = re.match(
+            r"^(?P<nombre>.+),\s*(?P<art>El|La|Los|Las|Els|Les|L')\.?\s*$",
+            s,
+            flags=re.IGNORECASE,
         )
+        if m:
+            s = f"{m.group('nombre').strip()} {m.group('art').strip()}"
+        else:
+            # SIGPAC / natural: "Las Quintanillas" → "Quintanillas Las"
+            m2 = re.match(
+                r"^(?P<art>El|La|Los|Las|Els|Les|L')\s+(?P<nombre>.+)$",
+                s,
+                flags=re.IGNORECASE,
+            )
+            if m2:
+                s = f"{m2.group('nombre').strip()} {m2.group('art').strip()}"
+
+        s = s.lower().replace("ñ", "n").replace("ü", "u")
+        s = unicodedata.normalize("NFD", s)
+        s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+        s = re.sub(r"[^a-z0-9]+", "-", s)
+        return s.strip("-")
 
     def obtener_nombre_municipio_ine(self, codigo_ine):
         codigo_ine = str(codigo_ine).zfill(5)
@@ -653,18 +676,7 @@ class MunicipiosCodigosFinder:
         )
 
         nombre_municipio = fila['Nombre Municipio']
-
-        nombre_municipio_url = (
-            nombre_municipio
-            .lower()
-            .replace(' ', '-')
-            .replace('á', 'a')
-            .replace('é', 'e')
-            .replace('í', 'i')
-            .replace('ó', 'o')
-            .replace('ú', 'u')
-            .replace('ñ', 'n')
-        )
+        nombre_municipio_url = self._slug_aemet(nombre_municipio)
 
         url = (
             f'https://www.aemet.es/es/eltiempo/prediccion/municipios/mostrarwidget/'
@@ -744,29 +756,14 @@ class MunicipiosCodigosFinder:
     def obtener_url_municipio_usuario(self, user_id):
         """
         Obtiene la URL de AEMET del municipio donde el usuario tiene más recintos.
-        
-        Args:
-            user_id: ID del usuario
-        
-        Returns:
-            URL completa a la página de AEMET o None si no hay recintos o no existe el municipio
-        
-        Ejemplo:
-            Si el usuario tiene recintos en provincia=1, municipio=5
-            → devuelve URL con código "01005"
+        Usa el cruce SIGPAC (Nombre Municipio + Municipio INE del CSV de relación),
+        que es el que ya se usaba en dashboard.
         """
-        # Obtener el código del municipio con más recintos (ya viene con formato correcto)
         codigo_municipio = self.codigo_recintos(user_id)
-        
         if codigo_municipio is None:
             return None
-        
-        # El código ya tiene 5 dígitos: 2 de provincia + 3 de municipio
-        # Ejemplo: "01005" → cpro="01", cmun="005"
         cpro = codigo_municipio[:2]
         cmun = codigo_municipio[2:]
-        
-        # Construir y devolver la URL
         return self.construir_url_aemet(cpro, cmun)
     
     
