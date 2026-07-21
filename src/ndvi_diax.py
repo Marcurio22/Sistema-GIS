@@ -854,6 +854,14 @@ def main():
             }).scalar()
             
             print(f"[BBDD] ✓ Imagen insertada - ID: {id_imagen}")
+
+            # Necesario para ON CONFLICT; si no existe, el primer lote aborta la transacción
+            # y todos los siguientes fallan con InFailedSqlTransaction.
+            db.session.execute(text("""
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_indices_raster_img_rec_tipo
+                ON public.indices_raster (id_imagen, id_recinto, tipo_indice)
+            """))
+            db.session.commit()
             
             sql_idx = text("""
                 INSERT INTO public.indices_raster
@@ -923,10 +931,21 @@ def main():
                         inserted += 1
                         
                         if len(rows_to_insert) >= DB_BATCH_SIZE:
-                            db.session.execute(sql_idx, rows_to_insert)
+                            try:
+                                db.session.execute(sql_idx, rows_to_insert)
+                                db.session.commit()
+                            except Exception as batch_err:
+                                db.session.rollback()
+                                print(f"[BBDD] ✗ Error insertando lote ({len(rows_to_insert)} filas): {batch_err}")
+                                raise
                             rows_to_insert.clear()
                     
                     except Exception as e:
+                        # Si la transacción quedó abortada, limpiarla para seguir
+                        try:
+                            db.session.rollback()
+                        except Exception:
+                            pass
                         if DEBUG_MODE:
                             print(f"[BBDD] Error en recinto {id_recinto}: {e}")
                         continue
