@@ -1,5 +1,8 @@
 """
-Generador de Thumbnail NDVI — varias fechas y procesamiento paralelo.
+Generador de Thumbnail NDVI — varias fechas.
+
+Render matplotlib (el que daba buena calidad): colores discretos, fondo
+transparente, clip exacto al recinto, borde negro, figsize 6×6 @ 75 dpi.
 
 Sin --fechas usa todos los mosaicos en data/processed/ndvi_composite.
 
@@ -7,8 +10,8 @@ Uso:
   cd src
   python generate_thumbnails.py
   python generate_thumbnails.py --fechas 20260719
-  python generate_thumbnails.py --fechas 19/07/2026 --force
-  python generate_thumbnails.py --recintos 12,45,78 --workers 8
+  python generate_thumbnails.py --fechas 20260719 --force
+  python generate_thumbnails.py --recintos 12,45,78
 """
 
 from __future__ import annotations
@@ -18,6 +21,7 @@ import gc
 import json
 import os
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -30,11 +34,17 @@ from gis_runtime_env import setup_gis_runtime_env  # noqa: E402
 
 setup_gis_runtime_env()
 
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
-from PIL import Image, ImageDraw
+from matplotlib.path import Path as MplPath
 from pyproj import Transformer
 from rasterio.windows import Window
+from scipy.ndimage import gaussian_filter
 from shapely import wkb
 from shapely.ops import transform as shapely_transform
 from sqlalchemy import create_engine, text
@@ -50,16 +60,14 @@ THUMBNAILS_BASE_DIR = PROJECT_ROOT / "src" / "webapp" / "static" / "thumbnails"
 START_FROM_ID = 0
 LOG_INTERVAL = 500
 MIN_VALID_PIXELS_PERCENT = 5.0
-# Antes (matplotlib): figsize 6×6 @ 75 dpi ≈ 450 px. PIL a resolución nativa
-# dejaba parcelas chicas en 15–30 px → borde grueso y aspecto borroso al ampliar.
-TARGET_THUMB_PX = 450
-BORDER_PX = 2
+THUMB_DPI = 75  # como el script original que se veía bien
 
 engine = create_engine(Config.SQLALCHEMY_DATABASE_URI)
 Session = sessionmaker(bind=engine)
 
-# Estado compartido por hilos (raster en memoria del proceso)
+# Estado compartido (raster en memoria) + lock (matplotlib no es thread-safe)
 _WORKER: dict = {}
+_MPL_LOCK = threading.Lock()
 
 
 # ==================== FECHAS Y RUTAS ====================
@@ -70,7 +78,6 @@ def fechas_mosaicos_disponibles() -> list[str]:
         return []
     fechas: set[str] = set()
     for p in NDVI_COMPOSITE_DIR.glob("ndvi_pc_*_mosaic_*.tif"):
-        # ndvi_pc_20260719_mosaic_utm.tif / _3857.tif
         parts = p.name.split("_")
         if len(parts) >= 3 and parts[2].isdigit() and len(parts[2]) == 8:
             fechas.add(parts[2])
@@ -105,6 +112,7 @@ def parse_fechas_list(raw: str | None) -> list[str]:
 
 
 def resolve_ndvi_tif(fecha_str: str) -> Path | None:
+    # Preferir 3857 (mismo CRS que el script original de buena calidad)
     tif_3857 = NDVI_COMPOSITE_DIR / f"ndvi_pc_{fecha_str}_mosaic_3857.tif"
     if tif_3857.is_file():
         return tif_3857
@@ -143,8 +151,9 @@ def rellenar_ndvi_inteligente(ndvi_array: np.ndarray) -> np.ndarray | None:
     filled = ndvi_array.copy()
     media = np.nanmean(filled)
     nan_mask = np.isnan(filled)
-    # Solo relleno de huecos (sin gaussian sobre todo el recorte: eso lo dejaba borroso)
     filled[nan_mask] = media
+    if np.any(nan_mask):
+        filled = gaussian_filter(filled, sigma=1.0)
     return filled
 
 
@@ -187,12 +196,6 @@ def get_polygons_from_geometry(geometria):
     return []
 
 
-def geo_to_pixel(x: float, y: float, transform) -> tuple[float, float]:
-    col = (x - transform.c) / transform.a
-    row = (y - transform.f) / transform.e
-    return col, row
-
-
 def extraer_ventana_raster(geometria, raster: dict):
     minx, miny, maxx, maxy = geometria.bounds
     transform = raster["transform"]
@@ -215,77 +218,84 @@ def extraer_ventana_raster(geometria, raster: dict):
     return window_data, window_transform
 
 
-def generar_thumbnail_pil(
+def generar_thumbnail_optimizado(
     ndvi_data: np.ndarray,
     window_transform,
     geometria,
     output_path: str,
-    border_px: int = BORDER_PX,
-    target_px: int = TARGET_THUMB_PX,
+    dpi: int | None = None,
 ) -> float | None:
-    """Genera PNG con PIL a tamaño comparable al de matplotlib (~450 px)."""
+    """Mismo render que el script matplotlib que se veía bien."""
+    dpi = THUMB_DPI if dpi is None else dpi
     ndvi_filled = rellenar_ndvi_inteligente(ndvi_data)
     if ndvi_filled is None:
         return None
 
-    rgba = ndvi_to_rgba_discrete(np.clip(ndvi_filled, -0.2, 1.0))
-    h, w = rgba.shape[:2]
-    img = Image.fromarray(rgba, "RGBA")
+    ndvi_clean = np.clip(ndvi_filled, -0.2, 1.0)
+    rgba_image = ndvi_to_rgba_discrete(ndvi_clean)
 
-    mask = Image.new("L", (w, h), 0)
-    draw_mask = ImageDraw.Draw(mask)
-    polygons = get_polygons_from_geometry(geometria)
+    with _MPL_LOCK:
+        fig, ax = plt.subplots(figsize=(6, 6), dpi=dpi)
+        fig.patch.set_alpha(0.0)
+        ax.patch.set_alpha(0.0)
 
-    for poly in polygons:
-        pts = [geo_to_pixel(x, y, window_transform) for x, y in poly.exterior.coords]
-        draw_mask.polygon(pts, fill=255)
+        h, w = ndvi_clean.shape
+        xmin = window_transform.c
+        xmax = xmin + window_transform.a * w
+        ymax = window_transform.f
+        ymin = ymax + window_transform.e * h
 
-    r, g, b, a = img.split()
-    a = Image.composite(a, Image.new("L", (w, h), 0), mask)
-    img = Image.merge("RGBA", (r, g, b, a))
+        im = ax.imshow(
+            rgba_image,
+            extent=[xmin, xmax, ymin, ymax],
+            interpolation="nearest",
+            zorder=1,
+        )
 
-    minx, miny, maxx, maxy = geometria.bounds
-    c0, r0 = geo_to_pixel(minx, maxy, window_transform)
-    c1, r1 = geo_to_pixel(maxx, miny, window_transform)
-    left = int(min(c0, c1))
-    top = int(min(r0, r1))
-    right = int(max(c0, c1)) + 1
-    bottom = int(max(r0, r1)) + 1
+        polygons = get_polygons_from_geometry(geometria)
+        if polygons:
+            all_verts = []
+            all_codes = []
+            for poly in polygons:
+                coords = np.array(poly.exterior.coords)
+                codes = (
+                    [MplPath.MOVETO]
+                    + [MplPath.LINETO] * (len(coords) - 2)
+                    + [MplPath.CLOSEPOLY]
+                )
+                all_verts.append(coords)
+                all_codes.extend(codes)
 
-    # Padding mínimo en coords nativas; el borde se dibuja tras el upscale
-    pad = 1
-    left = max(0, left - pad)
-    top = max(0, top - pad)
-    right = min(w, right + pad)
-    bottom = min(h, bottom + pad)
-
-    cropped = img.crop((left, top, right, bottom))
-    cw, ch = cropped.size
-    if cw < 1 or ch < 1:
-        return None
-
-    # Ampliar a ~TARGET_THUMB_PX (NEAREST = colores discretos nítidos)
-    long_side = max(cw, ch)
-    scale = 1.0
-    if long_side < target_px:
-        scale = target_px / float(long_side)
-        new_size = (max(1, int(round(cw * scale))), max(1, int(round(ch * scale))))
-        cropped = cropped.resize(new_size, Image.Resampling.NEAREST)
-
-    draw = ImageDraw.Draw(cropped)
-    for poly in polygons:
-        pts = [
-            (
-                (geo_to_pixel(x, y, window_transform)[0] - left) * scale,
-                (geo_to_pixel(x, y, window_transform)[1] - top) * scale,
+            combined_path = MplPath(np.vstack(all_verts), all_codes)
+            clip_patch = mpatches.PathPatch(
+                combined_path,
+                facecolor="none",
+                edgecolor="none",
+                transform=ax.transData,
             )
-            for x, y in poly.exterior.coords
-        ]
-        if len(pts) >= 2:
-            draw.line(pts + [pts[0]], fill=(0, 0, 0, 255), width=border_px)
+            ax.add_patch(clip_patch)
+            im.set_clip_path(clip_patch)
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    cropped.save(output_path, "PNG", optimize=True)
+        for poly in polygons:
+            x, y = poly.exterior.xy
+            ax.plot(x, y, color="black", linewidth=1.5, zorder=3)
+
+        minx_plot, miny_plot, maxx_plot, maxy_plot = geometria.bounds
+        ax.set_xlim(minx_plot, maxx_plot)
+        ax.set_ylim(miny_plot, maxy_plot)
+        ax.axis("off")
+        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+        plt.savefig(
+            output_path,
+            dpi=dpi,
+            bbox_inches="tight",
+            pad_inches=0,
+            transparent=True,
+            facecolor="none",
+        )
+        plt.close(fig)
 
     valid_mask = ~np.isnan(ndvi_data) & np.isfinite(ndvi_data)
     if np.any(valid_mask):
@@ -341,7 +351,9 @@ def _worker_process(item: tuple[int, bytes]) -> str:
     if ndvi_data is None:
         return "no_overlap"
 
-    result = generar_thumbnail_pil(ndvi_data, window_transform, geometria, output_png)
+    result = generar_thumbnail_optimizado(
+        ndvi_data, window_transform, geometria, output_png
+    )
     if result is None:
         return "insufficient_data"
     return "success"
@@ -401,6 +413,7 @@ def procesar_fecha(
     print(f"  Fecha NDVI: {fecha_out}  ←  {tif_path.name}")
     print(f"  Salida:     {output_dir}")
     print(f"  Workers:    {workers}")
+    print(f"  Render:     matplotlib {THUMB_DPI} dpi")
 
     t0 = time.perf_counter()
 
@@ -420,8 +433,6 @@ def procesar_fecha(
     _worker_bind(data, transform, crs, output_dir, skip_existing, 4326)
 
     try:
-        # Hilos (no procesos): en Windows ProcessPool+SharedMemory suele matar
-        # todos los workers al arrancar (OOM / spawn GDAL).
         n_workers = max(1, workers)
         if n_workers <= 1:
             for idx, item in enumerate(recintos, 1):
@@ -433,6 +444,8 @@ def procesar_fecha(
                     stats["error"] += 1
                 if idx % LOG_INTERVAL == 0 or idx == len(recintos):
                     _log_progreso(idx, len(recintos), stats)
+                if idx % 500 == 0:
+                    gc.collect()
         else:
             with ThreadPoolExecutor(max_workers=n_workers) as pool:
                 futures = {pool.submit(_worker_process, item): item[0] for item in recintos}
@@ -454,7 +467,10 @@ def procesar_fecha(
         gc.collect()
 
     elapsed = time.perf_counter() - t0
-    print(f"  ✓ {fecha_out} en {elapsed:.1f}s — generados: {stats['success']}, omitidos: {stats['skipped']}")
+    print(
+        f"  ✓ {fecha_out} en {elapsed:.1f}s — "
+        f"generados: {stats['success']}, omitidos: {stats['skipped']}"
+    )
     return stats
 
 
@@ -483,8 +499,14 @@ def main() -> int:
     parser.add_argument(
         "--workers",
         type=int,
-        default=max(1, min(8, (os.cpu_count() or 4) - 1)),
-        help="Hilos en paralelo (por fecha). Por defecto hasta 8.",
+        default=1,
+        help="Hilos (matplotlib se serializa con lock). Por defecto 1.",
+    )
+    parser.add_argument(
+        "--dpi",
+        type=int,
+        default=THUMB_DPI,
+        help=f"DPI matplotlib (por defecto {THUMB_DPI}, como el script original).",
     )
     parser.add_argument(
         "--force",
@@ -492,6 +514,9 @@ def main() -> int:
         help="Regenerar aunque el PNG ya exista",
     )
     args = parser.parse_args()
+
+    global THUMB_DPI
+    THUMB_DPI = max(30, int(args.dpi))
 
     try:
         fechas = parse_fechas_list(args.fechas)
@@ -509,11 +534,12 @@ def main() -> int:
         return 1
 
     print("=" * 70)
-    print("GENERADOR DE THUMBNAILS NDVI — MULTI-FECHA + PARALELO (hilos/PIL)")
+    print("GENERADOR DE THUMBNAILS NDVI — matplotlib (colores discretos)")
     print("=" * 70)
     print(f"Fechas:   {', '.join(fechas)}")
     print(f"Recintos: {len(recintos)}")
     print(f"Workers:  {args.workers}")
+    print(f"DPI:      {THUMB_DPI}")
     print(f"Force:    {args.force}")
 
     total_stats = {
@@ -541,7 +567,10 @@ def main() -> int:
     print(f"Tiempo total: {time.perf_counter() - t_global:.1f}s")
     print(f"Thumbnails generados: {total_stats['success']}")
     print(f"Omitidos (ya existían): {total_stats['skipped']}")
-    print(f"Sin datos / sin solape: {total_stats['insufficient_data'] + total_stats['no_overlap']}")
+    print(
+        f"Sin datos / sin solape: "
+        f"{total_stats['insufficient_data'] + total_stats['no_overlap']}"
+    )
     print(f"Errores: {total_stats['error']}")
     print(f"Carpeta base: {THUMBNAILS_BASE_DIR}")
     return 0 if total_stats["error"] == 0 else 1
