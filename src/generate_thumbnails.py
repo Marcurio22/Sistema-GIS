@@ -484,6 +484,8 @@ def _log_progreso(done: int, total: int, stats: dict[str, int]) -> None:
 
 
 def main() -> int:
+    global THUMB_DPI
+
     parser = argparse.ArgumentParser(description="Genera thumbnails NDVI por fecha")
     parser.add_argument(
         "--fechas",
@@ -515,7 +517,6 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    global THUMB_DPI
     THUMB_DPI = max(30, int(args.dpi))
 
     try:
