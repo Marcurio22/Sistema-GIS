@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -13,6 +14,19 @@ def _project_root() -> Path:
 
 
 load_dotenv(_project_root() / ".env")
+
+
+def _instance_cookie_suffix() -> str:
+    """Sufijo estable por comunidad (cookies no distinguen puerto en el mismo host)."""
+    raw = (
+        os.getenv("COMMUNITY_SLUG")
+        or os.getenv("POSTGRES_DB")
+        or os.getenv("FLASK_PORT")
+        or "app"
+    )
+    safe = re.sub(r"[^A-Za-z0-9_]+", "_", str(raw).strip()).strip("_")
+    return (safe or "app")[:48]
+
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY")
@@ -37,15 +51,21 @@ class Config:
         "pool_recycle": 1800,
     }
 
+    # Cookies por instancia: sin esto, dos comunidades en localhost:PUERTO
+    # se pisan la cookie "session" (el navegador ignora el puerto).
+    _COOKIE_SFX = _instance_cookie_suffix()
+    SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME") or f"session_{_COOKIE_SFX}"
+    REMEMBER_COOKIE_NAME = os.getenv("REMEMBER_COOKIE_NAME") or f"remember_{_COOKIE_SFX}"
+
     SESSION_TYPE = "sqlalchemy"
     SESSION_PERMANENT = True
     PERMANENT_SESSION_LIFETIME = 2629800
     SESSION_USE_SIGNER = True
-    SESSION_KEY_PREFIX = "session:"
+    SESSION_KEY_PREFIX = os.getenv("SESSION_KEY_PREFIX") or f"session:{_COOKIE_SFX}:"
 
     AEMET_API_KEY = os.getenv("AEMET_API_KEY")
 
-      # GeoServer: instancia (workspace de la comunidad) vs capas regionales comunes
+    # GeoServer: instancia (workspace de la comunidad) vs capas regionales comunes
     GEOSERVER_WMS_URL = os.getenv("GEOSERVER_WMS_URL")
     GEOSERVER_WFS_URL = os.getenv("GEOSERVER_WFS_URL")
     GEOSERVER_COMMON_WMS_URL = os.getenv("GEOSERVER_COMMON_WMS_URL") or GEOSERVER_WMS_URL
@@ -74,7 +94,6 @@ class Config:
     GEOSERVER_PARCELAS_STYLE = os.getenv("GEOSERVER_PARCELAS_STYLE", "catastro_fucsia")
     # db = PostGIS directo (recomendado multi-comunidad); wfs = solo GeoServer
     GEOSERVER_RECINTOS_SOURCE = os.getenv("GEOSERVER_RECINTOS_SOURCE", "db").lower()
-
 
     # Configuración de correo electrónico
     MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")

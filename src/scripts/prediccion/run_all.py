@@ -30,9 +30,9 @@ scripts = [
 ]
 
 for script in scripts:
-    print(f"\nEjecutando {script}...")
+        print(f"\nEjecutando {script}...")
 
-    subprocess.run(
+        subprocess.run(
         [sys.executable, "-m", script],
         check=True,
         cwd=str(ROOT),
