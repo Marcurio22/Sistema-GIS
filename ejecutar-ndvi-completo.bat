@@ -7,6 +7,7 @@ REM Programador de tareas: usar run-ndvi-completo.bat (sin pause; tarea con High
 setlocal EnableExtensions EnableDelayedExpansion
 
 REM --- Elevacion admin (necesario para sobrescribir ndvi_latest_* en uso) ---
+REM Ojo: no usar WorkingDirectory='%~dp0' (la barra final rompe las comillas de PowerShell).
 net session >nul 2>&1
 if errorlevel 1 (
   if /I "%NO_PAUSE%"=="1" (
@@ -14,10 +15,19 @@ if errorlevel 1 (
     echo         Recrea la tarea GIS\...\NDVI_Completo con RunLevel=HighestAvailable.
     exit /b 1
   )
+  set "COMM_DIR=%~1"
+  if "!COMM_DIR!"=="" set "COMM_DIR=%~dp0"
+  if "!COMM_DIR:~-1!"=="\" set "COMM_DIR=!COMM_DIR:~0,-1!"
   echo Solicitando permisos de administrador...
   powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "Start-Process -FilePath '%~f0' -ArgumentList @('%*') -Verb RunAs -WorkingDirectory '%~dp0'"
-  exit /b %ERRORLEVEL%
+    "Start-Process -LiteralPath '%~f0' -ArgumentList '!COMM_DIR!' -Verb RunAs"
+  if errorlevel 1 (
+    echo.
+    echo [ERROR] No se pudo elevar ^(UAC cancelado o PowerShell fallo^).
+    pause
+    exit /b 1
+  )
+  exit /b 0
 )
 
 set "DIR=%~1"
