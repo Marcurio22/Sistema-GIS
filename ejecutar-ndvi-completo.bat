@@ -7,7 +7,7 @@ REM Programador de tareas: usar run-ndvi-completo.bat (sin pause; tarea con High
 setlocal EnableExtensions EnableDelayedExpansion
 
 REM --- Elevacion admin (necesario para sobrescribir ndvi_latest_* en uso) ---
-REM Ojo: no usar WorkingDirectory='%~dp0' (la barra final rompe las comillas de PowerShell).
+REM Usa Shell.Application (compatible con PowerShell antiguo; evita Start-Process -LiteralPath).
 net session >nul 2>&1
 if errorlevel 1 (
   if /I "%NO_PAUSE%"=="1" (
@@ -19,11 +19,17 @@ if errorlevel 1 (
   if "!COMM_DIR!"=="" set "COMM_DIR=%~dp0"
   if "!COMM_DIR:~-1!"=="\" set "COMM_DIR=!COMM_DIR:~0,-1!"
   echo Solicitando permisos de administrador...
-  powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-    "Start-Process -LiteralPath '%~f0' -ArgumentList '!COMM_DIR!' -Verb RunAs"
-  if errorlevel 1 (
+  set "VBS=%TEMP%\gis-elevate-ndvi-%RANDOM%.vbs"
+  (
+    echo Set sh = CreateObject^("Shell.Application"^)
+    echo sh.ShellExecute "%~f0", "!COMM_DIR!", "", "runas", 1
+  ) > "!VBS!"
+  cscript //nologo "!VBS!"
+  set "EC_ELEV=!ERRORLEVEL!"
+  del /q "!VBS!" >nul 2>&1
+  if not "!EC_ELEV!"=="0" (
     echo.
-    echo [ERROR] No se pudo elevar ^(UAC cancelado o PowerShell fallo^).
+    echo [ERROR] No se pudo elevar ^(UAC cancelado?^).
     pause
     exit /b 1
   )
@@ -94,7 +100,7 @@ echo ExitCode: %EC%>> "%LOG%"
 
 echo.
 echo ---------- Ultimas lineas del log ----------
-powershell -NoProfile -Command "Get-Content -LiteralPath '%LOG%' -Tail 40 -ErrorAction SilentlyContinue"
+powershell -NoProfile -Command "Get-Content -Path '%LOG%' -Tail 40 -ErrorAction SilentlyContinue"
 echo --------------------------------------------
 echo Log completo: %LOG%
 echo ExitCode: %EC%
