@@ -40,6 +40,12 @@ from rasterio.windows import from_bounds as window_from_bounds
 from rasterio.features import geometry_mask
 
 from dotenv import load_dotenv
+
+# Cargar .env de la comunidad ANTES de leer parámetros (cwd suele ser src/)
+_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(_ROOT / ".env", override=True)
+load_dotenv(override=True)
+
 from sqlalchemy import text
 from webapp import create_app, db
 
@@ -58,15 +64,13 @@ if sys.platform == "win32":
 print("[NDVI-TEMPORAL] Script de NDVI - COMPOSITE TEMPORAL OPTIMO v1.4")
 print("="*70)
 
-load_dotenv()
-
 # ============================================================================
 # CONFIGURACIÓN
 # ============================================================================
 
 ROI_PATH = os.getenv(
     "ROI_PATH",
-    str(Path(__file__).resolve().parents[1] / "data" / "processed" / "ROI.gpkg")
+    str(_ROOT / "data" / "processed" / "ROI.gpkg")
 )
 
 # VENTANA TEMPORAL: Últimos 120 días (aprox 4 meses)
@@ -85,11 +89,10 @@ MIN_VALID_COVERAGE_PER_IMAGE = 0.01
 # Parámetros de procesamiento
 NDVI_RES_M = float(os.getenv("NDVI_RES_M", "10"))
 NDVI_MAX_DIM = int(os.getenv("NDVI_MAX_DIM", "12000"))
-# Margen alrededor del ROI para evitar bordes blancos al desplazar el mapa
-# - ROI_BBOX_PADDING_PCT: fracción del tamaño del ROI por lado (0.15 = 15%)
-# - ROI_BBOX_PADDING_M: metros fijos por lado (mejor si el ROI es pequeño)
-ROI_BBOX_PADDING_PCT = float(os.getenv("ROI_BBOX_PADDING_PCT", "0.15"))
-ROI_BBOX_PADDING_M = float(os.getenv("ROI_BBOX_PADDING_M", "5000"))
+# Margen alrededor del ROI (importante: metros fijos; el % solo no basta si el ROI es pequeño)
+# Por defecto 10 km por lado.
+ROI_BBOX_PADDING_PCT = float(os.getenv("ROI_BBOX_PADDING_PCT", "0.25"))
+ROI_BBOX_PADDING_M = float(os.getenv("ROI_BBOX_PADDING_M", "10000"))
 DEBUG_MODE = os.getenv("DEBUG_MODE", "1") == "1"
 
 # Clasificación SCL
@@ -371,21 +374,36 @@ def _expand_bbox(bbox, padding_pct):
 
 
 def _expand_bbox_meters(bbox, meters):
-    """Amplía el bbox ~metros por cada lado (EPSG:4326, aproximación)."""
+    """Amplía el bbox metros por cada lado en CRS métrico (preciso)."""
     minx, miny, maxx, maxy = bbox
     if meters <= 0:
         return bbox
-    import math
+    # Proyectar a UTM aproximada según lon central (España → 25830 suele valer)
+    mid_lon = (minx + maxx) / 2.0
     mid_lat = (miny + maxy) / 2.0
-    dlat = meters / 111320.0
-    cos_lat = max(0.2, abs(math.cos(math.radians(mid_lat))))
-    dlon = meters / (111320.0 * cos_lat)
-    return (
-        float(minx - dlon),
-        float(miny - dlat),
-        float(maxx + dlon),
-        float(maxy + dlat),
-    )
+    # Zona UTM 29/30/31 para Península
+    zone = int((mid_lon + 180) // 6) + 1
+    epsg = 32600 + zone if mid_lat >= 0 else 32700 + zone
+    try:
+        from pyproj import Transformer
+        to_m = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg}", always_xy=True)
+        to_ll = Transformer.from_crs(f"EPSG:{epsg}", "EPSG:4326", always_xy=True)
+        x0, y0 = to_m.transform(minx, miny)
+        x1, y1 = to_m.transform(maxx, maxy)
+        minx2, miny2 = to_ll.transform(min(x0, x1) - meters, min(y0, y1) - meters)
+        maxx2, maxy2 = to_ll.transform(max(x0, x1) + meters, max(y0, y1) + meters)
+        return (float(minx2), float(miny2), float(maxx2), float(maxy2))
+    except Exception:
+        # Fallback aproximado en grados
+        dlat = meters / 111320.0
+        cos_lat = max(0.2, abs(math.cos(math.radians(mid_lat))))
+        dlon = meters / (111320.0 * cos_lat)
+        return (
+            float(minx - dlon),
+            float(miny - dlat),
+            float(maxx + dlon),
+            float(maxy + dlat),
+        )
 
 
 def get_roi_bbox_from_gpkg():
@@ -399,12 +417,28 @@ def get_roi_bbox_from_gpkg():
     bbox_raw = (float(minx), float(miny), float(maxx), float(maxy))
     bbox = _expand_bbox(bbox_raw, ROI_BBOX_PADDING_PCT)
     bbox = _expand_bbox_meters(bbox, ROI_BBOX_PADDING_M)
-    print(f"[ROI] BBox original: {bbox_raw}")
-    if ROI_BBOX_PADDING_PCT > 0:
-        print(f"[ROI] + margen {ROI_BBOX_PADDING_PCT * 100:.0f}%")
-    if ROI_BBOX_PADDING_M > 0:
-        print(f"[ROI] + margen {ROI_BBOX_PADDING_M:.0f} m por lado")
+
+    # Distancia aprox. del margen real (centro de cada lado)
+    mid_lat = (bbox_raw[1] + bbox_raw[3]) / 2.0
+    dx_deg = ((bbox_raw[0] - bbox[0]) + (bbox[2] - bbox_raw[2])) / 2.0
+    dy_deg = ((bbox_raw[1] - bbox[1]) + (bbox[3] - bbox_raw[3])) / 2.0
+    cos_lat = max(0.2, abs(math.cos(math.radians(mid_lat))))
+    pad_x_km = (dx_deg * 111.32 * cos_lat)
+    pad_y_km = (dy_deg * 111.32)
+
+    print(f"[ROI] Archivo: {roi_path.resolve()}")
+    print(f"[ROI] BBox original (lon/lat): {bbox_raw}")
+    print(
+        f"[ROI] Margen config: pct={ROI_BBOX_PADDING_PCT}  "
+        f"metros={ROI_BBOX_PADDING_M:.0f}"
+    )
+    print(f"[ROI] Margen efectivo ≈ {pad_x_km:.1f} km (E-O), {pad_y_km:.1f} km (N-S)")
     print(f"[ROI] BBox de trabajo: {bbox}")
+    if pad_x_km < 1.0 and pad_y_km < 1.0:
+        print(
+            "[ROI][AVISO] El margen efectivo es < 1 km. "
+            "Revisa ROI_BBOX_PADDING_M en el .env de la comunidad."
+        )
     return bbox
 
 
