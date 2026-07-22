@@ -43,6 +43,9 @@ from dotenv import load_dotenv
 
 # Cargar .env de la comunidad ANTES de leer parámetros (cwd suele ser src/)
 _ROOT = Path(__file__).resolve().parents[1]
+_SRC = Path(__file__).resolve().parent
+if str(_SRC) not in sys.path:
+    sys.path.insert(0, str(_SRC))
 load_dotenv(_ROOT / ".env", override=True)
 load_dotenv(override=True)
 
