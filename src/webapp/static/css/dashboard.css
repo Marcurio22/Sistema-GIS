@@ -98,18 +98,60 @@
 }
 
 @media (max-width: 767.98px) {
+  .app-navbar .container-fluid {
+    gap: 0.35rem !important;
+    padding-left: 0.5rem;
+    padding-right: max(0.5rem, env(safe-area-inset-right, 0px));
+    overflow: hidden;
+  }
+
+  /* En móvil el clima va a la derecha (navbar_extra); el slot centro vacío empujaba y cortaba */
   .navbar-center-slot {
-    flex-grow: 1;
+    flex-grow: 0 !important;
+    flex-shrink: 1;
+    flex-basis: 0;
+    width: 0;
     min-width: 0;
+    max-width: 0;
+    overflow: hidden;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
   .navbar-center-slot:not(:has(.navbar-weather-widget)) {
-    flex-grow: 1;
+    flex-grow: 0 !important;
   }
 
   .app-navbar .container-fluid > .d-flex.align-items-center.flex-shrink-0.gap-2 {
     margin-left: 0;
     flex-shrink: 0;
+    gap: 0.25rem !important;
+  }
+
+  .app-navbar .navbar-brand {
+    max-width: min(42vw, 11rem);
+  }
+
+  .app-navbar .navbar-brand > span.d-inline.d-md-none {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  .navbar-weather-widget--mobile {
+    margin-left: 0;
+    flex-shrink: 0;
+    padding-left: 0.4rem !important;
+    padding-right: 0.4rem !important;
+    font-size: 0.85rem;
+  }
+
+  .navbar-logo-main {
+    max-width: 36px;
+    height: 32px;
   }
 }
 

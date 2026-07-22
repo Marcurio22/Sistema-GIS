@@ -51,8 +51,10 @@ document.addEventListener('DOMContentLoaded', function () {
   let _drawKeyHandler   = null;
   let _drawTouchMoveHandler = null;
   let _docTouchEndHandler = null;    // listener a nivel document para touch
+  let _docTouchStartHandler = null;
   let _savedMapDragging = true;
-  let _savedTouchZoom = true;
+  // Si hubo pellizco (2 dedos), no colocar punto de dibujo al soltar
+  let _pinchGesture = false;
   // Bloquea el inicio de edición durante 400ms tras abrir (evita que el tap
   // que abrió el panel también dispare el primer punto de dibujo).
   let _editOpenedAt = 0;
@@ -552,10 +554,24 @@ document.addEventListener('DOMContentLoaded', function () {
   let _ultimoAvisoFuera = 0;
 
   // Handler a nivel document captura touchend ANTES de que llegue a Leaflet
+  // (salvo pellizco: 2 dedos = zoom Leaflet, sin colocar puntos de corte)
+  function _crearDocTouchStartHandler() {
+    return function(e) {
+      if (!_dibujando) return;
+      if ((e.touches?.length || 0) >= 2) _pinchGesture = true;
+    };
+  }
+
   function _crearDocTouchHandler() {
     return function(e) {
       if (!_dibujando) return;
       if (Date.now() - _editOpenedAt < 200) return; // ignora tap residual de apertura
+
+      // Fin de pellizco: no dibujar; dejar que Leaflet haga zoom
+      if (_pinchGesture || (e.touches?.length || 0) > 0) {
+        if ((e.touches?.length || 0) === 0) _pinchGesture = false;
+        return;
+      }
 
       const touch = e.changedTouches?.[0];
       if (!touch) return;
@@ -579,7 +595,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function _crearDocTouchMoveHandler() {
     return function(e) {
-      if (!_dibujando || !_lineStart) return;
+      if (!_dibujando) return;
+      if ((e.touches?.length || 0) >= 2) {
+        _pinchGesture = true;
+        return; // no mover la línea preview durante el zoom
+      }
+      if (_pinchGesture || !_lineStart) return;
       const touch = e.touches?.[0];
       if (!touch || !isOnMapArea(touch.clientX, touch.clientY)) return;
       onDrawMove({ latlng: pointerToLatLng(touch.clientX, touch.clientY) });
@@ -1232,7 +1253,7 @@ document.addEventListener('DOMContentLoaded', function () {
         setHintDibujo('Revisa el mapa. Pulsa «Trazar» para más cortes o «Guardar».');
       } else {
         // Primera vez: activar dibujo automáticamente
-        setHintDibujo('Toca el mapa en dos puntos para trazar la línea de corte.');
+        setHintDibujo('Toca dos puntos para cortar. Pellizca para zoom.');
         activarDraw();
       }
     } else if (!_borradores.length) {
@@ -1321,7 +1342,7 @@ document.addEventListener('DOMContentLoaded', function () {
     _lineStart = null;
     setEstadoBotonDibujo(true);
     setHintDibujo(_isTouchUi
-      ? 'Toca el mapa en dos puntos para trazar la línea divisoria.'
+      ? 'Toca dos puntos para cortar. Pellizca para hacer zoom.'
       : 'Haz clic en un punto y luego en otro para trazar la línea.');
     document.body.classList.add('subparcelas-drawing');
     document.body.classList.remove('subparcelas-panel-visible');
@@ -1336,20 +1357,18 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('keydown', _drawKeyHandler);
 
     if (_isTouchUi) {
-      // Móvil: listener a nivel document (capture) — el más fiable, sin conflictos con Leaflet
+      // Móvil: 1 dedo = trazar; 2 dedos = pinch-zoom (no desactivar touchZoom)
+      _pinchGesture = false;
       try {
         _savedMapDragging = map.dragging.enabled();
         map.dragging.disable();
       } catch (_) {}
-      try {
-        if (map.touchZoom?.disable) {
-          _savedTouchZoom = map.touchZoom.enabled();
-          map.touchZoom.disable();
-        }
-      } catch (_) {}
+      try { if (map.touchZoom?.enable) map.touchZoom.enable(); } catch (_) {}
 
+      _docTouchStartHandler = _crearDocTouchStartHandler();
       _docTouchEndHandler = _crearDocTouchHandler();
       _drawTouchMoveHandler = _crearDocTouchMoveHandler();
+      document.addEventListener('touchstart', _docTouchStartHandler, { capture: true, passive: true });
       document.addEventListener('touchend',  _docTouchEndHandler,   { capture: true, passive: false });
       document.addEventListener('touchmove', _drawTouchMoveHandler, { passive: true });
     } else {
@@ -1374,10 +1393,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (_drawKeyHandler) { document.removeEventListener('keydown', _drawKeyHandler); _drawKeyHandler = null; }
 
     if (_isTouchUi) {
+      if (_docTouchStartHandler) { document.removeEventListener('touchstart', _docTouchStartHandler, { capture: true }); _docTouchStartHandler = null; }
       if (_docTouchEndHandler)   { document.removeEventListener('touchend',  _docTouchEndHandler,   { capture: true }); _docTouchEndHandler = null; }
       if (_drawTouchMoveHandler) { document.removeEventListener('touchmove', _drawTouchMoveHandler); _drawTouchMoveHandler = null; }
+      _pinchGesture = false;
       try { if (_savedMapDragging) map.dragging.enable(); } catch (_) {}
-      try { if (_savedTouchZoom && map.touchZoom?.enable) map.touchZoom.enable(); } catch (_) {}
     } else {
       if (_drawMoveHandler) { map.off('mousemove', _drawMoveHandler); _drawMoveHandler = null; }
       map.off('click',      onDrawClick);

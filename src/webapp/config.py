@@ -13,7 +13,7 @@ def _project_root() -> Path:
     return Path.cwd()
 
 
-load_dotenv(_project_root() / ".env")
+load_dotenv(_project_root() / ".env", override=True)
 
 
 def _instance_cookie_suffix() -> str:
