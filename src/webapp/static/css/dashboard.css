@@ -122,6 +122,12 @@
     flex-grow: 0 !important;
   }
 
+  /* Bloque izquierdo (logo + nombre): ocupa todo el hueco libre */
+  .app-navbar .container-fluid > .d-flex.align-items-center.flex-shrink-1.min-w-0 {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   .app-navbar .container-fluid > .d-flex.align-items-center.flex-shrink-0.gap-2 {
     margin-left: 0;
     flex-shrink: 0;
@@ -129,16 +135,19 @@
   }
 
   .app-navbar .navbar-brand {
-    max-width: min(42vw, 11rem);
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+    margin-right: 0;
   }
 
   .app-navbar .navbar-brand > span.d-inline.d-md-none {
-    display: inline-block;
-    max-width: 100%;
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    vertical-align: middle;
   }
 
   .navbar-weather-widget--mobile {
