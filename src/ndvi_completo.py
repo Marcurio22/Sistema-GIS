@@ -85,8 +85,11 @@ MIN_VALID_COVERAGE_PER_IMAGE = 0.01
 # Parámetros de procesamiento
 NDVI_RES_M = float(os.getenv("NDVI_RES_M", "10"))
 NDVI_MAX_DIM = int(os.getenv("NDVI_MAX_DIM", "12000"))
-# Margen alrededor del ROI para evitar bordes blancos al desplazar el mapa (15% por lado)
+# Margen alrededor del ROI para evitar bordes blancos al desplazar el mapa
+# - ROI_BBOX_PADDING_PCT: fracción del tamaño del ROI por lado (0.15 = 15%)
+# - ROI_BBOX_PADDING_M: metros fijos por lado (mejor si el ROI es pequeño)
 ROI_BBOX_PADDING_PCT = float(os.getenv("ROI_BBOX_PADDING_PCT", "0.15"))
+ROI_BBOX_PADDING_M = float(os.getenv("ROI_BBOX_PADDING_M", "5000"))
 DEBUG_MODE = os.getenv("DEBUG_MODE", "1") == "1"
 
 # Clasificación SCL
@@ -367,8 +370,26 @@ def _expand_bbox(bbox, padding_pct):
     )
 
 
+def _expand_bbox_meters(bbox, meters):
+    """Amplía el bbox ~metros por cada lado (EPSG:4326, aproximación)."""
+    minx, miny, maxx, maxy = bbox
+    if meters <= 0:
+        return bbox
+    import math
+    mid_lat = (miny + maxy) / 2.0
+    dlat = meters / 111320.0
+    cos_lat = max(0.2, abs(math.cos(math.radians(mid_lat))))
+    dlon = meters / (111320.0 * cos_lat)
+    return (
+        float(minx - dlon),
+        float(miny - dlat),
+        float(maxx + dlon),
+        float(maxy + dlat),
+    )
+
+
 def get_roi_bbox_from_gpkg():
-    """Leer ROI desde GeoPackage y ampliar ligeramente el bbox de trabajo."""
+    """Leer ROI desde GeoPackage y ampliar el bbox de trabajo (pct + metros)."""
     roi_path = Path(ROI_PATH)
     if not roi_path.exists():
         raise FileNotFoundError(f"ROI no existe: {roi_path.resolve()}")
@@ -377,11 +398,13 @@ def get_roi_bbox_from_gpkg():
     minx, miny, maxx, maxy = roi.total_bounds
     bbox_raw = (float(minx), float(miny), float(maxx), float(maxy))
     bbox = _expand_bbox(bbox_raw, ROI_BBOX_PADDING_PCT)
+    bbox = _expand_bbox_meters(bbox, ROI_BBOX_PADDING_M)
+    print(f"[ROI] BBox original: {bbox_raw}")
     if ROI_BBOX_PADDING_PCT > 0:
-        print(f"[ROI] BBox original: {bbox_raw}")
-        print(f"[ROI] BBox con margen {ROI_BBOX_PADDING_PCT * 100:.0f}%: {bbox}")
-    else:
-        print(f"[ROI] BBox: {bbox}")
+        print(f"[ROI] + margen {ROI_BBOX_PADDING_PCT * 100:.0f}%")
+    if ROI_BBOX_PADDING_M > 0:
+        print(f"[ROI] + margen {ROI_BBOX_PADDING_M:.0f} m por lado")
+    print(f"[ROI] BBox de trabajo: {bbox}")
     return bbox
 
 
