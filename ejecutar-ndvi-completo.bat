@@ -1,10 +1,24 @@
 @echo off
 REM NDVI composite completo (ndvi_completo.py).
-REM Uso MANUAL (deja la ventana abierta si falla):
+REM Uso MANUAL (pide admin / UAC; deja la ventana abierta si falla):
 REM   cd C:\GIS\comunidades\mi_comunidad
 REM   ejecutar-ndvi-completo.bat
-REM Programador de tareas: usar run-ndvi-completo.bat (sin pause).
+REM Programador de tareas: usar run-ndvi-completo.bat (sin pause; tarea con HighestAvailable).
 setlocal EnableExtensions EnableDelayedExpansion
+
+REM --- Elevacion admin (necesario para sobrescribir ndvi_latest_* en uso) ---
+net session >nul 2>&1
+if errorlevel 1 (
+  if /I "%NO_PAUSE%"=="1" (
+    echo [ERROR] NDVI completo requiere permisos de administrador.
+    echo         Recrea la tarea GIS\...\NDVI_Completo con RunLevel=HighestAvailable.
+    exit /b 1
+  )
+  echo Solicitando permisos de administrador...
+  powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "Start-Process -FilePath '%~f0' -ArgumentList @('%*') -Verb RunAs -WorkingDirectory '%~dp0'"
+  exit /b %ERRORLEVEL%
+)
 
 set "DIR=%~1"
 if "%DIR%"=="" set "DIR=%~dp0"
@@ -45,7 +59,7 @@ cd /d "%DIR%\src" || (
   goto :fin_error
 )
 
-echo === NDVI completo ===
+echo === NDVI completo (admin) ===
 echo Carpeta: %DIR%
 echo Python:  %PY%
 echo Script:  %DIR%\src\ndvi_completo.py
@@ -58,6 +72,7 @@ echo.
   echo === NDVI completo %DATE% %TIME% ===
   echo Carpeta: %DIR%
   echo Python:  %PY%
+  echo Elevado: SI
   echo.
 ) > "%LOG%"
 

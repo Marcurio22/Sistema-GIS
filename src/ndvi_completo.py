@@ -19,8 +19,6 @@ Fecha: 2025
 import os
 import sys
 import json
-import shutil
-import time
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
@@ -278,16 +276,8 @@ def ndvi_to_rgba(ndvi):
 
 
 def warp_tif_to_3857(src_tif: str, dst_tif: str):
-    """Reproyectar a EPSG:3857 (escribe en temporal y sustituye)."""
+    """Reproyectar a EPSG:3857"""
     dst_crs = "EPSG:3857"
-    dst_path = Path(dst_tif)
-    tmp_path = dst_path.with_name(dst_path.stem + ".__writing__" + dst_path.suffix)
-    if tmp_path.exists():
-        try:
-            tmp_path.unlink()
-        except OSError:
-            pass
-
     with rasterio.open(src_tif) as src:
         transform, width, height = calculate_default_transform(
             src.crs, dst_crs, src.width, src.height, *src.bounds
@@ -301,7 +291,7 @@ def warp_tif_to_3857(src_tif: str, dst_tif: str):
             "nodata": src.nodata,
         })
 
-        with rasterio.open(str(tmp_path), "w", **kwargs) as dst:
+        with rasterio.open(dst_tif, "w", **kwargs) as dst:
             reproject(
                 source=rasterio.band(src, 1),
                 destination=rasterio.band(dst, 1),
@@ -313,103 +303,6 @@ def warp_tif_to_3857(src_tif: str, dst_tif: str):
                 src_nodata=src.nodata,
                 dst_nodata=src.nodata,
             )
-
-    _replace_with_retry(tmp_path, dst_path)
-
-
-def _replace_with_retry(src: Path, dst: Path, retries: int = 10, delay: float = 1.0) -> None:
-    """Sustituye dst por src aunque el archivo esté en uso (GeoServer/web)."""
-    last_err: Exception | None = None
-    for i in range(retries):
-        try:
-            if dst.exists():
-                bak = dst.with_name(f"{dst.name}.old_{os.getpid()}")
-                try:
-                    if bak.exists():
-                        bak.unlink()
-                except OSError:
-                    pass
-                try:
-                    dst.rename(bak)
-                except OSError:
-                    bak = None
-                else:
-                    src.replace(dst)
-                    if bak is not None:
-                        try:
-                            bak.unlink()
-                        except OSError:
-                            print(
-                                f"[OUTPUT] (aviso) Copia antigua bloqueada, "
-                                f"se deja: {bak.name}"
-                            )
-                    return
-            src.replace(dst)
-            return
-        except OSError as e:
-            last_err = e
-            print(
-                f"[OUTPUT] {dst.name} en uso — reintento "
-                f"{i + 1}/{retries} ({e})..."
-            )
-            time.sleep(delay * (1.0 + 0.4 * i))
-
-    # Último recurso: dejar fichero _nuevo y intentar copy2
-    fallback = dst.with_name(dst.stem + "_nuevo" + dst.suffix)
-    try:
-        if fallback.exists():
-            fallback.unlink()
-    except OSError:
-        pass
-    try:
-        src.replace(fallback)
-    except OSError:
-        if last_err:
-            raise last_err
-        raise
-    print(
-        f"[OUTPUT][AVISO] No se pudo sobrescribir {dst.name}. "
-        f"Guardado como {fallback.name}."
-    )
-    try:
-        shutil.copy2(fallback, dst)
-        print(f"[OUTPUT] ✓ Copia forzada a {dst.name}")
-        return
-    except OSError as e:
-        print(
-            f"[OUTPUT][ERROR] Sigue bloqueado {dst.name}: {e}\n"
-            f"         Para el servicio NSSM de la comunidad (o GeoServer), "
-            f"renombra {fallback.name} → {dst.name} y reinicia."
-        )
-        if last_err:
-            raise last_err
-        raise
-
-
-def write_geotiff_safe(path: Path, profile: dict, data: np.ndarray) -> None:
-    """Escribe un GeoTIFF vía fichero temporal (evita Permission denied al sobrescribir)."""
-    path = Path(path)
-    tmp = path.with_name(path.stem + ".__writing__" + path.suffix)
-    if tmp.exists():
-        try:
-            tmp.unlink()
-        except OSError:
-            pass
-    with rasterio.open(str(tmp), "w", **profile) as dst:
-        dst.write(data, 1)
-    _replace_with_retry(tmp, path)
-
-
-def write_png_safe(path: Path, image: Image.Image) -> None:
-    path = Path(path)
-    tmp = path.with_name(path.stem + ".__writing__" + path.suffix)
-    if tmp.exists():
-        try:
-            tmp.unlink()
-        except OSError:
-            pass
-    image.save(str(tmp), format="PNG", optimize=True)
-    _replace_with_retry(tmp, path)
 
 
 def compute_grid_from_bbox_meters(bbox4326, dst_crs, res_m, max_dim=None):
@@ -961,7 +854,7 @@ def main():
         print("GUARDANDO ARCHIVOS")
         print(f"{'='*70}")
         
-        # GeoTIFF UTM (temporal + replace: evita Permission denied si GeoServer/web lo tiene abierto)
+        # GeoTIFF UTM
         profile = {
             "driver": "GTiff",
             "height": height,
@@ -974,7 +867,8 @@ def main():
             "compress": "deflate",
         }
 
-        write_geotiff_safe(tif_path, profile, composite.astype(np.float32))
+        with rasterio.open(str(tif_path), "w", **profile) as dst:
+            dst.write(composite.astype(np.float32), 1)
         print(f"[OUTPUT] ✓ GeoTIFF UTM -> {tif_path.name}")
 
         # EPSG:3857
@@ -987,23 +881,22 @@ def main():
             composite_3857 = src_3857.read(1)
 
         rgba = ndvi_to_rgba(composite_3857)
-        write_png_safe(png_path, Image.fromarray(rgba, mode="RGBA"))
+        Image.fromarray(rgba, mode="RGBA").save(str(png_path), format="PNG", optimize=True)
         print(f"[OUTPUT] ✓ PNG (EPSG:3857) -> {png_path.name}")
 
-        # Copia al static del visor (si está bloqueado, no tumba el proceso)
         static_png = _ROOT / "src" / "webapp" / "static" / "ndvi" / "ndvi_latest.png"
         try:
             static_png.parent.mkdir(parents=True, exist_ok=True)
-            write_png_safe(static_png, Image.fromarray(rgba, mode="RGBA"))
+            Image.fromarray(rgba, mode="RGBA").save(str(static_png), format="PNG", optimize=True)
             print(f"[OUTPUT] ✓ PNG static -> {static_png}")
         except OSError as e:
             print(f"[OUTPUT] (aviso) No se pudo actualizar static/ndvi: {e}")
-        
+
         # Metadata
         with rasterio.open(str(tif_path_3857)) as ds:
             b = transform_bounds(ds.crs, "EPSG:4326", *ds.bounds, densify_pts=21)
             minx2, miny2, maxx2, maxy2 = map(float, b)
-        
+
         metadata = {
             "generated_utc": datetime.now(timezone.utc).isoformat(),
             "temporal_range": {
@@ -1043,10 +936,10 @@ def main():
                 "metadata": meta_path.name
             }
         }
-        
+
         meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2))
         print(f"[OUTPUT] ✓ Metadata -> {meta_path.name}")
-        
+
         # ========================================================================
         # GUARDAR SOLO IMAGEN EN BBDD (NO índices_raster)
         # ========================================================================
