@@ -2191,7 +2191,7 @@ function actualizarNdviPanel() {
       return r.json();
     })
     .then((fc) => {
-      if (map.getZoom() < ZOOM_RECINTOS) {
+      if (!misRecintosActivos || map.getZoom() < ZOOM_RECINTOS) {
         misRecintosLayer.clearLayers();
         window.limpiarSubparcelasOverview?.();
         return;
@@ -3454,6 +3454,15 @@ function actualizarNdviPanel() {
     '.basemap-option.basemap-detail[data-detail="mis"]'
   );
 
+  function desactivarMisRecintos() {
+    misRecintosActivos = false;
+    if (misRecintosOption) misRecintosOption.classList.remove("active");
+    misRecintosLayer.clearLayers();
+    window.limpiarSubparcelasOverview?.();
+  }
+
+  window.desactivarMisRecintos = desactivarMisRecintos;
+
   if (misRecintosOption) {
     misRecintosOption.addEventListener("click", () => {
       misRecintosActivos = !misRecintosActivos;
@@ -3462,8 +3471,7 @@ function actualizarNdviPanel() {
         misRecintosOption.classList.add("active");
         cargarMisRecintosSiProcede();
       } else {
-        misRecintosOption.classList.remove("active");
-        misRecintosLayer.clearLayers();
+        desactivarMisRecintos();
       }
     });
   }
