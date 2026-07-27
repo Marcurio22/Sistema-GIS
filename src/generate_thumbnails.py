@@ -1,8 +1,8 @@
 """
-Generador de Thumbnail NDVI — varias fechas.
+Generador de Thumbnail NDVI - varias fechas.
 
 Render matplotlib (el que daba buena calidad): colores discretos, fondo
-transparente, clip exacto al recinto, borde negro, figsize 6×6 @ 75 dpi.
+transparente, clip exacto al recinto, borde negro, figsize 6x6 @ 75 dpi.
 
 Sin --fechas usa todos los mosaicos en data/processed/ndvi_composite.
 
@@ -26,6 +26,20 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
+import io
+
+# Programador de tareas (cp1252): evita UnicodeEncodeError en prints.
+os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
+if hasattr(sys.stdout, 'buffer'):
+    try:
+        sys.stdout = io.TextIOWrapper(
+            sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True
+        )
+        sys.stderr = io.TextIOWrapper(
+            sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True
+        )
+    except Exception:
+        pass
 
 _SRC_DIR = Path(__file__).resolve().parent
 if str(_SRC_DIR) not in sys.path:
@@ -402,14 +416,14 @@ def procesar_fecha(
     meta_path = NDVI_COMPOSITE_DIR / f"ndvi_pc_{fecha_str}_mosaic.json"
 
     if tif_path is None:
-        print(f"  ✗ Sin raster NDVI para {fecha_str} en {NDVI_COMPOSITE_DIR}")
+        print(f"  ERROR Sin raster NDVI para {fecha_str} en {NDVI_COMPOSITE_DIR}")
         return {"error": 1}
 
     fecha_out = fecha_desde_meta(meta_path, fecha_str)
     output_dir = str(THUMBNAILS_BASE_DIR / fecha_out)
     os.makedirs(output_dir, exist_ok=True)
 
-    print(f"\n{'─'*60}")
+    print(f"\n{'-'*60}")
     print(f"  Fecha NDVI: {fecha_out}  ←  {tif_path.name}")
     print(f"  Salida:     {output_dir}")
     print(f"  Workers:    {workers}")
@@ -468,7 +482,7 @@ def procesar_fecha(
 
     elapsed = time.perf_counter() - t0
     print(
-        f"  ✓ {fecha_out} en {elapsed:.1f}s — "
+        f"  OK {fecha_out} en {elapsed:.1f}s - "
         f"generados: {stats['success']}, omitidos: {stats['skipped']}"
     )
     return stats
@@ -522,7 +536,7 @@ def main() -> int:
     try:
         fechas = parse_fechas_list(args.fechas)
     except ValueError as e:
-        print(f"✗ {e}")
+        print(f"ERROR {e}")
         return 1
 
     recinto_ids: list[int] | None = None
@@ -531,11 +545,11 @@ def main() -> int:
 
     recintos = cargar_recintos(recinto_ids)
     if not recintos:
-        print("✗ No hay recintos que procesar")
+        print("ERROR No hay recintos que procesar")
         return 1
 
     print("=" * 70)
-    print("GENERADOR DE THUMBNAILS NDVI — matplotlib (colores discretos)")
+    print("GENERADOR DE THUMBNAILS NDVI - matplotlib (colores discretos)")
     print("=" * 70)
     print(f"Fechas:   {', '.join(fechas)}")
     print(f"Recintos: {len(recintos)}")
