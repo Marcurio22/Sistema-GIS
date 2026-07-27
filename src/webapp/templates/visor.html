@@ -2170,6 +2170,7 @@ function actualizarNdviPanel() {
 
   if (z < ZOOM_RECINTOS || !misRecintosActivos) {
     misRecintosLayer.clearLayers();
+    window.limpiarSubparcelasOverview?.();
     return;
   }
 
@@ -2181,6 +2182,9 @@ function actualizarNdviPanel() {
     b.getNorth().toFixed(6),
   ].join(",");
 
+  // Divisiones visibles en el mapa (sin abrir panel); no interfiere con el editor
+  window.cargarSubparcelasOverview?.(bbox);
+
   fetch(`/api/mis-recintos?bbox=${bbox}`)
     .then((r) => {
       if (!r.ok) throw new Error("Respuesta no OK de /api/mis-recintos");
@@ -2189,6 +2193,7 @@ function actualizarNdviPanel() {
     .then((fc) => {
       if (map.getZoom() < ZOOM_RECINTOS) {
         misRecintosLayer.clearLayers();
+        window.limpiarSubparcelasOverview?.();
         return;
       }
       

@@ -350,6 +350,68 @@ def mis_recintos_geojson(bbox: str | None, user_id: int):
     
     return {"type": "FeatureCollection", "features": features}
 
+
+def mis_subparcelas_geojson(bbox: str | None, user_id: int):
+    """
+    FeatureCollection de subparcelas de los recintos del usuario
+    (id_propietario=user_id), filtradas por bbox.
+    Solo lectura / visualización en el visor.
+    """
+    if not bbox:
+        raise ValueError("bbox requerido")
+
+    parts = [p.strip() for p in bbox.split(",")]
+    if len(parts) != 4:
+        raise ValueError("bbox debe tener 4 valores: minx,miny,maxx,maxy")
+
+    minx, miny, maxx, maxy = map(float, parts)
+
+    sql = text("""
+        SELECT
+            s.id_subparcela,
+            s.id_recinto,
+            s.nombre,
+            s.superficie_ha,
+            s.cod_producto,
+            pf.descripcion AS cultivo_descripcion,
+            ST_AsGeoJSON(s.geom)::json AS geom_json
+        FROM public.subparcelas s
+        INNER JOIN public.recintos r ON r.id_recinto = s.id_recinto
+        LEFT JOIN public.productos_fega pf ON pf.codigo = s.cod_producto
+        WHERE r.id_propietario = :uid
+          AND ST_Intersects(
+                s.geom,
+                ST_MakeEnvelope(:minx, :miny, :maxx, :maxy, 4326)
+          )
+        ORDER BY s.id_recinto, s.id_subparcela
+    """)
+
+    rows = db.session.execute(sql, {
+        "uid": user_id,
+        "minx": minx, "miny": miny, "maxx": maxx, "maxy": maxy,
+    }).mappings().all()
+
+    features = []
+    for r in rows:
+        features.append({
+            "type": "Feature",
+            "geometry": r["geom_json"],
+            "properties": {
+                "id_subparcela": r["id_subparcela"],
+                "id_recinto": r["id_recinto"],
+                "nombre": r["nombre"],
+                "superficie_ha": (
+                    round(float(r["superficie_ha"]), 4)
+                    if r["superficie_ha"] is not None else None
+                ),
+                "cod_producto": r["cod_producto"],
+                "cultivo_descripcion": r["cultivo_descripcion"],
+            },
+        })
+
+    return {"type": "FeatureCollection", "features": features}
+
+
 def mis_recinto_detalle(id_recinto: int, user_id: int) -> dict:
     """
     Devuelve los datos completos de UN recinto del usuario, con geojson.

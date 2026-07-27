@@ -31,6 +31,8 @@ document.addEventListener('DOMContentLoaded', function () {
   let _drawnLayer     = null;   // L.FeatureGroup — polígonos en edición
   let _linesLayer     = null;   // L.FeatureGroup — líneas divisorias dibujadas
   let _savedLayer     = null;   // L.FeatureGroup — subparcelas guardadas en mapa
+  let _overviewLayer  = null;   // L.FeatureGroup — divisiones visibles sin abrir panel
+  let _overviewToken  = 0;      // cancela respuestas bbox antiguas
   let _maskLayer      = null;   // L.GeoJSON    — máscara gris fuera del recinto
   let _captureLayer   = null;   // L.GeoJSON    — captura de clics dentro del recinto al dibujar
   let _catalogoCache  = null;
@@ -535,6 +537,89 @@ document.addEventListener('DOMContentLoaded', function () {
       if (p) p.style.pointerEvents = interactive ? 'auto' : 'none';
     } catch (_) {}
   }
+
+  function ensureSubparcelasOverviewPane() {
+    if (!map.getPane('subparcelasOverviewPane')) {
+      map.createPane('subparcelasOverviewPane');
+    }
+    const pane = map.getPane('subparcelasOverviewPane');
+    // Debajo de subparcelasSavedPane; no captura clics (pasan a mis-recintos)
+    pane.style.zIndex = '840';
+    pane.style.pointerEvents = 'none';
+  }
+
+  function limpiarSubparcelasOverview() {
+    if (_overviewLayer) _overviewLayer.clearLayers();
+  }
+
+  function _cultivoLabel(props) {
+    const c = props?.cultivo_descripcion || props?.cod_producto;
+    return c ? String(c) : '';
+  }
+
+  /**
+   * Visualización de divisiones en el mapa sin abrir el panel.
+   * No toca la lógica de edición. Excluye el recinto abierto en el panel
+   * (ese lo pinta _savedLayer). En modo edición se oculta.
+   */
+  function cargarSubparcelasOverview(bbox) {
+    if (!bbox || _enModoEdicion) {
+      limpiarSubparcelasOverview();
+      return;
+    }
+
+    ensureSubparcelasOverviewPane();
+    if (!_overviewLayer) {
+      _overviewLayer = L.featureGroup().addTo(map);
+    }
+
+    const token = ++_overviewToken;
+    fetch(`/api/mis-subparcelas?bbox=${encodeURIComponent(bbox)}`, { credentials: 'same-origin' })
+      .then(r => {
+        if (!r.ok) throw new Error('Respuesta no OK de /api/mis-subparcelas');
+        return r.json();
+      })
+      .then(fc => {
+        if (token !== _overviewToken) return;
+        if (_enModoEdicion) {
+          limpiarSubparcelasOverview();
+          return;
+        }
+        _overviewLayer.clearLayers();
+        const feats = (fc && fc.features) ? fc.features : [];
+        const excludeRid = _recintoId != null ? Number(_recintoId) : null;
+
+        feats.forEach((f, i) => {
+          const p = f.properties || {};
+          const rid = p.id_recinto != null ? Number(p.id_recinto) : null;
+          if (excludeRid != null && rid === excludeRid) return;
+          if (!f.geometry) return;
+
+          const sid = p.id_subparcela != null ? Number(p.id_subparcela) : i;
+          const col = colorDeSub(Number.isFinite(sid) ? sid : i);
+          const cultivo = _cultivoLabel(p);
+          const tip =
+            `<strong>${esc(p.nombre || String(i + 1))}</strong>` +
+            (p.superficie_ha != null ? `<br>${haStr(p.superficie_ha)}` : '') +
+            (cultivo ? `<br>${esc(cultivo)}` : '');
+
+          L.geoJSON(f.geometry, {
+            style: {
+              ...ESTILO_NORMAL(col),
+              fillOpacity: _isTouchUi ? 0.28 : 0.22,
+            },
+            pane: 'subparcelasOverviewPane',
+            interactive: false,
+          })
+            .bindTooltip(tip, { sticky: true, direction: 'top' })
+            .addTo(_overviewLayer);
+        });
+      })
+      .catch(err => console.error('[subparcelas] Error overview:', err));
+  }
+
+  window.cargarSubparcelasOverview = cargarSubparcelasOverview;
+  window.limpiarSubparcelasOverview = limpiarSubparcelasOverview;
 
   function restrictMapToRecinto() {
     try {
@@ -1152,11 +1237,33 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!recintoId) {
       $('subparcelas-section')?.classList.add('d-none');
       $('divide-section')?.classList.remove('d-none');
+      // Al cerrar el panel, la capa overview vuelve a mostrar todas
+      try {
+        const b = map.getBounds();
+        const bbox = [
+          b.getWest().toFixed(6),
+          b.getSouth().toFixed(6),
+          b.getEast().toFixed(6),
+          b.getNorth().toFixed(6),
+        ].join(',');
+        cargarSubparcelasOverview(bbox);
+      } catch (_) { /* ignore */ }
       return;
     }
     try {
       const subs = await apiGet(recintoId);
       await renderPanel(subs);
+      // Evitar doble pintura: overview sin este recinto
+      try {
+        const b = map.getBounds();
+        const bbox = [
+          b.getWest().toFixed(6),
+          b.getSouth().toFixed(6),
+          b.getEast().toFixed(6),
+          b.getNorth().toFixed(6),
+        ].join(',');
+        cargarSubparcelasOverview(bbox);
+      } catch (_) { /* ignore */ }
     } catch (e) {
       console.error('[subparcelas] Error cargando:', e);
     }
@@ -1185,6 +1292,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     _enModoEdicion = true;
     _editOpenedAt  = Date.now();   // debounce inicial — ignora tap residual
+    limpiarSubparcelasOverview();
     _borradores    = borradoresIniciales || [];
     _habiaSubparcelas = !!(borradoresIniciales && borradoresIniciales.length > 0);
 
@@ -1290,6 +1398,18 @@ document.addEventListener('DOMContentLoaded', function () {
     setTimeout(() => { try { map.invalidateSize(); } catch (_) {} }, 280);
     const borradoresEl = $('subparcelas-borradores');
     if (borradoresEl) borradoresEl.innerHTML = '';
+
+    // Restaurar overview (excepto el recinto del panel, si sigue abierto)
+    try {
+      const b = map.getBounds();
+      const bbox = [
+        b.getWest().toFixed(6),
+        b.getSouth().toFixed(6),
+        b.getEast().toFixed(6),
+        b.getNorth().toFixed(6),
+      ].join(',');
+      cargarSubparcelasOverview(bbox);
+    } catch (_) { /* ignore */ }
   }
 
   function closeSubparcelasEdicion() {
@@ -1776,5 +1896,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Fusionar borradores en modo edición
   $('btn-fusionar-borradores')?.addEventListener('click', () => fusionarBorradoresSeleccionados());
+
+  // Carga inicial overview (el primer cargarMisRecintos puede ir antes de este script)
+  try {
+    if (map.getZoom() >= 15) {
+      const b = map.getBounds();
+      const bbox = [
+        b.getWest().toFixed(6),
+        b.getSouth().toFixed(6),
+        b.getEast().toFixed(6),
+        b.getNorth().toFixed(6),
+      ].join(',');
+      cargarSubparcelasOverview(bbox);
+    }
+  } catch (_) { /* ignore */ }
 
 }); // fin DOMContentLoaded

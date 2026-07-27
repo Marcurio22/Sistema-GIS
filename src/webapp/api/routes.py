@@ -43,6 +43,7 @@ from . import api_bp, legend_bp
 from .services import (
     recintos_geojson,
     mis_recintos_geojson,
+    mis_subparcelas_geojson,
     mis_recinto_detalle,
     catalogo_usos_sigpac,
     catalogo_productos_fega,
@@ -94,6 +95,23 @@ def mis_recintos():
         return jsonify({"error": "Error interno en /api/mis-recintos"}), 500
 
     return jsonify(fc)
+
+
+@api_bp.get("/mis-subparcelas")
+@login_required
+def mis_subparcelas():
+    """Subparcelas (divisiones) del usuario en el bbox — solo visualización."""
+    bbox = request.args.get("bbox")
+    try:
+        fc = mis_subparcelas_geojson(bbox, current_user.id_usuario)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        current_app.logger.exception("Error en GET /api/mis-subparcelas")
+        return jsonify({"error": "Error interno en /api/mis-subparcelas"}), 500
+
+    return jsonify(fc)
+
 
 @api_bp.route("/solicitudes-recinto", methods=["POST"])
 @login_required
