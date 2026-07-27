@@ -206,6 +206,11 @@
       if (typeof window.activarDetalleExclusivo === "function") {
         window.activarDetalleExclusivo("cultivosSigpac");
       }
+
+      const optMis = document.querySelector('.basemap-option.basemap-detail[data-detail="mis"]');
+      if (optMis && optMis.classList.contains("active")) {
+        optMis.click();
+      }
     }
 
     function desactivar() {
