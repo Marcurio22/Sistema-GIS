@@ -63,9 +63,29 @@ def run_script(rel_path: str, extra_args: list[str], fp) -> int:
     cmd = [sys.executable, "-u", str(script), *extra_args]
     log(f"\n>> {' '.join(cmd)}", fp)
     env = gis_subprocess_env()
-    proc = subprocess.run(cmd, cwd=str(PROJECT_ROOT), env=env)
+    # Capturar stdout/stderr al log: si ndvi_diax crashea, sin esto solo se ve el código.
+    proc = subprocess.run(
+        cmd,
+        cwd=str(PROJECT_ROOT),
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    out = (proc.stdout or "").rstrip()
+    if out:
+        log(out, fp)
     code = int(proc.returncode or 0)
-    log(f">> código salida: {code}", fp)
+    if code < 0:
+        # En algunos Windows el crash llega como negativo firmado
+        code_u = code + (1 << 32)
+        log(f">> código salida: {code} (unsigned={code_u}, hex={code_u:#010x})", fp)
+    elif code > 255:
+        log(f">> código salida: {code} (hex={code:#010x}) — probable crash nativo GDAL/DLL", fp)
+    else:
+        log(f">> código salida: {code}", fp)
     return code
 
 
