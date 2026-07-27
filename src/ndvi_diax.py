@@ -9,7 +9,7 @@ CAMBIOS v2.1:
 - Crea mosaico combinando múltiples imágenes
 - Usa weighted average para áreas de solapamiento
 - Prioriza píxeles de mejor calidad
-- ✓ Thumbnails organizados en carpetas por fecha: static/thumbnails/YYYYMMDD/{id}.png
+- OK Thumbnails organizados en carpetas por fecha: static/thumbnails/YYYYMMDD/{id}.png
 
 Autor: Sistema GIS
 Fecha: 2025
@@ -18,6 +18,20 @@ Fecha: 2025
 import os
 import sys
 from pathlib import Path
+import io
+
+# Programador de tareas en Windows usa cp1252: prints con simbolos Unicode petan.
+os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
+if hasattr(sys.stdout, 'buffer'):
+    try:
+        sys.stdout = io.TextIOWrapper(
+            sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True
+        )
+        sys.stderr = io.TextIOWrapper(
+            sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True
+        )
+    except Exception:
+        pass
 
 # PROJ/GDAL del conda ANTES de geopandas/rasterio/pyproj
 _SRC_DIR = Path(__file__).resolve().parent
@@ -140,10 +154,10 @@ def search_planetary_computer_all_tiles(bbox, target_date, window_days, cloud_ma
         
         items = list(search.items())
         
-        print(f"[SEARCH] ✓ Productos encontrados: {len(items)}")
+        print(f"[SEARCH] OK Productos encontrados: {len(items)}")
         
         if not items:
-            print(f"[SEARCH] ✗ No hay productos en la ventana temporal")
+            print(f"[SEARCH] ERROR No hay productos en la ventana temporal")
             return []
         
         # Agrupar por fecha
@@ -167,7 +181,7 @@ def search_planetary_computer_all_tiles(bbox, target_date, window_days, cloud_ma
         
         # Seleccionar la mejor fecha (la que tenga más tiles o esté más cerca)
         if not por_fecha:
-            print(f"[SEARCH] ✗ No hay productos con nubes <= {cloud_max}%")
+            print(f"[SEARCH] ERROR No hay productos con nubes <= {cloud_max}%")
             return []
         
         # Priorizar: fecha más cercana al objetivo
@@ -177,13 +191,13 @@ def search_planetary_computer_all_tiles(bbox, target_date, window_days, cloud_ma
         fecha_seleccionada = fechas_ordenadas[0]
         items_seleccionados = [item for item, _ in por_fecha[fecha_seleccionada]]
         
-        print(f"\n[SEARCH] ✓ Fecha seleccionada: {fecha_seleccionada}")
-        print(f"[SEARCH] ✓ Tiles a procesar: {len(items_seleccionados)}")
+        print(f"\n[SEARCH] OK Fecha seleccionada: {fecha_seleccionada}")
+        print(f"[SEARCH] OK Tiles a procesar: {len(items_seleccionados)}")
         
         return items_seleccionados
         
     except Exception as e:
-        print(f"[SEARCH] ✗ Error: {e}")
+        print(f"[SEARCH] ERROR Error: {e}")
         import traceback
         traceback.print_exc()
         return []
@@ -468,7 +482,7 @@ def read_band_window_cog(item, band_key, bbox_4326, dst_transform, dst_crs, widt
         
     except Exception as e:
         if DEBUG_MODE:
-            print(f"[BAND] ✗ Error leyendo {band_key} de {item.id}: {e}")
+            print(f"[BAND] ERROR Error leyendo {band_key} de {item.id}: {e}")
         return None
 
 
@@ -497,7 +511,7 @@ def process_item_to_ndvi_enhanced(item, bbox_4326, dst_transform, dst_crs, width
     nir = read_band_window_cog(item, 'B08', bbox_4326, dst_transform, dst_crs, width, height)
     
     if red is None or nir is None:
-        print(f"[TILE] ✗ Faltan bandas espectrales en {tile_id}")
+        print(f"[TILE] ERROR Faltan bandas espectrales en {tile_id}")
         return None, 0.0, None
     
     red = red.astype(np.float32)
@@ -526,7 +540,7 @@ def process_item_to_ndvi_enhanced(item, bbox_4326, dst_transform, dst_crs, width
         if USE_WEIGHTED_COMPOSITE:
             quality_weights = compute_pixel_quality_weights(scl)
     else:
-        print(f"[TILE] ⚠ SCL no disponible en {tile_id}")
+        print(f"[TILE] WARN SCL no disponible en {tile_id}")
     
     ndvi = compute_ndvi(red, nir)
     valid_frac = float(np.isfinite(ndvi).sum()) / float(ndvi.size)
@@ -562,14 +576,14 @@ def create_mosaic_from_items(items, bbox_4326, dst_transform, dst_crs, width, he
         )
         
         if ndvi is None or valid_frac < MIN_VALID_COVERAGE:
-            print(f"[MOSAIC] ✗ Tile rechazado (cobertura {valid_frac*100:.1f}% < {MIN_VALID_COVERAGE*100:.0f}%)")
+            print(f"[MOSAIC] ERROR Tile rechazado (cobertura {valid_frac*100:.1f}% < {MIN_VALID_COVERAGE*100:.0f}%)")
             continue
         
         # Máscara de píxeles válidos
         valid_mask = np.isfinite(ndvi)
         
         if not np.any(valid_mask):
-            print(f"[MOSAIC] ✗ Tile sin píxeles válidos")
+            print(f"[MOSAIC] ERROR Tile sin píxeles válidos")
             continue
         
         # Pesos para este tile
@@ -587,10 +601,10 @@ def create_mosaic_from_items(items, bbox_4326, dst_transform, dst_crs, width, he
         weight_sum += tile_weights
         
         tiles_procesados += 1
-        print(f"[MOSAIC] ✓ Tile añadido al mosaico")
+        print(f"[MOSAIC] OK Tile añadido al mosaico")
     
     if tiles_procesados == 0:
-        print(f"\n[MOSAIC] ✗ No se pudo procesar ningún tile")
+        print(f"\n[MOSAIC] ERROR No se pudo procesar ningún tile")
         return None
     
     # Calcular mosaico final
@@ -600,7 +614,7 @@ def create_mosaic_from_items(items, bbox_4326, dst_transform, dst_crs, width, he
     valid_frac = len(valid_composite) / composite.size
     
     print(f"\n[MOSAIC] {'='*60}")
-    print(f"[MOSAIC] ✓ Mosaico completado")
+    print(f"[MOSAIC] OK Mosaico completado")
     print(f"[MOSAIC] Tiles procesados: {tiles_procesados}/{len(items)}")
     print(f"[MOSAIC] Cobertura final: {valid_frac*100:.1f}%")
     print(f"[MOSAIC] NDVI - min: {valid_composite.min():.3f}, max: {valid_composite.max():.3f}, mean: {valid_composite.mean():.3f}")
@@ -672,7 +686,7 @@ def main():
         print(f"Fuente: Planetary Computer (Microsoft)")
         print(f"Modo: MOSAICO MULTI-TILE")
         print(f"FECHA OBJETIVO: {TARGET_DATE.strftime('%Y-%m-%d')}")
-        print(f"Ventana de búsqueda: ±{DATE_WINDOW_DAYS} días")
+        print(f"Ventana de búsqueda: +/-{DATE_WINDOW_DAYS} días")
         print(f"Cobertura nubes máx: {CLOUD_MAX}%")
         print(f"Buffer nubes: {CLOUD_BUFFER_PIXELS} píxeles (~{CLOUD_BUFFER_PIXELS*10}m)")
         print(f"Composite ponderado: {'SÍ' if USE_WEIGHTED_COMPOSITE else 'NO'}")
@@ -767,16 +781,16 @@ def main():
         
         with rasterio.open(str(tif_path), "w", **profile) as dst:
             dst.write(composite.astype(np.float32), 1)
-        print(f"[OUTPUT] ✓ GeoTIFF UTM -> {tif_path.name}")
+        print(f"[OUTPUT] OK GeoTIFF UTM -> {tif_path.name}")
         
         # Reproyectar a EPSG:3857
         warp_tif_to_3857(str(tif_path), str(tif_path_3857))
-        print(f"[OUTPUT] ✓ GeoTIFF 3857 -> {tif_path_3857.name}")
+        print(f"[OUTPUT] OK GeoTIFF 3857 -> {tif_path_3857.name}")
         
         # PNG
         rgba = ndvi_to_rgba(composite)
         Image.fromarray(rgba, mode="RGBA").save(str(png_path), format="PNG", optimize=True)
-        print(f"[OUTPUT] ✓ PNG -> {png_path.name}")
+        print(f"[OUTPUT] OK PNG -> {png_path.name}")
         
         # Metadata JSON
         with rasterio.open(str(tif_path_3857)) as ds:
@@ -821,7 +835,7 @@ def main():
         }
         
         meta_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"[OUTPUT] ✓ Metadata JSON -> {meta_path.name}")
+        print(f"[OUTPUT] OK Metadata JSON -> {meta_path.name}")
         
         # ========================================================================
         # GUARDAR EN BASE DE DATOS
@@ -853,7 +867,7 @@ def main():
                 "ruta": ruta_rel,
             }).scalar()
             
-            print(f"[BBDD] ✓ Imagen insertada - ID: {id_imagen}")
+            print(f"[BBDD] OK Imagen insertada - ID: {id_imagen}")
 
             # Necesario para ON CONFLICT; si no existe, el primer lote aborta la transacción
             # y todos los siguientes fallan con InFailedSqlTransaction.
@@ -936,7 +950,7 @@ def main():
                                 db.session.commit()
                             except Exception as batch_err:
                                 db.session.rollback()
-                                print(f"[BBDD] ✗ Error insertando lote ({len(rows_to_insert)} filas): {batch_err}")
+                                print(f"[BBDD] ERROR Error insertando lote ({len(rows_to_insert)} filas): {batch_err}")
                                 raise
                             rows_to_insert.clear()
                     
@@ -955,22 +969,22 @@ def main():
             
             db.session.commit()
             
-            print(f"[BBDD] ✓ Recintos actualizados: {inserted}")
-            print(f"[BBDD] ✓ Formato ruta thumbnails: static/thumbnails/{fecha_str}/{{id}}.png")
+            print(f"[BBDD] OK Recintos actualizados: {inserted}")
+            print(f"[BBDD] OK Formato ruta thumbnails: static/thumbnails/{fecha_str}/{{id}}.png")
         
         except Exception as e:
             db.session.rollback()
-            print(f"\n[BBDD] ✗ ERROR: {repr(e)}")
+            print(f"\n[BBDD] ERROR ERROR: {repr(e)}")
             import traceback
             traceback.print_exc()
         
         print(f"\n{'='*70}")
-        print("✓ PROCESO COMPLETADO EXITOSAMENTE")
+        print("OK PROCESO COMPLETADO EXITOSAMENTE")
         print(f"{'='*70}")
-        print(f"\n✓ Mosaico creado con {len(items)} tiles")
-        print(f"✓ Cobertura completa del ROI")
-        print(f"✓ Recintos actualizados: {inserted}")
-        print(f"✓ Thumbnails: static/thumbnails/{fecha_str}/")
+        print(f"\nOK Mosaico creado con {len(items)} tiles")
+        print(f"OK Cobertura completa del ROI")
+        print(f"OK Recintos actualizados: {inserted}")
+        print(f"OK Thumbnails: static/thumbnails/{fecha_str}/")
         
         return 0
 
