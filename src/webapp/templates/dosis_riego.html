@@ -84,11 +84,10 @@
                             <i class="bi bi-droplet-fill me-1"></i>Aporte recomendado hoy
                         </div>
                         <div class="d-flex justify-content-between">
-                            <span>Necesidad neta parcela</span>
+                            <span>Necesidad neta</span>
                             <strong>
-                                {% if r.litros_netos > 0 %}
-                                    {{ "{:,.0f}".format(r.litros_netos).replace(",", ".") }} L
-                                    <span class="text-muted fw-normal">({{ r.m3_total_neto }} m³)</span>
+                                {% if r.litros_m2_neto > 0 %}
+                                    {{ "%.2f"|format(r.litros_m2_neto) }} L/m²
                                 {% else %}—{% endif %}
                             </strong>
                         </div>
@@ -97,15 +96,19 @@
                                 <span class="text-muted" style="font-size:.7rem">(ef. {{ r.eficiencia_pct }}%)</span>
                             </span>
                             <strong class="text-success">
-                                {% if r.litros_brutos > 0 %}
-                                    {{ "{:,.0f}".format(r.litros_brutos).replace(",", ".") }} L
-                                    <span class="text-muted fw-normal">({{ r.m3_total_bruto }} m³)</span>
+                                {% if r.litros_m2_bruto > 0 %}
+                                    {{ "%.2f"|format(r.litros_m2_bruto) }} L/m²
                                 {% else %}—{% endif %}
                             </strong>
                         </div>
                         <div class="d-flex justify-content-between text-muted mt-1" style="font-size:.7rem">
-                            <span>Por hectárea</span>
-                            <span>{{ "%.1f"|format(r.m3_ha) }} m³/ha</span>
+                            <span>Total parcela (bruto)</span>
+                            <span>
+                                {% if r.litros_brutos > 0 %}
+                                    {{ "{:,.0f}".format(r.litros_brutos).replace(",", ".") }} L
+                                    ({{ r.m3_total_bruto }} m³)
+                                {% else %}—{% endif %}
+                            </span>
                         </div>
                     </div>
 

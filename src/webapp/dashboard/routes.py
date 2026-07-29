@@ -1126,6 +1126,9 @@ def _fetch_dosis_riego_usuario(uid: int) -> list[dict]:
         if m3_ha <= 0 and demanda_mm > 0:
             m3_ha = round(demanda_mm * 10, 1)    # 1 mm × 10 m³/ha
 
+        # 1 mm = 1 L/m²
+        litros_m2_neto = round(demanda_mm, 2) if demanda_mm > 0 else 0.0
+
         # Litros y m³ totales para la parcela (sin factor de eficiencia)
         litros_netos   = round(demanda_mm * superficie_m2, 0)  # L = mm × m²
         m3_total_neto  = round(litros_netos / 1000, 1)
@@ -1135,6 +1138,7 @@ def _fetch_dosis_riego_usuario(uid: int) -> list[dict]:
         eficiencia = 0.92 if sistexp == "Regadío" else 0.85
         litros_brutos  = round(litros_netos / eficiencia, 0) if litros_netos > 0 else 0
         m3_total_bruto = round(litros_brutos / 1000, 1)
+        litros_m2_bruto = round(litros_m2_neto / eficiencia, 2) if litros_m2_neto > 0 else 0.0
 
         out.append({
             "id_recinto":    row["id_recinto"],
@@ -1149,6 +1153,8 @@ def _fetch_dosis_riego_usuario(uid: int) -> list[dict]:
             "riego_mm":      etc,
             "deficit_mm":    demanda_mm,
             "m3_ha":         m3_ha,
+            "litros_m2_neto":  litros_m2_neto,
+            "litros_m2_bruto": litros_m2_bruto,
             # Totales para la parcela completa
             "litros_netos":   int(litros_netos),
             "m3_total_neto":  m3_total_neto,
