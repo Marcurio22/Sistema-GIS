@@ -54,11 +54,15 @@
     function actualizarBotonesDias() {
       document.querySelectorAll(".pred-riego-opcion").forEach(el => {
         const offset = el.dataset.offset;
-        if (indice[offset]) {
-          const sub = el.querySelector(".pred-riego-opcion-fecha");
-          if (sub) sub.textContent = indice[offset];
-        }
+        const sub = el.querySelector(".pred-riego-opcion-fecha");
+        if (sub) sub.textContent = indice[offset] || indice[Number(offset)] || "";
       });
+      // Mantener sincronizada la fecha del encabezado (Hoy / +N)
+      const lbl = document.getElementById("pred-riego-fecha-label");
+      if (lbl) {
+        const key = String(offsetDias);
+        lbl.textContent = indice[key] || indice[offsetDias] || "";
+      }
     }
 
     function crearCapaWMS(offset) {
@@ -179,7 +183,10 @@
       });
 
       const lbl = document.getElementById("pred-riego-fecha-label");
-      if (lbl) lbl.textContent = indice[String(offset)] || "";
+      if (lbl) {
+        const key = String(offset);
+        lbl.textContent = indice[key] || indice[offset] || "";
+      }
 
       if (prediccionActivo) cargarCapa(offset);
     }
@@ -194,7 +201,8 @@
       const panel = document.getElementById("pred-riego-panel");
       if (panel) panel.style.display = "block";
 
-      cargarCapa(offsetDias);
+      // Aplicar offset actual: rellena fecha de "Hoy" (antes quedaba vacía/"-" hasta cambiar de día)
+      aplicarOffset(offsetDias);
 
       if (window.highZoomLayers && window.setActiveHighLayerKey && window.actualizarMapaSegunZoom) {
         window.setActiveHighLayerKey("satellite");
