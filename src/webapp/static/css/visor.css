@@ -220,6 +220,44 @@
     font-weight: 500;
   }
 
+  .estaciones-info-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: #6c757d;
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  .estaciones-info-btn:hover,
+  .estaciones-info-btn:focus {
+    color: #0d6efd;
+    background: rgba(13, 110, 253, 0.08);
+    outline: none;
+  }
+
+  .estaciones-fuente-popover {
+    max-width: 280px;
+  }
+
+  .estaciones-fuente-popover .popover-header {
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .estaciones-fuente-popover .popover-body {
+    padding: 10px 12px;
+  }
+
   .basemap-option:not(.disabled):hover .basemap-thumb {
     transform: translateY(-2px);
     box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);

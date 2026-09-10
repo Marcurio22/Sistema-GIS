@@ -5,6 +5,46 @@
 window.estacionesActivas = true;
 window.estacionesLayer = null;
 
+const ESTACIONES_FUENTE_HTML = `
+  <div style="font-size:0.82rem; line-height:1.45; color:#212529; text-align:left;">
+    Los datos meteorológicos de las estaciones agroclimáticas se obtienen a través del
+    servicio <strong>Inforiego</strong> del
+    <strong>ITACyL</strong> (Instituto Tecnológico Agrario de Castilla y León).
+    Más información en
+    <a href="https://www.inforiego.org" target="_blank" rel="noopener noreferrer" style="color:#0d6efd; text-decoration:underline;">
+      inforiego.org
+    </a>.
+  </div>`;
+function initEstacionesFuenteInfo() {
+  const btn = document.getElementById('estaciones-info-btn');
+  if (!btn || btn.dataset.bound === '1') return;
+  btn.dataset.bound = '1';
+
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  if (typeof bootstrap !== 'undefined' && bootstrap.Popover) {
+    new bootstrap.Popover(btn, {
+      trigger: 'click',
+      placement: 'left',
+      html: true,
+      sanitize: false,
+      title: 'Fuente de datos',
+      content: ESTACIONES_FUENTE_HTML,
+      customClass: 'estaciones-fuente-popover',
+    });
+    return;
+  }
+
+  btn.addEventListener('click', () => {
+    window.alert(
+      'Los datos meteorológicos de las estaciones agroclimáticas se obtienen a través del servicio Inforiego del ITACyL (Instituto Tecnológico Agrario de Castilla y León).'
+    );
+  });
+}
+
 // ─── Helper responsive ────────────────────────────────────────────────────────
 const isMobile = () => window.innerWidth < 600;
 
@@ -445,6 +485,12 @@ function iniciarCalendario(fechas, onChangeCb) {
 
         <!-- Contenido -->
         <div id="modal-estacion-body" style="padding:12px 14px; overflow-y:auto; overscroll-behavior:contain;"></div>
+        <div id="modal-estacion-fuente" style="
+            padding:8px 14px 12px; border-top:1px solid #e9ecef; background:white;
+            font-size:0.68rem; color:#868e96; line-height:1.35; flex-shrink:0;">
+          Datos meteorológicos obtenidos a través del servicio <strong>Inforiego</strong> del
+          <strong>ITACyL</strong> (Instituto Tecnológico Agrario de Castilla y León).
+        </div>
 
       </div>
     </div>
@@ -699,5 +745,6 @@ async function cargarEstaciones() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  initEstacionesFuenteInfo();
   setTimeout(cargarEstaciones, 500);
 });
